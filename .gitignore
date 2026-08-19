@@ -4,3 +4,7 @@ package-lock.json
 *.log
 .playwright/
 essais/captures/
+
+# Documents de reprise, propres au poste de travail et non à l'application
+REPRISE-PUBLICATION.md
+PROMPT-NOUVELLE-CONVERSATION.md
