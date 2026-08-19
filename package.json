@@ -1,0 +1,13 @@
+{
+  "name": "ma-meteo",
+  "version": "1.0.0",
+  "description": "Application météorologique installable. Prévision horaire, table de la semaine, lumière du jour.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "essais": "node essais/controle.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.48.0"
+  }
+}

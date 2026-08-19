@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Ma météo">
+  <rect width="512" height="512" rx="112" fill="#16202B"/>
+  <!-- Le soleil passe derrière le nuage : ses rayons sont masqués par le fond que
+       porte le nuage, sans quoi ils le traversaient et brouillaient le dessin. -->
+  <g fill="none" stroke="#E6EBF0" stroke-width="19" stroke-linecap="round">
+    <circle cx="188" cy="168" r="44"/>
+    <path d="M188 90v-28M188 274v28M110 168H82M294 168h-28M133 113l-20-20M263 243l20 20M283 93l-20 20M113 243l20-20"/>
+  </g>
+  <path d="M182 378h152a64 64 0 0 0 5-128 88 88 0 0 0-167 21 53 53 0 0 0 10 107z"
+        fill="#16202B" stroke="#6BA8DC" stroke-width="21" stroke-linejoin="round"/>
+  <g stroke="#6BA8DC" stroke-width="19" stroke-linecap="round">
+    <path d="M204 410l-15 44M264 410l-15 44M324 410l-15 44"/>
+  </g>
+</svg>

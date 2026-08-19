@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F7F8FA" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#11161C" media="(prefers-color-scheme: dark)">
+<meta name="description" content="Prévision horaire, table de la semaine, vigilance Météo-France et pluie mesurée au poste.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Ma météo">
+<title>Ma météo</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icones/icone.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./icones/icone-180.png">
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+
+<header class="tete">
+  <div class="tete-corps">
+    <button type="button" class="lieu" id="btnLieu" aria-label="Changer de commune">
+      <span id="lieuNom">Situer</span>
+      <svg class="lieu-ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor"
+           stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/>
+      </svg>
+    </button>
+    <button type="button" class="reglage" id="btnReglages" aria-label="Réglages">
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor"
+           stroke-width="1.7" stroke-linecap="round">
+        <circle cx="12" cy="12" r="3.2"/>
+        <path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M18.5 5.5l-1.7 1.7M7.2 16.8l-1.7 1.7"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<main id="ecran">
+  <div class="invite" id="invite" hidden>
+    <p>Choisir une commune pour afficher la prévision.</p>
+    <button type="button" class="bouton-plein" data-vue="lieu">Situer</button>
+  </div>
+
+  <div class="bandeau" id="bandeau" hidden></div>
+  <div class="alertes" id="alertes" hidden></div>
+  <div class="conseils" id="conseils" hidden></div>
+  <nav class="tuiles" id="tuiles" hidden></nav>
+  <p class="pied" id="pied" hidden></p>
+</main>
+
+<div class="voile" id="voile" hidden></div>
+
+<section class="feuille" id="feuille" role="dialog" aria-modal="true" aria-labelledby="feuille-titre" tabindex="-1" hidden>
+  <div class="feuille-poignee" aria-hidden="true"><i></i></div>
+  <div class="feuille-tete">
+    <button type="button" class="feuille-retour" id="feuille-retour" hidden aria-label="Revenir">
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor"
+           stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 5l-7 7 7 7"/>
+      </svg>
+    </button>
+    <h2 id="feuille-titre"></h2>
+    <button type="button" class="feuille-fermer" id="feuille-fermer" aria-label="Fermer">
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor"
+           stroke-width="1.9" stroke-linecap="round">
+        <path d="M6 6l12 12M18 6L6 18"/>
+      </svg>
+    </button>
+  </div>
+  <div class="feuille-corps" id="feuille-corps"></div>
+</section>
+
+<p class="etat" id="etat" role="status" hidden></p>
+
+<script type="module" src="./src/app.js"></script>
+</body>
+</html>

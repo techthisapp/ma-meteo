@@ -1,0 +1,20 @@
+{
+  "name": "Ma météo",
+  "short_name": "Ma météo",
+  "description": "Prévision horaire, table de la semaine, vigilance Météo-France et pluie mesurée au poste.",
+  "lang": "fr",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F7F8FA",
+  "theme_color": "#F7F8FA",
+  "categories": ["weather", "utilities"],
+  "icons": [
+    { "src": "./icones/icone.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "./icones/icone-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icones/icone-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icones/icone-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
