@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#F7F8FA" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#11161C" media="(prefers-color-scheme: dark)">
-<meta name="description" content="Prévision horaire, table de la semaine, vigilance Météo-France et pluie mesurée au poste.">
+<meta name="theme-color" content="#F2F3F7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0B0F14" media="(prefers-color-scheme: dark)">
+<meta name="description" content="Prévision horaire, table de la semaine, course du soleil et vigilance Météo-France.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Ma météo">
@@ -17,16 +17,13 @@
 </head>
 <body>
 
-<header class="tete">
-  <div class="tete-corps">
-    <button type="button" class="lieu" id="btnLieu" aria-label="Changer de commune">
-      <span id="lieuNom">Situer</span>
-      <svg class="lieu-ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor"
-           stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/>
-      </svg>
-    </button>
-    <button type="button" class="reglage" id="btnReglages" aria-label="Réglages">
+<a class="saut" href="#ecran">Aller au contenu</a>
+
+<!-- Couche navigation : barre de tête en matière verre, titre compact au défilement -->
+<header class="nav" id="nav">
+  <div class="nav-corps">
+    <p class="nav-titre" id="navTitre" aria-hidden="true"></p>
+    <button type="button" class="nav-act" id="btnReglages" aria-label="Réglages">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor"
            stroke-width="1.7" stroke-linecap="round">
         <circle cx="12" cy="12" r="3.2"/>
@@ -36,19 +33,13 @@
   </div>
 </header>
 
-<main id="ecran">
-  <div class="invite" id="invite" hidden>
-    <p>Choisir une commune pour afficher la prévision.</p>
-    <button type="button" class="bouton-plein" data-vue="lieu">Situer</button>
-  </div>
+<!-- Couche contenu -->
+<main id="ecran" tabindex="-1"></main>
 
-  <div class="bandeau" id="bandeau" hidden></div>
-  <div class="alertes" id="alertes" hidden></div>
-  <div class="conseils" id="conseils" hidden></div>
-  <nav class="tuiles" id="tuiles" hidden></nav>
-  <p class="pied" id="pied" hidden></p>
-</main>
+<!-- Couche navigation : barre d'onglets -->
+<nav class="onglets" id="onglets" aria-label="Sections"></nav>
 
+<!-- Couche superposition -->
 <div class="voile" id="voile" hidden></div>
 
 <section class="feuille" id="feuille" role="dialog" aria-modal="true" aria-labelledby="feuille-titre" tabindex="-1" hidden>
@@ -71,7 +62,7 @@
   <div class="feuille-corps" id="feuille-corps"></div>
 </section>
 
-<p class="etat" id="etat" role="status" hidden></p>
+<p class="etat" id="etat" role="status" aria-live="polite" hidden></p>
 
 <script type="module" src="./src/app.js"></script>
 </body>

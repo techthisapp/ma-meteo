@@ -45,7 +45,15 @@ const D = {
   semaine: '<rect x="3.4" y="5" width="17.2" height="15.6" rx="2.4"/><path d="M3.4 9.8h17.2M8.4 3.4v3.2M15.6 3.4v3.2"/>',
   jauge: '<path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4.4-5"/>',
   chevron: '<path d="M9 5l7 7-7 7"/>',
+  chevron_bas: '<path d="M6 9.5l6 6 6-6"/>',
   cible: '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8.4"/><path d="M12 1.6v3M12 19.4v3M1.6 12h3M19.4 12h3"/>',
+  maison: '<path d="M3.4 10.6 12 3.8l8.6 6.8V19a1.6 1.6 0 0 1-1.6 1.6H5a1.6 1.6 0 0 1-1.6-1.6z" '
+    + 'stroke-linejoin="round"/><path d="M9.6 20.6v-6h4.8v6"/>',
+  lieu: '<path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z" stroke-linejoin="round"/>'
+    + '<circle cx="12" cy="10" r="2.6"/>',
+  sans_reseau: '<path d="M2.6 8.8a15 15 0 0 1 6-3.4M15.4 5.4a15 15 0 0 1 6 3.4"/>'
+    + '<path d="M6.4 12.6a9.6 9.6 0 0 1 3-1.8M14.6 10.8a9.6 9.6 0 0 1 3 1.8"/>'
+    + '<path d="M9.8 16.2a4.6 4.6 0 0 1 4.4 0"/><path d="M12 20v.1"/><path d="M3 3l18 18"/>',
 };
 
 /* Le ciel clair et les éclaircies ne se dessinent pas de la même façon selon

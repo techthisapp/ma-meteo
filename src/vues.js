@@ -122,7 +122,7 @@ export function vueVigilance() {
     sous: g.commune || "",
     corps:
       `<div class="carte">`
-      + `<p style="font-size:14.5px;line-height:1.55">La vigilance météorologique en vigueur `
+      + `<p class="prose">La vigilance météorologique en vigueur `
       + `est publiée par Météo-France. Elle couvre le vent violent, la pluie et l'inondation, `
       + `les orages, les crues, la neige et le verglas, la canicule, le grand froid, les `
       + `avalanches, les vagues et la submersion.</p>`
@@ -134,7 +134,7 @@ export function vueVigilance() {
       + `</svg></a></div>`
 
       + `<div class="carte"><div class="carte-tete"><h3>Pourquoi ce renvoi</h3></div>`
-      + `<p style="font-size:13.5px;line-height:1.5;color:var(--encre-doux)">Le jeu ouvert `
+      + `<p class="prose-2">Le jeu ouvert `
       + `« Vigilance météorologique archivée » de data.gouv.fr porte le même contenu sans `
       + `demander de compte, mais c'est une archive et non un flux : au 19 août 2026, son `
       + `dernier bulletin datait du 5 août. Une vigilance de quatorze jours ne dit rien du `
@@ -233,13 +233,14 @@ export function vueReglages(ctx, rendre, majEtat) {
     titre: "Réglages",
     corps:
       `<div class="carte"><div class="carte-tete"><h3>Commune</h3></div>`
+      + `<div class="champ"><label for="rgQ">Nom de commune ou code postal</label>`
       + `<input class="rg-champ" id="rgQ" type="search" inputmode="search" autocomplete="off" `
-      + `placeholder="Nom de commune ou code postal" value="${esc(g.commune || "")}">`
+      + `placeholder="Grenoble, 38000" value="${esc(g.commune || "")}"></div>`
       + `<div class="rg-res" id="rgRes"></div>`
       + `<button type="button" class="rg-geo" id="rgGeo">`
       + `${ico("cible", "")}<span>Utiliser ma position</span></button></div>`
 
-      + `<div class="carte"><div class="carte-tete"><h3>Écriture de la feuille du temps</h3></div>`
+      + `<div class="carte"><div class="carte-tete"><h3>Écriture de l'écran Le temps</h3></div>`
       + `<div class="seg">` + Reglages.ECRITURES.map(([k, n]) =>
         `<button type="button" data-ecriture="${k}"${k === g.ecriture ? ' class="actif"' : ""}>${esc(n)}</button>`)
         .join("") + `</div></div>`
@@ -264,7 +265,13 @@ export function vueReglages(ctx, rendre, majEtat) {
       };
 
       const chercher = async () => {
-        const l = await Reglages.chercherCommune(q.value);
+        const saisie = q.value.trim();
+        if (saisie.length < 2) { res.innerHTML = ""; return; }
+        const l = await Reglages.chercherCommune(saisie);
+        if (!l.length) {
+          res.innerHTML = `<p class="vide">Aucune commune ne correspond à cette saisie.</p>`;
+          return;
+        }
         res.innerHTML = l.map((x, k) =>
           `<button type="button" data-k="${k}">${esc(x.commune)}`
           + `<em>${esc(x.codePostal || "")}</em></button>`).join("");

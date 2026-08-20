@@ -1,9 +1,13 @@
-/* Ma météo. Amorçage, écran d'accueil, coque de la feuille.
+/* Ma météo. Amorçage, couche navigation, écrans, coque de la feuille.
 
    Site statique, aucun service dorsal, aucune base de données. Trois sources :
    Open-Meteo pour la prévision, le jeu de vigilance archivée de Météo-France sur
    data.gouv.fr, et les données climatologiques de base du même producteur pour
-   la pluie mesurée au poste. */
+   la pluie mesurée au poste.
+
+   L'interface suit le design system consigné dans DESIGN-SYSTEM.md : trois
+   couches, navigation par barre d'onglets, contenu posé sur le fond, feuilles
+   pour les actions temporaires. */
 
 import { nombreFr, esc } from "./horloge.js";
 import * as P from "./previsions.js";
@@ -17,8 +21,7 @@ const $ = id => document.getElementById(id);
 /* Deux modules restent écrits et contrôlés sans être branchés : `vigilance.js`
    et `postes.js`. Ils lisent les jeux archivés de Météo-France sur data.gouv.fr,
    dont l'alimentation s'est interrompue. Sondé le 19 août 2026, le dernier
-   bulletin de vigilance datait du 5 août et les relevés de pluie du 22 juin, les
-   fichiers n'ayant pas été modifiés depuis le 24 juin.
+   bulletin de vigilance datait du 5 août et les relevés de pluie du 22 juin.
 
    Une application météorologique ne peut pas servir une vigilance de quatorze
    jours ni comparer une prévision du jour à une mesure de juin. La vigilance
@@ -28,8 +31,28 @@ const $ = id => document.getElementById(id);
 
 const ctx = {};
 
+/* ---------- État de l'application ---------- */
+
+const ONGLETS = [
+  ["accueil", "maison", "Accueil"],
+  ["temps", "horloge", "Le temps"],
+  ["semaine", "semaine", "La semaine"],
+  ["lumiere", "arc", "La lumière"],
+];
+
+let onglet = "accueil";
+let charge = "vide";           // vide, chargement, pret, erreur
 let pile = [];
 let vueCourante = null;
+
+/* ---------- Retour sensoriel, rare et bref ---------- */
+
+/* Safari sur iOS n'expose pas de retour haptique aux pages. La vibration reste
+   donc silencieuse là-bas, et ne sert que là où elle existe. */
+function sentir(motif) {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  navigator.vibrate?.(motif);
+}
 
 /* ---------- Message d'état ---------- */
 
@@ -46,13 +69,9 @@ function majEtat(t) {
 /* ---------- Alertes de l'accueil ----------
 
    Elles ne répètent pas les conseils, qui portent les vingt-quatre heures à
-   venir : c'est la règle qui manquait à « Mon jardin » et qui faisait paraître
-   « Rafales à 48 km/h aujourd'hui » juste au-dessus de « Rafales à 48 km/h de
-   09 h à demain 09 h ». L'alerte ne parle donc que de ce qui tombe hors de cette
-   fenêtre, c'est-à-dire d'après-demain et au-delà.
-
-   Les seuils sont ceux de la feuille : un même fait n'a qu'un seuil dans toute
-   l'application. */
+   venir. L'alerte ne parle que de ce qui tombe hors de cette fenêtre, c'est-à-dire
+   d'après-demain et au-delà. Les seuils sont ceux de la feuille : un même fait
+   n'a qu'un seuil dans toute l'application. */
 
 function alertes() {
   const c = P.chargeCourante();
@@ -68,8 +87,6 @@ function alertes() {
   const quand = k => new Date(`${d.time[k]}T12:00`)
     .toLocaleDateString("fr-FR", { weekday: "long" });
 
-  /* La fenêtre des conseils couvre aujourd'hui et une partie de demain. Les
-     alertes commencent après-demain : le premier jour entièrement hors fenêtre. */
   for (let k = i + 2; k <= Math.min(i + 4, d.time.length - 1); k++) {
     const tn = tMin(k), tx = tMax(k);
     if (tn !== null && tn <= SEUILS.gel) {
@@ -93,25 +110,57 @@ function alertes() {
   return out.slice(0, 2);
 }
 
+/* ---------- Fragments partagés ---------- */
+
+const chevron = `<svg class="rangee-chev" viewBox="0 0 24 24" aria-hidden="true" fill="none" `
+  + `stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">`
+  + `<path d="M9 5l7 7-7 7"/></svg>`;
+
+/* Le titre d'écran porte l'action de changement de commune, à la façon d'un
+   titre à menu : une seule cible, tout en haut, et pas d'élément de plus. */
+const titreEcran = (titre, sous, avecLieu) =>
+  `<div class="titre-ecran"><h1>`
+  + (avecLieu
+    ? `<button type="button" class="titre-bouton" data-feuille="reglages" `
+      + `aria-label="Changer de commune">${esc(titre)}${ico("chevron_bas", "titre-chev")}</button>`
+    : esc(titre))
+  + `</h1>`
+  + (sous ? `<p>${esc(sous)}</p>` : "")
+  + `</div>`;
+
+const bandeauHorsLigne = () => navigator.onLine ? "" :
+  `<div class="hors-ligne">${ico("sans_reseau", "")}`
+  + `<span>Hors ligne. La dernière prévision reçue reste affichée.</span></div>`;
+
+const etatVide = (symbole, titre, phrase, action) =>
+  `<div class="etat-vide">${ico(symbole, "")}<h2>${esc(titre)}</h2><p>${esc(phrase)}</p>`
+  + (action ? `<button type="button" class="bouton-plein" data-feuille="reglages">${esc(action)}</button>` : "")
+  + `</div>`;
+
+const etatChargement = () =>
+  `<div class="etat-vide"><div class="tourne" role="progressbar" aria-label="Chargement"></div>`
+  + `<p>Lecture de la prévision.</p></div>`;
+
+const etatErreur = () =>
+  `<div class="etat-vide">${ico("sans_reseau", "")}<h2>Prévision indisponible</h2>`
+  + `<p>La source n'a pas répondu. Vérifier la connexion, puis réessayer.</p>`
+  + `<button type="button" class="bouton-plein" id="btnReessayer">Réessayer</button></div>`;
+
 /* ---------- Écran d'accueil ---------- */
 
-function rendreAccueil() {
+function ecranAccueil() {
   const g = Reglages.lire();
   const c = P.chargeCourante();
   const i = P.iJour();
   const s = P.serieHoraire();
 
-  $("lieuNom").textContent = g.commune || "Situer";
+  const jour = new Date().toLocaleDateString("fr-FR",
+    { weekday: "long", day: "numeric", month: "long" });
 
-  const situe = Reglages.situe();
-  $("invite").hidden = situe;
-  for (const id of ["bandeau", "alertes", "conseils", "tuiles", "pied"]) $(id).hidden = !situe;
-  if (!situe) return;
+  let corps = "";
 
-  // ---- Bandeau ----
-  const bd = $("bandeau");
   if (!c || i < 0) {
-    bd.innerHTML = `<p class="vide">Prévision indisponible. Vérifier la connexion.</p>`;
+    corps = etatErreur();
   } else {
     const d = c.daily;
     const jh = P.jourHoraire(d.time[i]);
@@ -122,9 +171,7 @@ function rendreAccueil() {
     const clair = s ? s.clair[0] : 1;
     const [, lib] = tempsDe(code);
 
-    /* Les quatre mesures que le grand chiffre ne peut pas tenir. Le ressenti n'y
-       est pas redit sous les bornes : il occupait deux lignes pour un seul
-       chiffre. */
+    /* Les quatre mesures que le grand chiffre ne peut pas tenir. */
     const mesures = s ? [
       ["Ressenti", `${nombreFr(s.res[0])}°`, ""],
       ["Vent", `${Math.round(s.v[0])} km/h`, `rafales ${Math.round(s.raf[0])}`],
@@ -132,7 +179,7 @@ function rendreAccueil() {
       ["Indice UV", nombreFr(s.uv[0]), s.uv[0] >= SEUILS.uv ? "élevé" : ""],
     ] : [];
 
-    bd.innerHTML = `<div class="bd-haut">`
+    corps += `<div class="bandeau"><div class="bd-haut">`
       + `<p class="bd-deg">${Math.round(t)}<sup>°</sup></p>`
       + `<div class="bd-etat">`
       + `<p class="bd-ciel">${ico(icoCiel(code, clair))}<span>${esc(lib)}</span></p>`
@@ -140,73 +187,171 @@ function rendreAccueil() {
       + `</div></div>`
       + (mesures.length ? `<div class="bd-mesures">` + mesures.map(([n, v, e]) =>
         `<div class="bd-m"><i>${esc(n)}</i><b>${esc(v)}</b><em>${esc(e)}</em></div>`).join("")
-        + `</div>` : "");
+        + `</div>` : "")
+      + `</div>`;
+
+    const al = alertes();
+    if (al.length) {
+      corps += `<div class="section"><h2>Jours suivants</h2><div class="alertes">`
+        + al.map(a => `<div class="al t-${a.ton}">${ico(a.i, "")}<span>${esc(a.t)}</span></div>`).join("")
+        + `</div></div>`;
+    }
+
+    const cj = s ? conseilsHTML(s) : "";
+    if (cj) corps += `<div class="section"><h2>Vingt-quatre heures</h2><div class="conseils">${cj}</div></div>`;
+
+    corps += `<div class="section"><h2>Sécurité</h2><div class="groupe groupe-plat">`
+      + `<button type="button" class="rangee" data-feuille="vigilance">`
+      + ico("alerte", "") + `<span class="rangee-txt"><b>Vigilance</b>`
+      + `<span>Bulletin en vigueur sur Météo-France</span></span>${chevron}</button>`
+      + `</div></div>`;
+
+    corps += `<p class="pied">Source : Open-Meteo, modèle AROME de Météo-France. `
+      + `Mise à jour toutes les heures.</p>`;
   }
 
-  // ---- Alertes ----
-  const az = $("alertes");
-  const lignes = alertes().map(a =>
-    `<div class="al t-${a.ton}">${ico(a.i)}<span>${esc(a.t)}</span></div>`);
-  az.innerHTML = lignes.join("");
-  az.hidden = !lignes.length;
-
-  // ---- Conseils ----
-  const cz = $("conseils");
-  const cj = s ? conseilsHTML(s) : "";
-  cz.innerHTML = cj;
-  cz.hidden = !cj;
-
-  // ---- Tuiles ----
-  const tuiles = [
-    ["temps", "horloge", "Le temps", s
-      ? `${s.n} heures, ${nombreFr(s.mm.reduce((a, b) => a + b, 0))} mm attendus`
-      : "prévision horaire"],
-    ["semaine", "semaine", "La semaine", "sept jours"],
-    ["lumiere", "arc", "La lumière", c && i >= 0
-      ? new Date(c.daily.sunset[i]).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) + " au coucher"
-      : "lever et coucher"],
-    ["vigilance", "alerte", "Vigilance", "sur Météo-France"],
-  ];
-  $("tuiles").innerHTML = tuiles.map(([v, ic, nom, sous]) =>
-    `<button type="button" class="tu" data-vue="${v}">${ico(ic, "")}`
-    + `<span class="tu-txt"><span class="tu-nom">${esc(nom)}</span>`
-    + `<span class="tu-sous">${esc(sous)}</span></span></button>`).join("");
-
-  $("pied").textContent = "Source : Open-Meteo, modèle AROME de Météo-France. "
-    + "Mise à jour toutes les heures.";
+  return {
+    titre: g.commune || "Ma météo",
+    sous: g.commune ? jour : "",
+    avecLieu: true,
+    corps: bandeauHorsLigne() + corps,
+  };
 }
 
-/* ---------- Coque de la feuille ---------- */
+/* ---------- Écrans branchés sur les vues ---------- */
 
-const VUES = {
-  temps: vueTemps,
-  semaine: vueSemaine,
-  vigilance: vueVigilance,
-  lumiere: vueLumiere,
-  reglages: vueReglages,
-};
+const VUES_ONGLET = { temps: vueTemps, semaine: vueSemaine, lumiere: vueLumiere };
 
-function rendreVue() {
+function ecranVue(nom) {
+  const f = VUES_ONGLET[nom](ctx, () => rendre(), majEtat);
+  return {
+    titre: f.titre,
+    sous: f.sous || "",
+    avecLieu: false,
+    corps: bandeauHorsLigne() + f.corps,
+    brancher: f.brancher,
+  };
+}
+
+/* ---------- Rendu de l'écran courant ---------- */
+
+function rendre() {
+  const ecran = $("ecran");
+  const situe = Reglages.situe();
+  const nom = ONGLETS.find(o => o[0] === onglet)?.[2] || "";
+
+  let f;
+  if (!situe) {
+    f = {
+      titre: nom === "Accueil" ? "Ma météo" : nom,
+      sous: "",
+      avecLieu: false,
+      corps: etatVide("lieu", "Aucune commune",
+        "La prévision se lit pour une commune de France métropolitaine.",
+        "Choisir une commune"),
+    };
+  } else if (charge === "chargement" && !P.chargeCourante()) {
+    f = { titre: nom, sous: "", avecLieu: false, corps: etatChargement() };
+  } else if (onglet === "accueil") {
+    f = ecranAccueil();
+  } else {
+    f = ecranVue(onglet);
+  }
+
+  /* Le rendu remplace l'écran entier : sans cette précaution, agrandir une voie
+     du ruban renverrait la page en haut. */
+  const y = window.scrollY;
+
+  $("navTitre").textContent = f.titre;
+  ecran.innerHTML = titreEcran(f.titre, f.sous, f.avecLieu) + f.corps;
+  if (typeof f.brancher === "function") f.brancher(ecran);
+  if (y) window.scrollTo({ top: y, behavior: "instant" });
+
+  const reessayer = ecran.querySelector("#btnReessayer");
+  if (reessayer) {
+    reessayer.addEventListener("click", () => {
+      reessayer.setAttribute("aria-busy", "true");
+      reessayer.textContent = "Lecture…";
+      charger();
+    });
+  }
+
+  majPose();
+}
+
+function poserOnglet(nom) {
+  if (!ONGLETS.some(o => o[0] === nom)) return;
+  const change = nom !== onglet;
+  onglet = nom;
+  for (const b of $("onglets").children) {
+    const actif = b.dataset.onglet === onglet;
+    if (actif) b.setAttribute("aria-current", "page");
+    else b.removeAttribute("aria-current");
+  }
+  rendre();
+  if (change) window.scrollTo({ top: 0, behavior: "instant" });
+}
+
+/* ---------- Couche navigation ---------- */
+
+$("onglets").innerHTML = ONGLETS.map(([cle, symbole, nom]) =>
+  `<button type="button" class="onglet" data-onglet="${cle}"`
+  + `${cle === onglet ? ' aria-current="page"' : ""}>`
+  + ico(symbole, "") + `<span>${esc(nom)}</span></button>`).join("");
+
+$("onglets").addEventListener("click", ev => {
+  const b = ev.target.closest("[data-onglet]");
+  if (b) poserOnglet(b.dataset.onglet);
+});
+
+/* Le grand titre se replie dans la barre de tête au défilement. */
+function majPose() {
+  const h1 = $("ecran").querySelector(".titre-ecran h1");
+  const nav = $("nav");
+  if (!h1) { nav.classList.remove("pose"); return; }
+  const bas = h1.getBoundingClientRect().bottom;
+  const hauteurNav = nav.getBoundingClientRect().height;
+  nav.classList.toggle("pose", bas < hauteurNav);
+}
+window.addEventListener("scroll", majPose, { passive: true });
+window.addEventListener("resize", majPose);
+
+/* La hauteur réelle de la barre d'onglets dépend de la taille du texte : elle se
+   mesure plutôt que de se supposer, sinon le pied de page passe dessous. */
+function majHauteurOnglets() {
+  const h = $("onglets").offsetHeight;
+  if (h) document.documentElement.style.setProperty("--onglets-mesure", `${h}px`);
+}
+new ResizeObserver(majHauteurOnglets).observe($("onglets"));
+majHauteurOnglets();
+
+/* ---------- Couche superposition ---------- */
+
+const FEUILLES = { vigilance: vueVigilance, reglages: vueReglages };
+
+function rendreFeuille() {
   if (!vueCourante) return;
-  const f = VUES[vueCourante](ctx, options => {
-    if (options?.recharger) { fermerFeuille(); charger(); return; }
-    rendreVue();
+  const f = FEUILLES[vueCourante](ctx, options => {
+    /* Le retour sensoriel accompagne une sélection décidée par l'utilisateur,
+       jamais un rendu automatique. */
+    if (options?.recharger) { sentir(10); fermerFeuille(); charger(); return; }
+    rendreFeuille();
   }, majEtat);
   $("feuille-titre").innerHTML = esc(f.titre)
     + (f.sous ? `<span>${esc(f.sous)}</span>` : "");
   const corps = $("feuille-corps");
   corps.innerHTML = f.corps;
   if (typeof f.brancher === "function") f.brancher(corps);
-  for (const b of corps.querySelectorAll("[data-vue]")) {
-    b.addEventListener("click", () => ouvrirVue(b.dataset.vue));
+  for (const b of corps.querySelectorAll("[data-feuille]")) {
+    b.addEventListener("click", () => ouvrirFeuille(b.dataset.feuille));
   }
 }
 
-function ouvrirVue(vue, enRetour) {
-  if (!VUES[vue]) return;
+function ouvrirFeuille(vue, enRetour) {
+  if (!FEUILLES[vue]) return;
   if (!enRetour && vueCourante && !$("feuille").hidden) pile.push(vueCourante);
   vueCourante = vue;
-  rendreVue();
+  rendreFeuille();
   $("feuille-retour").hidden = !pile.length;
   $("feuille-corps").scrollTop = 0;
 
@@ -229,7 +374,7 @@ function fermerFeuille() {
   f.classList.remove("ouverte");
   $("voile").classList.remove("visible");
   document.body.classList.remove("fige");
-  setTimeout(() => { f.hidden = true; $("voile").hidden = true; }, 240);
+  setTimeout(() => { f.hidden = true; $("voile").hidden = true; }, 260);
   pile = [];
   vueCourante = null;
 }
@@ -237,7 +382,7 @@ function fermerFeuille() {
 function retour() {
   const v = pile.pop();
   if (!v) { fermerFeuille(); return; }
-  ouvrirVue(v, true);
+  ouvrirFeuille(v, true);
   $("feuille-retour").hidden = !pile.length;
 }
 
@@ -257,8 +402,8 @@ function brancherGlissement() {
   const bouge = ev => {
     if (!actif) return;
     const dy = Math.max(0, ev.clientY - y0);
-    f.style.transform = `translateY(${dy}px)`;
-    if (window.innerWidth >= 560) f.style.transform = `translate(-50%, ${dy}px)`;
+    f.style.transform = window.innerWidth >= 560
+      ? `translate(-50%, ${dy}px)` : `translateY(${dy}px)`;
   };
   const fin = ev => {
     if (!actif) return;
@@ -280,23 +425,25 @@ function brancherGlissement() {
 
 async function charger() {
   const g = Reglages.lire();
-  if (!Reglages.situe()) { rendreAccueil(); return; }
-  await P.charger({ lat: g.lat, lon: g.lon });
-  rendreAccueil();
-  if (vueCourante) rendreVue();
+  if (!Reglages.situe()) { charge = "vide"; rendre(); return; }
+  charge = "chargement";
+  rendre();
+  const r = await P.charger({ lat: g.lat, lon: g.lon });
+  charge = r ? "pret" : "erreur";
+  rendre();
+  if (vueCourante) rendreFeuille();
 }
 
 /* ---------- Amorçage ---------- */
 
-$("btnLieu").addEventListener("click", () => ouvrirVue("reglages"));
-$("btnReglages").addEventListener("click", () => ouvrirVue("reglages"));
+$("btnReglages").addEventListener("click", () => ouvrirFeuille("reglages"));
 $("feuille-fermer").addEventListener("click", () => history.back());
 $("feuille-retour").addEventListener("click", retour);
 $("voile").addEventListener("click", () => history.back());
 
-document.addEventListener("click", ev => {
-  const b = ev.target.closest("#ecran [data-vue]");
-  if (b) ouvrirVue(b.dataset.vue);
+$("ecran").addEventListener("click", ev => {
+  const b = ev.target.closest("[data-feuille]");
+  if (b) ouvrirFeuille(b.dataset.feuille);
 });
 
 window.addEventListener("keydown", ev => {
@@ -307,10 +454,7 @@ window.addEventListener("popstate", () => {
   if (!$("feuille").hidden) { if (pile.length) retour(); else fermerFeuille(); }
 });
 
-const tete = document.querySelector(".tete");
-window.addEventListener("scroll", () => {
-  tete.classList.toggle("pose", window.scrollY > 4);
-}, { passive: true });
+for (const ev of ["online", "offline"]) window.addEventListener(ev, () => rendre());
 
 brancherGlissement();
 

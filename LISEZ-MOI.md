@@ -9,12 +9,15 @@ service dorsal, sans base de données, sans compte. Métropole française.
 
 | Écran | Ce qu'il porte |
 |---|---|
-| Accueil | Température, ciel, bornes du jour, quatre mesures, trois lignes de conseil, alertes au delà de la fenêtre, accès aux feuilles |
+| Accueil | Température, ciel, bornes du jour, quatre mesures, trois lignes de conseil, alertes au delà de la fenêtre, accès à la vigilance |
 | Le temps | Vingt-quatre heures glissantes en trois écritures : ruban à sept voies, liste à treize colonnes, moments par tranches de six heures |
 | La semaine | Sept jours, résumés des heures pour les deux premiers |
 | La lumière | Arc du jour, lever, coucher, durée, écart à la veille, seuil de dix heures |
-| Vigilance | Renvoi vers Météo-France, avec le motif du renvoi |
-| Réglages | Commune, géolocalisation, écriture retenue, sources |
+| Vigilance | Renvoi vers Météo-France, avec le motif du renvoi, en feuille |
+| Réglages | Commune, géolocalisation, écriture retenue, sources, en feuille |
+
+Les quatre premiers écrans sont des destinations de la barre d'onglets. Vigilance
+et Réglages sont des présentations en feuille.
 
 ## Sources
 
@@ -57,8 +60,9 @@ les appels dans `app.js` et les entrées dans la table `VUES`.
 ## Organisation
 
 ```
-index.html          coque
-styles.css          identité, mode sombre compris
+index.html          coque, trois couches
+styles.css          tokens du design system, composants, mode sombre compris
+DESIGN-SYSTEM.md    transposition web du design system iOS
 manifest.webmanifest, sw.js, icones/
 src/
   horloge.js        clé du jour, écriture des nombres, département
@@ -69,13 +73,13 @@ src/
   ruban.js          météogramme à sept voies
   ecritures.js      liste et moments
   vues.js           temps, semaine, vigilance, lumière, réglages
-  app.js            amorçage, accueil, coque de la feuille
+  app.js            amorçage, barre d'onglets, écrans, coque de la feuille
   reseau.js         reprise à attente croissante, gzip, listage S3
   vigilance.js      seau data.gouv, schéma réel, non branché
   postes.js         fichier départemental et geojson des postes, non branché
   reserve.js        les deux vues débranchées
 essais/
-  controle.mjs      quarante-deux contrôles en navigateur
+  controle.mjs      cinquante-six contrôles en navigateur
   meteo.json        données figées au 18 août 2026, 9 h
 ```
 
@@ -89,12 +93,18 @@ npx playwright install chromium
 node essais/controle.mjs
 ```
 
+Le chemin du navigateur peut être imposé par la variable `CHROMIUM` lorsque la
+révision installée par Playwright ne correspond pas à celle du poste.
+
 Le lanceur sert le dossier, fige l'horloge au 18 août 2026 à 9 h, détourne les
 trois appels Open-Meteo vers `meteo.json` et coupe les sources data.gouv pour
-éprouver le repli. Quarante-deux contrôles, dont l'absence de répétition entre
+éprouver le repli. Cinquante-six contrôles, dont l'absence de répétition entre
 les alertes et les conseils, les sept voies du ruban, l'agrandissement d'une
-voie, les treize colonnes de la liste, les vingt-quatre lignes de la fenêtre et
-la nature du renvoi de vigilance.
+voie, les treize colonnes de la liste, les vingt-quatre lignes de la fenêtre, la
+nature du renvoi de vigilance, et six contrôles de conformité au design system :
+cibles de 44 pt, fond issu du token, absence de rayon en valeur brute, verre
+réservé à la navigation, tailles de texte issues de l'échelle, transitions
+neutralisées sous mouvement réduit.
 
 ## Règles reprises du module d'origine
 
