@@ -15,10 +15,26 @@ service dorsal, sans base de données, sans compte. Métropole française.
 | Le soleil | Arc du jour, lever et coucher avec leur point cardinal, midi solaire, hauteur maximale, durée, écart à la veille, seuil de dix heures, trois crépuscules |
 | La lune | Phase dessinée et nommée, part éclairée, âge, lever et coucher avec leur point cardinal, passage au méridien, hauteur maximale, durée au-dessus de l'horizon, lunaison, quatre prochaines phases |
 | Vigilance | Renvoi vers Météo-France, avec le motif du renvoi, en feuille |
-| Réglages | Commune, géolocalisation, écriture retenue, sources, en feuille |
+| Réglages | Écriture retenue pour l'écran du temps, sources, coordonnées, en feuille |
 
-Les cinq premiers écrans sont des destinations de la barre d'onglets. Vigilance
-et Réglages sont des présentations en feuille.
+Les cinq premiers écrans sont des destinations de la barre d'onglets. Communes,
+Vigilance et Réglages sont des présentations en feuille.
+
+## Communes suivies
+
+Dix communes au plus. Le titre de l'écran ouvre la liste, un appui sur une
+rangée bascule : deux gestes séparent deux communes.
+
+Chaque rangée porte le symbole du ciel, la température du moment et les bornes
+du jour. Les aperçus tiennent en une seule requête, Open-Meteo acceptant
+plusieurs couples de coordonnées et rendant un tableau dans le même ordre. Ils
+sont gardés un quart d'heure, et le dernier connu reste servi hors ligne, avec
+mention de son âge.
+
+Le retrait se découvre en glissant la rangée vers la gauche, par le menu
+contextuel, ou par le clavier : le bouton se tient sous la rangée et reste dans
+l'ordre de tabulation, le focus découvrant la rangée. Retirer la commune
+courante fait passer à la suivante de la liste.
 
 ## Sources
 
@@ -27,9 +43,10 @@ et Réglages sont des présentations en feuille.
 | Prévision | `api.open-meteo.com`, AROME de Météo-France forcé sur deux jours | Aucun |
 | Commune | `api-adresse.data.gouv.fr` | Aucun |
 | Soleil et Lune | calcul sur l'appareil, `src/astres.js` | Aucune requête |
+| Aperçu des communes suivies | `api.open-meteo.com`, un seul appel pour toute la liste | Aucun |
 
-Les deux répondent en origine croisée, ce qui a été vérifié depuis un navigateur
-le 19 août 2026.
+Les deux sources distantes répondent en origine croisée, ce qui a été vérifié
+depuis un navigateur le 19 août 2026.
 
 ### Deux sources écartées
 
@@ -69,20 +86,20 @@ manifest.webmanifest, sw.js, icones/
 src/
   horloge.js        clé du jour, écriture des nombres, département
   previsions.js     charge Open-Meteo, fusion AROME, série horaire
-  reglages.js       stockage local, recherche de commune, géolocalisation
+  reglages.js       stockage local, communes suivies, recherche, géolocalisation
   icones.js         codes de temps sensible, dessins
   conseils.js       les six règles et leurs seuils
   ruban.js          météogramme à sept voies
   ecritures.js      liste et moments
   astres.js         positions du Soleil et de la Lune, phases, levers et couchers
-  vues.js           temps, semaine, vigilance, soleil, lune, réglages
+  vues.js           temps, semaine, vigilance, soleil, lune, communes, réglages
   app.js            amorçage, barre d'onglets, écrans, coque de la feuille
   reseau.js         reprise à attente croissante, gzip, listage S3
   vigilance.js      seau data.gouv, schéma réel, non branché
   postes.js         fichier départemental et geojson des postes, non branché
   reserve.js        les deux vues débranchées
 essais/
-  controle.mjs      quatre-vingt-trois contrôles en navigateur
+  controle.mjs      cent deux contrôles en navigateur
   meteo.json        données figées au 18 août 2026, 9 h
 ```
 
@@ -101,7 +118,7 @@ révision installée par Playwright ne correspond pas à celle du poste.
 
 Le lanceur sert le dossier, fige l'horloge au 18 août 2026 à 9 h, détourne les
 trois appels Open-Meteo vers `meteo.json` et coupe les sources data.gouv pour
-éprouver le repli. Quatre-vingt-trois contrôles, dont l'absence de répétition entre
+éprouver le repli. Cent deux contrôles, dont l'absence de répétition entre
 les alertes et les conseils, les sept voies du ruban, l'agrandissement d'une
 voie, les treize colonnes de la liste, les vingt-quatre lignes de la fenêtre, la
 nature du renvoi de vigilance, et seize contrôles de conformité au design
@@ -110,7 +127,9 @@ verre réservé à la navigation, tailles de texte issues de l'échelle, transit
 neutralisées sous mouvement réduit, accroches de feuille, erreur sous le champ,
 état désactivé, rangée unique, état vide complet, ossature au premier
 chargement. Les écrans du Soleil et de la Lune sont contrôlés de la même façon,
-y compris l'absence de toute requête réseau pour la Lune.
+y compris l'absence de toute requête réseau pour la Lune. La bascule de commune
+est éprouvée de bout en bout : ouverture par le titre, ajout par la recherche,
+bascule par appui, retrait par le clavier.
 
 ## Éphémérides
 

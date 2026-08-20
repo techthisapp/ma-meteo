@@ -14,7 +14,7 @@ import * as P from "./previsions.js";
 import * as Reglages from "./reglages.js";
 import { ico, icoCiel, tempsDe } from "./icones.js";
 import { conseilsHTML, SEUILS } from "./conseils.js";
-import { vueTemps, vueSemaine, vueVigilance, vueSoleil, vueLune, vueReglages } from "./vues.js";
+import { vueTemps, vueSemaine, vueVigilance, vueSoleil, vueLune, vueCommunes, vueReglages } from "./vues.js";
 
 const $ = id => document.getElementById(id);
 
@@ -122,7 +122,7 @@ const chevron = `<svg class="rangee-chev" viewBox="0 0 24 24" aria-hidden="true"
 const titreEcran = (titre, sous, avecLieu) =>
   `<div class="titre-ecran"><h1>`
   + (avecLieu
-    ? `<button type="button" class="titre-bouton" data-feuille="reglages" `
+    ? `<button type="button" class="titre-bouton" data-feuille="communes" `
       + `aria-label="Changer de commune">${esc(titre)}${ico("chevron_bas", "titre-chev")}</button>`
     : esc(titre))
   + `</h1>`
@@ -135,7 +135,7 @@ const bandeauHorsLigne = () => navigator.onLine ? "" :
 
 const etatVide = (symbole, titre, phrase, action, secondaire) =>
   `<div class="etat-vide">${ico(symbole, "")}<h2>${esc(titre)}</h2><p>${esc(phrase)}</p>`
-  + (action ? `<button type="button" class="bouton-plein" data-feuille="reglages">${esc(action)}</button>` : "")
+  + (action ? `<button type="button" class="bouton-plein" data-feuille="communes">${esc(action)}</button>` : "")
   + (secondaire ? `<button type="button" class="bouton-borde" data-action="geo">`
     + ico("cible", "") + `<span>${esc(secondaire)}</span></button>` : "")
   + `</div>`;
@@ -356,8 +356,7 @@ async function situerParPosition(bouton) {
     const lieu = await Reglages.communeDe(lat, lon);
     if (!lieu) { majEtat("Aucune commune trouvée à cette position."); return; }
     majEtat("");
-    Reglages.poser({ commune: lieu.commune, codePostal: lieu.codePostal,
-      lat: lieu.lat, lon: lieu.lon, poste: null });
+    Reglages.poserLieu(lieu);
     sentir(10);
     charger();
   } catch (e) {
@@ -369,10 +368,10 @@ async function situerParPosition(bouton) {
 
 /* ---------- Couche superposition ---------- */
 
-const FEUILLES = { vigilance: vueVigilance, reglages: vueReglages };
+const FEUILLES = { vigilance: vueVigilance, communes: vueCommunes, reglages: vueReglages };
 
 /* Accroches : un contenu court n'occupe pas tout l'écran. */
-const ACCROCHE = { vigilance: "moyenne", reglages: "grande" };
+const ACCROCHE = { vigilance: "moyenne", communes: "grande", reglages: "grande" };
 
 function rendreFeuille() {
   if (!vueCourante) return;
@@ -380,6 +379,7 @@ function rendreFeuille() {
     /* Le retour sensoriel accompagne une sélection décidée par l'utilisateur,
        jamais un rendu automatique. */
     if (options?.recharger) { sentir(10); fermerFeuille(); charger(); return; }
+    if (options?.fermer) { fermerFeuille(); return; }
     rendreFeuille();
   }, majEtat);
   $("feuille-titre").innerHTML = esc(f.titre)

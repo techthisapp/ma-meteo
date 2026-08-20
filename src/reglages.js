@@ -1,7 +1,10 @@
-/* Réglages, en stockage local. Commune, coordonnées, écriture retenue pour la
-   feuille du temps. Ni compte, ni base, ni service dorsal. */
+/* Réglages, en stockage local. Commune courante, communes suivies, écriture
+   retenue pour l'écran du temps. Ni compte, ni base, ni service dorsal. */
 
 const CLE = "mameteo.reglages.v1";
+
+// Au delà, la liste ne se lit plus d'un coup d'œil et la requête d'aperçu enfle.
+export const MAX_SUIVIES = 10;
 
 const DEFAUT = {
   commune: null,
@@ -10,6 +13,7 @@ const DEFAUT = {
   lon: null,
   ecriture: "ruban",   // ruban, liste ou moments
   poste: null,         // numéro du poste de mesure retenu
+  suivies: [],         // communes suivies, la courante comprise
 };
 
 let etat = { ...DEFAUT };
@@ -18,6 +22,21 @@ try {
   const brut = JSON.parse(localStorage.getItem(CLE) || "null");
   if (brut && typeof brut === "object") etat = { ...DEFAUT, ...brut };
 } catch { /* stockage indisponible, les valeurs par défaut suffisent */ }
+
+/* Clé d'un lieu : ses coordonnées arrondies au dix-millième, soit une dizaine
+   de mètres. Deux entrées de la même commune ne peuvent pas coexister. */
+export const cleLieu = l => (l && l.lat !== null && l.lon !== null)
+  ? `${Number(l.lat).toFixed(4)},${Number(l.lon).toFixed(4)}` : null;
+
+const nu = l => ({
+  commune: l.commune, codePostal: l.codePostal ?? null,
+  lat: l.lat, lon: l.lon,
+});
+
+/* Reprise des réglages écrits avant les communes suivies : la commune courante
+   ouvre la liste, sinon l'application paraîtrait avoir tout oublié. */
+if (!Array.isArray(etat.suivies)) etat.suivies = [];
+if (!etat.suivies.length && etat.lat !== null) etat.suivies = [nu(etat)];
 
 const ecrire = () => {
   try { localStorage.setItem(CLE, JSON.stringify(etat)); }
@@ -31,6 +50,40 @@ export function poser(champs) {
   etat = { ...etat, ...champs };
   ecrire();
   return lire();
+}
+
+/* ---------- Communes suivies ---------- */
+
+export const suivies = () => etat.suivies.map(l => ({ ...l }));
+export const cleCourante = () => cleLieu(etat);
+export const estSuivie = l => etat.suivies.some(x => cleLieu(x) === cleLieu(l));
+
+/* Poser une commune la rend courante et l'ajoute à la liste si elle en manque.
+   Choisir une commune vaut donc suivi : personne ne cherche une commune pour
+   ne pas la garder, et rien n'oblige à la garder ensuite. */
+export function poserLieu(l) {
+  const c = cleLieu(l);
+  if (!c) return lire();
+  const reste = etat.suivies.filter(x => cleLieu(x) !== c);
+  const liste = [nu(l), ...reste].slice(0, MAX_SUIVIES);
+  etat = { ...etat, ...nu(l), poste: null, suivies: liste };
+  ecrire();
+  return lire();
+}
+
+/* Retirer une commune. Si c'était la courante, la première de la liste prend sa
+   place ; si la liste se vide, l'application revient à son état sans commune. */
+export function retirerSuivie(cle) {
+  const liste = etat.suivies.filter(x => cleLieu(x) !== cle);
+  if (liste.length === etat.suivies.length) return { lire: lire(), change: false };
+  const etaitCourante = cleLieu(etat) === cle;
+  etat = { ...etat, suivies: liste };
+  if (etaitCourante) {
+    const suivante = liste[0] || { commune: null, codePostal: null, lat: null, lon: null };
+    etat = { ...etat, ...nu(suivante), poste: null };
+  }
+  ecrire();
+  return { lire: lire(), change: etaitCourante };
 }
 
 export const ECRITURES = [["ruban", "Ruban"], ["liste", "Liste"], ["moments", "Moments"]];

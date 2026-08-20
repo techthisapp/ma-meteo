@@ -692,6 +692,45 @@ button.rangee:active{background:var(--surface-2)}
 /* Les lignes libellé et valeur de la lumière et des réglages emploient la
    rangée commune : un seul composant de liste dans toute l'application. */
 
+/* ---------- 13 bis. Communes suivies ---------- */
+
+.co-liste{padding:0;overflow:hidden}
+.co{position:relative;overflow:hidden}
+.co + .co{box-shadow:inset 0 1px 0 var(--filet-clair)}
+
+.co-l{
+  position:relative;z-index:1;
+  display:flex;align-items:center;gap:var(--espace-md);width:100%;
+  padding:var(--espace-md) var(--espace-base);min-height:60px;text-align:left;
+  background:var(--surface);
+  transition:transform var(--duree-micro) var(--ressort);
+}
+.co-l:active{background:var(--surface-2)}
+.co-ic{display:flex;flex:0 0 auto;width:26px;height:26px;color:var(--etiquette-2)}
+.co-ic svg{width:26px;height:26px}
+.co-t{display:flex;flex-direction:column;min-width:0;flex:1 1 auto}
+.co-t b{font-weight:var(--graisse-medium);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.co-t em{font-style:normal;font-size:var(--texte-note);color:var(--etiquette-2)}
+.co-d{
+  flex:0 0 auto;font-size:var(--texte-titre3);font-weight:var(--graisse-semibold);
+  letter-spacing:-.02em;
+}
+.co-coche{flex:0 0 auto;width:18px;height:18px;color:var(--accent);margin-left:var(--espace-xs)}
+.co-coche-vide{visibility:hidden}
+
+/* Action de retrait, découverte par glissement, par menu contextuel ou par le
+   clavier. Elle occupe le dessous de la rangée, non une place permanente. */
+.co-x{
+  position:absolute;top:0;right:0;bottom:0;width:104px;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--erreur);color:var(--sur-accent);
+  font-size:var(--texte-sous);font-weight:var(--graisse-medium);
+}
+.co-hors{
+  position:absolute;width:1px;height:1px;overflow:hidden;
+  clip-path:inset(50%);white-space:nowrap;
+}
+
 /* ---------- 14 bis. Lune ---------- */
 
 .ln-tete{display:flex;align-items:center;gap:var(--espace-lg);flex-wrap:wrap}

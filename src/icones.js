@@ -46,6 +46,7 @@ const D = {
   jauge: '<path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4.4-5"/>',
   chevron: '<path d="M9 5l7 7-7 7"/>',
   chevron_bas: '<path d="M6 9.5l6 6 6-6"/>',
+  coche: '<path d="M4.5 12.6l4.8 4.8L19.5 7.2"/>',
   cible: '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8.4"/><path d="M12 1.6v3M12 19.4v3M1.6 12h3M19.4 12h3"/>',
   maison: '<path d="M3.4 10.6 12 3.8l8.6 6.8V19a1.6 1.6 0 0 1-1.6 1.6H5a1.6 1.6 0 0 1-1.6-1.6z" '
     + 'stroke-linejoin="round"/><path d="M9.6 20.6v-6h4.8v6"/>',

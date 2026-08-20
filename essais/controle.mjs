@@ -55,6 +55,16 @@ await ctx.addInitScript(`{
 await ctx.route(/api\.open-meteo\.com/, route => {
   const u = route.request().url();
   const d = JSON.parse(JSON.stringify(METEO));
+  // Aperçu des communes suivies : un tableau, un élément par couple de coordonnées.
+  if (u.includes("current=")) {
+    const lats = decodeURIComponent(new URL(u).searchParams.get("latitude")).split(",");
+    const tab = lats.map((_, k) => ({
+      current: { temperature_2m: 18 + k * 3, weather_code: [0, 3, 61][k % 3], is_day: 1 },
+      daily: { temperature_2m_min: [12 + k], temperature_2m_max: [26 + k] },
+    }));
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(tab) });
+    return;
+  }
   if (u.includes("models=meteofrance_arome")) { route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ hourly: d.hourly }) }); return; }
   if (u.includes("hourly=")) { route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ hourly: d.hourly }) }); return; }
   delete d.hourly;
@@ -62,10 +72,18 @@ await ctx.route(/api\.open-meteo\.com/, route => {
 });
 // Les deux sources data.gouv sont coupées : on éprouve le repli.
 await ctx.route(/object\.files\.data\.gouv\.fr|www\.data\.gouv\.fr/, r => r.abort());
-// La recherche de commune ne rend rien : on éprouve l'erreur sous le champ.
-await ctx.route(/api-adresse\.data\.gouv\.fr/, r => r.fulfill({
-  status: 200, contentType: "application/json", body: JSON.stringify({ features: [] }),
-}));
+/* La recherche de commune : « Zzzz » ne rend rien, ce qui éprouve l'erreur sous
+   le champ ; toute autre saisie rend Grenoble, ce qui éprouve l'ajout. */
+await ctx.route(/api-adresse\.data\.gouv\.fr/, r => {
+  const q = new URL(r.request().url()).searchParams.get("q") || "";
+  const vide = { features: [] };
+  const grenoble = { features: [{
+    geometry: { coordinates: [5.7245, 45.1885] },
+    properties: { city: "Grenoble", name: "Grenoble", postcode: "38000", context: "38, Isère" },
+  }] };
+  r.fulfill({ status: 200, contentType: "application/json",
+    body: JSON.stringify(/zzzz/i.test(q) ? vide : grenoble) });
+});
 
 const pg = await ctx.newPage();
 const erreurs = [];
@@ -237,24 +255,81 @@ ok("aucun bulletin archivé n'est affiché", await pg.locator(".vg-l").count() =
 ok("la feuille courte prend l'accroche intermédiaire",
   await pg.locator("#feuille.moyenne").count() === 1);
 
-console.log("\n--- Réglages en feuille ---");
+console.log("\n--- Communes suivies ---");
 await pg.locator("#feuille-fermer").click(); await pg.waitForTimeout(420);
-await pg.locator("#btnReglages").click(); await pg.waitForTimeout(500);
-ok("la feuille des réglages s'ouvre", (await txt("#feuille-titre")).startsWith("Réglages"));
-ok("la feuille longue prend toute la hauteur",
-  await pg.locator("#feuille.moyenne").count() === 0);
+await onglet("accueil");
+
+// Premier geste : le titre d'écran.
+await pg.locator(".titre-bouton").click();
+await pg.waitForTimeout(900);
+ok("le titre d'écran ouvre la feuille des communes",
+  (await txt("#feuille-titre")).startsWith("Communes"), await txt("#feuille-titre"));
+ok("la commune courante est suivie", await pg.locator(".co").count() === 1);
+ok("la commune courante porte une coche",
+  await pg.locator('.co-l[aria-current="true"] .co-coche').count() === 1);
+ok("chaque rangée porte la température du moment",
+  /^\d+°$/.test((await txt(".co-d")).trim()), await txt(".co-d"));
+ok("chaque rangée porte les bornes du jour",
+  /\d+° à \d+°/.test(await txt(".co-t em")), await txt(".co-t em"));
+ok("chaque rangée porte un symbole de ciel", await pg.locator(".co-ic svg").count() === 1);
+
 ok("le champ de commune porte une étiquette visible",
   await pg.locator('label[for="rgQ"]:visible').count() === 1);
-
 await pg.locator("#rgQ").fill("Zzzz");
 await pg.waitForTimeout(900);
 ok("l'erreur paraît sous le champ, non dans la liste",
   await pg.locator("#rgErr:visible").count() === 1
   && await pg.locator("#rgRes button").count() === 0);
 ok("le champ est marqué invalide", await pg.getAttribute("#rgQ", "aria-invalid") === "true");
-await pg.locator("#rgQ").fill("");
-await pg.waitForTimeout(600);
+await pg.locator("#rgQ").fill("Grenoble");
+await pg.waitForTimeout(900);
 ok("l'erreur disparaît à la correction", await pg.locator("#rgErr:visible").count() === 0);
+ok("la recherche propose la commune", await pg.locator("#rgRes button").count() === 1);
+
+// Ajouter une commune la rend courante et ferme la feuille.
+await pg.locator("#rgRes button").first().click();
+await pg.waitForTimeout(1200);
+ok("l'ajout ferme la feuille", await pg.locator("#feuille:visible").count() === 0);
+ok("la commune ajoutée devient courante",
+  (await txt(".titre-ecran")).includes("Grenoble"), await txt(".titre-ecran"));
+
+// Deuxième passage : deux communes, bascule en deux gestes.
+await pg.locator(".titre-bouton").click();
+await pg.waitForTimeout(900);
+ok("les deux communes sont suivies", await pg.locator(".co").count() === 2, String(await pg.locator(".co").count()));
+const nomsCo = (await pg.locator(".co-t b").allInnerTexts()).join(",");
+ok("la dernière choisie est en tête", nomsCo.startsWith("Grenoble"), nomsCo);
+
+await pg.locator(".co").nth(1).locator(".co-l").click();
+await pg.waitForTimeout(1200);
+ok("un appui sur une rangée bascule de commune",
+  (await txt(".titre-ecran")).includes("Fain"), await txt(".titre-ecran"));
+ok("la bascule ferme la feuille", await pg.locator("#feuille:visible").count() === 0);
+
+// Retrait : le bouton reste atteignable au clavier, sous la rangée.
+await pg.locator(".titre-bouton").click();
+await pg.waitForTimeout(900);
+ok("le retrait est atteignable sans glissement",
+  await pg.locator(".co-x").count() === 2);
+ok("le retrait se tient sous la rangée, non à côté", await pg.evaluate(() => {
+  const co = document.querySelector(".co");
+  const l = co.querySelector(".co-l").getBoundingClientRect();
+  const x = co.querySelector(".co-x").getBoundingClientRect();
+  return x.right <= l.right + 1 && x.left >= l.left;
+}));
+/* Le bouton se tient sous la rangée : le clavier l'atteint, et le focus
+   découvre la rangée. C'est le chemin qu'emprunte un lecteur d'écran. */
+await pg.locator('.co[data-cle^="45.18"] .co-x').focus();
+await pg.waitForTimeout(300);
+ok("le focus découvre la rangée", await pg.evaluate(() => {
+  const l = document.querySelector('.co[data-cle^="45.18"] .co-l');
+  return /translate/.test(l.style.transform || "");
+}));
+await pg.keyboard.press("Enter");
+await pg.waitForTimeout(900);
+ok("la commune retirée quitte la liste", await pg.locator(".co").count() === 1);
+ok("la commune courante n'a pas changé",
+  (await txt(".titre-ecran")).includes("Fain"), await txt(".titre-ecran"));
 
 ok("l'état désactivé neutralise le contrôle", await pg.evaluate(() => {
   const b = document.getElementById("rgGeo");
@@ -264,6 +339,14 @@ ok("l'état désactivé neutralise le contrôle", await pg.evaluate(() => {
   b.disabled = false;
   return r;
 }));
+await pg.locator("#feuille-fermer").click(); await pg.waitForTimeout(420);
+
+console.log("\n--- Réglages en feuille ---");
+await pg.locator("#btnReglages").click(); await pg.waitForTimeout(500);
+ok("la feuille des réglages s'ouvre", (await txt("#feuille-titre")).startsWith("Réglages"));
+ok("la feuille longue prend toute la hauteur",
+  await pg.locator("#feuille.moyenne").count() === 0);
+ok("les réglages ne portent plus la commune", await pg.locator("#rgQ").count() === 0);
 ok("une seule rangée de liste dans toute l'application",
   await pg.locator(".rg-l, .lum-l").count() === 0
   && await pg.locator("#feuille-corps .rangee").count() >= 3);

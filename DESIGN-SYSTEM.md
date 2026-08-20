@@ -155,8 +155,17 @@ toujours le plus clair en thème clair et le plus haut en thème sombre.
 ### Rangée de liste
 
 `.rangee`, très plate : icône facultative, titre, description facultative,
-valeur ou chevron. Hauteur variable, jamais moins de 44 pt. Les actions
-secondaires passent par une feuille, non par une rangée de boutons permanents.
+valeur ou chevron. Hauteur variable, jamais moins de 44 pt.
+
+### Action de glissement
+
+La rangée de commune, `.co`, porte son action de retrait sous elle, non à côté.
+Trois chemins la découvrent : le glissement vers la gauche au doigt ou à la
+souris, le menu contextuel par appui long ou clic droit, et le clavier, le
+bouton restant dans l'ordre de tabulation et le focus découvrant la rangée.
+
+Une action permanente par rangée aurait coûté une colonne de boutons sur toute
+la liste, ce que le document écarte.
 
 ### Groupe encarté
 
@@ -175,7 +184,11 @@ Deux accroches, faute d'équivalent web à `presentationDetents` :
 | Accroche | Hauteur | Emploi |
 |---|---|---|
 | Intermédiaire, `.moyenne` | 56 svh | Vigilance |
-| Pleine | 94 svh | Réglages |
+| Pleine | 94 svh | Communes, Réglages |
+
+Les Communes gardent la pleine hauteur bien que leur liste soit courte : le
+champ d'ajout ouvre le clavier, qui prendrait la moitié d'une feuille
+intermédiaire.
 
 Fermée, la feuille sort de l'ordre de tabulation. La règle `[hidden]{display:none
 !important}` est nécessaire : plusieurs composants portent un `display` explicite
@@ -243,8 +256,8 @@ Le titre d'écran porte l'action de changement de commune, à la façon d'un tit
 
 ## Contrôles automatiques
 
-`node essais/controle.mjs` exécute quatre-vingt-trois contrôles en navigateur,
-dont seize portent sur le design system :
+`node essais/controle.mjs` exécute cent deux contrôles en navigateur, dont
+dix-sept portent sur le design system :
 
 1. toute cible interactive tient 44 pt ;
 2. le fond du corps vient du token ;
@@ -262,4 +275,6 @@ dont seize portent sur le design system :
 14. une seule rangée de liste dans toute l'application ;
 15. l'état vide porte un symbole, un titre, une phrase, une action principale et
     une action secondaire ;
-16. la première lecture montre une ossature, non un voile plein écran.
+16. la première lecture montre une ossature, non un voile plein écran ;
+17. l'action de retrait se tient sous la rangée, non à côté, et le focus la
+    découvre.

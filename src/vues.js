@@ -300,6 +300,213 @@ export function vueLune() {
 
 /* ---------- Réglages et commune ---------- */
 
+/* ---------- Communes suivies ----------
+
+   Deux gestes séparent deux communes : le titre d'écran ouvre cette feuille,
+   une rangée bascule. Chaque rangée porte le temps qu'il fait, sans quoi la
+   liste ne serait qu'un répertoire de noms. */
+
+export function vueCommunes(ctx, rendre, majEtat) {
+  const suivies = Reglages.suivies();
+  const courante = Reglages.cleCourante();
+
+  const rangee = (l, k) => {
+    const c = Reglages.cleLieu(l);
+    const ici = c === courante;
+    return `<div class="co" data-cle="${esc(c)}">`
+      + `<button type="button" class="co-l" data-k="${k}"`
+      + (ici ? ` aria-current="true"` : "")
+      + `><span class="co-ic" data-ic></span>`
+      + `<span class="co-t"><b>${esc(l.commune || "Commune")}</b>`
+      + `<em data-bornes>${esc(l.codePostal || "")}</em></span>`
+      + `<span class="co-d" data-deg><i class="ossature">00°</i></span>`
+      /* La coche garde sa place sur toutes les rangées : sans quoi la colonne
+         des températures se décalerait d'une rangée à l'autre. */
+      + ico("coche", ici ? "co-coche" : "co-coche co-coche-vide")
+      + `</button>`
+      + `<button type="button" class="co-x" data-retirer="${esc(c)}">`
+      + `Retirer<span class="co-hors">${esc(l.commune || "")} des communes suivies</span></button>`
+      + `</div>`;
+  };
+
+  const liste = suivies.length
+    ? `<div class="carte co-liste" id="coListe">${suivies.map(rangee).join("")}</div>`
+    : `<div class="carte"><p class="vide">Aucune commune suivie pour le moment.</p></div>`;
+
+  const plein = suivies.length >= Reglages.MAX_SUIVIES;
+
+  return {
+    titre: "Communes",
+    corps: liste
+      + `<div class="carte"><div class="carte-tete"><h3>Ajouter</h3></div>`
+      + `<div class="champ"><label for="rgQ">Nom de commune ou code postal</label>`
+      + `<input class="rg-champ" id="rgQ" type="search" inputmode="search" autocomplete="off" `
+      + `placeholder="Grenoble, 38000"${plein ? " disabled" : ""}></div>`
+      + `<p class="champ-erreur" id="rgErr"${plein ? "" : " hidden"}>`
+      + (plein ? `Dix communes suivies au plus. En retirer une pour en ajouter une autre.` : "")
+      + `</p>`
+      + `<div class="rg-res" id="rgRes"></div>`
+      + `<button type="button" class="bouton-texte" id="rgGeo"${plein ? " disabled" : ""}>`
+      + `${ico("cible", "")}<span>Utiliser ma position</span></button></div>`
+      + `<p class="note">Glisser une rangée vers la gauche pour retirer la commune. `
+      + `La commune courante porte une coche.</p>`,
+
+    brancher(bloc) {
+      /* Les températures arrivent après coup : la feuille s'ouvre tout de
+         suite, l'ossature tient la place, un seul appel couvre la liste. */
+      if (suivies.length) {
+        P.apercus(suivies).then(({ par, age }) => {
+          for (const el of bloc.querySelectorAll(".co")) {
+            const l = suivies.find(x => Reglages.cleLieu(x) === el.dataset.cle);
+            const a = par[`${l.lat},${l.lon}`];
+            const deg = el.querySelector("[data-deg]");
+            const bornes = el.querySelector("[data-bornes]");
+            const icone = el.querySelector("[data-ic]");
+            if (!a) { deg.textContent = "—"; continue; }
+            deg.textContent = `${Math.round(a.t)}°`;
+            icone.innerHTML = ico(icoCiel(a.code, a.jour), "");
+            const cp = l.codePostal ? `${l.codePostal} · ` : "";
+            bornes.textContent = a.tn === null ? cp.replace(" · ", "")
+              : `${cp}${Math.round(a.tn)}° à ${Math.round(a.tx)}°`;
+          }
+          if (age !== null && age > 15 * 60 * 1000) {
+            majEtat("Températures de la dernière lecture connue.");
+          }
+        });
+      }
+
+      // Bascule de commune : un appui, la feuille se ferme, la prévision suit.
+      for (const b of bloc.querySelectorAll(".co-l")) {
+        b.addEventListener("click", () => {
+          const l = suivies[Number(b.dataset.k)];
+          if (Reglages.cleLieu(l) === courante) { rendre({ fermer: true }); return; }
+          Reglages.poserLieu(l);
+          rendre({ recharger: true, fermer: true });
+        });
+      }
+
+      brancherGlissement(bloc, cle => {
+        const { change } = Reglages.retirerSuivie(cle);
+        rendre(change ? { recharger: true } : {});
+      });
+
+      brancherRecherche(bloc, rendre, majEtat);
+    },
+  };
+}
+
+/* Glissement d'une rangée vers la gauche pour découvrir l'action de retrait.
+   Le menu contextuel, appui long ou clic droit, découvre la même action : le
+   glissement n'est pas atteignable au clavier. Le bouton reste dans l'ordre de
+   tabulation, et le focus ouvre la rangée. */
+function brancherGlissement(bloc, retirer) {
+  const LARGE = 104;
+
+  for (const el of bloc.querySelectorAll(".co")) {
+    const l = el.querySelector(".co-l");
+    let x0 = null, y0 = null, glisse = false, ouvert = false;
+
+    const poser = v => { l.style.transform = v ? `translateX(${-LARGE}px)` : ""; ouvert = v; };
+
+    l.addEventListener("pointerdown", ev => {
+      if (ev.pointerType === "mouse" && ev.button !== 0) return;
+      x0 = ev.clientX; y0 = ev.clientY; glisse = false;
+    });
+
+    l.addEventListener("pointermove", ev => {
+      if (x0 === null) return;
+      const dx = ev.clientX - x0, dy = ev.clientY - y0;
+      if (!glisse) {
+        if (Math.abs(dx) < 12 || Math.abs(dx) <= Math.abs(dy)) return;
+        glisse = true;
+        l.style.transition = "none";
+        l.setPointerCapture(ev.pointerId);
+      }
+      const base = ouvert ? -LARGE : 0;
+      const v = Math.max(-LARGE, Math.min(0, base + dx));
+      l.style.transform = `translateX(${v}px)`;
+    });
+
+    const fin = () => {
+      if (x0 === null) return;
+      const m = /translateX\((-?\d+(?:\.\d+)?)px\)/.exec(l.style.transform || "");
+      const v = m ? Number(m[1]) : 0;
+      l.style.transition = "";
+      if (glisse) poser(v < -LARGE / 2);
+      x0 = null;
+    };
+    l.addEventListener("pointerup", fin);
+    l.addEventListener("pointercancel", fin);
+
+    // Un glissement ne doit pas valoir appui.
+    l.addEventListener("click", ev => { if (glisse) { ev.preventDefault(); ev.stopPropagation(); } }, true);
+
+    el.addEventListener("contextmenu", ev => { ev.preventDefault(); poser(!ouvert); });
+    el.querySelector(".co-x").addEventListener("focus", () => poser(true));
+    el.querySelector(".co-x").addEventListener("blur", () => poser(false));
+    el.querySelector(".co-x").addEventListener("click", () => retirer(el.dataset.cle));
+  }
+}
+
+/* Recherche de commune et géolocalisation, communes à la feuille des communes. */
+function brancherRecherche(bloc, rendre, majEtat) {
+  const q = bloc.querySelector("#rgQ");
+  const res = bloc.querySelector("#rgRes");
+  const err = bloc.querySelector("#rgErr");
+  if (!q) return;
+  let minuteur = null;
+
+  /* L'erreur se montre sous le champ concerné, non dans une alerte globale ni
+     au milieu de la liste des résultats. */
+  const dire = t => {
+    err.textContent = t || "";
+    err.hidden = !t;
+    q.setAttribute("aria-invalid", t ? "true" : "false");
+  };
+
+  const poser = lieu => {
+    Reglages.poserLieu(lieu);
+    rendre({ recharger: true, fermer: true });
+  };
+
+  const chercher = async () => {
+    const saisie = q.value.trim();
+    res.innerHTML = "";
+    if (saisie.length < 2) { dire(""); return; }
+    const l = await Reglages.chercherCommune(saisie);
+    if (!l.length) { dire("Aucune commune ne correspond à cette saisie."); return; }
+    dire("");
+    res.innerHTML = l.map((x, k) =>
+      `<button type="button" data-k="${k}">${esc(x.commune)}`
+      + `<em>${esc(x.codePostal || "")}</em></button>`).join("");
+    for (const b of res.querySelectorAll("button")) {
+      b.addEventListener("click", () => poser(l[Number(b.dataset.k)]));
+    }
+  };
+
+  q.addEventListener("input", () => {
+    clearTimeout(minuteur);
+    minuteur = setTimeout(chercher, 260);
+  });
+
+  const geo = bloc.querySelector("#rgGeo");
+  geo.addEventListener("click", async () => {
+    geo.disabled = true;
+    majEtat("Recherche de la position…");
+    try {
+      const { lat, lon } = await Reglages.geolocaliser();
+      const lieu = await Reglages.communeDe(lat, lon);
+      if (!lieu) { majEtat("Aucune commune trouvée à cette position."); return; }
+      majEtat("");
+      poser(lieu);
+    } catch (e) {
+      majEtat(e.message);
+    } finally {
+      geo.disabled = false;
+    }
+  });
+}
+
 export function vueReglages(ctx, rendre, majEtat) {
   const g = Reglages.lire();
   const c = P.chargeCourante();
@@ -313,16 +520,7 @@ export function vueReglages(ctx, rendre, majEtat) {
   return {
     titre: "Réglages",
     corps:
-      `<div class="carte"><div class="carte-tete"><h3>Commune</h3></div>`
-      + `<div class="champ"><label for="rgQ">Nom de commune ou code postal</label>`
-      + `<input class="rg-champ" id="rgQ" type="search" inputmode="search" autocomplete="off" `
-      + `placeholder="Grenoble, 38000" value="${esc(g.commune || "")}"></div>`
-      + `<p class="champ-erreur" id="rgErr" hidden></p>`
-      + `<div class="rg-res" id="rgRes"></div>`
-      + `<button type="button" class="bouton-texte" id="rgGeo">`
-      + `${ico("cible", "")}<span>Utiliser ma position</span></button></div>`
-
-      + `<div class="carte"><div class="carte-tete"><h3>Écriture de l'écran Le temps</h3></div>`
+      `<div class="carte"><div class="carte-tete"><h3>Écriture de l'écran Le temps</h3></div>`
       + `<div class="seg">` + Reglages.ECRITURES.map(([k, n]) =>
         `<button type="button" data-ecriture="${k}"${k === g.ecriture ? ' class="actif"' : ""}>${esc(n)}</button>`)
         .join("") + `</div></div>`
@@ -338,62 +536,6 @@ export function vueReglages(ctx, rendre, majEtat) {
       + `Les réglages restent sur cet appareil.</p>`,
 
     brancher(bloc) {
-      const q = bloc.querySelector("#rgQ");
-      const res = bloc.querySelector("#rgRes");
-      const err = bloc.querySelector("#rgErr");
-      let minuteur = null;
-
-      /* L'erreur se montre sous le champ concerné, non dans une alerte
-         globale ni au milieu de la liste des résultats. */
-      const dire = t => {
-        err.textContent = t || "";
-        err.hidden = !t;
-        q.setAttribute("aria-invalid", t ? "true" : "false");
-      };
-
-      const poser = lieu => {
-        Reglages.poser({ commune: lieu.commune, codePostal: lieu.codePostal,
-          lat: lieu.lat, lon: lieu.lon, poste: null });
-        rendre({ recharger: true });
-      };
-
-      const chercher = async () => {
-        const saisie = q.value.trim();
-        res.innerHTML = "";
-        if (saisie.length < 2) { dire(""); return; }
-        const l = await Reglages.chercherCommune(saisie);
-        if (!l.length) { dire("Aucune commune ne correspond à cette saisie."); return; }
-        dire("");
-        res.innerHTML = l.map((x, k) =>
-          `<button type="button" data-k="${k}">${esc(x.commune)}`
-          + `<em>${esc(x.codePostal || "")}</em></button>`).join("");
-        for (const b of res.querySelectorAll("button")) {
-          b.addEventListener("click", () => poser(l[Number(b.dataset.k)]));
-        }
-      };
-
-      q.addEventListener("input", () => {
-        clearTimeout(minuteur);
-        minuteur = setTimeout(chercher, 260);
-      });
-
-      const geo = bloc.querySelector("#rgGeo");
-      geo.addEventListener("click", async () => {
-        geo.disabled = true;
-        majEtat("Recherche de la position…");
-        try {
-          const { lat, lon } = await Reglages.geolocaliser();
-          const lieu = await Reglages.communeDe(lat, lon);
-          if (!lieu) { majEtat("Aucune commune trouvée à cette position."); return; }
-          majEtat("");
-          poser(lieu);
-        } catch (e) {
-          majEtat(e.message);
-        } finally {
-          geo.disabled = false;
-        }
-      });
-
       for (const b of bloc.querySelectorAll("[data-ecriture]")) {
         b.addEventListener("click", () => {
           Reglages.poserEcriture(b.dataset.ecriture);

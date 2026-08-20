@@ -159,6 +159,66 @@ export async function charger({ lat, lon }) {
   }
 }
 
+/* ---------- Aperçu des communes suivies ----------
+
+   Open-Meteo accepte plusieurs couples de coordonnées dans un seul appel et rend
+   un tableau dans le même ordre. Dix communes suivies coûtent donc une requête,
+   non dix. Le résultat est gardé un quart d'heure, et le dernier connu reste
+   servi hors ligne : une liste sans température vaut moins qu'une température
+   d'il y a dix minutes, à condition de ne pas la faire passer pour l'instant. */
+
+const CACHE_APERCUS = "mameteo.apercus.v1";
+const TTL_APERCUS = 15 * 60 * 1000;
+
+const lireApercus = () => {
+  try { return JSON.parse(localStorage.getItem(CACHE_APERCUS) || "null"); }
+  catch { return null; }
+};
+
+export async function apercus(lieux) {
+  const liste = (lieux || []).filter(l => l && l.lat !== null && l.lon !== null);
+  if (!liste.length) return { par: {}, age: 0 };
+
+  const cle = liste.map(l => `${l.lat},${l.lon}`).join(";");
+  const c = lireApercus();
+  if (c && c.cle === cle && Date.now() - c.t < TTL_APERCUS) {
+    return { par: c.par, age: Date.now() - c.t };
+  }
+
+  const u = "https://api.open-meteo.com/v1/forecast"
+    + `?latitude=${liste.map(l => l.lat).join(",")}`
+    + `&longitude=${liste.map(l => l.lon).join(",")}`
+    + "&current=temperature_2m,weather_code,is_day"
+    + "&daily=temperature_2m_max,temperature_2m_min"
+    + "&timezone=Europe%2FParis&forecast_days=1";
+
+  const d = await prendre(u, 1);
+  if (!d) {
+    // Hors ligne : le dernier aperçu connu, avec son âge, ou rien.
+    return c ? { par: c.par, age: Date.now() - c.t } : { par: {}, age: null };
+  }
+
+  // Un seul lieu rend un objet, plusieurs rendent un tableau.
+  const tab = Array.isArray(d) ? d : [d];
+  const par = {};
+  liste.forEach((l, k) => {
+    const x = tab[k];
+    if (!x?.current) return;
+    par[`${l.lat},${l.lon}`] = {
+      t: x.current.temperature_2m,
+      code: x.current.weather_code,
+      jour: x.current.is_day === 1,
+      tn: x.daily?.temperature_2m_min?.[0] ?? null,
+      tx: x.daily?.temperature_2m_max?.[0] ?? null,
+    };
+  });
+
+  try {
+    localStorage.setItem(CACHE_APERCUS, JSON.stringify({ cle, t: Date.now(), par }));
+  } catch { /* quota atteint */ }
+  return { par, age: 0 };
+}
+
 // Index du jour en cours dans la série quotidienne.
 export const iJour = () => (charge?.daily ? charge.daily.time.indexOf(cleJour(new Date())) : -1);
 
