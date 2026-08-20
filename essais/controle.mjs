@@ -90,11 +90,14 @@ const onglet = async cle => {
 };
 
 console.log("\n--- Couche navigation ---");
-ok("la barre d'onglets porte quatre destinations",
-  await pg.locator(".onglet").count() === 4, String(await pg.locator(".onglet").count()));
+ok("la barre d'onglets porte cinq destinations",
+  await pg.locator(".onglet").count() === 5, String(await pg.locator(".onglet").count()));
 const nomsOnglets = (await pg.locator(".onglet span").allInnerTexts()).join(",");
 ok("les destinations sont les bonnes",
-  nomsOnglets === "Accueil,Le temps,La semaine,La lumière", nomsOnglets);
+  nomsOnglets === "Accueil,Le temps,La semaine,Le soleil,La lune", nomsOnglets);
+ok("aucun libellé d'onglet n'est tronqué", await pg.evaluate(() =>
+  [...document.querySelectorAll(".onglet span")]
+    .every(e => e.scrollWidth <= e.clientWidth + 1)));
 ok("un seul onglet est courant",
   await pg.locator('.onglet[aria-current="page"]').count() === 1);
 ok("la barre d'onglets est ancrée en bas", await pg.evaluate(() => {
@@ -177,10 +180,46 @@ ok("sept lignes", await pg.locator(".sem tbody tr").count() === 7, String(await 
 const j1 = await pg.locator(".sem .j").first().innerText();
 ok("la première ligne est aujourd'hui", j1.startsWith("Aujourd'hui"), j1.replace("\n"," "));
 
-console.log("\n--- La lumière ---");
-await onglet("lumiere");
+console.log("\n--- Le soleil ---");
+await onglet("soleil");
+ok("l'écran s'appelle Le soleil", (await txt(".titre-ecran h1")) === "Le soleil", await txt(".titre-ecran h1"));
 ok("l'arc du jour est dessiné", await pg.locator(".aj").count() === 1);
 ok("la durée du jour est écrite", /\d+ h \d\d/.test(await txt("#ecran")));
+const soleilTxt = await txt("#ecran");
+ok("le midi solaire est écrit", /Midi solaire/.test(soleilTxt));
+ok("la hauteur maximale est écrite", /Hauteur maximale[\s\S]{0,40}\d+°/.test(soleilTxt));
+ok("les trois crépuscules sont écrits",
+  /Crépuscule civil/.test(soleilTxt) && /Crépuscule nautique/.test(soleilTxt)
+  && /Nuit noire/.test(soleilTxt));
+ok("le lever porte un point cardinal", /Lever[\s\S]{0,40}(nord|est|sud|ouest)/.test(soleilTxt), soleilTxt.slice(0, 80));
+
+console.log("\n--- La lune ---");
+const requetes = [];
+const noter = r => requetes.push(r.url());
+pg.on("request", noter);
+await onglet("lune");
+pg.off("request", noter);
+ok("l'écran s'appelle La lune", (await txt(".titre-ecran h1")) === "La lune", await txt(".titre-ecran h1"));
+ok("le disque de phase est dessiné", await pg.locator(".ln-disque").count() === 1);
+ok("le disque porte une part claire et une part sombre",
+  await pg.locator(".ln-claire").count() === 1 && await pg.locator(".ln-sombre").count() === 1);
+const lunTxt = await txt("#ecran");
+ok("la phase est nommée",
+  /(Nouvelle lune|croissant|quartier|Gibbeuse|Pleine lune)/.test(await txt(".ln-nom")), await txt(".ln-nom"));
+ok("la part éclairée est écrite en pourcentage", /\d+ % de la face visible/.test(lunTxt));
+ok("l'âge est écrit en jours", /\d+[,\d]* jours depuis la nouvelle lune/.test(lunTxt));
+ok("le lever et le coucher sont donnés", /Lever/.test(lunTxt) && /Coucher/.test(lunTxt));
+ok("le passage au méridien est donné", /Passage au méridien/.test(lunTxt));
+ok("les quatre phases à venir sont listées",
+  ["Nouvelle lune", "Premier quartier", "Pleine lune", "Dernier quartier"]
+    .every(n => lunTxt.includes(n)));
+ok("les phases à venir sont dans l'ordre chronologique", await pg.evaluate(() => {
+  const t = [...document.querySelectorAll(".section")]
+    .find(s => s.querySelector("h2")?.textContent === "Prochaines phases");
+  const d = [...t.querySelectorAll(".rangee-val")].map(e => e.textContent.trim());
+  return d.length === 4;
+}));
+ok("aucune requête réseau pour la Lune", requetes.length === 0, requetes.slice(0, 2).join(" "));
 
 console.log("\n--- Vigilance, renvoi vers Météo-France ---");
 await onglet("accueil");

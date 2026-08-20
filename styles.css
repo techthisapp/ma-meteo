@@ -102,6 +102,11 @@
      en thème clair, le plus haut en thème sombre. */
   --piste:#E3E6EC;
   --piste-actif:#FFFFFF;
+
+  /* Disque lunaire : ivoire pour la part éclairée, ardoise pour l'ombre. Les
+     deux tiennent sur les deux thèmes, la Lune n'ayant qu'une couleur. */
+  --lune-claire:#F2EFE6;
+  --lune-sombre:#2C353F;
 }
 
 /* Le corps de texte suit le réglage de taille du système sur Safari. */
@@ -134,6 +139,9 @@
 
     --piste:#0F151B;
     --piste-actif:#2B343E;
+
+    --lune-claire:#F2EFE6;
+    --lune-sombre:#232B34;
   }
 }
 
@@ -683,6 +691,17 @@ button.rangee:active{background:var(--surface-2)}
 .aj-b div:last-child{text-align:right}
 /* Les lignes libellé et valeur de la lumière et des réglages emploient la
    rangée commune : un seul composant de liste dans toute l'application. */
+
+/* ---------- 14 bis. Lune ---------- */
+
+.ln-tete{display:flex;align-items:center;gap:var(--espace-lg);flex-wrap:wrap}
+.ln-disque{width:104px;height:104px;flex:0 0 auto}
+.ln-sombre{fill:var(--lune-sombre)}
+.ln-claire{fill:var(--lune-claire)}
+.ln-dit{display:flex;flex-direction:column;gap:var(--espace-xs);min-width:0;flex:1 1 12ch}
+.ln-nom{font-size:var(--texte-titre2);font-weight:var(--graisse-semibold);letter-spacing:-.015em}
+.ln-part{font-size:var(--texte-sous);color:var(--etiquette-2)}
+.ln-age{font-size:var(--texte-note);color:var(--etiquette-3)}
 
 /* ---------- 15. Mesure contre modèle, module en réserve ---------- */
 

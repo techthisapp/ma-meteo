@@ -14,7 +14,7 @@ import * as P from "./previsions.js";
 import * as Reglages from "./reglages.js";
 import { ico, icoCiel, tempsDe } from "./icones.js";
 import { conseilsHTML, SEUILS } from "./conseils.js";
-import { vueTemps, vueSemaine, vueVigilance, vueLumiere, vueReglages } from "./vues.js";
+import { vueTemps, vueSemaine, vueVigilance, vueSoleil, vueLune, vueReglages } from "./vues.js";
 
 const $ = id => document.getElementById(id);
 
@@ -37,7 +37,8 @@ const ONGLETS = [
   ["accueil", "maison", "Accueil"],
   ["temps", "horloge", "Le temps"],
   ["semaine", "semaine", "La semaine"],
-  ["lumiere", "arc", "La lumière"],
+  ["soleil", "arc", "Le soleil"],
+  ["lune", "lune", "La lune"],
 ];
 
 let onglet = "accueil";
@@ -235,7 +236,7 @@ function ecranAccueil() {
 
 /* ---------- Écrans branchés sur les vues ---------- */
 
-const VUES_ONGLET = { temps: vueTemps, semaine: vueSemaine, lumiere: vueLumiere };
+const VUES_ONGLET = { temps: vueTemps, semaine: vueSemaine, soleil: vueSoleil, lune: vueLune };
 
 function ecranVue(nom) {
   const f = VUES_ONGLET[nom](ctx, () => rendre(), majEtat);

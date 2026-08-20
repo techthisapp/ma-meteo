@@ -12,11 +12,12 @@ service dorsal, sans base de données, sans compte. Métropole française.
 | Accueil | Température, ciel, bornes du jour, quatre mesures, trois lignes de conseil, alertes au delà de la fenêtre, accès à la vigilance |
 | Le temps | Vingt-quatre heures glissantes en trois écritures : ruban à sept voies, liste à treize colonnes, moments par tranches de six heures |
 | La semaine | Sept jours, résumés des heures pour les deux premiers |
-| La lumière | Arc du jour, lever, coucher, durée, écart à la veille, seuil de dix heures |
+| Le soleil | Arc du jour, lever et coucher avec leur point cardinal, midi solaire, hauteur maximale, durée, écart à la veille, seuil de dix heures, trois crépuscules |
+| La lune | Phase dessinée et nommée, part éclairée, âge, lever et coucher avec leur point cardinal, passage au méridien, hauteur maximale, durée au-dessus de l'horizon, lunaison, quatre prochaines phases |
 | Vigilance | Renvoi vers Météo-France, avec le motif du renvoi, en feuille |
 | Réglages | Commune, géolocalisation, écriture retenue, sources, en feuille |
 
-Les quatre premiers écrans sont des destinations de la barre d'onglets. Vigilance
+Les cinq premiers écrans sont des destinations de la barre d'onglets. Vigilance
 et Réglages sont des présentations en feuille.
 
 ## Sources
@@ -25,6 +26,7 @@ et Réglages sont des présentations en feuille.
 |---|---|---|
 | Prévision | `api.open-meteo.com`, AROME de Météo-France forcé sur deux jours | Aucun |
 | Commune | `api-adresse.data.gouv.fr` | Aucun |
+| Soleil et Lune | calcul sur l'appareil, `src/astres.js` | Aucune requête |
 
 Les deux répondent en origine croisée, ce qui a été vérifié depuis un navigateur
 le 19 août 2026.
@@ -72,14 +74,15 @@ src/
   conseils.js       les six règles et leurs seuils
   ruban.js          météogramme à sept voies
   ecritures.js      liste et moments
-  vues.js           temps, semaine, vigilance, lumière, réglages
+  astres.js         positions du Soleil et de la Lune, phases, levers et couchers
+  vues.js           temps, semaine, vigilance, soleil, lune, réglages
   app.js            amorçage, barre d'onglets, écrans, coque de la feuille
   reseau.js         reprise à attente croissante, gzip, listage S3
   vigilance.js      seau data.gouv, schéma réel, non branché
   postes.js         fichier départemental et geojson des postes, non branché
   reserve.js        les deux vues débranchées
 essais/
-  controle.mjs      soixante-six contrôles en navigateur
+  controle.mjs      quatre-vingt-trois contrôles en navigateur
   meteo.json        données figées au 18 août 2026, 9 h
 ```
 
@@ -98,7 +101,7 @@ révision installée par Playwright ne correspond pas à celle du poste.
 
 Le lanceur sert le dossier, fige l'horloge au 18 août 2026 à 9 h, détourne les
 trois appels Open-Meteo vers `meteo.json` et coupe les sources data.gouv pour
-éprouver le repli. Soixante-six contrôles, dont l'absence de répétition entre
+éprouver le repli. Quatre-vingt-trois contrôles, dont l'absence de répétition entre
 les alertes et les conseils, les sept voies du ruban, l'agrandissement d'une
 voie, les treize colonnes de la liste, les vingt-quatre lignes de la fenêtre, la
 nature du renvoi de vigilance, et seize contrôles de conformité au design
@@ -106,7 +109,38 @@ system : cibles de 44 pt, fond issu du token, absence de rayon en valeur brute,
 verre réservé à la navigation, tailles de texte issues de l'échelle, transitions
 neutralisées sous mouvement réduit, accroches de feuille, erreur sous le champ,
 état désactivé, rangée unique, état vide complet, ossature au premier
-chargement.
+chargement. Les écrans du Soleil et de la Lune sont contrôlés de la même façon,
+y compris l'absence de toute requête réseau pour la Lune.
+
+## Éphémérides
+
+`src/astres.js` calcule les positions du Soleil et de la Lune sur l'appareil.
+Aucune source distante n'est interrogée : Open-Meteo ne porte pas de donnée
+lunaire, et une application qui doit fonctionner hors ligne n'a pas à dépendre
+d'un service pour dire où est la Lune.
+
+Les séries sont celles de Meeus, tronquées aux termes principaux. Écarts mesurés
+contre les références de l'ouvrage et contre Open-Meteo :
+
+| Grandeur | Référence | Écart mesuré |
+|---|---|---|
+| Longitude de la Lune | Meeus, exemple 47.a | 0,005° |
+| Latitude de la Lune | Meeus, exemple 47.a | 0,002° |
+| Distance de la Lune | Meeus, exemple 47.a | 80 km |
+| Longitude du Soleil | Meeus, exemple 25.a | 0,0003° |
+| Lever et coucher du Soleil | Open-Meteo, seize jours | moins d'une minute |
+| Instants de phase | Meeus, exemples 49.a et 49.b | une à trois minutes |
+
+Le temps terrestre est distingué du temps universel : les positions se calculent
+dans le premier, l'angle horaire se prend dans le second. Le polynôme d'Espenak
+et Meeus donne l'écart entre les deux, valable de 2005 à 2050.
+
+Les heures de lever et de coucher du Soleil restent celles d'Open-Meteo, qui
+fait foi dans cette application. Les azimuts, le midi solaire et les crépuscules
+sont calculés, la source ne les portant pas.
+
+Un jour sans lever ou sans coucher de Lune n'est pas une anomalie : il s'en
+présente environ deux par lunaison sous nos latitudes. L'écran l'écrit.
 
 ## Règles reprises du module d'origine
 

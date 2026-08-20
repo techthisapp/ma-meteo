@@ -214,9 +214,12 @@ La courbe `--ressort` reproduit l'amortissement iOS.
 
 ## Navigation
 
-Quatre destinations, ni plus ni moins : Accueil, Le temps, La semaine,
-La lumière. Réglages et Vigilance ne sont pas des destinations, ce sont des
-présentations en feuille.
+Cinq destinations, le maximum admis par le document : Accueil, Le temps,
+La semaine, Le soleil, La lune. Réglages et Vigilance ne sont pas des
+destinations, ce sont des présentations en feuille.
+
+Un contrôle automatique vérifie qu'aucun libellé d'onglet n'est tronqué à la
+largeur d'un iPhone.
 
 Le titre d'écran porte l'action de changement de commune, à la façon d'un titre
 à menu. Il se replie dans la barre de tête au défilement.
@@ -240,8 +243,8 @@ Le titre d'écran porte l'action de changement de commune, à la façon d'un tit
 
 ## Contrôles automatiques
 
-`node essais/controle.mjs` exécute soixante-six contrôles en navigateur, dont
-seize portent sur le design system :
+`node essais/controle.mjs` exécute quatre-vingt-trois contrôles en navigateur,
+dont seize portent sur le design system :
 
 1. toute cible interactive tient 44 pt ;
 2. le fond du corps vient du token ;
@@ -249,7 +252,7 @@ seize portent sur le design system :
 4. le verre est réservé à la couche navigation ;
 5. toutes les tailles de texte viennent de l'échelle ;
 6. les transitions sont neutralisées sous mouvement réduit ;
-7. la barre d'onglets porte quatre destinations, ancrées en bas ;
+7. la barre d'onglets porte cinq destinations, ancrées en bas, sans libellé tronqué ;
 8. un seul onglet est courant ;
 9. la barre de tête ne montre pas son titre au repos ;
 10. la feuille courte prend l'accroche intermédiaire, la longue toute la hauteur ;

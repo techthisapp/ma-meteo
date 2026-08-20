@@ -8,8 +8,20 @@ import { conseilsHTML } from "./conseils.js";
 import * as Ruban from "./ruban.js";
 import { liste, moments } from "./ecritures.js";
 import * as Reglages from "./reglages.js";
+import * as Astres from "./astres.js";
 
-/* ---------- La feuille du temps ---------- */
+/* ---------- Fragments communs ---------- */
+
+const hm = ms => new Date(ms).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+
+const CARDINAUX = ["nord", "nord-est", "est", "sud-est", "sud", "sud-ouest", "ouest", "nord-ouest"];
+const cardinalDe = az => CARDINAUX[Math.round((((az % 360) + 360) % 360) / 45) % 8];
+
+const rangees = lignes => lignes.map(([n, v]) =>
+  `<div class="rangee"><span class="rangee-txt">${esc(n)}</span>`
+  + `<span class="rangee-val"><b>${esc(v)}</b></span></div>`).join("");
+
+/* ---------- L'écran du temps ---------- */
 
 export function vueTemps(ctx, rendre) {
   const s = P.serieHoraire();
@@ -142,9 +154,7 @@ export function vueVigilance() {
   };
 }
 
-/* ---------- La lumière ---------- */
-
-/* ---------- La lumière ---------- */
+/* ---------- Le soleil ---------- */
 
 const arcDuJour = (lever, coucher, maintenant) => {
   const W = 320, H = 108, sol = H - 26;
@@ -165,11 +175,13 @@ const arcDuJour = (lever, coucher, maintenant) => {
     + `</svg>`;
 };
 
-export function vueLumiere() {
+export function vueSoleil() {
   const c = P.chargeCourante();
   const i = P.iJour();
   const g = Reglages.lire();
-  if (!c || i < 0) return { titre: "La lumière", corps: `<div class="carte"><p class="vide">Indisponible.</p></div>` };
+  if (!c || i < 0 || !Reglages.situe()) {
+    return { titre: "Le soleil", corps: `<div class="carte"><p class="vide">Indisponible.</p></div>` };
+  }
 
   const d = c.daily;
   const lever = new Date(d.sunrise[i]).getTime();
@@ -179,7 +191,11 @@ export function vueLumiere() {
   const veille = i > 0 ? d.daylight_duration[i - 1] : duree;
   const delta = Math.round((duree - veille) / 60);
 
-  const hm = ms => new Date(ms).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  /* Les heures de lever et de coucher viennent d'Open-Meteo, qui fait foi ici.
+     Les azimuts, le midi solaire et les crépuscules se calculent sur l'appareil :
+     la source ne les porte pas. */
+  const e = Astres.evenements("soleil", new Date(), g.lat, g.lon);
+  const cr = Astres.crepuscules(new Date(), g.lat, g.lon);
 
   /* Le jour de passage du seuil de dix heures, dans un sens ou dans l'autre.
      C'est la borne au-delà de laquelle la lumière change de régime. */
@@ -194,27 +210,91 @@ export function vueLumiere() {
     }
   }
 
-  const lignes = [
-    ["Lever", hm(lever)],
-    ["Coucher", hm(coucher)],
+  const course = [
+    ["Lever", `${hm(lever)}${e.azimutLever === null ? "" : `, ${cardinalDe(e.azimutLever)}`}`],
+    ["Coucher", `${hm(coucher)}${e.azimutCoucher === null ? "" : `, ${cardinalDe(e.azimutCoucher)}`}`],
+    ["Midi solaire", e.meridien ? hm(e.meridien.getTime()) : "—"],
+    ["Hauteur maximale", e.hauteurMax === null ? "—" : `${Math.round(e.hauteurMax)}°`],
     ["Durée du jour", hhmm(duree)],
     ["Écart à la veille", `${delta >= 0 ? "+" : "−"} ${Math.abs(delta)} min`],
   ];
-  if (passage) {
-    lignes.push([`Seuil de dix heures`,
-      `${passage.sens} le ${jourLong(passage.date)}`]);
-  }
+  if (passage) course.push(["Seuil de dix heures", `${passage.sens} le ${jourLong(passage.date)}`]);
+
+  const cieux = [
+    ["Crépuscule civil", cr.civil],
+    ["Crépuscule nautique", cr.nautique],
+    ["Nuit noire", cr.astronomique],
+  ].map(([n, v]) => [n, v.matin && v.soir
+    ? `${hm(v.matin.getTime())} et ${hm(v.soir.getTime())}`
+    : "le Soleil ne descend pas si bas"]);
 
   return {
-    titre: "La lumière",
+    titre: "Le soleil",
     sous: g.commune || "",
     corps: `<div class="carte">${arcDuJour(lever, coucher, maintenant)}`
       + `<div class="aj-b"><div><b>${hm(lever)}</b><i>lever</i></div>`
       + `<div><b>${hm(coucher)}</b><i>coucher</i></div></div></div>`
+      + `<div class="section"><h2>Course du jour</h2>`
+      + `<div class="carte">${rangees(course)}</div></div>`
+      + `<div class="section"><h2>Fin et retour de la lumière</h2>`
+      + `<div class="carte">${rangees(cieux)}`
+      + `<p class="note">Le crépuscule civil borne la lecture au dehors, le nautique `
+      + `l'horizon en mer, la nuit noire l'absence de lueur solaire.</p></div></div>`,
+  };
+}
+
+/* ---------- La lune ---------- */
+
+export function vueLune() {
+  const g = Reglages.lire();
+  if (!Reglages.situe()) {
+    return { titre: "La lune", corps: `<div class="carte"><p class="vide">Indisponible.</p></div>` };
+  }
+
+  const maintenant = new Date();
+  const p = Astres.phase(maintenant);
+  const e = Astres.evenements("lune", maintenant, g.lat, g.lon);
+  const l = Astres.lunaison(maintenant);
+  const phases = Astres.prochainesPhases(maintenant);
+
+  const jourEtHeure = d => `${d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}, `
+    + `${hm(d.getTime())}`;
+
+  const cycle = [
+    ["Part éclairée", `${Math.round(p.eclairee * 100)} %`],
+    ["Âge", `${nombreFr(p.age)} jours`],
+    ["Sens", p.croissante ? "croissante" : "décroissante"],
+    ["Lunaison en cours", `${nombreFr(l.duree)} jours`],
+  ];
+
+  const horizonLignes = [
+    ["Lever", e.lever ? `${hm(e.lever.getTime())}, ${cardinalDe(e.azimutLever)}` : "aucun ce jour"],
+    ["Coucher", e.coucher ? `${hm(e.coucher.getTime())}, ${cardinalDe(e.azimutCoucher)}` : "aucun ce jour"],
+    ["Passage au méridien", e.meridien ? hm(e.meridien.getTime()) : "—"],
+    ["Hauteur maximale", e.hauteurMax === null ? "—" : `${Math.round(e.hauteurMax)}°`],
+    ["Durée au-dessus de l'horizon", e.duree === null ? "à cheval sur deux jours" : hhmm(e.duree)],
+  ];
+
+  return {
+    titre: "La lune",
+    sous: g.commune || "",
+    corps: `<div class="ln-tete">${Astres.dessinPhase(p.eclairee, p.croissante)}`
+      + `<div class="ln-dit"><p class="ln-nom">${esc(p.nom)}</p>`
+      + `<p class="ln-part">${Math.round(p.eclairee * 100)} % de la face visible est éclairée</p>`
+      + `<p class="ln-age">${nombreFr(p.age)} jours depuis la nouvelle lune</p></div></div>`
+
+      + `<div class="section"><h2>Au-dessus de l'horizon</h2>`
+      + `<div class="carte">${rangees(horizonLignes)}</div></div>`
+
+      + `<div class="section"><h2>Cycle</h2>`
+      + `<div class="carte">${rangees(cycle)}</div></div>`
+
+      + `<div class="section"><h2>Prochaines phases</h2>`
       + `<div class="carte">`
-      + lignes.map(([n, v]) => `<div class="rangee"><span class="rangee-txt">${esc(n)}</span>`
-        + `<span class="rangee-val"><b>${esc(v)}</b></span></div>`).join("")
-      + `</div>`,
+      + rangees(phases.map(x => [x.nom, jourEtHeure(x.date)]))
+      + `<p class="note">Positions calculées sur l'appareil, sans source distante. `
+      + `Écart de l'ordre de la minute sur les heures, de quelques minutes sur les `
+      + `instants de phase.</p></div></div>`,
   };
 }
 
