@@ -132,14 +132,29 @@ const bandeauHorsLigne = () => navigator.onLine ? "" :
   `<div class="hors-ligne">${ico("sans_reseau", "")}`
   + `<span>Hors ligne. La dernière prévision reçue reste affichée.</span></div>`;
 
-const etatVide = (symbole, titre, phrase, action) =>
+const etatVide = (symbole, titre, phrase, action, secondaire) =>
   `<div class="etat-vide">${ico(symbole, "")}<h2>${esc(titre)}</h2><p>${esc(phrase)}</p>`
   + (action ? `<button type="button" class="bouton-plein" data-feuille="reglages">${esc(action)}</button>` : "")
+  + (secondaire ? `<button type="button" class="bouton-borde" data-action="geo">`
+    + ico("cible", "") + `<span>${esc(secondaire)}</span></button>` : "")
   + `</div>`;
 
 const etatChargement = () =>
   `<div class="etat-vide"><div class="tourne" role="progressbar" aria-label="Chargement"></div>`
   + `<p>Lecture de la prévision.</p></div>`;
+
+/* Première lecture de l'accueil : la forme du bandeau est connue d'avance, une
+   ossature vaut mieux qu'un tourniquet. */
+const ossatureAccueil = () =>
+  `<div class="bandeau" aria-hidden="true"><div class="bd-haut">`
+  + `<p class="bd-deg ossature">00°</p>`
+  + `<div class="bd-etat"><p class="bd-ciel ossature">Temps en cours</p>`
+  + `<p class="bd-bornes ossature">00° à 00° aujourd'hui</p></div></div>`
+  + `<div class="bd-mesures">`
+  + [1, 2, 3, 4].map(() => `<div class="bd-m"><i class="ossature">Mesure</i>`
+    + `<b class="ossature">00</b><em></em></div>`).join("")
+  + `</div></div>`
+  + `<p class="pied" role="status">Lecture de la prévision.</p>`;
 
 const etatErreur = () =>
   `<div class="etat-vide">${ico("sans_reseau", "")}<h2>Prévision indisponible</h2>`
@@ -248,10 +263,13 @@ function rendre() {
       avecLieu: false,
       corps: etatVide("lieu", "Aucune commune",
         "La prévision se lit pour une commune de France métropolitaine.",
-        "Choisir une commune"),
+        "Choisir une commune", "Utiliser ma position"),
     };
   } else if (charge === "chargement" && !P.chargeCourante()) {
-    f = { titre: nom, sous: "", avecLieu: false, corps: etatChargement() };
+    f = {
+      titre: nom, sous: "", avecLieu: false,
+      corps: onglet === "accueil" ? ossatureAccueil() : etatChargement(),
+    };
   } else if (onglet === "accueil") {
     f = ecranAccueil();
   } else {
@@ -325,9 +343,35 @@ function majHauteurOnglets() {
 new ResizeObserver(majHauteurOnglets).observe($("onglets"));
 majHauteurOnglets();
 
+/* ---------- Situer par la position ---------- */
+
+/* Le geste vient de l'utilisateur, la demande de position aussi : les deux
+   navigateurs exigent ce lien direct. */
+async function situerParPosition(bouton) {
+  if (bouton) { bouton.disabled = true; bouton.setAttribute("aria-busy", "true"); }
+  majEtat("Recherche de la position…");
+  try {
+    const { lat, lon } = await Reglages.geolocaliser();
+    const lieu = await Reglages.communeDe(lat, lon);
+    if (!lieu) { majEtat("Aucune commune trouvée à cette position."); return; }
+    majEtat("");
+    Reglages.poser({ commune: lieu.commune, codePostal: lieu.codePostal,
+      lat: lieu.lat, lon: lieu.lon, poste: null });
+    sentir(10);
+    charger();
+  } catch (e) {
+    majEtat(e.message);
+  } finally {
+    if (bouton) { bouton.disabled = false; bouton.removeAttribute("aria-busy"); }
+  }
+}
+
 /* ---------- Couche superposition ---------- */
 
 const FEUILLES = { vigilance: vueVigilance, reglages: vueReglages };
+
+/* Accroches : un contenu court n'occupe pas tout l'écran. */
+const ACCROCHE = { vigilance: "moyenne", reglages: "grande" };
 
 function rendreFeuille() {
   if (!vueCourante) return;
@@ -352,6 +396,7 @@ function ouvrirFeuille(vue, enRetour) {
   if (!enRetour && vueCourante && !$("feuille").hidden) pile.push(vueCourante);
   vueCourante = vue;
   rendreFeuille();
+  $("feuille").classList.toggle("moyenne", ACCROCHE[vue] === "moyenne");
   $("feuille-retour").hidden = !pile.length;
   $("feuille-corps").scrollTop = 0;
 
@@ -442,8 +487,10 @@ $("feuille-retour").addEventListener("click", retour);
 $("voile").addEventListener("click", () => history.back());
 
 $("ecran").addEventListener("click", ev => {
-  const b = ev.target.closest("[data-feuille]");
-  if (b) ouvrirFeuille(b.dataset.feuille);
+  const f = ev.target.closest("[data-feuille]");
+  if (f) { ouvrirFeuille(f.dataset.feuille); return; }
+  const a = ev.target.closest('[data-action="geo"]');
+  if (a) situerParPosition(a);
 });
 
 window.addEventListener("keydown", ev => {

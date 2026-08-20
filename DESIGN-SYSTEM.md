@@ -64,9 +64,13 @@ vaut 16 px et l'échelle se réduit d'environ 6 %.
 | `.caption` | `--texte-legende` | 12 | notes |
 | `.caption2` | `--texte-legende2` | 11 | libellés d'onglet, unités |
 
-Trois niveaux typographiques au plus se lisent en même temps. La graisse
-`--graisse-semibold` attire l'attention, non une taille disproportionnée.
-Aucune capitale intégrale.
+La règle des trois niveaux typographiques s'applique par bloc, non par écran.
+Le bandeau du jour en emploie trois : le chiffre, le libellé du ciel, les bornes.
+Une rangée en emploie deux. Un écran entier en additionne davantage, ce qui est
+la conséquence normale d'un empilement de blocs conformes.
+
+La graisse `--graisse-semibold` attire l'attention, non une taille
+disproportionnée. Aucune capitale intégrale.
 
 Deux familles échappent à l'échelle et le contrôle automatique les exclut : le
 grand chiffre du bandeau, qui est un dessin, et les graduations tracées dans les
@@ -117,7 +121,7 @@ plein. Aucun réglage manuel n'est proposé.
 | `--rayon-md` | 12 | alertes, contrôle segmenté, champs |
 | `--rayon-lg` | 16 | groupes encartés |
 | `--rayon-xl` | 20 | feuille |
-| `--rayon-carte` | 24 | réservé |
+| `--rayon-carte` | 24 | publié mais non instancié : aucun composant ici n'est un objet autonome |
 | `--rayon-plein` | capsule | boutons pleins, poignée, message d'état |
 
 ## Zones tactiles
@@ -128,11 +132,20 @@ cibles visibles de l'écran et échoue si l'une d'elles est plus petite.
 
 ## Composants
 
-### Bouton principal
+### Boutons
 
-`.bouton-plein`, hauteur minimale de 50 pt, forme capsule, fond `--accent`. Une
-seule action dominante par écran. En cours de traitement, `aria-busy="true"`
-neutralise le second appui.
+| Rôle | Classe | Forme |
+|---|---|---|
+| Principal | `.bouton-plein` | capsule pleine, fond `--accent`, hauteur 50 pt |
+| Secondaire | `.bouton-borde` | capsule sur `--surface`, texte `--accent`, hauteur 50 pt |
+| Tertiaire | `.bouton-texte` | symbole et texte, sans surface, 44 pt de haut |
+
+Une seule action dominante par écran. En cours de traitement, `aria-busy="true"`
+neutralise le second appui. L'attribut `disabled`, ou `aria-disabled="true"`,
+ramène l'opacité à 0,38 et coupe les événements de pointage.
+
+Le rôle destructif n'est pas défini : l'application ne porte aucune action qui
+détruise des données.
 
 ### Contrôle segmenté
 
@@ -155,12 +168,24 @@ sans surface.
 
 `.feuille`, poignée de glissement, fermeture au doigt au delà du quart de la
 hauteur ou sur un geste rapide, fermeture par le voile, par Échap et par le
-geste de retour du navigateur. Fermée, elle sort de l'ordre de tabulation.
+geste de retour du navigateur.
+
+Deux accroches, faute d'équivalent web à `presentationDetents` :
+
+| Accroche | Hauteur | Emploi |
+|---|---|---|
+| Intermédiaire, `.moyenne` | 56 svh | Vigilance |
+| Pleine | 94 svh | Réglages |
+
+Fermée, la feuille sort de l'ordre de tabulation. La règle `[hidden]{display:none
+!important}` est nécessaire : plusieurs composants portent un `display` explicite
+qui l'emporterait sinon sur la règle de l'agent utilisateur.
 
 ### Champ de saisie
 
 Étiquette toujours visible, le texte de substitution ne sert jamais d'étiquette.
-L'erreur s'affiche sous le champ concerné, non dans une alerte globale.
+L'erreur s'affiche sous le champ concerné, dans `.champ-erreur`, et pose
+`aria-invalid` sur le champ. Aucune alerte globale.
 
 ## États
 
@@ -168,7 +193,7 @@ Chaque écran dépendant de données prévoit cinq états.
 
 | État | Réalisation |
 |---|---|
-| Chargement | `.tourne`, uniquement quand rien n'est déjà lu |
+| Chargement | `.ossature` sur l'accueil, dont la forme est connue d'avance ; `.tourne` ailleurs. Jamais quand du contenu est déjà lisible |
 | Chargé | contenu |
 | Vide | `.etat-vide` : symbole, titre, une phrase, une action |
 | Erreur | `.etat-vide` avec bouton « Réessayer » |
@@ -215,12 +240,23 @@ Le titre d'écran porte l'action de changement de commune, à la façon d'un tit
 
 ## Contrôles automatiques
 
-`node essais/controle.mjs` exécute cinquante-six contrôles en navigateur, dont
-six portent sur le design system :
+`node essais/controle.mjs` exécute soixante-six contrôles en navigateur, dont
+seize portent sur le design system :
 
 1. toute cible interactive tient 44 pt ;
 2. le fond du corps vient du token ;
 3. aucune valeur brute de rayon hors du bloc de tokens ;
 4. le verre est réservé à la couche navigation ;
 5. toutes les tailles de texte viennent de l'échelle ;
-6. les transitions sont neutralisées sous mouvement réduit.
+6. les transitions sont neutralisées sous mouvement réduit ;
+7. la barre d'onglets porte quatre destinations, ancrées en bas ;
+8. un seul onglet est courant ;
+9. la barre de tête ne montre pas son titre au repos ;
+10. la feuille courte prend l'accroche intermédiaire, la longue toute la hauteur ;
+11. l'erreur paraît sous le champ, non dans la liste ;
+12. le champ fautif est marqué invalide, et l'erreur disparaît à la correction ;
+13. l'état désactivé neutralise le contrôle ;
+14. une seule rangée de liste dans toute l'application ;
+15. l'état vide porte un symbole, un titre, une phrase, une action principale et
+    une action secondaire ;
+16. la première lecture montre une ossature, non un voile plein écran.

@@ -79,7 +79,7 @@ src/
   postes.js         fichier départemental et geojson des postes, non branché
   reserve.js        les deux vues débranchées
 essais/
-  controle.mjs      cinquante-six contrôles en navigateur
+  controle.mjs      soixante-six contrôles en navigateur
   meteo.json        données figées au 18 août 2026, 9 h
 ```
 
@@ -98,13 +98,15 @@ révision installée par Playwright ne correspond pas à celle du poste.
 
 Le lanceur sert le dossier, fige l'horloge au 18 août 2026 à 9 h, détourne les
 trois appels Open-Meteo vers `meteo.json` et coupe les sources data.gouv pour
-éprouver le repli. Cinquante-six contrôles, dont l'absence de répétition entre
+éprouver le repli. Soixante-six contrôles, dont l'absence de répétition entre
 les alertes et les conseils, les sept voies du ruban, l'agrandissement d'une
 voie, les treize colonnes de la liste, les vingt-quatre lignes de la fenêtre, la
-nature du renvoi de vigilance, et six contrôles de conformité au design system :
-cibles de 44 pt, fond issu du token, absence de rayon en valeur brute, verre
-réservé à la navigation, tailles de texte issues de l'échelle, transitions
-neutralisées sous mouvement réduit.
+nature du renvoi de vigilance, et seize contrôles de conformité au design
+system : cibles de 44 pt, fond issu du token, absence de rayon en valeur brute,
+verre réservé à la navigation, tailles de texte issues de l'échelle, transitions
+neutralisées sous mouvement réduit, accroches de feuille, erreur sous le champ,
+état désactivé, rangée unique, état vide complet, ossature au premier
+chargement.
 
 ## Règles reprises du module d'origine
 

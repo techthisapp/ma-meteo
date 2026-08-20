@@ -62,6 +62,10 @@ await ctx.route(/api\.open-meteo\.com/, route => {
 });
 // Les deux sources data.gouv sont coupées : on éprouve le repli.
 await ctx.route(/object\.files\.data\.gouv\.fr|www\.data\.gouv\.fr/, r => r.abort());
+// La recherche de commune ne rend rien : on éprouve l'erreur sous le champ.
+await ctx.route(/api-adresse\.data\.gouv\.fr/, r => r.fulfill({
+  status: 200, contentType: "application/json", body: JSON.stringify({ features: [] }),
+}));
 
 const pg = await ctx.newPage();
 const erreurs = [];
@@ -191,12 +195,39 @@ ok("il s'ouvre hors de l'application", await lien.getAttribute("target") === "_b
 ok("le renvoi est motivé", /archive|retard|5 août/i.test(await txt("#feuille-corps")));
 ok("aucun bulletin archivé n'est affiché", await pg.locator(".vg-l").count() === 0);
 
+ok("la feuille courte prend l'accroche intermédiaire",
+  await pg.locator("#feuille.moyenne").count() === 1);
+
 console.log("\n--- Réglages en feuille ---");
 await pg.locator("#feuille-fermer").click(); await pg.waitForTimeout(420);
 await pg.locator("#btnReglages").click(); await pg.waitForTimeout(500);
 ok("la feuille des réglages s'ouvre", (await txt("#feuille-titre")).startsWith("Réglages"));
+ok("la feuille longue prend toute la hauteur",
+  await pg.locator("#feuille.moyenne").count() === 0);
 ok("le champ de commune porte une étiquette visible",
   await pg.locator('label[for="rgQ"]:visible').count() === 1);
+
+await pg.locator("#rgQ").fill("Zzzz");
+await pg.waitForTimeout(900);
+ok("l'erreur paraît sous le champ, non dans la liste",
+  await pg.locator("#rgErr:visible").count() === 1
+  && await pg.locator("#rgRes button").count() === 0);
+ok("le champ est marqué invalide", await pg.getAttribute("#rgQ", "aria-invalid") === "true");
+await pg.locator("#rgQ").fill("");
+await pg.waitForTimeout(600);
+ok("l'erreur disparaît à la correction", await pg.locator("#rgErr:visible").count() === 0);
+
+ok("l'état désactivé neutralise le contrôle", await pg.evaluate(() => {
+  const b = document.getElementById("rgGeo");
+  b.disabled = true;
+  const s = getComputedStyle(b);
+  const r = s.pointerEvents === "none" && parseFloat(s.opacity) < 1;
+  b.disabled = false;
+  return r;
+}));
+ok("une seule rangée de liste dans toute l'application",
+  await pg.locator(".rg-l, .lum-l").count() === 0
+  && await pg.locator("#feuille-corps .rangee").count() >= 3);
 await pg.locator("#feuille-fermer").click(); await pg.waitForTimeout(420);
 
 console.log("\n--- Sources coupées ---");
@@ -267,8 +298,48 @@ const horsEchelle = await pg.evaluate(() => {
 ok("toutes les tailles de texte viennent de l'échelle",
   horsEchelle.length === 0, horsEchelle.join(", "));
 
-console.log("\n--- Mouvement réduit ---");
+console.log("\n--- États vide et chargement ---");
 await ctx.close();
+
+const ctxVide = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+const pgVide = await ctxVide.newPage();
+await pgVide.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await pgVide.waitForTimeout(500);
+ok("l'état vide porte un symbole, un titre, une phrase et une action",
+  await pgVide.locator(".etat-vide > svg").count() === 1
+  && await pgVide.locator(".etat-vide h2").count() === 1
+  && await pgVide.locator(".etat-vide p").count() === 1
+  && await pgVide.locator(".etat-vide .bouton-plein").count() === 1);
+ok("l'état vide propose une action secondaire",
+  await pgVide.locator('.etat-vide .bouton-borde[data-action="geo"]').count() === 1);
+await ctxVide.close();
+
+const ctxLent = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+await ctxLent.addInitScript(`localStorage.setItem("mameteo.reglages.v1", JSON.stringify({
+  commune: "Fain-lès-Moutiers", codePostal: "21500", lat: 47.5, lon: 4.3,
+  ecriture: "ruban", poste: null
+}));`);
+await ctxLent.route(/api\.open-meteo\.com/, async route => {
+  await new Promise(r => setTimeout(r, 2500));
+  const d = JSON.parse(JSON.stringify(METEO));
+  delete d.hourly;
+  route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
+});
+const pgLent = await ctxLent.newPage();
+pgLent.goto("http://localhost:8137/").catch(() => {});
+await pgLent.waitForTimeout(1200);
+ok("la première lecture montre une ossature, non un voile plein écran",
+  await pgLent.locator(".ossature").count() >= 3
+  && await pgLent.locator(".etat-vide .tourne").count() === 0);
+await ctxLent.close();
+
+console.log("\n--- Mouvement réduit ---");
 const ctx2 = await nav.newContext({
   viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
   locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,

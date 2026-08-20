@@ -212,7 +212,8 @@ export function vueLumiere() {
       + `<div class="aj-b"><div><b>${hm(lever)}</b><i>lever</i></div>`
       + `<div><b>${hm(coucher)}</b><i>coucher</i></div></div></div>`
       + `<div class="carte">`
-      + lignes.map(([n, v]) => `<div class="lum-l"><span>${esc(n)}</span><b>${esc(v)}</b></div>`).join("")
+      + lignes.map(([n, v]) => `<div class="rangee"><span class="rangee-txt">${esc(n)}</span>`
+        + `<span class="rangee-val"><b>${esc(v)}</b></span></div>`).join("")
       + `</div>`,
   };
 }
@@ -236,8 +237,9 @@ export function vueReglages(ctx, rendre, majEtat) {
       + `<div class="champ"><label for="rgQ">Nom de commune ou code postal</label>`
       + `<input class="rg-champ" id="rgQ" type="search" inputmode="search" autocomplete="off" `
       + `placeholder="Grenoble, 38000" value="${esc(g.commune || "")}"></div>`
+      + `<p class="champ-erreur" id="rgErr" hidden></p>`
       + `<div class="rg-res" id="rgRes"></div>`
-      + `<button type="button" class="rg-geo" id="rgGeo">`
+      + `<button type="button" class="bouton-texte" id="rgGeo">`
       + `${ico("cible", "")}<span>Utiliser ma position</span></button></div>`
 
       + `<div class="carte"><div class="carte-tete"><h3>Écriture de l'écran Le temps</h3></div>`
@@ -246,8 +248,10 @@ export function vueReglages(ctx, rendre, majEtat) {
         .join("") + `</div></div>`
 
       + `<div class="carte"><div class="carte-tete"><h3>Sources</h3></div>`
-      + sources.map(([n, v]) => `<div class="rg-l">${esc(n)}<span>${esc(v)}</span></div>`).join("")
-      + (g.lat !== null ? `<div class="rg-l">Coordonnées<span>${g.lat}, ${g.lon}</span></div>` : "")
+      + sources.map(([n, v]) => `<div class="rangee"><span class="rangee-txt">${esc(n)}</span>`
+        + `<span class="rangee-val">${esc(v)}</span></div>`).join("")
+      + (g.lat !== null ? `<div class="rangee"><span class="rangee-txt">Coordonnées</span>`
+        + `<span class="rangee-val">${esc(`${g.lat}, ${g.lon}`)}</span></div>` : "")
       + `</div>`
 
       + `<p class="note">Aucun compte, aucune base de données, aucune donnée envoyée. `
@@ -256,7 +260,16 @@ export function vueReglages(ctx, rendre, majEtat) {
     brancher(bloc) {
       const q = bloc.querySelector("#rgQ");
       const res = bloc.querySelector("#rgRes");
+      const err = bloc.querySelector("#rgErr");
       let minuteur = null;
+
+      /* L'erreur se montre sous le champ concerné, non dans une alerte
+         globale ni au milieu de la liste des résultats. */
+      const dire = t => {
+        err.textContent = t || "";
+        err.hidden = !t;
+        q.setAttribute("aria-invalid", t ? "true" : "false");
+      };
 
       const poser = lieu => {
         Reglages.poser({ commune: lieu.commune, codePostal: lieu.codePostal,
@@ -266,12 +279,11 @@ export function vueReglages(ctx, rendre, majEtat) {
 
       const chercher = async () => {
         const saisie = q.value.trim();
-        if (saisie.length < 2) { res.innerHTML = ""; return; }
+        res.innerHTML = "";
+        if (saisie.length < 2) { dire(""); return; }
         const l = await Reglages.chercherCommune(saisie);
-        if (!l.length) {
-          res.innerHTML = `<p class="vide">Aucune commune ne correspond à cette saisie.</p>`;
-          return;
-        }
+        if (!l.length) { dire("Aucune commune ne correspond à cette saisie."); return; }
+        dire("");
         res.innerHTML = l.map((x, k) =>
           `<button type="button" data-k="${k}">${esc(x.commune)}`
           + `<em>${esc(x.codePostal || "")}</em></button>`).join("");
@@ -285,7 +297,9 @@ export function vueReglages(ctx, rendre, majEtat) {
         minuteur = setTimeout(chercher, 260);
       });
 
-      bloc.querySelector("#rgGeo").addEventListener("click", async () => {
+      const geo = bloc.querySelector("#rgGeo");
+      geo.addEventListener("click", async () => {
+        geo.disabled = true;
         majEtat("Recherche de la position…");
         try {
           const { lat, lon } = await Reglages.geolocaliser();
@@ -293,7 +307,11 @@ export function vueReglages(ctx, rendre, majEtat) {
           if (!lieu) { majEtat("Aucune commune trouvée à cette position."); return; }
           majEtat("");
           poser(lieu);
-        } catch (e) { majEtat(e.message); }
+        } catch (e) {
+          majEtat(e.message);
+        } finally {
+          geo.disabled = false;
+        }
       });
 
       for (const b of bloc.querySelectorAll("[data-ecriture]")) {
