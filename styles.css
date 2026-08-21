@@ -283,7 +283,7 @@ main{
 }
 main:focus{outline:none}
 
-.titre-ecran{padding:var(--espace-lg) 0 0}
+.titre-ecran{padding:var(--espace-xs) 0 0}
 .titre-ecran h1{
   font-size:var(--texte-grand-titre);font-weight:var(--graisse-semibold);
   letter-spacing:-.022em;line-height:1.1;
@@ -293,12 +293,18 @@ main:focus{outline:none}
   font-size:var(--texte-sous);color:var(--etiquette-2);
 }
 /* Titre à menu : le titre est lui-même la cible du changement de commune. */
+/* Le chevron suit le dernier mot du nom, dans le fil du texte : en élément de
+   boîte flexible il s'échappait à droite dès que le nom passait à la ligne, et
+   se lisait comme un élément sans rapport. Le bouton, lui, garde sa boîte et
+   ses 44 pt. */
 .titre-bouton{
-  display:inline-flex;align-items:center;gap:var(--espace-sm);
+  display:inline-flex;align-items:center;min-height:var(--touche);
   font:inherit;letter-spacing:inherit;color:inherit;text-align:left;
-  min-height:var(--touche);
 }
-.titre-chev{width:.62em;height:.62em;flex:0 0 auto;color:var(--etiquette-3);stroke-width:2.4}
+.titre-chev{
+  width:.6em;height:.6em;color:var(--etiquette-3);stroke-width:2.4;
+  vertical-align:.06em;margin-left:.18em;
+}
 .titre-bouton:active{opacity:.6}
 
 /* Section : titre discret plus contenu, sans carte */
@@ -358,13 +364,13 @@ button.rangee:active{background:var(--surface-2)}
 
 /* Le bandeau vit directement sur le fond : le contenu prime sur la surface. */
 .bandeau{padding:0}
-.bd-haut{display:flex;align-items:flex-start;gap:var(--espace-base);flex-wrap:wrap}
+.bd-haut{display:flex;align-items:center;gap:var(--espace-lg);flex-wrap:wrap}
 .bd-deg{
   font-size:4.7rem;line-height:.92;font-weight:200;letter-spacing:-.045em;
   font-variant-numeric:tabular-nums;
 }
-.bd-deg sup{font-size:.3em;font-weight:300;vertical-align:baseline;position:relative;top:-1.7em;left:.03em}
-.bd-etat{display:flex;flex-direction:column;gap:var(--espace-xs);padding-top:var(--espace-md);min-width:0}
+.bd-deg sup{font-size:.34em;font-weight:300;vertical-align:baseline;position:relative;top:-1.42em;left:.02em}
+.bd-etat{display:flex;flex-direction:column;gap:var(--espace-xs);min-width:0}
 .bd-ciel{
   display:flex;align-items:center;gap:var(--espace-sm);
   font-size:var(--texte-titre3);font-weight:var(--graisse-semibold);letter-spacing:-.01em;
@@ -374,21 +380,20 @@ button.rangee:active{background:var(--surface-2)}
 .bd-bornes b{font-weight:var(--graisse-semibold);color:var(--etiquette)}
 
 .bd-mesures{
-  display:grid;grid-template-columns:repeat(4,1fr);
+  display:grid;grid-template-columns:repeat(4,1fr);align-items:start;
   margin-top:var(--espace-lg);
   background:var(--surface);border-radius:var(--rayon-lg);
   overflow:hidden;
 }
 .bd-m{
-  display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:2px;
-  padding:var(--espace-md) var(--espace-xs);text-align:center;min-width:0;
+  display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:2px;
+  padding:var(--espace-md) var(--espace-base);text-align:left;min-width:0;
 }
-.bd-m + .bd-m{box-shadow:inset 1px 0 0 var(--filet-clair)}
 .bd-m i{font-style:normal;font-size:var(--texte-legende2);color:var(--etiquette-3);letter-spacing:0}
 .bd-m b{font-size:var(--texte-appel);font-weight:var(--graisse-semibold)}
 .bd-m em{font-style:normal;font-size:var(--texte-legende2);color:var(--etiquette-3)}
-/* Les cellules gardent la même hauteur, qu'elles portent ou non une précision. */
-.bd-m em:empty::after{content:"\00a0"}
+/* Les cellules s'alignent par le haut et se dimensionnent sur leur contenu :
+   une cellule sans précision ne réserve plus de ligne vide. */
 
 /* Alertes. Le libellé porte l'information, la couleur ne fait que la doubler. */
 .alertes{display:flex;flex-direction:column;gap:var(--espace-sm)}
@@ -692,6 +697,14 @@ button.rangee:active{background:var(--surface-2)}
 /* Les lignes libellé et valeur de la lumière et des réglages emploient la
    rangée commune : un seul composant de liste dans toute l'application. */
 
+/* La carte de rappel réunit les vingt-quatre heures et ce qui vient au-delà.
+   Ni l'une ni l'autre ne porte sa propre surface : la carte les tient. */
+.retenir{display:flex;flex-direction:column}
+.retenir .conseils{background:none;padding:0}
+.retenir .alertes{gap:var(--espace-md);padding-top:var(--espace-md);
+  box-shadow:inset 0 1px 0 var(--filet-clair)}
+.retenir .al{background:none;padding:0;min-height:0}
+
 /* ---------- 13 bis. Communes suivies ---------- */
 
 .co-liste{padding:0;overflow:hidden}
@@ -788,11 +801,7 @@ button.rangee:active{background:var(--surface-2)}
 
 /* Texte fortement agrandi : les grilles se déplient plutôt que de casser. */
 @media (max-width:430px){
-  .bd-mesures{grid-template-columns:repeat(2,1fr)}
-  .bd-m:nth-child(-n+2){box-shadow:inset 1px 0 0 var(--filet-clair)}
-  .bd-m:nth-child(1),.bd-m:nth-child(3){box-shadow:none}
-  .bd-m:nth-child(n+3){box-shadow:inset 0 1px 0 var(--filet-clair)}
-  .bd-m:nth-child(4){box-shadow:inset 1px 0 0 var(--filet-clair),inset 0 1px 0 var(--filet-clair)}
+  .bd-mesures{grid-template-columns:repeat(2,1fr);padding:var(--espace-sm) 0}
 }
 
 @media (prefers-reduced-motion:reduce){

@@ -9,7 +9,7 @@ service dorsal, sans base de données, sans compte. Métropole française.
 
 | Écran | Ce qu'il porte |
 |---|---|
-| Accueil | Température, ciel, bornes du jour, quatre mesures, trois lignes de conseil, alertes au delà de la fenêtre, accès à la vigilance |
+| Accueil | Température, ciel, bornes du jour, quatre mesures, puis une seule carte « À retenir » réunissant les vingt-quatre heures et ce qui vient au-delà, enfin l'accès à la vigilance |
 | Le temps | Vingt-quatre heures glissantes en trois écritures : ruban à sept voies, liste à treize colonnes, moments par tranches de six heures |
 | La semaine | Sept jours, résumés des heures pour les deux premiers |
 | Le soleil | Arc du jour, lever et coucher avec leur point cardinal, midi solaire, hauteur maximale, durée, écart à la veille, seuil de dix heures, trois crépuscules |
@@ -19,6 +19,20 @@ service dorsal, sans base de données, sans compte. Métropole française.
 
 Les cinq premiers écrans sont des destinations de la barre d'onglets. Communes,
 Vigilance et Réglages sont des présentations en feuille.
+
+## Écriture des grandeurs
+
+Le degré s'écrit sans unité, « 25° », partout : dans le bandeau, dans les
+alertes et dans les rangées. L'indice UV s'écrit sans décimale, « 7 » et non
+« 7,3 » : une décimale sur un indice entier donne une fausse impression de
+mesure fine.
+
+Le ressenti ne paraît que s'il s'écarte d'au moins un degré de la température.
+Sinon la probabilité de pluie sur vingt-quatre heures prend sa place : « Ressenti
+20° » à côté d'un grand 20° occupait un quart de la carte sans rien apprendre.
+
+Une plage horaire ne porte le mot « demain » qu'une fois : « demain de 03 h à
+06 h », non « de demain 03 h à demain 06 h ».
 
 ## Communes suivies
 

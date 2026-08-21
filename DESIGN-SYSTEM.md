@@ -167,6 +167,17 @@ bouton restant dans l'ordre de tabulation et le focus découvrant la rangée.
 Une action permanente par rangée aurait coûté une colonne de boutons sur toute
 la liste, ce que le document écarte.
 
+### Composition de l'écran d'accueil
+
+Un seul en-tête de section, « À retenir », réunit les conseils des vingt-quatre
+heures et les alertes qui viennent au-delà. Trois en-têtes pour trois cartes
+d'une ligne coûtaient un tiers de la hauteur sans rien porter de plus.
+
+La vigilance n'a pas d'en-tête : c'est un accès, non une information.
+
+Le titre d'écran remonte contre la barre de tête. Vingt points de vide sous une
+barre qui ne porte qu'un symbole ne servaient rien.
+
 ### Groupe encarté
 
 `.groupe`, alias `.carte`, unique surface du contenu, sans ombre. Il ne devient

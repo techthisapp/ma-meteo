@@ -47,6 +47,18 @@ export function conseils(s) {
     return (change ? "demain " : "") + heureTxt((s.heure[k] + 1) % 24);
   };
 
+  /* Une plage s'écrit avec le mot « demain » une seule fois. « De demain 03 h à
+     demain 06 h » se lisait deux fois pour une seule journée. */
+  const plage = (a, b) => {
+    const debutDemain = s.jour[a] !== s.jour[0];
+    const finTxt = fin(b);
+    const finDemain = finTxt.startsWith("demain ");
+    if (debutDemain && finDemain) {
+      return `demain de ${H(a)} à ${finTxt.slice(7)}`;
+    }
+    return `de ${dem(a)} à ${finTxt}`;
+  };
+
   const lignes = [];
 
   // 1. La pluie, toujours en premier.
@@ -58,15 +70,14 @@ export function conseils(s) {
     /* Quand les deux modèles ne s'accordent pas, c'est la ligne de pluie qui le
        dit : deux lignes, l'une affirmative et l'autre dubitative, se
        contrediraient à la lecture. */
-    lignes.push({ i: "goutte", g: 9, t:
-      `Prévision incertaine : ${nombreFr(div.haut)} mm annoncés par `
-      + `${div.arome ? "AROME" : "la seconde source"}, `
-      + `${div.bas < SEUILS.lame ? "aucune lame" : `${nombreFr(div.bas)} mm`} par `
-      + `${div.arome ? "la seconde source" : "AROME"}. Les deux modèles divergent.` });
+    lignes.push({ i: "goutte", g: 9, t: div.bas < SEUILS.lame
+      ? `Pluie incertaine, jusqu'à ${nombreFr(div.haut)} mm selon le modèle.`
+      : `Pluie incertaine, de ${nombreFr(div.bas)} à ${nombreFr(div.haut)} mm `
+        + `selon le modèle.` });
   } else if (pl.length) {
     lignes.push({ i: "goutte", g: 9, t:
-      `Pluie ${pl.length > 1 ? "par intervalles " : ""}de ${dem(pl[0][0])} à `
-      + `${fin(pl[pl.length - 1][1])}, ${nombreFr(tot)} mm attendus.` });
+      `Pluie ${pl.length > 1 ? "par intervalles " : ""}`
+      + `${plage(pl[0][0], pl[pl.length - 1][1])}, ${nombreFr(tot)} mm attendus.` });
   } else {
     const rx = Math.round(Math.max(...s.pb));
     lignes.push({ i: "goutte", g: 9, t:
@@ -80,7 +91,7 @@ export function conseils(s) {
   const gel = plagesDe(s.n, k => s.t[k] <= SEUILS.gel);
   if (gel.length) {
     lignes.push({ i: "alerte", g: 6, t:
-      `Gel probable de ${dem(gel[0][0])} à ${fin(gel[gel.length - 1][1])}, `
+      `Gel probable ${plage(gel[0][0], gel[gel.length - 1][1])}, `
       + `jusqu'à ${nombreFr(Math.min(...s.t))} degrés.` });
   }
 
@@ -88,8 +99,8 @@ export function conseils(s) {
   const gv = plagesDe(s.n, k => s.raf[k] >= SEUILS.rafale || s.v[k] >= SEUILS.ventMoyen);
   if (gv.length) {
     lignes.push({ i: "vent", g: 5, t:
-      `Rafales à ${Math.round(Math.max(...s.raf))} km/h de ${dem(gv[0][0])} `
-      + `à ${fin(gv[gv.length - 1][1])}.` });
+      `Rafales à ${Math.round(Math.max(...s.raf))} km/h `
+      + `${plage(gv[0][0], gv[gv.length - 1][1])}.` });
   }
 
   // 4. La chaleur.
@@ -105,7 +116,7 @@ export function conseils(s) {
     .filter(([a, b]) => b - a >= SEUILS.humiditeHeures);
   if (mal.length) {
     lignes.push({ i: "goutte", g: 3, t:
-      `Air saturé de ${dem(mal[0][0])} à ${fin(mal[0][1])} sous une température douce. `
+      `Air saturé ${plage(mal[0][0], mal[0][1])} sous une température douce. `
       + `Brouillard et rosée persistante possibles.` });
   }
 
@@ -113,7 +124,7 @@ export function conseils(s) {
   const uvx = Math.max(...s.uv);
   if (uvx >= SEUILS.uv) {
     lignes.push({ i: "soleil", g: 1, t:
-      `Indice UV ${nombreFr(uvx)} vers ${dem(s.uv.indexOf(uvx))}. Exposition à limiter.` });
+      `Indice UV ${Math.round(uvx)} vers ${dem(s.uv.indexOf(uvx))}. Exposition à limiter.` });
   }
 
   // Trois lignes au plus, la première étant toujours celle de la pluie.

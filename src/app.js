@@ -91,11 +91,11 @@ function alertes() {
   for (let k = i + 2; k <= Math.min(i + 4, d.time.length - 1); k++) {
     const tn = tMin(k), tx = tMax(k);
     if (tn !== null && tn <= SEUILS.gel) {
-      out.push({ ton: "froid", i: "alerte", t: `Gel probable ${quand(k)}, jusqu'à ${Math.round(tn)} °C` });
+      out.push({ ton: "froid", i: "alerte", t: `Gel probable ${quand(k)}, jusqu'à ${Math.round(tn)}°` });
       break;
     }
     if (tx !== null && tx >= SEUILS.chaleur) {
-      out.push({ ton: "chaud", i: "soleil", t: `${Math.round(tx)} °C ${quand(k)}` });
+      out.push({ ton: "chaud", i: "soleil", t: `${Math.round(tx)}° ${quand(k)}` });
       break;
     }
   }
@@ -123,7 +123,8 @@ const titreEcran = (titre, sous, avecLieu) =>
   `<div class="titre-ecran"><h1>`
   + (avecLieu
     ? `<button type="button" class="titre-bouton" data-feuille="communes" `
-      + `aria-label="Changer de commune">${esc(titre)}${ico("chevron_bas", "titre-chev")}</button>`
+      + `aria-label="Changer de commune">`
+      + `<span>${esc(titre)}${ico("chevron_bas", "titre-chev")}</span></button>`
     : esc(titre))
   + `</h1>`
   + (sous ? `<p>${esc(sous)}</p>` : "")
@@ -187,12 +188,23 @@ function ecranAccueil() {
     const clair = s ? s.clair[0] : 1;
     const [, lib] = tempsDe(code);
 
-    /* Les quatre mesures que le grand chiffre ne peut pas tenir. */
+    /* Les quatre mesures que le grand chiffre ne peut pas tenir.
+
+       Le ressenti ne s'affiche que s'il s'écarte de la température : « Ressenti
+       20° » à côté d'un grand 20° occupe un quart de la carte sans rien
+       apprendre. La probabilité de pluie prend alors sa place, plus utile.
+
+       L'indice UV s'écrit sans décimale : « 0,0 » à huit heures du matin donne
+       une fausse impression de mesure fine. */
+    const premiere = s && Math.abs(s.res[0] - t) >= 1
+      ? ["Ressenti", `${Math.round(s.res[0])}°`, ""]
+      : ["Pluie", `${Math.round(Math.max(...s?.pb ?? [0]))} %`, "sur 24 h"];
+
     const mesures = s ? [
-      ["Ressenti", `${nombreFr(s.res[0])}°`, ""],
-      ["Vent", `${Math.round(s.v[0])} km/h`, `rafales ${Math.round(s.raf[0])}`],
+      premiere,
+      ["Vent", `${Math.round(s.v[0])} km/h`, `rafales ${Math.round(s.raf[0])} km/h`],
       ["Humidité", `${Math.round(s.hum[0])} %`, ""],
-      ["Indice UV", nombreFr(s.uv[0]), s.uv[0] >= SEUILS.uv ? "élevé" : ""],
+      ["Indice UV", `${Math.round(s.uv[0])}`, s.uv[0] >= SEUILS.uv ? "élevé" : ""],
     ] : [];
 
     corps += `<div class="bandeau"><div class="bd-haut">`
@@ -206,21 +218,26 @@ function ecranAccueil() {
         + `</div>` : "")
       + `</div>`;
 
+    /* Un seul en-tête pour ce qui mérite d'être retenu : les vingt-quatre
+       heures d'abord, puis ce qui vient au-delà. Trois en-têtes pour trois
+       cartes d'une ligne coûtaient un tiers de l'écran sans rien porter. */
     const al = alertes();
-    if (al.length) {
-      corps += `<div class="section"><h2>Jours suivants</h2><div class="alertes">`
-        + al.map(a => `<div class="al t-${a.ton}">${ico(a.i, "")}<span>${esc(a.t)}</span></div>`).join("")
+    const cj = s ? conseilsHTML(s) : "";
+    if (cj || al.length) {
+      corps += `<div class="section"><h2>À retenir</h2><div class="carte retenir">`
+        + (cj ? `<div class="conseils">${cj}</div>` : "")
+        + (al.length ? `<div class="alertes">`
+          + al.map(a => `<div class="al t-${a.ton}">${ico(a.i, "")}<span>${esc(a.t)}</span></div>`).join("")
+          + `</div>` : "")
         + `</div></div>`;
     }
 
-    const cj = s ? conseilsHTML(s) : "";
-    if (cj) corps += `<div class="section"><h2>Vingt-quatre heures</h2><div class="conseils">${cj}</div></div>`;
-
-    corps += `<div class="section"><h2>Sécurité</h2><div class="groupe groupe-plat">`
+    // La vigilance est un accès, non une information : elle n'a pas d'en-tête.
+    corps += `<div class="groupe groupe-plat">`
       + `<button type="button" class="rangee" data-feuille="vigilance">`
       + ico("alerte", "") + `<span class="rangee-txt"><b>Vigilance</b>`
       + `<span>Bulletin en vigueur sur Météo-France</span></span>${chevron}</button>`
-      + `</div></div>`;
+      + `</div>`;
 
     corps += `<p class="pied">Source : Open-Meteo, modèle AROME de Météo-France. `
       + `Mise à jour toutes les heures.</p>`;
