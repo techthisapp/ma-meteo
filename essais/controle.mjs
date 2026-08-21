@@ -152,6 +152,28 @@ ok("le ressenti n'est écrit qu'une fois dans le bandeau",
 ok("la rangée de vigilance renvoie vers Météo-France",
   (await txt('[data-feuille="vigilance"]')).includes("Météo-France"));
 ok("l'accueil ne porte plus de tuiles", await pg.locator(".tu").count() === 0);
+ok("une valeur ne prend une couleur qu'au delà de son seuil", await pg.evaluate(() => {
+  const v = [...document.querySelectorAll(".bd-m")].map(e => ({
+    nom: e.querySelector("i").textContent,
+    classe: e.querySelector("b").className,
+  }));
+  const uv = v.find(x => x.nom === "Indice UV");
+  const hum = v.find(x => x.nom === "Humidité");
+  // Indice UV de 5 et humidité de 80 % dans le jeu figé : l'un signale, l'autre non.
+  return uv.classe === "v-attention" && hum.classe === "";
+}));
+ok("le symbole d'un conseil porte la couleur de son sujet", await pg.evaluate(() => {
+  const g = document.querySelector(".cj-l .icv-goutte");
+  if (!g) return false;
+  const c = getComputedStyle(g).color;
+  return c !== getComputedStyle(document.body).color;
+}));
+ok("les chiffres des mesures sont au moins à l'échelle du titre 2", await pg.evaluate(() => {
+  const b = document.querySelector(".bd-m b");
+  const t2 = parseFloat(getComputedStyle(document.documentElement)
+    .getPropertyValue("--texte-titre2")) * parseFloat(getComputedStyle(document.documentElement).fontSize);
+  return parseFloat(getComputedStyle(b).fontSize) >= t2 - 0.5;
+}));
 
 console.log("\n--- Le temps, ruban ---");
 await onglet("temps");
@@ -218,6 +240,10 @@ ok("la pluie se lit sous le symbole",
   && await pg.locator(".sem .p").count() === 0);
 ok("aucune rangée de la semaine ne dépasse deux lignes", await pg.evaluate(() =>
   [...document.querySelectorAll(".sem tbody tr")].every(t => t.getBoundingClientRect().height < 76)));
+ok("le symbole du ciel est le même partout", await pg.evaluate(() => {
+  // Bandeau, semaine et liste des communes emploient tous `icoTemps`.
+  return document.querySelectorAll(".sem .c svg.ict").length === 7;
+}));
 ok("les symboles de temps sont en deux tons", await pg.evaluate(() => {
   const s = document.querySelector(".sem .c svg.ict");
   if (!s) return false;

@@ -149,7 +149,7 @@ const ossatureAccueil = () =>
   + `<p class="bd-bornes ossature">00° à 00° aujourd'hui</p></div></div>`
   + `<div class="bd-mesures">`
   + [1, 2, 3, 4].map(() => `<div class="bd-m"><i class="ossature">Mesure</i>`
-    + `<b class="ossature">00</b><em></em></div>`).join("")
+    + `<b class="ossature">00</b></div>`).join("")
   + `</div></div>`
   + `<p class="pied" role="status">Lecture de la prévision.</p>`;
 
@@ -191,25 +191,40 @@ function ecranAccueil() {
 
        L'indice UV s'écrit sans décimale : « 0,0 » à huit heures du matin donne
        une fausse impression de mesure fine. */
+    /* Une valeur ne prend une couleur que lorsqu'elle passe un seuil : colorer
+       une valeur ordinaire ferait du bruit et userait le signal. Le chiffre
+       porte l'information, la couleur ne fait que la doubler. */
+    const pb = s ? Math.round(Math.max(...s.pb)) : 0;
+    const uv = s ? Math.round(s.uv[0]) : 0;
+    const raf = s ? Math.round(s.raf[0]) : 0;
+    const hum = s ? Math.round(s.hum[0]) : 0;
+    const res = s ? Math.round(s.res[0]) : 0;
+
     const premiere = s && Math.abs(s.res[0] - t) >= 1
-      ? ["Ressenti", `${Math.round(s.res[0])}°`, ""]
-      : ["Pluie", `${Math.round(Math.max(...s?.pb ?? [0]))} %`, "sur 24 h"];
+      ? ["Ressenti", `${res}°`, "",
+        res >= SEUILS.chaleur ? "v-chaud" : res <= SEUILS.gel ? "v-froid" : ""]
+      : ["Pluie", `${pb} %`, "sur 24 h", pb >= 60 ? "v-eau" : ""];
 
     const mesures = s ? [
       premiere,
-      ["Vent", `${Math.round(s.v[0])} km/h`, `rafales ${Math.round(s.raf[0])} km/h`],
-      ["Humidité", `${Math.round(s.hum[0])} %`, ""],
-      ["Indice UV", `${Math.round(s.uv[0])}`, s.uv[0] >= SEUILS.uv ? "élevé" : ""],
+      ["Vent", `${Math.round(s.v[0])} km/h`, `rafales ${raf} km/h`,
+        raf >= SEUILS.rafale || s.v[0] >= SEUILS.ventMoyen ? "v-attention" : ""],
+      ["Humidité", `${hum} %`, "", hum >= SEUILS.humidite ? "v-eau" : ""],
+      ["Indice UV", `${uv}`, uv >= SEUILS.uv ? "élevé" : "",
+        uv >= 8 ? "v-brulant" : uv >= SEUILS.uv ? "v-chaud" : uv >= 3 ? "v-attention" : ""],
     ] : [];
 
     corps += `<div class="bandeau"><div class="bd-haut">`
       + `<p class="bd-deg">${Math.round(t)}<sup>°</sup></p>`
       + `<div class="bd-etat">`
       + `<p class="bd-ciel">${icoTemps(icoCiel(code, clair))}<span>${esc(lib)}</span></p>`
-      + `<p class="bd-bornes"><b>${Math.round(tn)}°</b> à <b>${Math.round(tx)}°</b> aujourd'hui</p>`
+      + `<p class="bd-bornes">`
+      + `<b${tn <= SEUILS.gel ? ' class="v-froid"' : ""}>${Math.round(tn)}°</b> à `
+      + `<b${tx >= SEUILS.chaleur ? ' class="v-chaud"' : ""}>${Math.round(tx)}°</b> aujourd'hui</p>`
       + `</div></div>`
-      + (mesures.length ? `<div class="bd-mesures">` + mesures.map(([n, v, e]) =>
-        `<div class="bd-m"><i>${esc(n)}</i><b>${esc(v)}</b><em>${esc(e)}</em></div>`).join("")
+      + (mesures.length ? `<div class="bd-mesures">` + mesures.map(([n, v, e, c]) =>
+        `<div class="bd-m"><i>${esc(n)}</i><b${c ? ` class="${c}"` : ""}>${esc(v)}</b>`
+        + `<em>${esc(e)}</em></div>`).join("")
         + `</div>` : "")
       + `</div>`;
 

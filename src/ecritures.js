@@ -5,7 +5,7 @@
 
 import { nombreFr, heureTxt, jourCourt, esc } from "./horloge.js";
 import { graviteCiel, CARD_ABR, iCard } from "./previsions.js";
-import { icoCiel, ico, tempsDe } from "./icones.js";
+import { icoCiel, ico, icoTemps, tempsDe } from "./icones.js";
 
 /* ---------- La liste ----------
 
@@ -14,7 +14,7 @@ import { icoCiel, ico, tempsDe } from "./icones.js";
    défile latéralement, l'heure restant visible. */
 
 const COLONNES = [
-  ["Ciel", s => `<span class="ic">${ico(icoCiel(s.code, s.clair), "ic")}</span>`],
+  ["Ciel", s => `<span class="ic">${icoTemps(icoCiel(s.code, s.clair), "ic")}</span>`],
   ["Temp.", s => `${nombreFr(s.t)}°`],
   ["Ress.", s => `${nombreFr(s.res)}°`],
   ["Rosée", s => `${nombreFr(s.ros)}°`],
@@ -115,7 +115,7 @@ export function moments(s) {
       uv >= 0.5 ? ["UV", nombreFr(uv)] : null,
     ].filter(Boolean);
 
-    return `<div class="mo-b"><p class="mo-t">${ico(icoCiel(code, clair), "")}`
+    return `<div class="mo-b"><p class="mo-t">${icoTemps(icoCiel(code, clair), "")}`
       + `<span>${esc(titre.charAt(0).toUpperCase() + titre.slice(1))}</span>`
       + `<em>${esc(heureTxt(h0))} à ${esc(heureTxt(h1))}</em></p>`
       + `<div class="mo-g">`

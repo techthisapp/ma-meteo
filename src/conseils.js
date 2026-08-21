@@ -135,5 +135,5 @@ export const conseilsHTML = s => {
   const l = conseils(s);
   if (!l.length) return "";
   return l.map(x =>
-    `<p class="cj-l">${ico(x.i, "cj-ic")}<span>${esc(x.t)}</span></p>`).join("");
+    `<p class="cj-l">${ico(x.i, `cj-ic icv-${x.i}`)}<span>${esc(x.t)}</span></p>`).join("");
 };

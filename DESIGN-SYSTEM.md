@@ -180,6 +180,15 @@ Deux groupes, `ic-a` pour la masse et `ic-b` pour l'accent, colorés par
 `icoTemps`. Six teintes seulement, peu saturées. `ico` rend les mêmes dessins en
 monochrome pour tous les autres emplois.
 
+### Couleur d'information
+
+Cinq classes, `v-froid`, `v-eau`, `v-attention`, `v-chaud`, `v-brulant`, posées
+sur une valeur seulement quand elle passe un seuil. Colorer une valeur ordinaire
+ferait du bruit et userait le signal.
+
+Les symboles de sujet, `icv-*`, reprennent les mêmes teintes que les symboles de
+ciel : la pluie est du même bleu partout.
+
 ### Composition de l'écran d'accueil
 
 Un seul en-tête de section, « À retenir », réunit les conseils des vingt-quatre
@@ -280,7 +289,7 @@ Le titre d'écran porte l'action de changement de commune, à la façon d'un tit
 
 ## Contrôles automatiques
 
-`node essais/controle.mjs` exécute cent dix contrôles en navigateur, dont
+`node essais/controle.mjs` exécute cent quatorze contrôles en navigateur, dont
 dix-sept portent sur le design system :
 
 1. toute cible interactive tient 44 pt ;

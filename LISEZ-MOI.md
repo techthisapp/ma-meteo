@@ -36,7 +36,34 @@ ciel : le bandeau, la table de la semaine, la liste des communes. Ailleurs les
 symboles restent monochromes, un symbole coloré au milieu d'un texte détournant
 le regard.
 
-La couleur ne porte jamais seule l'information : le libellé la double toujours.
+Le même symbole sert partout où le ciel est décrit : bandeau, table de la
+semaine, liste des communes, voie « Ciel » du ruban, écritures Liste et
+Moments.
+
+## Couleur d'information
+
+Une valeur ne prend une couleur qu'au delà d'un seuil. L'indice ultraviolet
+passe à l'ambre à trois, à l'orange à sept, au rouge à huit. Le vent se colore
+au delà de vingt-cinq kilomètres par heure de moyenne ou quarante en rafales.
+L'humidité se colore à quatre-vingt-dix pour cent, le ressenti au gel et à la
+chaleur, la probabilité de pluie à soixante pour cent. Les bornes du jour se
+colorent au gel et à la chaleur.
+
+Dans le ruban, la pluie et l'indice ultraviolet portent la couleur de leur
+sujet, l'humidité une teinte froide. La température, le vent et la pression
+restent à l'encre du texte : une couleur y dirait quelque chose de faux.
+
+Le symbole d'un conseil prend la couleur de son sujet, la même que celle du
+ciel correspondant.
+
+La couleur ne porte jamais seule l'information : le chiffre ou le libellé la
+double toujours.
+
+## Taille des chiffres
+
+Les valeurs des quatre mesures sont à l'échelle du titre 2, les bornes de la
+semaine et les valeurs des rangées à celle du corps de texte. Un chiffre est ce
+qu'on vient lire, il n'a pas à être plus petit que son étiquette.
 
 ## Écriture des grandeurs
 
@@ -131,7 +158,7 @@ src/
   postes.js         fichier départemental et geojson des postes, non branché
   reserve.js        les deux vues débranchées
 essais/
-  controle.mjs      cent dix contrôles en navigateur
+  controle.mjs      cent quatorze contrôles en navigateur
   meteo.json        données figées au 18 août 2026, 9 h
 ```
 
@@ -150,7 +177,7 @@ révision installée par Playwright ne correspond pas à celle du poste.
 
 Le lanceur sert le dossier, fige l'horloge au 18 août 2026 à 9 h, détourne les
 trois appels Open-Meteo vers `meteo.json` et coupe les sources data.gouv pour
-éprouver le repli. Cent dix contrôles, dont l'absence de répétition entre
+éprouver le repli. Cent quatorze contrôles, dont l'absence de répétition entre
 les alertes et les conseils, les sept voies du ruban, l'agrandissement d'une
 voie, les treize colonnes de la liste, les vingt-quatre lignes de la fenêtre, la
 nature du renvoi de vigilance, et seize contrôles de conformité au design

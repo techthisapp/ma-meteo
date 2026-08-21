@@ -225,6 +225,24 @@ button:disabled,button[aria-disabled="true"],input:disabled{
   width:max(100%,var(--touche));height:max(100%,var(--touche));
 }
 
+/* Couleur d'information. Une valeur ne la prend qu'au delà d'un seuil : le
+   chiffre porte l'information, la couleur ne fait que la doubler. */
+.v-froid{color:var(--ic-pluie)}
+.v-eau{color:var(--ic-pluie)}
+.v-attention{color:var(--attention)}
+.v-chaud{color:var(--ic-orage)}
+.v-brulant{color:var(--erreur)}
+
+/* Le symbole d'un conseil prend la couleur de son sujet, la même que celle du
+   ciel correspondant. */
+.icv-goutte{color:var(--ic-pluie)}
+.icv-neige{color:var(--ic-neige)}
+.icv-soleil{color:var(--ic-soleil)}
+.icv-vent{color:var(--ic-nuage)}
+.icv-thermo{color:var(--ic-orage)}
+.icv-brume{color:var(--etiquette-3)}
+.icv-alerte{color:var(--attention)}
+
 /* Symboles de temps en deux tons. La masse prend le gris du ciel, l'accent
    prend sa couleur propre. Le libellé porte toujours l'information. */
 .ict .ic-a{stroke:var(--ic-nuage)}
@@ -383,7 +401,7 @@ main:focus{outline:none}
 }
 .rangee-val b{
   color:var(--etiquette);font-weight:var(--graisse-semibold);
-  font-size:var(--texte-appel);white-space:nowrap;
+  font-size:var(--texte-corps);white-space:nowrap;
 }
 .rangee-chev{width:16px;height:16px;flex:0 0 auto;color:var(--etiquette-3);margin-left:var(--espace-xs)}
 button.rangee:active{background:var(--surface-2)}
@@ -419,9 +437,9 @@ button.rangee:active{background:var(--surface-2)}
   display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:2px;
   padding:var(--espace-md) var(--espace-base);text-align:left;min-width:0;
 }
-.bd-m i{font-style:normal;font-size:var(--texte-legende2);color:var(--etiquette-3);letter-spacing:0}
-.bd-m b{font-size:var(--texte-appel);font-weight:var(--graisse-semibold)}
-.bd-m em{font-style:normal;font-size:var(--texte-legende2);color:var(--etiquette-3)}
+.bd-m i{font-style:normal;font-size:var(--texte-legende);color:var(--etiquette-2);letter-spacing:0}
+.bd-m b{font-size:var(--texte-titre2);font-weight:var(--graisse-semibold);letter-spacing:-.018em;line-height:1.15}
+.bd-m em{font-style:normal;font-size:var(--texte-legende);color:var(--etiquette-3)}
 /* Les cellules s'alignent par le haut et se dimensionnent sur leur contenu :
    une cellule sans précision ne réserve plus de ligne vide. */
 
@@ -438,8 +456,9 @@ button.rangee:active{background:var(--surface-2)}
 .al.v-2 svg{color:var(--v2)}
 .al.v-3 svg{color:var(--v3)}
 .al.v-4 svg{color:var(--v4)}
-.al.t-froid svg,.al.t-chaud svg{color:var(--erreur)}
-.al.t-eau svg{color:var(--accent)}
+.al.t-froid svg{color:var(--ic-pluie)}
+.al.t-chaud svg{color:var(--ic-orage)}
+.al.t-eau svg{color:var(--ic-pluie)}
 
 /* Conseils */
 .conseils{background:var(--surface);border-radius:var(--rayon-lg);padding:0 var(--espace-base)}
@@ -448,7 +467,8 @@ button.rangee:active{background:var(--surface-2)}
   padding:var(--espace-md) 0;font-size:var(--texte-sous);line-height:1.45;
 }
 .cj-l + .cj-l{box-shadow:inset 0 1px 0 var(--filet-clair)}
-.cj-ic{width:20px;height:20px;flex:0 0 auto;margin-top:1px;color:var(--etiquette-2)}
+.cj-ic{width:20px;height:20px;flex:0 0 auto;margin-top:1px}
+.cj-ic:not([class*="icv-"]){color:var(--etiquette-2)}
 
 /* ---------- 6. Couche superposition ---------- */
 
@@ -640,6 +660,14 @@ button.rangee:active{background:var(--surface-2)}
 .mg-grand > .mg-t{color:var(--etiquette)}
 .mg-grand .mg-n i{background:var(--accent-doux);color:var(--accent)}
 
+/* Chaque voie du ruban prend la couleur de son sujet, et seulement quand cette
+   couleur dit quelque chose : la pluie et l'indice ultraviolet en portent une,
+   la température et la pression restent à l'encre du texte. */
+.mg-v[data-cle="mm"] .mg-s{color:var(--ic-pluie)}
+.mg-v[data-cle="uv"] .mg-s{color:var(--ic-soleil)}
+.mg-v[data-cle="hum"] .mg-s{color:var(--ic-neige)}
+.mg-v[data-cle="mm"] .mg-r{color:var(--ic-pluie)}
+
 .mg-c{font-size:9px;fill:var(--etiquette-3)}
 .mg-p{font-size:9.5px;fill:var(--etiquette-2);font-weight:550}
 .mg-g{font-size:9px;fill:var(--etiquette-3);paint-order:stroke;stroke:var(--surface);stroke-width:2.6px}
@@ -710,8 +738,8 @@ button.rangee:active{background:var(--surface-2)}
    entre ses deux chiffres. */
 .sem .b{display:flex;align-items:center;gap:var(--espace-sm);width:100%}
 .sem .b b{
-  flex:0 0 auto;width:34px;font-weight:var(--graisse-semibold);
-  font-variant-numeric:tabular-nums;
+  flex:0 0 auto;width:40px;font-size:var(--texte-corps);
+  font-weight:var(--graisse-semibold);font-variant-numeric:tabular-nums;
 }
 .sem .sem-min{text-align:right;color:var(--etiquette-2)}
 .sem .sem-max{text-align:left}
@@ -784,7 +812,7 @@ button.rangee:active{background:var(--surface-2)}
 .co-t b{font-weight:var(--graisse-medium);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .co-t em{font-style:normal;font-size:var(--texte-note);color:var(--etiquette-2)}
 .co-d{
-  flex:0 0 auto;font-size:var(--texte-titre3);font-weight:var(--graisse-semibold);
+  flex:0 0 auto;font-size:var(--texte-titre2);font-weight:var(--graisse-semibold);
   letter-spacing:-.02em;
 }
 .co-coche{flex:0 0 auto;width:18px;height:18px;color:var(--accent);margin-left:var(--espace-xs)}
