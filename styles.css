@@ -286,6 +286,10 @@ button:disabled,button[aria-disabled="true"],input:disabled{
   min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
 .nav-chev{width:14px;height:14px;flex:0 0 auto;color:var(--etiquette-3)}
+/* La cible ne paraît qu'en mode position : la barre de tête dit alors que le
+   lieu suit l'appareil. */
+.nav-lieu > .nav-pos{display:inline-flex;flex:0 0 auto;color:var(--accent);overflow:visible}
+.nav-pos svg{width:15px;height:15px}
 .nav-lieu:active{opacity:.6}
 .nav-act{
   display:inline-flex;align-items:center;justify-content:center;
@@ -831,6 +835,12 @@ button.rangee:active{background:var(--surface-2)}
 }
 .co-coche{flex:0 0 auto;width:18px;height:18px;color:var(--accent);margin-left:var(--espace-xs)}
 .co-coche-vide{visibility:hidden}
+
+/* Ma position. La rangée est de la même famille que les autres : seule la cible
+   du titre dit qu'elle suit l'appareil plutôt qu'un lieu fixe. */
+.co-pos .co-t b{display:flex;align-items:center;gap:var(--espace-xs)}
+.co-cible{width:13px;height:13px;flex:0 0 auto;color:var(--accent)}
+.co-err{padding:var(--espace-sm) var(--espace-base) var(--espace-md)}
 
 /* Action de retrait, découverte par glissement, par menu contextuel ou par le
    clavier. Elle occupe le dessous de la rangée, non une place permanente. */

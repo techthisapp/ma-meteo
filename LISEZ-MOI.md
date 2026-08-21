@@ -27,6 +27,9 @@ appui ouvre la liste des communes suivies, un second bascule. Aucun écran ne
 répète la commune : le grand titre nomme l'écran, ou porte le jour sur
 l'accueil.
 
+En mode position, la barre de tête porte une cible devant le nom : le nom dit
+où l'appareil se trouve, la cible dit qu'il suivra.
+
 ## Symboles de temps
 
 Les symboles du ciel se dessinent en deux groupes : la masse prend le gris du
@@ -121,12 +124,36 @@ contextuel, ou par le clavier : le bouton se tient sous la rangée et reste dans
 l'ordre de tabulation, le focus découvrant la rangée. Retirer la commune
 courante fait passer à la suivante de la liste.
 
+## Ma position
+
+La première rangée de la liste ne nomme pas un lieu mais l'appareil. La choisir
+relève la position, la nomme par l'interface adresse, et la prévision suit. Elle
+est épinglée en tête, ne compte pas dans les dix communes et ne se retire pas.
+
+Le relevé se refait au chargement et au retour au premier plan, mais seulement
+si l'autorisation de position est déjà accordée : sans geste de l'utilisateur,
+une première demande au chargement serait rejetée par le navigateur. Sans
+autorisation, le dernier relevé connu reste servi et la rangée attend un appui.
+
+La prévision n'est relue que si l'appareil a bougé de plus de cinq cents mètres.
+En deçà, elle serait identique et la requête serait perdue. Deux lectures
+peuvent alors se chevaucher : seule la plus récente écrit l'écran.
+
+Le dernier relevé est gardé, avec sa commune et son horodatage, pour que la
+liste s'ouvre sur une température plutôt que sur un vide et que l'application
+reste lisible hors ligne. Quand l'interface adresse ne rend pas de nom, le nom
+précédent n'est repris que si la position n'a pas bougé de plus de deux
+kilomètres : au delà, il désignerait une autre commune.
+
+Choisir une commune quitte le mode position, les deux ne pouvant pas tenir
+ensemble. Retirer la dernière commune suivie y ramène quand un relevé est connu.
+
 ## Sources
 
 | Source | Adresse | Compte |
 |---|---|---|
 | Prévision | `api.open-meteo.com`, AROME de Météo-France forcé sur deux jours | Aucun |
-| Commune | `api-adresse.data.gouv.fr` | Aucun |
+| Commune, par le nom ou par les coordonnées | `api-adresse.data.gouv.fr` | Aucun |
 | Soleil et Lune | calcul sur l'appareil, `src/astres.js` | Aucune requête |
 | Aperçu des communes suivies | `api.open-meteo.com`, un seul appel pour toute la liste | Aucun |
 
@@ -171,7 +198,7 @@ manifest.webmanifest, sw.js, icones/
 src/
   horloge.js        clé du jour, écriture des nombres, département
   previsions.js     charge Open-Meteo, fusion AROME, série horaire
-  reglages.js       stockage local, communes suivies, recherche, géolocalisation
+  reglages.js       stockage local, communes suivies, Ma position, recherche
   icones.js         codes de temps sensible, dessins
   conseils.js       les six règles et leurs seuils
   ruban.js          météogramme à sept voies
@@ -184,7 +211,7 @@ src/
   postes.js         fichier départemental et geojson des postes, non branché
   reserve.js        les deux vues débranchées
 essais/
-  controle.mjs      cent vingt-cinq contrôles en navigateur
+  controle.mjs      cent cinquante contrôles en navigateur
   meteo.json        données figées au 18 août 2026, 9 h
 ```
 
@@ -203,7 +230,7 @@ révision installée par Playwright ne correspond pas à celle du poste.
 
 Le lanceur sert le dossier, fige l'horloge au 18 août 2026 à 9 h, détourne les
 trois appels Open-Meteo vers `meteo.json` et coupe les sources data.gouv pour
-éprouver le repli. Cent vingt-cinq contrôles, dont l'absence de répétition entre
+éprouver le repli. Cent cinquante contrôles, dont l'absence de répétition entre
 les alertes et les conseils, les sept voies du ruban, l'agrandissement d'une
 voie, les treize colonnes de la liste, les vingt-quatre lignes de la fenêtre, la
 nature du renvoi de vigilance, et seize contrôles de conformité au design
@@ -215,6 +242,15 @@ chargement. Les écrans du Soleil et de la Lune sont contrôlés de la même fa�
 y compris l'absence de toute requête réseau pour la Lune. La bascule de commune
 est éprouvée de bout en bout : ouverture par le titre, ajout par la recherche,
 bascule par appui, retrait par le clavier.
+
+Ma position est éprouvée sur trois contextes. Le premier prend le relevé au
+doigt et vérifie que la rangée est épinglée, qu'elle ne se retire pas, qu'elle
+porte la température du moment et la commune relevée, et que choisir une commune
+quitte le mode. Le deuxième s'ouvre en mode position sur un relevé ancien, pris
+ailleurs, l'autorisation étant accordée : le relevé silencieux doit partir seul
+et relire la prévision aux nouvelles coordonnées. Le troisième fait la même
+chose sans autorisation : rien ne doit partir et le dernier relevé doit rester
+servi.
 
 ## Éphémérides
 

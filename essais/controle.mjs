@@ -33,11 +33,20 @@ const nav = await chromium.launch({
 const ctx = await nav.newContext({
   viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
   locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+  // L'appareil se tient à Grenoble : Ma position doit y mener.
+  permissions: ["geolocation"],
+  geolocation: { latitude: 45.1885, longitude: 5.7245 },
 });
 
 // Horloge figée au 18 août 2026, 9 h, heure de Paris.
 const FIGE = new Date("2026-08-18T09:00:00+02:00").getTime();
-await ctx.addInitScript(`{
+
+const FAIN = {
+  commune: "Fain-lès-Moutiers", codePostal: "21500", lat: 47.5, lon: 4.3,
+  ecriture: "ruban", poste: null,
+};
+
+const amorce = reglages => `{
   const ecart = ${FIGE} - Date.now();
   const D = Date;
   globalThis.Date = class extends D {
@@ -45,45 +54,49 @@ await ctx.addInitScript(`{
     static now(){ return D.now() + ecart; }
   };
   Object.setPrototypeOf(globalThis.Date, D);
-  localStorage.setItem("mameteo.reglages.v1", JSON.stringify({
-    commune: "Fain-lès-Moutiers", codePostal: "21500", lat: 47.5, lon: 4.3,
-    ecriture: "ruban", poste: null
-  }));
-}`);
+  localStorage.setItem("mameteo.reglages.v1", ${JSON.stringify(JSON.stringify(reglages))});
+}`;
 
-// Les trois appels Open-Meteo sont détournés, les sources data.gouv sont muettes.
-await ctx.route(/api\.open-meteo\.com/, route => {
-  const u = route.request().url();
-  const d = JSON.parse(JSON.stringify(METEO));
-  // Aperçu des communes suivies : un tableau, un élément par couple de coordonnées.
-  if (u.includes("current=")) {
-    const lats = decodeURIComponent(new URL(u).searchParams.get("latitude")).split(",");
-    const tab = lats.map((_, k) => ({
-      current: { temperature_2m: 18 + k * 3, weather_code: [0, 3, 61][k % 3], is_day: 1 },
-      daily: { temperature_2m_min: [12 + k], temperature_2m_max: [26 + k] },
-    }));
-    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(tab) });
-    return;
-  }
-  if (u.includes("models=meteofrance_arome")) { route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ hourly: d.hourly }) }); return; }
-  if (u.includes("hourly=")) { route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ hourly: d.hourly }) }); return; }
-  delete d.hourly;
-  route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
-});
-// Les deux sources data.gouv sont coupées : on éprouve le repli.
-await ctx.route(/object\.files\.data\.gouv\.fr|www\.data\.gouv\.fr/, r => r.abort());
-/* La recherche de commune : « Zzzz » ne rend rien, ce qui éprouve l'erreur sous
-   le champ ; toute autre saisie rend Grenoble, ce qui éprouve l'ajout. */
-await ctx.route(/api-adresse\.data\.gouv\.fr/, r => {
-  const q = new URL(r.request().url()).searchParams.get("q") || "";
-  const vide = { features: [] };
-  const grenoble = { features: [{
-    geometry: { coordinates: [5.7245, 45.1885] },
-    properties: { city: "Grenoble", name: "Grenoble", postcode: "38000", context: "38, Isère" },
-  }] };
-  r.fulfill({ status: 200, contentType: "application/json",
-    body: JSON.stringify(/zzzz/i.test(q) ? vide : grenoble) });
-});
+await ctx.addInitScript(amorce(FAIN));
+
+/* Les trois appels Open-Meteo sont détournés, les sources data.gouv sont muettes,
+   la recherche de commune rend Grenoble sauf sur « Zzzz », qui ne rend rien et
+   éprouve l'erreur sous le champ. Les mêmes routes servent aux contextes qui
+   éprouvent le suivi de position. */
+const brancherRoutes = async c => {
+  await c.route(/api\.open-meteo\.com/, route => {
+    const u = route.request().url();
+    const d = JSON.parse(JSON.stringify(METEO));
+    // Aperçu des communes suivies : un tableau, un élément par couple de coordonnées.
+    if (u.includes("current=")) {
+      const lats = decodeURIComponent(new URL(u).searchParams.get("latitude")).split(",");
+      const tab = lats.map((_, k) => ({
+        current: { temperature_2m: 18 + k * 3, weather_code: [0, 3, 61][k % 3], is_day: 1 },
+        daily: { temperature_2m_min: [12 + k], temperature_2m_max: [26 + k] },
+      }));
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(tab) });
+      return;
+    }
+    if (u.includes("models=meteofrance_arome")) { route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ hourly: d.hourly }) }); return; }
+    if (u.includes("hourly=")) { route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ hourly: d.hourly }) }); return; }
+    delete d.hourly;
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
+  });
+  // Les deux sources data.gouv sont coupées : on éprouve le repli.
+  await c.route(/object\.files\.data\.gouv\.fr|www\.data\.gouv\.fr/, r => r.abort());
+  await c.route(/api-adresse\.data\.gouv\.fr/, r => {
+    const q = new URL(r.request().url()).searchParams.get("q") || "";
+    const vide = { features: [] };
+    const grenoble = { features: [{
+      geometry: { coordinates: [5.7245, 45.1885] },
+      properties: { city: "Grenoble", name: "Grenoble", postcode: "38000", context: "38, Isère" },
+    }] };
+    r.fulfill({ status: 200, contentType: "application/json",
+      body: JSON.stringify(/zzzz/i.test(q) ? vide : grenoble) });
+  });
+};
+
+await brancherRoutes(ctx);
 
 const pg = await ctx.newPage();
 const erreurs = [];
@@ -374,14 +387,26 @@ await pg.locator("#navLieu").click();
 await pg.waitForTimeout(900);
 ok("le titre d'écran ouvre la feuille des communes",
   (await txt("#feuille-titre")).startsWith("Communes"), await txt("#feuille-titre"));
-ok("la commune courante est suivie", await pg.locator(".co").count() === 1);
+ok("la commune courante est suivie", await pg.locator(".co:not(.co-pos)").count() === 1);
 ok("la commune courante porte une coche",
   await pg.locator('.co-l[aria-current="true"] .co-coche').count() === 1);
 ok("chaque rangée porte la température du moment",
-  /^\d+°$/.test((await txt(".co-d")).trim()), await txt(".co-d"));
+  /^\d+°$/.test((await txt(".co:not(.co-pos) .co-d")).trim()), await txt(".co:not(.co-pos) .co-d"));
 ok("chaque rangée porte les bornes du jour",
-  /\d+° à \d+°/.test(await txt(".co-t em")), await txt(".co-t em"));
-ok("chaque rangée porte un symbole de ciel", await pg.locator(".co-ic svg").count() === 1);
+  /\d+° à \d+°/.test(await txt(".co:not(.co-pos) .co-t em")), await txt(".co:not(.co-pos) .co-t em"));
+ok("chaque rangée porte un symbole de ciel",
+  await pg.locator(".co:not(.co-pos) .co-ic svg").count() === 1);
+
+// Ma position tient la tête de liste et ne se retire pas.
+ok("Ma position est épinglée en tête", await pg.locator(".co-liste .co").first()
+  .evaluate(e => e.classList.contains("co-pos")));
+ok("Ma position ne se retire pas", await pg.locator(".co-pos .co-x").count() === 0);
+ok("sans relevé, la cible tient la place du symbole",
+  await pg.locator(".co-pos .co-ic svg").count() === 1
+  && await pg.locator(".co-pos .co-cible").count() === 0);
+ok("sans relevé, Ma position invite à le prendre",
+  (await txt(".co-pos .co-t em")).includes("Relever"), await txt(".co-pos .co-t em"));
+ok("le bouton de position redondant a disparu", await pg.locator("#rgGeo").count() === 0);
 
 ok("le champ de commune porte une étiquette visible",
   await pg.locator('label[for="rgQ"]:visible').count() === 1);
@@ -406,11 +431,12 @@ ok("la commune ajoutée devient courante",
 // Deuxième passage : deux communes, bascule en deux gestes.
 await pg.locator("#navLieu").click();
 await pg.waitForTimeout(900);
-ok("les deux communes sont suivies", await pg.locator(".co").count() === 2, String(await pg.locator(".co").count()));
-const nomsCo = (await pg.locator(".co-t b").allInnerTexts()).join(",");
+ok("les deux communes sont suivies", await pg.locator(".co:not(.co-pos)").count() === 2,
+  String(await pg.locator(".co:not(.co-pos)").count()));
+const nomsCo = (await pg.locator(".co:not(.co-pos) .co-t b").allInnerTexts()).join(",");
 ok("la dernière choisie est en tête", nomsCo.startsWith("Grenoble"), nomsCo);
 
-await pg.locator(".co").nth(1).locator(".co-l").click();
+await pg.locator(".co:not(.co-pos)").nth(1).locator(".co-l").click();
 await pg.waitForTimeout(1200);
 ok("un appui sur une rangée bascule de commune",
   (await txt("#navLieuNom")).includes("Fain"), await txt("#navLieuNom"));
@@ -422,7 +448,7 @@ await pg.waitForTimeout(900);
 ok("le retrait est atteignable sans glissement",
   await pg.locator(".co-x").count() === 2);
 ok("le retrait se tient sous la rangée, non à côté", await pg.evaluate(() => {
-  const co = document.querySelector(".co");
+  const co = document.querySelector(".co:not(.co-pos)");
   const l = co.querySelector(".co-l").getBoundingClientRect();
   const x = co.querySelector(".co-x").getBoundingClientRect();
   return x.right <= l.right + 1 && x.left >= l.left;
@@ -437,18 +463,65 @@ ok("le focus découvre la rangée", await pg.evaluate(() => {
 }));
 await pg.keyboard.press("Enter");
 await pg.waitForTimeout(900);
-ok("la commune retirée quitte la liste", await pg.locator(".co").count() === 1);
+ok("la commune retirée quitte la liste", await pg.locator(".co:not(.co-pos)").count() === 1);
 ok("la commune courante n'a pas changé",
   (await txt("#navLieuNom")).includes("Fain"), await txt("#navLieuNom"));
 
 ok("l'état désactivé neutralise le contrôle", await pg.evaluate(() => {
-  const b = document.getElementById("rgGeo");
+  const b = document.getElementById("coPos");
   b.disabled = true;
   const s = getComputedStyle(b);
   const r = s.pointerEvents === "none" && parseFloat(s.opacity) < 1;
   b.disabled = false;
   return r;
 }));
+
+console.log("\n--- Ma position ---");
+// L'appareil se tient à Grenoble : le relevé doit y mener et la feuille se fermer.
+await pg.locator("#coPos").click();
+await pg.waitForTimeout(1500);
+ok("l'appui sur Ma position ferme la feuille",
+  await pg.locator("#feuille:visible").count() === 0);
+ok("la position devient le lieu courant",
+  (await txt("#navLieuNom")) === "Grenoble", await txt("#navLieuNom"));
+ok("la barre de tête porte la cible en mode position",
+  await pg.locator("#navPos:visible").count() === 1);
+ok("la prévision est relue pour la position", await pg.evaluate(() => {
+  const g = JSON.parse(localStorage.getItem("mameteo.reglages.v1"));
+  return g.auto === true && Math.abs(g.lat - 45.1885) < 0.001;
+}));
+
+await pg.locator("#navLieu").click();
+await pg.waitForTimeout(1200);
+ok("Ma position porte la coche",
+  await pg.locator('.co-pos .co-l[aria-current="true"]').count() === 1);
+ok("aucune autre rangée ne porte la coche",
+  await pg.locator('.co-l[aria-current="true"]').count() === 1);
+ok("Ma position porte la température du moment",
+  /^\d+°$/.test((await txt(".co-pos .co-d")).trim()), await txt(".co-pos .co-d"));
+ok("le relevé pris, la cible passe dans le titre",
+  await pg.locator(".co-pos .co-cible").count() === 1
+  && await pg.locator(".co-pos .co-ic .ict").count() === 1);
+ok("Ma position nomme la commune relevée",
+  (await txt(".co-pos .co-t em")).includes("Grenoble"), await txt(".co-pos .co-t em"));
+ok("le relevé n'ajoute pas de commune suivie",
+  await pg.locator(".co:not(.co-pos)").count() === 1,
+  String(await pg.locator(".co:not(.co-pos)").count()));
+
+// Choisir une commune quitte le mode position : les deux ne peuvent pas tenir ensemble.
+await pg.locator(".co:not(.co-pos) .co-l").first().click();
+await pg.waitForTimeout(1200);
+ok("choisir une commune quitte le mode position",
+  await pg.locator("#navPos:visible").count() === 0);
+ok("la commune choisie redevient courante",
+  (await txt("#navLieuNom")).includes("Fain"), await txt("#navLieuNom"));
+
+await pg.locator("#navLieu").click();
+await pg.waitForTimeout(1200);
+ok("le dernier relevé reste servi hors mode position",
+  (await txt(".co-pos .co-t em")).includes("Grenoble"), await txt(".co-pos .co-t em"));
+ok("Ma position ne porte plus la coche",
+  await pg.locator('.co-pos .co-l[aria-current="true"]').count() === 0);
 await pg.locator("#feuille-fermer").click(); await pg.waitForTimeout(420);
 
 console.log("\n--- Réglages en feuille ---");
@@ -548,6 +621,66 @@ ok("l'état vide porte un symbole, un titre, une phrase et une action",
 ok("l'état vide propose une action secondaire",
   await pgVide.locator('.etat-vide .bouton-borde[data-action="geo"]').count() === 1);
 await ctxVide.close();
+
+console.log("\n--- Suivi de la position ---");
+
+/* L'application s'ouvre en mode position sur un relevé ancien, pris ailleurs.
+   L'autorisation étant déjà accordée, le relevé silencieux doit partir seul,
+   voir que l'appareil a bougé, et relire la prévision là où il se trouve. */
+const ctxSuivi = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+  permissions: ["geolocation"],
+  geolocation: { latitude: 45.1885, longitude: 5.7245 },
+});
+await ctxSuivi.addInitScript(amorce({
+  commune: "Ailleurs", codePostal: null, lat: 47.5, lon: 4.3,
+  ecriture: "ruban", poste: null, suivies: [],
+  auto: true,
+  position: { commune: "Ailleurs", codePostal: null, lat: 47.5, lon: 4.3, t: 0 },
+}));
+await brancherRoutes(ctxSuivi);
+const pgSuivi = await ctxSuivi.newPage();
+const erreursSuivi = [];
+pgSuivi.on("pageerror", e => erreursSuivi.push(String(e)));
+await pgSuivi.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await pgSuivi.waitForTimeout(2000);
+ok("le relevé silencieux suit l'appareil",
+  (await pgSuivi.locator("#navLieuNom").innerText()) === "Grenoble",
+  await pgSuivi.locator("#navLieuNom").innerText());
+ok("la prévision est relue aux nouvelles coordonnées", await pgSuivi.evaluate(() => {
+  const g = JSON.parse(localStorage.getItem("mameteo.reglages.v1"));
+  return Math.abs(g.lat - 45.1885) < 0.001 && Math.abs(g.lon - 5.7245) < 0.001;
+}));
+ok("le suivi n'ajoute pas de commune suivie", await pgSuivi.evaluate(() =>
+  JSON.parse(localStorage.getItem("mameteo.reglages.v1")).suivies.length === 0));
+ok("le suivi n'a soulevé aucune erreur", erreursSuivi.length === 0, erreursSuivi.join(" | "));
+await ctxSuivi.close();
+
+/* Sans autorisation, aucune demande ne doit partir au chargement : le dernier
+   relevé reste servi et la rangée attend un appui. */
+const ctxRefus = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+await ctxRefus.addInitScript(amorce({
+  commune: "Ailleurs", codePostal: null, lat: 47.5, lon: 4.3,
+  ecriture: "ruban", poste: null, suivies: [],
+  auto: true,
+  position: { commune: "Ailleurs", codePostal: null, lat: 47.5, lon: 4.3, t: 0 },
+}));
+await brancherRoutes(ctxRefus);
+const pgRefus = await ctxRefus.newPage();
+await pgRefus.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await pgRefus.waitForTimeout(1500);
+ok("sans autorisation, le dernier relevé reste servi",
+  (await pgRefus.locator("#navLieuNom").innerText()) === "Ailleurs",
+  await pgRefus.locator("#navLieuNom").innerText());
+ok("sans autorisation, la prévision garde ses coordonnées", await pgRefus.evaluate(() => {
+  const g = JSON.parse(localStorage.getItem("mameteo.reglages.v1"));
+  return Math.abs(g.lat - 47.5) < 0.001;
+}));
+await ctxRefus.close();
 
 const ctxLent = await nav.newContext({
   viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,

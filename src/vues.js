@@ -329,11 +329,34 @@ export function vueLune() {
 
    Deux gestes séparent deux communes : le titre d'écran ouvre cette feuille,
    une rangée bascule. Chaque rangée porte le temps qu'il fait, sans quoi la
-   liste ne serait qu'un répertoire de noms. */
+   liste ne serait qu'un répertoire de noms.
+
+   La première rangée ne nomme pas un lieu mais l'appareil : Ma position relève
+   la position et suit les déplacements. Elle est épinglée en tête et ne se
+   retire pas. */
 
 export function vueCommunes(ctx, rendre, majEtat) {
   const suivies = Reglages.suivies();
   const courante = Reglages.cleCourante();
+  const pos = Reglages.position();
+  const enPos = Reglages.enPosition();
+
+  const rangeePosition = () => {
+    const sous = pos?.commune || (pos ? "Position relevée" : "Relever la position");
+    return `<div class="co co-pos" data-cle="${esc(Reglages.CLE_POSITION)}">`
+      + `<button type="button" class="co-l" id="coPos"`
+      + (enPos ? ` aria-current="true"` : "")
+      /* Une fois le relevé pris, le symbole de ciel occupe la même place que sur
+         les autres rangées et la cible passe dans le titre, où elle dit que la
+         rangée suit l'appareil. Avant le premier relevé, la cible tient seule la
+         place du symbole : deux cibles sur une rangée n'apprendraient rien. */
+      + `><span class="co-ic"${pos ? " data-ic" : ""}>${ico("cible", "")}</span>`
+      + `<span class="co-t"><b>Ma position${pos ? ico("cible", "co-cible") : ""}</b>`
+      + `<em data-bornes>${esc(sous)}</em></span>`
+      + `<span class="co-d" data-deg>${pos ? `<i class="ossature">00°</i>` : ""}</span>`
+      + ico("coche", enPos ? "co-coche" : "co-coche co-coche-vide")
+      + `</button></div>`;
+  };
 
   const rangee = (l, k) => {
     const c = Reglages.cleLieu(l);
@@ -354,9 +377,9 @@ export function vueCommunes(ctx, rendre, majEtat) {
       + `</div>`;
   };
 
-  const liste = suivies.length
-    ? `<div class="carte co-liste" id="coListe">${suivies.map(rangee).join("")}</div>`
-    : `<div class="carte"><p class="vide">Aucune commune suivie pour le moment.</p></div>`;
+  const liste = `<div class="carte co-liste" id="coListe">`
+    + rangeePosition() + suivies.map(rangee).join("")
+    + `<p class="champ-erreur co-err" id="coErr" hidden></p></div>`;
 
   const plein = suivies.length >= Reglages.MAX_SUIVIES;
 
@@ -370,29 +393,35 @@ export function vueCommunes(ctx, rendre, majEtat) {
       + `<p class="champ-erreur" id="rgErr"${plein ? "" : " hidden"}>`
       + (plein ? `Dix communes suivies au plus. En retirer une pour en ajouter une autre.` : "")
       + `</p>`
-      + `<div class="rg-res" id="rgRes"></div>`
-      + `<button type="button" class="bouton-texte" id="rgGeo"${plein ? " disabled" : ""}>`
-      + `${ico("cible", "")}<span>Utiliser ma position</span></button></div>`
-      + `<p class="note">Glisser une rangée vers la gauche pour retirer la commune. `
-      + `La commune courante porte une coche.</p>`,
+      + `<div class="rg-res" id="rgRes"></div></div>`
+      + `<p class="note">Ma position suit l'appareil et se relève à chaque ouverture. `
+      + `Glisser une rangée vers la gauche pour retirer la commune. Le lieu courant `
+      + `porte une coche.</p>`,
 
     brancher(bloc) {
       /* Les températures arrivent après coup : la feuille s'ouvre tout de
-         suite, l'ossature tient la place, un seul appel couvre la liste. */
-      if (suivies.length) {
-        P.apercus(suivies).then(({ par, age }) => {
+         suite, l'ossature tient la place, un seul appel couvre la liste, Ma
+         position comprise dès qu'un relevé est connu. */
+      const cibles = pos ? [pos, ...suivies] : suivies;
+      if (cibles.length) {
+        P.apercus(cibles).then(({ par, age }) => {
           for (const el of bloc.querySelectorAll(".co")) {
-            const l = suivies.find(x => Reglages.cleLieu(x) === el.dataset.cle);
+            const l = el.classList.contains("co-pos")
+              ? pos : suivies.find(x => Reglages.cleLieu(x) === el.dataset.cle);
+            if (!l) continue;
             const a = par[`${l.lat},${l.lon}`];
             const deg = el.querySelector("[data-deg]");
             const bornes = el.querySelector("[data-bornes]");
             const icone = el.querySelector("[data-ic]");
             if (!a) { deg.textContent = "—"; continue; }
             deg.textContent = `${Math.round(a.t)}°`;
-            icone.innerHTML = icoTemps(icoCiel(a.code, a.jour), "");
-            const cp = l.codePostal ? `${l.codePostal} · ` : "";
-            bornes.textContent = a.tn === null ? cp.replace(" · ", "")
-              : `${cp}${Math.round(a.tn)}° à ${Math.round(a.tx)}°`;
+            if (icone) icone.innerHTML = icoTemps(icoCiel(a.code, a.jour), "");
+            /* Sur Ma position, la commune relevée passe avant le code postal :
+               c'est elle qui dit où l'appareil se trouve. */
+            const tete = el.classList.contains("co-pos")
+              ? (l.commune || "") : (l.codePostal || "");
+            bornes.textContent = a.tn === null ? tete
+              : `${tete ? `${tete} · ` : ""}${Math.round(a.tn)}° à ${Math.round(a.tx)}°`;
           }
           if (age !== null && age > 15 * 60 * 1000) {
             majEtat("Températures de la dernière lecture connue.");
@@ -401,7 +430,7 @@ export function vueCommunes(ctx, rendre, majEtat) {
       }
 
       // Bascule de commune : un appui, la feuille se ferme, la prévision suit.
-      for (const b of bloc.querySelectorAll(".co-l")) {
+      for (const b of bloc.querySelectorAll(".co-l[data-k]")) {
         b.addEventListener("click", () => {
           const l = suivies[Number(b.dataset.k)];
           if (Reglages.cleLieu(l) === courante) { rendre({ fermer: true }); return; }
@@ -409,6 +438,31 @@ export function vueCommunes(ctx, rendre, majEtat) {
           rendre({ recharger: true, fermer: true });
         });
       }
+
+      /* Ma position : l'appui relève la position, même quand elle est déjà
+         courante. C'est le seul moyen de la rafraîchir à la demande, et le
+         geste vient de l'utilisateur, ce qu'exigent les navigateurs pour la
+         première autorisation. */
+      const bPos = bloc.querySelector("#coPos");
+      const err = bloc.querySelector("#coErr");
+      bPos.addEventListener("click", async () => {
+        bPos.disabled = true;
+        bPos.setAttribute("aria-busy", "true");
+        err.hidden = true;
+        majEtat("Recherche de la position…");
+        try {
+          await Reglages.releverPosition();
+          majEtat("");
+          rendre({ recharger: true, fermer: true });
+        } catch (e) {
+          majEtat("");
+          err.textContent = e.message;
+          err.hidden = false;
+        } finally {
+          bPos.disabled = false;
+          bPos.removeAttribute("aria-busy");
+        }
+      });
 
       brancherGlissement(bloc, cle => {
         const { change } = Reglages.retirerSuivie(cle);
@@ -427,7 +481,8 @@ export function vueCommunes(ctx, rendre, majEtat) {
 function brancherGlissement(bloc, retirer) {
   const LARGE = 104;
 
-  for (const el of bloc.querySelectorAll(".co")) {
+  // Ma position ne se retire pas : sa rangée n'a pas de bouton, donc pas de glissement.
+  for (const el of bloc.querySelectorAll(".co:not(.co-pos)")) {
     const l = el.querySelector(".co-l");
     let x0 = null, y0 = null, glisse = false, ouvert = false;
 
@@ -473,7 +528,8 @@ function brancherGlissement(bloc, retirer) {
   }
 }
 
-/* Recherche de commune et géolocalisation, communes à la feuille des communes. */
+/* Recherche de commune par le nom ou le code postal. La position, elle, tient
+   dans la rangée épinglée en tête de liste. */
 function brancherRecherche(bloc, rendre, majEtat) {
   const q = bloc.querySelector("#rgQ");
   const res = bloc.querySelector("#rgRes");
@@ -512,23 +568,6 @@ function brancherRecherche(bloc, rendre, majEtat) {
   q.addEventListener("input", () => {
     clearTimeout(minuteur);
     minuteur = setTimeout(chercher, 260);
-  });
-
-  const geo = bloc.querySelector("#rgGeo");
-  geo.addEventListener("click", async () => {
-    geo.disabled = true;
-    majEtat("Recherche de la position…");
-    try {
-      const { lat, lon } = await Reglages.geolocaliser();
-      const lieu = await Reglages.communeDe(lat, lon);
-      if (!lieu) { majEtat("Aucune commune trouvée à cette position."); return; }
-      majEtat("");
-      poser(lieu);
-    } catch (e) {
-      majEtat(e.message);
-    } finally {
-      geo.disabled = false;
-    }
   });
 }
 

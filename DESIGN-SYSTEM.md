@@ -167,12 +167,23 @@ bouton restant dans l'ordre de tabulation et le focus découvrant la rangée.
 Une action permanente par rangée aurait coûté une colonne de boutons sur toute
 la liste, ce que le document écarte.
 
+### Rangée épinglée
+
+`.co-pos` tient la tête de la liste des communes et ne se retire pas : elle ne
+nomme pas un lieu mais l'appareil. Elle emprunte la forme des autres rangées,
+symbole de ciel, nom, température, coche, et n'en diffère que par une cible de
+13 pt dans son titre. Avant le premier relevé, la cible tient seule la place du
+symbole de ciel : deux cibles sur une rangée n'apprendraient rien.
+
 ### Barre de tête
 
 Elle porte la commune à gauche, sous forme de bouton à chevron, et les réglages
 à droite. La commune s'y tient sur les cinq écrans : une seule cible, toujours
 au même endroit. Le titre compact d'écran est retiré, la barre d'onglets disant
 déjà où l'on se trouve.
+
+En mode position, une cible de 15 pt à l'accent précède le nom. Le nom dit où
+l'appareil se trouve, la cible dit qu'il suivra.
 
 ### Symboles de temps
 

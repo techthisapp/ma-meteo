@@ -324,8 +324,13 @@ function rendre() {
      du ruban renverrait la page en haut. */
   const y = window.scrollY;
 
-  const lieu = Reglages.lire().commune;
-  $("navLieuNom").textContent = lieu || "Ma météo";
+  /* En mode position, la barre de tête porte la commune relevée et une cible :
+     le nom dit où l'appareil se trouve, la cible dit qu'il suivra. */
+  const g = Reglages.lire();
+  const enPos = Reglages.enPosition();
+  $("navLieuNom").textContent = enPos
+    ? (g.commune || "Ma position") : (g.commune || "Ma météo");
+  $("navPos").hidden = !enPos;
   $("navLieu").hidden = false;
   ecran.innerHTML = titreEcran(f.titre, f.sous) + f.corps;
   if (typeof f.brancher === "function") f.brancher(ecran);
@@ -397,17 +402,45 @@ async function situerParPosition(bouton) {
   if (bouton) { bouton.disabled = true; bouton.setAttribute("aria-busy", "true"); }
   majEtat("Recherche de la position…");
   try {
-    const { lat, lon } = await Reglages.geolocaliser();
-    const lieu = await Reglages.communeDe(lat, lon);
-    if (!lieu) { majEtat("Aucune commune trouvée à cette position."); return; }
+    await Reglages.releverPosition();
     majEtat("");
-    Reglages.poserLieu(lieu);
     sentir(10);
     charger();
   } catch (e) {
     majEtat(e.message);
   } finally {
     if (bouton) { bouton.disabled = false; bouton.removeAttribute("aria-busy"); }
+  }
+}
+
+/* ---------- Suivi de la position ----------
+
+   En mode position, le lieu courant suit l'appareil. Le relevé silencieux ne
+   part que si l'autorisation est déjà accordée : sans geste de l'utilisateur,
+   une première demande au chargement serait rejetée. La prévision n'est relue
+   que si l'appareil a bougé de plus d'un demi-kilomètre, en deçà duquel elle
+   est identique et la requête serait perdue. */
+
+const BOUGE = 500;                 // mètres
+const FRAICHE = 10 * 60 * 1000;    // un relevé plus récent que cela suffit
+
+let releveEnCours = false;
+
+async function suivrePosition({ force } = {}) {
+  if (!Reglages.enPosition() || releveEnCours) return false;
+  const avant = Reglages.position();
+  if (!force && avant && Date.now() - avant.t < FRAICHE) return false;
+  if (!await Reglages.positionAutorisee()) return false;
+  releveEnCours = true;
+  try {
+    const apres = await Reglages.releverPosition();
+    const bouge = !avant || Reglages.ecart(avant, apres) > BOUGE;
+    if (bouge) charger(); else rendre();
+    return bouge;
+  } catch {
+    return false;   // position devenue indisponible : le dernier relevé reste servi
+  } finally {
+    releveEnCours = false;
   }
 }
 
@@ -514,12 +547,18 @@ function brancherGlissement() {
 
 /* ---------- Chargement ---------- */
 
+/* Deux lectures peuvent se chevaucher, la position pouvant en déclencher une
+   pendant qu'une autre court. Seule la plus récente écrit l'écran. */
+let generation = 0;
+
 async function charger() {
   const g = Reglages.lire();
+  const mien = ++generation;
   if (!Reglages.situe()) { charge = "vide"; rendre(); return; }
   charge = "chargement";
   rendre();
   const r = await P.charger({ lat: g.lat, lon: g.lon });
+  if (mien !== generation) return;
   charge = r ? "pret" : "erreur";
   rendre();
   if (vueCourante) rendreFeuille();
@@ -568,8 +607,14 @@ for (const ev of ["online", "offline"]) window.addEventListener(ev, () => rendre
 
 brancherGlissement();
 
-// Le retour au premier plan relit la charge quand l'heure a changé.
-P.surRetourAuPremierPlan(() => charger());
+/* Le retour au premier plan relit la charge quand l'heure a changé, et relève
+   d'abord la position : revenir dans l'application après un trajet doit rendre
+   le temps qu'il fait là où l'on est. Un relevé qui déplace la prévision la
+   recharge lui-même, sans quoi elle serait lue deux fois. */
+P.surRetourAuPremierPlan(async () => {
+  if (await suivrePosition({ force: true })) return;
+  charger();
+});
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
@@ -578,3 +623,7 @@ if ("serviceWorker" in navigator) {
 }
 
 charger();
+
+/* La prévision du dernier relevé paraît tout de suite ; le relevé suivant part
+   derrière et ne recharge l'écran que s'il déplace le lieu. */
+suivrePosition();

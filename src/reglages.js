@@ -6,6 +6,9 @@ const CLE = "mameteo.reglages.v1";
 // Au delà, la liste ne se lit plus d'un coup d'œil et la requête d'aperçu enfle.
 export const MAX_SUIVIES = 10;
 
+// Le lieu courant peut être une commune choisie ou la position de l'appareil.
+export const CLE_POSITION = "position";
+
 const DEFAUT = {
   commune: null,
   codePostal: null,
@@ -14,6 +17,8 @@ const DEFAUT = {
   ecriture: "ruban",   // ruban, liste ou moments
   poste: null,         // numéro du poste de mesure retenu
   suivies: [],         // communes suivies, la courante comprise
+  auto: false,         // le lieu courant suit la position de l'appareil
+  position: null,      // dernier relevé : commune, codePostal, lat, lon, t
 };
 
 let etat = { ...DEFAUT };
@@ -36,7 +41,11 @@ const nu = l => ({
 /* Reprise des réglages écrits avant les communes suivies : la commune courante
    ouvre la liste, sinon l'application paraîtrait avoir tout oublié. */
 if (!Array.isArray(etat.suivies)) etat.suivies = [];
-if (!etat.suivies.length && etat.lat !== null) etat.suivies = [nu(etat)];
+if (typeof etat.auto !== "boolean") etat.auto = false;
+if (etat.auto && !etat.position) etat.auto = false;
+/* En mode position, le lieu courant n'est pas une commune choisie : le reprendre
+   dans la liste y ferait entrer une commune que personne n'a demandée. */
+if (!etat.suivies.length && etat.lat !== null && !etat.auto) etat.suivies = [nu(etat)];
 
 const ecrire = () => {
   try { localStorage.setItem(CLE, JSON.stringify(etat)); }
@@ -55,7 +64,7 @@ export function poser(champs) {
 /* ---------- Communes suivies ---------- */
 
 export const suivies = () => etat.suivies.map(l => ({ ...l }));
-export const cleCourante = () => cleLieu(etat);
+export const cleCourante = () => (etat.auto ? CLE_POSITION : cleLieu(etat));
 export const estSuivie = l => etat.suivies.some(x => cleLieu(x) === cleLieu(l));
 
 /* Poser une commune la rend courante et l'ajoute à la liste si elle en manque.
@@ -66,9 +75,68 @@ export function poserLieu(l) {
   if (!c) return lire();
   const reste = etat.suivies.filter(x => cleLieu(x) !== c);
   const liste = [nu(l), ...reste].slice(0, MAX_SUIVIES);
-  etat = { ...etat, ...nu(l), poste: null, suivies: liste };
+  etat = { ...etat, ...nu(l), poste: null, suivies: liste, auto: false };
   ecrire();
   return lire();
+}
+
+/* ---------- Ma position ----------
+
+   Une entrée de plus dans la liste, épinglée en tête et jamais retirée : elle
+   ne nomme pas un lieu mais l'appareil. La choisir relève la position, la
+   nomme par l'interface adresse, et la prévision suit. Le dernier relevé est
+   gardé pour que la liste s'ouvre sur une température plutôt que sur un vide,
+   et pour que l'application reste lisible hors ligne. */
+
+export const enPosition = () => etat.auto === true;
+export const position = () => (etat.position ? { ...etat.position } : null);
+
+/* Écart entre deux points, en mètres. Sur quelques kilomètres la projection
+   plate suffit : il ne s'agit que de savoir si la prévision doit être relue. */
+export function ecart(a, b) {
+  if (!a || !b || a.lat === null || b.lat === null) return Infinity;
+  const R = 6371000, rad = Math.PI / 180;
+  const dx = (b.lon - a.lon) * rad * Math.cos((a.lat + b.lat) / 2 * rad);
+  const dy = (b.lat - a.lat) * rad;
+  return Math.hypot(dx, dy) * R;
+}
+
+export function poserPosition(p) {
+  if (!p || p.lat === null || p.lat === undefined) return lire();
+  const lat = Math.round(p.lat * 10000) / 10000;
+  const lon = Math.round(p.lon * 10000) / 10000;
+  /* Sans nom rendu par l'interface adresse, le nom précédent n'est repris que
+     si la position n'a pas bougé de plus de deux kilomètres. Au delà, il
+     désignerait une autre commune. */
+  const proche = ecart(etat.position, { lat, lon }) < 2000;
+  const commune = p.commune ?? (proche ? etat.position?.commune ?? null : null);
+  const codePostal = p.commune
+    ? (p.codePostal ?? null)
+    : (proche ? etat.position?.codePostal ?? null : null);
+  const pos = { commune, codePostal, lat, lon, t: Date.now() };
+  etat = { ...etat, auto: true, position: pos, commune, codePostal, lat, lon, poste: null };
+  ecrire();
+  return lire();
+}
+
+/* Relève la position et la nomme. Un nom qui manque n'empêche rien : la
+   prévision se lit sur les coordonnées. */
+export async function releverPosition() {
+  const { lat, lon } = await geolocaliser();
+  const l = await communeDe(lat, lon);
+  return poserPosition(l || { lat, lon });
+}
+
+/* Une demande de position sans geste de l'utilisateur ferait surgir la demande
+   d'autorisation au chargement. Le relevé silencieux ne part donc que si
+   l'autorisation est déjà accordée ; sinon le dernier relevé reste servi et la
+   rangée de la liste attend un appui. */
+export async function positionAutorisee() {
+  try {
+    if (!navigator.permissions?.query) return false;
+    const s = await navigator.permissions.query({ name: "geolocation" });
+    return s.state === "granted";
+  } catch { return false; }
 }
 
 /* Retirer une commune. Si c'était la courante, la première de la liste prend sa
@@ -76,9 +144,19 @@ export function poserLieu(l) {
 export function retirerSuivie(cle) {
   const liste = etat.suivies.filter(x => cleLieu(x) !== cle);
   if (liste.length === etat.suivies.length) return { lire: lire(), change: false };
-  const etaitCourante = cleLieu(etat) === cle;
+  const etaitCourante = !etat.auto && cleLieu(etat) === cle;
   etat = { ...etat, suivies: liste };
   if (etaitCourante) {
+    /* La liste vidée, il reste toujours Ma position : la bascule y va d'elle
+       même quand un relevé est connu, plutôt que de rendre l'écran vide. Le
+       relevé garde son horodatage, sans quoi il passerait pour frais. */
+    if (!liste.length && etat.position) {
+      const p = etat.position;
+      etat = { ...etat, auto: true, commune: p.commune, codePostal: p.codePostal,
+        lat: p.lat, lon: p.lon, poste: null };
+      ecrire();
+      return { lire: lire(), change: true };
+    }
     const suivante = liste[0] || { commune: null, codePostal: null, lat: null, lon: null };
     etat = { ...etat, ...nu(suivante), poste: null };
   }
