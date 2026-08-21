@@ -12,7 +12,7 @@
 import { nombreFr, esc } from "./horloge.js";
 import * as P from "./previsions.js";
 import * as Reglages from "./reglages.js";
-import { ico, icoCiel, tempsDe } from "./icones.js";
+import { ico, icoTemps, icoCiel, tempsDe } from "./icones.js";
 import { conseilsHTML, SEUILS } from "./conseils.js";
 import { vueTemps, vueSemaine, vueVigilance, vueSoleil, vueLune, vueCommunes, vueReglages } from "./vues.js";
 
@@ -117,16 +117,11 @@ const chevron = `<svg class="rangee-chev" viewBox="0 0 24 24" aria-hidden="true"
   + `stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">`
   + `<path d="M9 5l7 7-7 7"/></svg>`;
 
-/* Le titre d'écran porte l'action de changement de commune, à la façon d'un
-   titre à menu : une seule cible, tout en haut, et pas d'élément de plus. */
-const titreEcran = (titre, sous, avecLieu) =>
-  `<div class="titre-ecran"><h1>`
-  + (avecLieu
-    ? `<button type="button" class="titre-bouton" data-feuille="communes" `
-      + `aria-label="Changer de commune">`
-      + `<span>${esc(titre)}${ico("chevron_bas", "titre-chev")}</span></button>`
-    : esc(titre))
-  + `</h1>`
+/* Le titre d'écran nomme l'écran. Le changement de commune vit dans la barre de
+   tête, à la même place sur les cinq écrans : une seule cible, toujours au même
+   endroit, plutôt qu'une cible différente par écran. */
+const titreEcran = (titre, sous) =>
+  `<div class="titre-ecran"><h1>${esc(titre)}</h1>`
   + (sous ? `<p>${esc(sous)}</p>` : "")
   + `</div>`;
 
@@ -210,7 +205,7 @@ function ecranAccueil() {
     corps += `<div class="bandeau"><div class="bd-haut">`
       + `<p class="bd-deg">${Math.round(t)}<sup>°</sup></p>`
       + `<div class="bd-etat">`
-      + `<p class="bd-ciel">${ico(icoCiel(code, clair))}<span>${esc(lib)}</span></p>`
+      + `<p class="bd-ciel">${icoTemps(icoCiel(code, clair))}<span>${esc(lib)}</span></p>`
       + `<p class="bd-bornes"><b>${Math.round(tn)}°</b> à <b>${Math.round(tx)}°</b> aujourd'hui</p>`
       + `</div></div>`
       + (mesures.length ? `<div class="bd-mesures">` + mesures.map(([n, v, e]) =>
@@ -243,10 +238,12 @@ function ecranAccueil() {
       + `Mise à jour toutes les heures.</p>`;
   }
 
+  /* La commune est dans la barre de tête, à la même place sur les cinq écrans.
+     La répéter en grand titre laissait deux fois le même mot à l'écran : le
+     grand titre porte donc le jour, seule chose que l'accueil n'écrivait pas. */
   return {
-    titre: g.commune || "Ma météo",
-    sous: g.commune ? jour : "",
-    avecLieu: true,
+    titre: g.commune ? jour.charAt(0).toUpperCase() + jour.slice(1) : "Ma météo",
+    sous: "",
     corps: bandeauHorsLigne() + corps,
   };
 }
@@ -259,8 +256,9 @@ function ecranVue(nom) {
   const f = VUES_ONGLET[nom](ctx, () => rendre(), majEtat);
   return {
     titre: f.titre,
-    sous: f.sous || "",
-    avecLieu: false,
+    /* La commune est dans la barre de tête : la répéter sous chaque titre
+       d'écran occupait une ligne pour une information déjà présente. */
+    sous: f.sousEcran || "",
     corps: bandeauHorsLigne() + f.corps,
     brancher: f.brancher,
   };
@@ -278,14 +276,13 @@ function rendre() {
     f = {
       titre: nom === "Accueil" ? "Ma météo" : nom,
       sous: "",
-      avecLieu: false,
       corps: etatVide("lieu", "Aucune commune",
         "La prévision se lit pour une commune de France métropolitaine.",
         "Choisir une commune", "Utiliser ma position"),
     };
   } else if (charge === "chargement" && !P.chargeCourante()) {
     f = {
-      titre: nom, sous: "", avecLieu: false,
+      titre: nom, sous: "",
       corps: onglet === "accueil" ? ossatureAccueil() : etatChargement(),
     };
   } else if (onglet === "accueil") {
@@ -298,8 +295,10 @@ function rendre() {
      du ruban renverrait la page en haut. */
   const y = window.scrollY;
 
-  $("navTitre").textContent = f.titre;
-  ecran.innerHTML = titreEcran(f.titre, f.sous, f.avecLieu) + f.corps;
+  const lieu = Reglages.lire().commune;
+  $("navLieuNom").textContent = lieu || "Ma météo";
+  $("navLieu").hidden = false;
+  ecran.innerHTML = titreEcran(f.titre, f.sous) + f.corps;
   if (typeof f.brancher === "function") f.brancher(ecran);
   if (y) window.scrollTo({ top: y, behavior: "instant" });
 
@@ -500,6 +499,7 @@ async function charger() {
 /* ---------- Amorçage ---------- */
 
 $("btnReglages").addEventListener("click", () => ouvrirFeuille("reglages"));
+$("navLieu").addEventListener("click", () => ouvrirFeuille("communes"));
 $("feuille-fermer").addEventListener("click", () => history.back());
 $("feuille-retour").addEventListener("click", retour);
 $("voile").addEventListener("click", () => history.back());

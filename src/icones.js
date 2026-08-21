@@ -17,29 +17,37 @@ const TEMPS = [
 
 export const tempsDe = c => TEMPS.find(t => t[0].includes(c)) || [[], "Temps variable", "nuage"];
 
+/* Les symboles de temps se dessinent en deux groupes : `ic-a` porte la masse,
+   `ic-b` porte l'accent. Rendus par `icoTemps`, ils prennent deux couleurs ;
+   rendus par `ico`, ils restent monochromes. Une couleur ne porte jamais seule
+   l'information, le libellé la double toujours. */
 const D = {
-  soleil: '<circle cx="12" cy="12" r="4.6"/><path d="M12 2v2.6M12 19.4V22M2 12h2.6M19.4 12H22'
-    + 'M4.9 4.9l1.9 1.9M17.2 17.2l1.9 1.9M19.1 4.9l-1.9 1.9M6.8 17.2l-1.9 1.9"/>',
-  soleil_nuage: '<circle cx="9" cy="9" r="3.4"/><path d="M9 2.6v1.8M2.6 9h1.8M4.8 4.8l1.3 1.3M13.2 4.8l-1.3 1.3"/>'
-    + '<path d="M8.4 19.4h9.2a3.6 3.6 0 0 0 .3-7.2 5 5 0 0 0-9.6 1.2 3 3 0 0 0 .1 6z"/>',
-  nuage: '<path d="M7.4 19.4h9.2a3.8 3.8 0 0 0 .3-7.6 5.3 5.3 0 0 0-10.1 1.3 3.2 3.2 0 0 0 .6 6.3z"/>',
-  brume: '<path d="M7.4 15.4h9.2a3.8 3.8 0 0 0 .3-7.6A5.3 5.3 0 0 0 6.8 9.1a3.2 3.2 0 0 0 .6 6.3z"/>'
-    + '<path d="M4 18.6h16M6.5 21.4h11"/>',
-  pluie: '<path d="M7.4 15h9.2a3.8 3.8 0 0 0 .3-7.6A5.3 5.3 0 0 0 6.8 8.7a3.2 3.2 0 0 0 .6 6.3z"/>'
-    + '<path d="M9 18.4l-.9 2.6M13 18.4l-.9 2.6M17 18.4l-.9 2.6"/>',
-  averse: '<path d="M7.4 14.2h9.2a3.8 3.8 0 0 0 .3-7.6A5.3 5.3 0 0 0 6.8 7.9a3.2 3.2 0 0 0 .6 6.3z"/>'
-    + '<path d="M9.4 17.4l-1.2 3.4M13.4 17.4l-1.2 3.4"/><path d="M17.4 17.4l-2.6 2.4h2.6l-2.6 2"/>',
-  orage: '<path d="M7.4 13.6h9.2a3.8 3.8 0 0 0 .3-7.6A5.3 5.3 0 0 0 6.8 7.3a3.2 3.2 0 0 0 .6 6.3z"/>'
-    + '<path d="M13.4 16l-3.4 4.2h3l-2 3.4" stroke-linejoin="round"/>',
-  neige: '<path d="M7.4 14.6h9.2a3.8 3.8 0 0 0 .3-7.6A5.3 5.3 0 0 0 6.8 8.3a3.2 3.2 0 0 0 .6 6.3z"/>'
-    + '<path d="M9 18v3.4M7.4 18.9l3.2 1.6M10.6 18.9l-3.2 1.6M16 18v3.4M14.4 18.9l3.2 1.6M17.6 18.9l-3.2 1.6"/>',
+  soleil: '<g class="ic-b"><circle cx="12" cy="12" r="4.6"/>'
+    + '<path d="M12 2v2.6M12 19.4V22M2 12h2.6M19.4 12H22'
+    + 'M4.9 4.9l1.9 1.9M17.2 17.2l1.9 1.9M19.1 4.9l-1.9 1.9M6.8 17.2l-1.9 1.9"/></g>',
+  soleil_nuage: '<g class="ic-b"><circle cx="9" cy="9" r="3.4"/>'
+    + '<path d="M9 2.6v1.8M2.6 9h1.8M4.8 4.8l1.3 1.3M13.2 4.8l-1.3 1.3"/></g>'
+    + '<g class="ic-a"><path d="M8.4 19.4h9.2a3.6 3.6 0 0 0 .3-7.2 5 5 0 0 0-9.6 1.2 3 3 0 0 0 .1 6z"/></g>',
+  nuage: '<g class="ic-a"><path d="M7.4 19.4h9.2a3.8 3.8 0 0 0 .3-7.6 5.3 5.3 0 0 0-10.1 1.3 3.2 3.2 0 0 0 .6 6.3z"/></g>',
+  brume: '<g class="ic-a"><path d="M7.4 15.4h9.2a3.8 3.8 0 0 0 .3-7.6A5.3 5.3 0 0 0 6.8 9.1a3.2 3.2 0 0 0 .6 6.3z"/></g>'
+    + '<g class="ic-b"><path d="M4 18.6h16M6.5 21.4h11"/></g>',
+  pluie: '<g class="ic-a"><path d="M7.4 15h9.2a3.8 3.8 0 0 0 .3-7.6A5.3 5.3 0 0 0 6.8 8.7a3.2 3.2 0 0 0 .6 6.3z"/></g>'
+    + '<g class="ic-b"><path d="M9 18.4l-.9 2.6M13 18.4l-.9 2.6M17 18.4l-.9 2.6"/></g>',
+  averse: '<g class="ic-a"><path d="M7.4 14.2h9.2a3.8 3.8 0 0 0 .3-7.6A5.3 5.3 0 0 0 6.8 7.9a3.2 3.2 0 0 0 .6 6.3z"/></g>'
+    + '<g class="ic-b"><path d="M9.4 17.4l-1.2 3.4M13.4 17.4l-1.2 3.4"/>'
+    + '<path d="M17.4 17.4l-2.6 2.4h2.6l-2.6 2"/></g>',
+  orage: '<g class="ic-a"><path d="M7.4 13.6h9.2a3.8 3.8 0 0 0 .3-7.6A5.3 5.3 0 0 0 6.8 7.3a3.2 3.2 0 0 0 .6 6.3z"/></g>'
+    + '<g class="ic-b"><path d="M13.4 16l-3.4 4.2h3l-2 3.4" stroke-linejoin="round"/></g>',
+  neige: '<g class="ic-a"><path d="M7.4 14.6h9.2a3.8 3.8 0 0 0 .3-7.6A5.3 5.3 0 0 0 6.8 8.3a3.2 3.2 0 0 0 .6 6.3z"/></g>'
+    + '<g class="ic-b"><path d="M9 18v3.4M7.4 18.9l3.2 1.6M10.6 18.9l-3.2 1.6'
+    + 'M16 18v3.4M14.4 18.9l3.2 1.6M17.6 18.9l-3.2 1.6"/></g>',
   goutte: '<path d="M12 3.4c4.2 4.8 6.6 8.2 6.6 11.2a6.6 6.6 0 0 1-13.2 0c0-3 2.4-6.4 6.6-11.2z"/>',
   arc: '<path d="M3 18h18"/><path d="M6.2 18a5.8 5.8 0 0 1 11.6 0"/><path d="M12 6.4V4M5.2 9.2L3.6 7.6M18.8 9.2l1.6-1.6"/>',
   alerte: '<path d="M12 3.6 21.4 20H2.6z" stroke-linejoin="round"/><path d="M12 9.6v4.6M12 17.2v.1"/>',
   vent: '<path d="M3 8.4h11a3 3 0 1 0-3-3M3 13h15a3 3 0 1 1-3 3M3 17.6h8"/>',
-  lune: '<path d="M20.2 14.6A8.6 8.6 0 0 1 9.4 3.8a8.6 8.6 0 1 0 10.8 10.8z"/>',
-  lune_nuage: '<path d="M12.9 9.1A5 5 0 0 1 6.5 2.7a5 5 0 1 0 6.4 6.4z"/>'
-    + '<path d="M8.4 19.4h9.2a3.6 3.6 0 0 0 .3-7.2 5 5 0 0 0-9.6 1.2 3 3 0 0 0 .1 6z"/>',
+  lune: '<g class="ic-b"><path d="M20.2 14.6A8.6 8.6 0 0 1 9.4 3.8a8.6 8.6 0 1 0 10.8 10.8z"/></g>',
+  lune_nuage: '<g class="ic-b"><path d="M12.9 9.1A5 5 0 0 1 6.5 2.7a5 5 0 1 0 6.4 6.4z"/></g>'
+    + '<g class="ic-a"><path d="M8.4 19.4h9.2a3.6 3.6 0 0 0 .3-7.2 5 5 0 0 0-9.6 1.2 3 3 0 0 0 .1 6z"/></g>',
   thermo: '<path d="M14 14.8V5a2 2 0 1 0-4 0v9.8a4 4 0 1 0 4 0z"/><path d="M12 9.5v5.8"/>',
   horloge: '<circle cx="12" cy="12" r="8.6"/><path d="M12 7.2V12l3.2 2"/>',
   semaine: '<rect x="3.4" y="5" width="17.2" height="15.6" rx="2.4"/><path d="M3.4 9.8h17.2M8.4 3.4v3.2M15.6 3.4v3.2"/>',
@@ -68,3 +76,11 @@ export const icoCiel = (code, jour) => {
 export const ico = (n, cls = "bd-ic") =>
   `<svg class="${esc(cls)}" viewBox="0 0 24 24" aria-hidden="true" fill="none" `
   + `stroke="currentColor" stroke-width="1.6" stroke-linecap="round">${D[n] || ""}</svg>`;
+
+/* Symbole de temps en deux tons. Réservé aux endroits qui décrivent le ciel :
+   le bandeau, la table de la semaine, la liste des communes. Ailleurs, un
+   symbole coloré au milieu d'un texte détournerait le regard. */
+export const icoTemps = (n, cls = "bd-ic") =>
+  `<svg class="${esc(cls)} ict ict-${esc(n)}" viewBox="0 0 24 24" aria-hidden="true" `
+  + `fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">`
+  + `${D[n] || ""}</svg>`;

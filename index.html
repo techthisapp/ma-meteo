@@ -22,7 +22,14 @@
 <!-- Couche navigation : barre de tête en matière verre, titre compact au défilement -->
 <header class="nav" id="nav">
   <div class="nav-corps">
-    <p class="nav-titre" id="navTitre" aria-hidden="true"></p>
+    <button type="button" class="nav-lieu" id="navLieu" data-feuille="communes"
+            aria-label="Changer de commune">
+      <span id="navLieuNom">Ma météo</span>
+      <svg class="nav-chev" viewBox="0 0 24 24" aria-hidden="true" fill="none"
+           stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 9.5l6 6 6-6"/>
+      </svg>
+    </button>
     <button type="button" class="nav-act" id="btnReglages" aria-label="Réglages">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor"
            stroke-width="1.7" stroke-linecap="round">

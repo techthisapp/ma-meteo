@@ -9,9 +9,9 @@ service dorsal, sans base de données, sans compte. Métropole française.
 
 | Écran | Ce qu'il porte |
 |---|---|
-| Accueil | Température, ciel, bornes du jour, quatre mesures, puis une seule carte « À retenir » réunissant les vingt-quatre heures et ce qui vient au-delà, enfin l'accès à la vigilance |
+| Accueil | Le jour en grand titre, température, ciel, bornes du jour, quatre mesures, puis une seule carte « À retenir » réunissant les vingt-quatre heures et ce qui vient au-delà, enfin l'accès à la vigilance |
 | Le temps | Vingt-quatre heures glissantes en trois écritures : ruban à sept voies, liste à treize colonnes, moments par tranches de six heures |
-| La semaine | Sept jours, résumés des heures pour les deux premiers |
+| La semaine | Sept jours : symbole de ciel et lame sous lui, borne basse à gauche, plage de température sur une échelle commune, borne haute à droite, point du moment sur la journée en cours |
 | Le soleil | Arc du jour, lever et coucher avec leur point cardinal, midi solaire, hauteur maximale, durée, écart à la veille, seuil de dix heures, trois crépuscules |
 | La lune | Phase dessinée et nommée, part éclairée, âge, lever et coucher avec leur point cardinal, passage au méridien, hauteur maximale, durée au-dessus de l'horizon, lunaison, quatre prochaines phases |
 | Vigilance | Renvoi vers Météo-France, avec le motif du renvoi, en feuille |
@@ -19,6 +19,24 @@ service dorsal, sans base de données, sans compte. Métropole française.
 
 Les cinq premiers écrans sont des destinations de la barre d'onglets. Communes,
 Vigilance et Réglages sont des présentations en feuille.
+
+## Changement de commune
+
+La commune vit dans la barre de tête, à la même place sur les cinq écrans. Un
+appui ouvre la liste des communes suivies, un second bascule. Aucun écran ne
+répète la commune : le grand titre nomme l'écran, ou porte le jour sur
+l'accueil.
+
+## Symboles de temps
+
+Les symboles du ciel se dessinent en deux groupes : la masse prend le gris du
+ciel, l'accent prend sa couleur propre, jaune pour le soleil, bleu pour la
+pluie, orange pour l'orage. Ils sont réservés aux endroits qui décrivent le
+ciel : le bandeau, la table de la semaine, la liste des communes. Ailleurs les
+symboles restent monochromes, un symbole coloré au milieu d'un texte détournant
+le regard.
+
+La couleur ne porte jamais seule l'information : le libellé la double toujours.
 
 ## Écriture des grandeurs
 
@@ -113,7 +131,7 @@ src/
   postes.js         fichier départemental et geojson des postes, non branché
   reserve.js        les deux vues débranchées
 essais/
-  controle.mjs      cent deux contrôles en navigateur
+  controle.mjs      cent dix contrôles en navigateur
   meteo.json        données figées au 18 août 2026, 9 h
 ```
 
@@ -132,7 +150,7 @@ révision installée par Playwright ne correspond pas à celle du poste.
 
 Le lanceur sert le dossier, fige l'horloge au 18 août 2026 à 9 h, détourne les
 trois appels Open-Meteo vers `meteo.json` et coupe les sources data.gouv pour
-éprouver le repli. Cent deux contrôles, dont l'absence de répétition entre
+éprouver le repli. Cent dix contrôles, dont l'absence de répétition entre
 les alertes et les conseils, les sept voies du ruban, l'agrandissement d'une
 voie, les treize colonnes de la liste, les vingt-quatre lignes de la fenêtre, la
 nature du renvoi de vigilance, et seize contrôles de conformité au design

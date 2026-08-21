@@ -167,6 +167,19 @@ bouton restant dans l'ordre de tabulation et le focus découvrant la rangée.
 Une action permanente par rangée aurait coûté une colonne de boutons sur toute
 la liste, ce que le document écarte.
 
+### Barre de tête
+
+Elle porte la commune à gauche, sous forme de bouton à chevron, et les réglages
+à droite. La commune s'y tient sur les cinq écrans : une seule cible, toujours
+au même endroit. Le titre compact d'écran est retiré, la barre d'onglets disant
+déjà où l'on se trouve.
+
+### Symboles de temps
+
+Deux groupes, `ic-a` pour la masse et `ic-b` pour l'accent, colorés par
+`icoTemps`. Six teintes seulement, peu saturées. `ico` rend les mêmes dessins en
+monochrome pour tous les autres emplois.
+
 ### Composition de l'écran d'accueil
 
 Un seul en-tête de section, « À retenir », réunit les conseils des vingt-quatre
@@ -267,7 +280,7 @@ Le titre d'écran porte l'action de changement de commune, à la façon d'un tit
 
 ## Contrôles automatiques
 
-`node essais/controle.mjs` exécute cent deux contrôles en navigateur, dont
+`node essais/controle.mjs` exécute cent dix contrôles en navigateur, dont
 dix-sept portent sur le design system :
 
 1. toute cible interactive tient 44 pt ;

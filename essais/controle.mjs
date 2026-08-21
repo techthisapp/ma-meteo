@@ -122,11 +122,17 @@ ok("la barre d'onglets est ancrée en bas", await pg.evaluate(() => {
   const b = document.querySelector(".onglets").getBoundingClientRect();
   return Math.abs(b.bottom - window.innerHeight) < 2;
 }));
-ok("la barre de tête ne montre pas son titre au repos", await pg.evaluate(() =>
-  getComputedStyle(document.getElementById("navTitre")).opacity === "0"));
+ok("la barre de tête porte la commune", (await txt("#navLieuNom")) === "Fain-lès-Moutiers",
+  await txt("#navLieuNom"));
+ok("le bouton de commune ouvre la feuille des communes",
+  await pg.getAttribute("#navLieu", "data-feuille") === "communes");
 
 console.log("\n--- Écran d'accueil ---");
-ok("le lieu est affiché", (await txt(".titre-ecran")).includes("Fain"), await txt(".titre-ecran"));
+ok("le grand titre de l'accueil porte le jour",
+  /^[A-ZÀ-Ý][a-zà-ÿ]+ \d{1,2} [a-zà-ÿ]+$/.test(await txt(".titre-ecran h1")),
+  await txt(".titre-ecran h1"));
+ok("la commune ne s'écrit pas deux fois sur l'accueil",
+  !(await txt(".titre-ecran")).includes("Fain"), await txt(".titre-ecran"));
 ok("le bandeau porte un grand chiffre", /\d+°/.test(await txt(".bd-deg")), await txt(".bd-deg"));
 ok("le bandeau porte quatre mesures", await pg.locator(".bd-m").count() === 4);
 const mes = (await pg.locator(".bd-m i").allInnerTexts()).join(", ");
@@ -196,7 +202,30 @@ console.log("\n--- La semaine ---");
 await onglet("semaine");
 ok("sept lignes", await pg.locator(".sem tbody tr").count() === 7, String(await pg.locator(".sem tbody tr").count()));
 const j1 = await pg.locator(".sem .j").first().innerText();
-ok("la première ligne est aujourd'hui", j1.startsWith("Aujourd'hui"), j1.replace("\n"," "));
+ok("la première ligne est aujourd'hui", j1.startsWith("Auj."), j1.replace("\n"," "));
+ok("chaque ligne porte sa borne basse à gauche et sa borne haute à droite",
+  await pg.locator(".sem-min").count() === 7 && await pg.locator(".sem-max").count() === 7);
+ok("les plages se posent sur une échelle commune", await pg.evaluate(() => {
+  const p = [...document.querySelectorAll(".sem-plage")]
+    .map(e => parseFloat(e.style.left));
+  return new Set(p.map(x => x.toFixed(1))).size > 1 && p.every(x => x >= 0 && x <= 100);
+}));
+ok("le point du moment ne paraît que sur le jour en cours",
+  await pg.locator(".sem-pt").count() === 1
+  && await pg.locator(".sem-auj .sem-pt").count() === 1);
+ok("la pluie se lit sous le symbole",
+  await pg.locator(".sem .c em").count() >= 1
+  && await pg.locator(".sem .p").count() === 0);
+ok("aucune rangée de la semaine ne dépasse deux lignes", await pg.evaluate(() =>
+  [...document.querySelectorAll(".sem tbody tr")].every(t => t.getBoundingClientRect().height < 76)));
+ok("les symboles de temps sont en deux tons", await pg.evaluate(() => {
+  const s = document.querySelector(".sem .c svg.ict");
+  if (!s) return false;
+  const a = s.querySelector(".ic-a"), b = s.querySelector(".ic-b");
+  if (!a) return false;
+  return !b || getComputedStyle(a).stroke !== getComputedStyle(b).stroke
+    || getComputedStyle(a).stroke !== "rgb(0, 0, 0)";
+}));
 
 console.log("\n--- Le soleil ---");
 await onglet("soleil");
@@ -260,7 +289,7 @@ await pg.locator("#feuille-fermer").click(); await pg.waitForTimeout(420);
 await onglet("accueil");
 
 // Premier geste : le titre d'écran.
-await pg.locator(".titre-bouton").click();
+await pg.locator("#navLieu").click();
 await pg.waitForTimeout(900);
 ok("le titre d'écran ouvre la feuille des communes",
   (await txt("#feuille-titre")).startsWith("Communes"), await txt("#feuille-titre"));
@@ -291,10 +320,10 @@ await pg.locator("#rgRes button").first().click();
 await pg.waitForTimeout(1200);
 ok("l'ajout ferme la feuille", await pg.locator("#feuille:visible").count() === 0);
 ok("la commune ajoutée devient courante",
-  (await txt(".titre-ecran")).includes("Grenoble"), await txt(".titre-ecran"));
+  (await txt("#navLieuNom")) === "Grenoble", await txt("#navLieuNom"));
 
 // Deuxième passage : deux communes, bascule en deux gestes.
-await pg.locator(".titre-bouton").click();
+await pg.locator("#navLieu").click();
 await pg.waitForTimeout(900);
 ok("les deux communes sont suivies", await pg.locator(".co").count() === 2, String(await pg.locator(".co").count()));
 const nomsCo = (await pg.locator(".co-t b").allInnerTexts()).join(",");
@@ -303,11 +332,11 @@ ok("la dernière choisie est en tête", nomsCo.startsWith("Grenoble"), nomsCo);
 await pg.locator(".co").nth(1).locator(".co-l").click();
 await pg.waitForTimeout(1200);
 ok("un appui sur une rangée bascule de commune",
-  (await txt(".titre-ecran")).includes("Fain"), await txt(".titre-ecran"));
+  (await txt("#navLieuNom")).includes("Fain"), await txt("#navLieuNom"));
 ok("la bascule ferme la feuille", await pg.locator("#feuille:visible").count() === 0);
 
 // Retrait : le bouton reste atteignable au clavier, sous la rangée.
-await pg.locator(".titre-bouton").click();
+await pg.locator("#navLieu").click();
 await pg.waitForTimeout(900);
 ok("le retrait est atteignable sans glissement",
   await pg.locator(".co-x").count() === 2);
@@ -329,7 +358,7 @@ await pg.keyboard.press("Enter");
 await pg.waitForTimeout(900);
 ok("la commune retirée quitte la liste", await pg.locator(".co").count() === 1);
 ok("la commune courante n'a pas changé",
-  (await txt(".titre-ecran")).includes("Fain"), await txt(".titre-ecran"));
+  (await txt("#navLieuNom")).includes("Fain"), await txt("#navLieuNom"));
 
 ok("l'état désactivé neutralise le contrôle", await pg.evaluate(() => {
   const b = document.getElementById("rgGeo");

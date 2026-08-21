@@ -107,6 +107,15 @@
      deux tiennent sur les deux thèmes, la Lune n'ayant qu'une couleur. */
   --lune-claire:#F2EFE6;
   --lune-sombre:#2C353F;
+
+  /* Symboles de temps, deux tons. Volontairement peu saturés : ils décrivent
+     le ciel, ils ne cherchent pas l'attention. */
+  --ic-nuage:#7B8A99;
+  --ic-soleil:#D79A28;
+  --ic-pluie:#3B82C4;
+  --ic-neige:#6FAEDA;
+  --ic-orage:#CE7A1E;
+  --ic-lune:#6C7CA6;
 }
 
 /* Le corps de texte suit le réglage de taille du système sur Safari. */
@@ -142,6 +151,13 @@
 
     --lune-claire:#F2EFE6;
     --lune-sombre:#232B34;
+
+    --ic-nuage:#93A3B2;
+    --ic-soleil:#E7B754;
+    --ic-pluie:#6BA8DC;
+    --ic-neige:#8FC4E6;
+    --ic-orage:#E29845;
+    --ic-lune:#98A7CC;
   }
 }
 
@@ -209,6 +225,17 @@ button:disabled,button[aria-disabled="true"],input:disabled{
   width:max(100%,var(--touche));height:max(100%,var(--touche));
 }
 
+/* Symboles de temps en deux tons. La masse prend le gris du ciel, l'accent
+   prend sa couleur propre. Le libellé porte toujours l'information. */
+.ict .ic-a{stroke:var(--ic-nuage)}
+.ict .ic-b{stroke:var(--ic-nuage)}
+.ict-soleil .ic-b,.ict-soleil_nuage .ic-b{stroke:var(--ic-soleil)}
+.ict-pluie .ic-b,.ict-averse .ic-b{stroke:var(--ic-pluie)}
+.ict-neige .ic-b{stroke:var(--ic-neige)}
+.ict-orage .ic-b{stroke:var(--ic-orage)}
+.ict-lune .ic-b,.ict-lune_nuage .ic-b{stroke:var(--ic-lune)}
+.ict-brume .ic-b{stroke:var(--etiquette-3)}
+
 /* ---------- 3. Couche navigation ---------- */
 
 .nav{
@@ -229,16 +256,19 @@ button:disabled,button[aria-disabled="true"],input:disabled{
   padding:0 var(--espace-md) 0 var(--marge);
   max-width:var(--large-max);margin:0 auto;
 }
-.nav-titre{
+.nav-lieu{
   flex:1 1 auto;min-width:0;
-  font-size:var(--texte-entete);font-weight:var(--graisse-semibold);
-  letter-spacing:-.01em;text-align:center;
+  display:inline-flex;align-items:center;gap:var(--espace-xs);
+  height:var(--touche);margin-left:calc(var(--espace-sm) * -1);
   padding:0 var(--espace-sm);
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  opacity:0;transform:translateY(6px);
-  transition:opacity var(--duree-micro) ease,transform var(--duree-micro) ease;
+  font-size:var(--texte-entete);font-weight:var(--graisse-semibold);
+  letter-spacing:-.01em;text-align:left;
 }
-.nav.pose .nav-titre{opacity:1;transform:none}
+.nav-lieu > span{
+  min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.nav-chev{width:14px;height:14px;flex:0 0 auto;color:var(--etiquette-3)}
+.nav-lieu:active{opacity:.6}
 .nav-act{
   display:inline-flex;align-items:center;justify-content:center;
   width:var(--touche);height:var(--touche);margin-right:calc(var(--espace-sm) * -1);
@@ -657,20 +687,49 @@ button.rangee:active{background:var(--surface-2)}
 /* ---------- 12. Semaine ---------- */
 
 .sem{width:100%;border-collapse:collapse;font-size:var(--texte-sous)}
-.sem td{padding:var(--espace-md) 0;border-top:1px solid var(--filet-clair)}
+.sem td{padding:var(--espace-md) 0;border-top:1px solid var(--filet-clair);vertical-align:middle}
 .sem tr:first-child td{border-top:0}
-.sem .j{font-weight:var(--graisse-semibold);width:78px}
-.sem .j em{display:block;font-style:normal;font-size:var(--texte-legende);font-weight:var(--graisse-regular);color:var(--etiquette-3)}
-.sem .c{width:28px;text-align:center}
-.sem .c svg{width:20px;height:20px;vertical-align:middle;color:var(--etiquette-2)}
-.sem .p{width:66px;text-align:right;color:var(--accent);font-size:var(--texte-note)}
-.sem .b{text-align:right;padding-left:var(--espace-md);white-space:nowrap}
-.sem .b b{font-weight:var(--graisse-semibold)}
-.sem .b span{color:var(--etiquette-3);margin-left:var(--espace-sm)}
-.sem .barre{
-  display:block;height:4px;border-radius:var(--rayon-plein);margin-top:var(--espace-xs);
-  background:linear-gradient(90deg,var(--accent-doux),var(--accent));
+
+.sem .j{width:64px;padding-right:var(--espace-sm)}
+.sem .j b{display:block;font-weight:var(--graisse-semibold)}
+.sem .j em{
+  display:block;font-style:normal;font-size:var(--texte-legende);
+  font-weight:var(--graisse-regular);color:var(--etiquette-3);
 }
+
+/* Le symbole et la pluie tiennent la même colonne : la lame se lit sous le
+   ciel qu'elle accompagne, non dans une colonne qui repoussait la rangée. */
+.sem .c{width:46px;text-align:center;padding:var(--espace-md) var(--espace-sm)}
+.sem .c svg{width:24px;height:24px;display:block;margin:0 auto}
+.sem .c em{
+  display:block;margin-top:2px;font-style:normal;
+  font-size:var(--texte-legende2);color:var(--ic-pluie);white-space:nowrap;
+}
+
+/* La borne basse à gauche de la piste, la haute à droite : la barre se lit
+   entre ses deux chiffres. */
+.sem .b{display:flex;align-items:center;gap:var(--espace-sm);width:100%}
+.sem .b b{
+  flex:0 0 auto;width:34px;font-weight:var(--graisse-semibold);
+  font-variant-numeric:tabular-nums;
+}
+.sem .sem-min{text-align:right;color:var(--etiquette-2)}
+.sem .sem-max{text-align:left}
+.sem-piste{
+  position:relative;flex:1 1 auto;height:5px;min-width:60px;
+  border-radius:var(--rayon-plein);background:var(--surface-2);
+}
+.sem-plage{
+  position:absolute;top:0;bottom:0;border-radius:var(--rayon-plein);
+  text-decoration:none;
+}
+/* Le point marque la température du moment, sur la seule journée en cours. */
+.sem-pt{
+  position:absolute;top:50%;width:7px;height:7px;border-radius:50%;
+  transform:translate(-50%,-50%);background:var(--surface);
+  box-shadow:0 0 0 2px var(--etiquette);
+}
+.sem-auj .j b{color:var(--accent)}
 
 /* ---------- 13. Vigilance ---------- */
 

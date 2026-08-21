@@ -3,7 +3,7 @@
 
 import { nombreFr, hhmm, jourCourt, jourLong, esc, departementDe } from "./horloge.js";
 import * as P from "./previsions.js";
-import { ico, icoCiel, tempsDe } from "./icones.js";
+import { ico, icoTemps, icoCiel, tempsDe } from "./icones.js";
 import { conseilsHTML } from "./conseils.js";
 import * as Ruban from "./ruban.js";
 import { liste, moments } from "./ecritures.js";
@@ -29,7 +29,6 @@ export function vueTemps(ctx, rendre) {
   if (!s) {
     return {
       titre: "Le temps",
-      sous: g.commune || "",
       corps: `<div class="carte"><p class="vide">La prévision heure par heure n'est pas `
         + `disponible pour le moment. Rouvrir dans un instant.</p></div>`,
     };
@@ -46,9 +45,7 @@ export function vueTemps(ctx, rendre) {
 
   return {
     titre: "Le temps",
-    sous: `${g.commune || ""}${g.commune ? ", " : ""}${nombreFr(s.t[0])}° et `
-      + `${tempsDe(s.code[0])[1].toLowerCase()}`,
-    icoSous: icoCiel(s.code[0], s.clair[0]),
+    sousEcran: `${nombreFr(s.t[0])}° et ${tempsDe(s.code[0])[1].toLowerCase()}`,
     corps: `${seg}${tete}<div class="carte">${corps}</div>`,
     brancher(bloc) {
       for (const b of bloc.querySelectorAll("[data-ecriture]")) {
@@ -60,6 +57,23 @@ export function vueTemps(ctx, rendre) {
 }
 
 /* ---------- La table de la semaine ---------- */
+
+/* Teinte d'une température, du bleu froid au rouge chaud. Saturation et clarté
+   restent constantes pour que la rampe se tienne sur les deux thèmes. La
+   couleur double le chiffre, elle ne le remplace jamais. */
+const ARRETS = [[-5, 214], [4, 196], [11, 158], [18, 52], [25, 30], [33, 8]];
+const couleurT = t => {
+  if (t === null || !Number.isFinite(t)) return "var(--etiquette-3)";
+  let h = ARRETS[ARRETS.length - 1][1];
+  if (t <= ARRETS[0][0]) h = ARRETS[0][1];
+  else {
+    for (let k = 0; k < ARRETS.length - 1; k++) {
+      const [t0, h0] = ARRETS[k], [t1, h1] = ARRETS[k + 1];
+      if (t >= t0 && t <= t1) { h = h0 + ((t - t0) / (t1 - t0)) * (h1 - h0); break; }
+    }
+  }
+  return `hsl(${h.toFixed(0)} 54% 47%)`;
+};
 
 export function vueSemaine() {
   const c = P.chargeCourante();
@@ -78,6 +92,8 @@ export function vueSemaine() {
   }
   const amp = Math.max(1, tmax - tmin);
 
+  const maintenant = P.serieHoraire()?.t?.[0] ?? null;
+
   for (let k = i; k < fin; k++) {
     /* Les heures là où elles couvrent la journée entière, la charge quotidienne
        au-delà. Deux sources pour un seul jour font des contradictions dans une
@@ -88,30 +104,42 @@ export function vueSemaine() {
     const mm = h ? h.mm : d.precipitation_sum[k];
     const pb = h ? h.pb : d.precipitation_probability_max[k];
     const code = h ? h.code : d.weather_code[k];
-    const tombe = k === i && h && h.passe >= 0.1 ? h.passe : 0;
 
-    const nom = k === i ? "Aujourd'hui" : k === i + 1 ? "Demain" : jourCourt(d.time[k]);
-    const date = new Date(`${d.time[k]}T12:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+    const nom = k === i ? "Auj." : k === i + 1 ? "Demain" : jourCourt(d.time[k]);
+    const date = new Date(`${d.time[k]}T12:00`)
+      .toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+
+    /* La plage du jour se pose sur l'échelle commune de la semaine : deux
+       journées se comparent d'un coup d'œil, ce qu'une barre partant toujours
+       de la gauche interdisait. */
     const gauche = ((tn - tmin) / amp) * 100;
-    const large = Math.max(4, ((tx - tn) / amp) * 100);
-    const eau = mm >= 0.1
-      ? `${nombreFr(mm)} mm${tombe ? `<span>dont ${nombreFr(tombe)}</span>` : ""}`
-      : pb >= 5 ? `${Math.round(pb)} %` : "";
+    const large = Math.max(3, ((tx - tn) / amp) * 100);
 
-    lignes.push(`<tr><td class="j">${esc(nom)}<em>${esc(date)}</em></td>`
-      + `<td class="c">${ico(icoCiel(code, true), "")}</td>`
-      + `<td class="p">${eau}</td>`
-      + `<td class="b"><b>${Math.round(tn)}°</b> <span>${Math.round(tx)}°</span>`
-      + `<i class="barre" style="margin-left:${gauche.toFixed(1)}%;width:${large.toFixed(1)}%"></i></td></tr>`);
+    /* La pluie se lit sous le symbole, non dans une colonne à elle : la colonne
+       repoussait la rangée sur trois lignes dès que la lame était écrite. */
+    const eau = mm >= 0.1 ? `${nombreFr(mm)} mm` : pb >= 5 ? `${Math.round(pb)} %` : "";
+
+    const pointe = k === i && maintenant !== null
+      ? `<u class="sem-pt" style="left:${(((maintenant - tmin) / amp) * 100).toFixed(1)}%"></u>`
+      : "";
+
+    lignes.push(`<tr${k === i ? ' class="sem-auj"' : ""}>`
+      + `<td class="j"><b>${esc(nom)}</b><em>${esc(date)}</em></td>`
+      + `<td class="c">${icoTemps(icoCiel(code, true), "")}`
+      + (eau ? `<em>${esc(eau)}</em>` : "") + `</td>`
+      + `<td class="b"><b class="sem-min">${Math.round(tn)}°</b>`
+      + `<i class="sem-piste"><s class="sem-plage" style="left:${gauche.toFixed(1)}%;`
+      + `width:${large.toFixed(1)}%;`
+      + `background:linear-gradient(90deg, ${couleurT(tn)}, ${couleurT(tx)})"></s>`
+      + pointe + `</i>`
+      + `<b class="sem-max">${Math.round(tx)}°</b></td></tr>`);
   }
 
   return {
     titre: "La semaine",
-    sous: g.commune || "",
     corps: `<div class="carte"><table class="sem"><tbody>${lignes.join("")}</tbody></table>`
-      + `<p class="note">Aujourd'hui et demain se résument des heures, les jours suivants de la `
-      + `charge quotidienne. Une journée dont la série horaire ne porte pas ses vingt-quatre `
-      + `heures ne se résume pas.</p></div>`,
+      + `<p class="note">Aujourd'hui et demain se résument des heures, les jours `
+      + `suivants de la charge quotidienne.</p></div>`,
   };
 }
 
@@ -131,7 +159,6 @@ export function vueVigilance() {
 
   return {
     titre: "Vigilance",
-    sous: g.commune || "",
     corps:
       `<div class="carte">`
       + `<p class="prose">La vigilance météorologique en vigueur `
@@ -230,7 +257,6 @@ export function vueSoleil() {
 
   return {
     titre: "Le soleil",
-    sous: g.commune || "",
     corps: `<div class="carte">${arcDuJour(lever, coucher, maintenant)}`
       + `<div class="aj-b"><div><b>${hm(lever)}</b><i>lever</i></div>`
       + `<div><b>${hm(coucher)}</b><i>coucher</i></div></div></div>`
@@ -277,7 +303,6 @@ export function vueLune() {
 
   return {
     titre: "La lune",
-    sous: g.commune || "",
     corps: `<div class="ln-tete">${Astres.dessinPhase(p.eclairee, p.croissante)}`
       + `<div class="ln-dit"><p class="ln-nom">${esc(p.nom)}</p>`
       + `<p class="ln-part">${Math.round(p.eclairee * 100)} % de la face visible est éclairée</p>`
@@ -364,7 +389,7 @@ export function vueCommunes(ctx, rendre, majEtat) {
             const icone = el.querySelector("[data-ic]");
             if (!a) { deg.textContent = "—"; continue; }
             deg.textContent = `${Math.round(a.t)}°`;
-            icone.innerHTML = ico(icoCiel(a.code, a.jour), "");
+            icone.innerHTML = icoTemps(icoCiel(a.code, a.jour), "");
             const cp = l.codePostal ? `${l.codePostal} · ` : "";
             bornes.textContent = a.tn === null ? cp.replace(" · ", "")
               : `${cp}${Math.round(a.tn)}° à ${Math.round(a.tx)}°`;
