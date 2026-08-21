@@ -94,6 +94,13 @@ Les valeurs des quatre mesures sont à l'échelle du titre 2, les bornes de la
 semaine et les valeurs des rangées à celle du corps de texte. Un chiffre est ce
 qu'on vient lire, il n'a pas à être plus petit que son étiquette.
 
+## Valeurs composées
+
+Une valeur de rangée faite de plusieurs parties se coupe entre elles, jamais à
+l'intérieur d'une heure. « 16:05, sud-est » d'un seul tenant débordait de sa
+carte sur un grand corps de texte, l'heure ne pouvant pas se couper : l'heure
+reste insécable, le point cardinal se reporte à la ligne suivante.
+
 ## Écriture des grandeurs
 
 Le degré s'écrit sans unité, « 25° », partout : dans le bandeau, dans les
@@ -306,7 +313,7 @@ src/
   postes.js         fichier départemental et geojson des postes, non branché
   reserve.js        les deux vues débranchées
 essais/
-  controle.mjs      cent soixante-sept contrôles en navigateur
+  controle.mjs      cent soixante-dix-sept contrôles en navigateur
   meteo.json        données figées au 18 août 2026, 9 h
 ```
 
@@ -325,7 +332,7 @@ révision installée par Playwright ne correspond pas à celle du poste.
 
 Le lanceur sert le dossier, fige l'horloge au 18 août 2026 à 9 h, détourne les
 trois appels Open-Meteo vers `meteo.json` et coupe les sources data.gouv pour
-éprouver le repli. Cent soixante-sept contrôles, dont l'absence de répétition entre
+éprouver le repli. Cent soixante-dix-sept contrôles, dont l'absence de répétition entre
 les alertes et les conseils, les sept voies du ruban, l'agrandissement d'une
 voie, les treize colonnes de la liste, les vingt-quatre lignes de la fenêtre, la
 nature du renvoi de vigilance, et seize contrôles de conformité au design
@@ -352,6 +359,12 @@ de tête et son retour au verre, sur la présence de la toile, sur le fait qu'el
 porte des pixels, et sur le fait que la matière bouge d'une image à l'autre. Le
 bandeau de la lune l'est sur les mêmes points, plus la cohérence de la phase et
 de l'inclinaison du limbe, et la présence des deux courbes de trajectoire.
+
+Deux familles de contrôles gardent la mise en page. La première mesure, sur les
+cinq écrans, qu'aucun bloc ne sort de la fenêtre. La seconde rejoue les cinq
+écrans avec le corps de texte porté à vingt-deux points, ce que fait le réglage
+d'accessibilité du système, et vérifie qu'aucune valeur ne sort de sa rangée ni
+ne vient toucher le bord de sa carte.
 
 ## Éphémérides
 

@@ -421,10 +421,15 @@ main:focus{outline:none}
   color:var(--etiquette);font-weight:var(--graisse-semibold);
   font-size:var(--texte-corps);white-space:nowrap;
 }
+/* Partie secondaire d'une valeur composée : point cardinal, liaison, mention.
+   Elle se coupe, ce que l'heure ne fait jamais. */
+.rangee-val i{font-style:normal;color:var(--etiquette-2)}
 .rangee-chev{width:16px;height:16px;flex:0 0 auto;color:var(--etiquette-3);margin-left:var(--espace-xs)}
 button.rangee:active{background:var(--surface-2)}
-/* Dans un groupe déjà marginé, la rangée ne remet pas de marge horizontale. */
-.carte > .rangee{padding-left:0;padding-right:0}
+/* Dans une carte déjà marginée, la rangée ne remet pas de marge horizontale.
+   Dans une carte plate, elle la garde : sans quoi la valeur viendrait toucher
+   le bord de la carte, et se couperait sur un grand corps de texte. */
+.carte:not(.groupe-plat) > .rangee{padding-left:0;padding-right:0}
 
 /* ---------- 5. Accueil ---------- */
 
@@ -812,14 +817,18 @@ button.rangee:active{background:var(--surface-2)}
    que ce rembourrage : quelle que soit l'encoche, le ciel remplit exactement
    la zone. */
 
-.plein-cadre{padding-top:0;gap:0}
-.plein{
-  position:relative;
-  margin:calc((var(--haut) + var(--nav-haut)) * -1) calc(var(--marge) * -1) 0;
+/* Le rembourrage de la couche de contenu est retiré, non contourné : un
+   débord par marges négatives rendait l'écran plus large que la fenêtre, et le
+   défilement horizontal coupait la colonne des valeurs. C'est le corps de
+   l'écran qui reprend la marge, sous le bandeau. */
+.plein-cadre{
+  padding:0 0 calc(var(--onglets-mesure) + var(--espace-2xl));
+  gap:0;
 }
+.plein{position:relative}
 .ecran-corps{
   display:flex;flex-direction:column;gap:var(--espace-xl);
-  padding-top:var(--espace-xl);
+  padding:var(--espace-xl) var(--marge) 0;
 }
 
 /* Les couleurs du ciel ne suivent pas le thème : un ciel de midi reste clair

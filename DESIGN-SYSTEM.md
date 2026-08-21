@@ -157,6 +157,14 @@ toujours le plus clair en thème clair et le plus haut en thème sombre.
 `.rangee`, très plate : icône facultative, titre, description facultative,
 valeur ou chevron. Hauteur variable, jamais moins de 44 pt.
 
+Dans une carte déjà marginée, la rangée ne remet pas de marge horizontale. Dans
+une carte plate, `.groupe-plat`, elle la garde : sans elle la valeur viendrait
+toucher le bord de la carte.
+
+La valeur peut être composée. Chaque partie forte reste insécable, la coupure se
+fait entre les parties : sur un grand corps de texte, « 16:05, sud-est » d'un
+seul tenant débordait de sa carte, l'heure ne pouvant pas se couper.
+
 ### Action de glissement
 
 La rangée de commune, `.co`, porte son action de retrait sous elle, non à côté.

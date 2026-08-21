@@ -55,6 +55,12 @@ const D = {
     + 'M5.2 5.2l1.8 1.8M17 17l1.8 1.8M18.8 5.2L17 7M7 17l-1.8 1.8"/>',
   coucher: '<path d="M2.6 19.4h18.8"/><path d="M8 15.4a4 4 0 0 1 8 0"/>'
     + '<path d="M12 9.2v-6M9.2 6.4L12 9.2l2.8-2.8" stroke-linejoin="round"/>',
+  /* Le passage au méridien : la ligne nord-sud que l'astre franchit, et la
+     course qui la coupe à son sommet. */
+  meridien: '<path d="M12 2.6v18.8"/><path d="M4.4 16.6a7.6 7.6 0 0 1 15.2 0"/>',
+  // La culmination, sans rayons : elle vaut pour la Lune comme pour le Soleil.
+  culmination: '<path d="M2.6 19.4h18.8"/><path d="M6 19.4a6 6 0 0 1 12 0"/>'
+    + '<path d="M12 13.4V9.6"/>',
   alerte: '<path d="M12 3.6 21.4 20H2.6z" stroke-linejoin="round"/><path d="M12 9.6v4.6M12 17.2v.1"/>',
   vent: '<path d="M3 8.4h11a3 3 0 1 0-3-3M3 13h15a3 3 0 1 1-3 3M3 17.6h8"/>',
   lune: '<g class="ic-b"><path d="M20.2 14.6A8.6 8.6 0 0 1 9.4 3.8a8.6 8.6 0 1 0 10.8 10.8z"/></g>',

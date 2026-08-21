@@ -23,6 +23,15 @@ const rangees = lignes => lignes.map(([n, v]) =>
   `<div class="rangee"><span class="rangee-txt">${esc(n)}</span>`
   + `<span class="rangee-val"><b>${esc(v)}</b></span></div>`).join("");
 
+/* Valeur composée d'une rangée. Chaque partie forte reste insécable, la coupure
+   se fait entre les parties : sur un grand corps de texte, « 16:05, sud-est »
+   d'un seul tenant débordait de la carte, l'heure ne pouvant pas se couper.
+   Une partie passée en objet `{ doux }` est secondaire, et se coupe. */
+const valeur = (...parties) => `<span class="rangee-val">`
+  + parties.filter(Boolean).map(p => typeof p === "string"
+    ? `<b>${esc(p)}</b>` : `<i>${esc(p.doux)}</i>`).join(" ")
+  + `</span>`;
+
 /* ---------- L'écran du temps ---------- */
 
 export function vueTemps(ctx, rendre) {
@@ -433,23 +442,25 @@ export function vueSoleil() {
   /* Course du jour, dans l'ordre où elle se vit. Ce qui est passé s'efface,
      ce qui vient est en couleur. */
   const chrono = [
-    ["lueur", "Premières lueurs", cr.civil.matin ? hm(cr.civil.matin.getTime()) : "—",
+    ["lueur", "Premières lueurs", [cr.civil.matin ? hm(cr.civil.matin.getTime()) : "—"],
       cr.civil.matin],
-    ["lever", "Lever", `${hm(lever)}${e.azimutLever === null ? "" : `, ${cardinalDe(e.azimutLever)}`}`,
+    ["lever", "Lever",
+      [hm(lever), e.azimutLever === null ? null : { doux: cardinalDe(e.azimutLever) }],
       new Date(lever)],
-    ["midi", "Midi solaire", e.meridien ? hm(e.meridien.getTime()) : "—", e.meridien],
-    ["coucher", "Coucher", `${hm(coucher)}${e.azimutCoucher === null ? "" : `, ${cardinalDe(e.azimutCoucher)}`}`,
+    ["midi", "Midi solaire", [e.meridien ? hm(e.meridien.getTime()) : "—"], e.meridien],
+    ["coucher", "Coucher",
+      [hm(coucher), e.azimutCoucher === null ? null : { doux: cardinalDe(e.azimutCoucher) }],
       new Date(coucher)],
-    ["lune", "Dernières lueurs", cr.civil.soir ? hm(cr.civil.soir.getTime()) : "—", cr.civil.soir],
-    ["horloge", "Lumière du jour", hhmm(duree), null],
+    ["lune", "Dernières lueurs", [cr.civil.soir ? hm(cr.civil.soir.getTime()) : "—"], cr.civil.soir],
+    ["horloge", "Lumière du jour", [hhmm(duree)], null],
   ];
 
-  const lignes = chrono.map(([sym, nom, val, quand]) => {
+  const lignes = chrono.map(([sym, nom, parts, quand]) => {
     const passe = quand && quand < maintenant;
     const courant = prochain && quand && quand.getTime() === prochain[0].getTime();
     return `<div class="rangee${passe ? " passe" : ""}${courant ? " courant" : ""}">`
       + ico(sym, "") + `<span class="rangee-txt">${esc(nom)}</span>`
-      + `<span class="rangee-val"><b>${esc(val)}</b></span></div>`;
+      + valeur(...parts) + `</div>`;
   }).join("");
 
   const mesures = `<div class="tm">`
@@ -465,9 +476,11 @@ export function vueSoleil() {
   const cieux = [
     ["Crépuscule nautique", cr.nautique],
     ["Nuit noire", cr.astronomique],
-  ].map(([n, v]) => [n, v.matin && v.soir
-    ? `${hm(v.matin.getTime())} et ${hm(v.soir.getTime())}`
-    : "le Soleil ne descend pas si bas"]);
+  ].map(([n, v]) => `<div class="rangee"><span class="rangee-txt">${esc(n)}</span>`
+    + (v.matin && v.soir
+      ? valeur(hm(v.matin.getTime()), { doux: "et" }, hm(v.soir.getTime()))
+      : valeur({ doux: "le Soleil ne descend pas si bas" }))
+    + `</div>`).join("");
 
   return {
     titre: "Le soleil",
@@ -493,7 +506,7 @@ export function vueSoleil() {
       + `</div>`
 
       + `<div class="section"><h2>Fin et retour de la lumière</h2>`
-      + `<div class="carte">${rangees(cieux)}`
+      + `<div class="carte">${cieux}`
       + `<p class="note">Le crépuscule civil borne la lecture au dehors, le nautique `
       + `l'horizon en mer, la nuit noire l'absence de lueur solaire.</p></div></div>`
       + `</div>`,
@@ -559,23 +572,25 @@ export function vueLune() {
 
   const etat = `${p.nom}, ${Math.round(p.eclairee * 100)} % éclairée`;
 
+  const aucun = [{ doux: "aucun ce jour" }];
   const chrono = [
-    ["lever", "Lever", e.lever ? `${hm(e.lever.getTime())}, ${cardinalDe(e.azimutLever)}`
-      : "aucun ce jour", e.lever],
-    ["meridien", "Passage au méridien", e.meridien ? hm(e.meridien.getTime()) : "aucun ce jour",
-      e.meridien],
-    ["coucher", "Coucher", e.coucher ? `${hm(e.coucher.getTime())}, ${cardinalDe(e.azimutCoucher)}`
-      : "aucun ce jour", e.coucher],
-    ["arc", "Hauteur maximale", e.hauteurMax === null ? "—" : `${Math.round(e.hauteurMax)}°`, null],
-    ["horloge", "Durée au-dessus de l'horizon", duree === null ? "—" : hhmm(duree), null],
+    ["lever", "Lever", e.lever
+      ? [hm(e.lever.getTime()), { doux: cardinalDe(e.azimutLever) }] : aucun, e.lever],
+    ["meridien", "Passage au méridien",
+      e.meridien ? [hm(e.meridien.getTime())] : aucun, e.meridien],
+    ["coucher", "Coucher", e.coucher
+      ? [hm(e.coucher.getTime()), { doux: cardinalDe(e.azimutCoucher) }] : aucun, e.coucher],
+    ["culmination", "Hauteur maximale",
+      [e.hauteurMax === null ? "—" : `${Math.round(e.hauteurMax)}°`], null],
+    ["horloge", "Durée au-dessus de l'horizon", [duree === null ? "—" : hhmm(duree)], null],
   ];
 
-  const lignes = chrono.map(([sym, nom, val, quand]) => {
+  const lignes = chrono.map(([sym, nom, parts, quand]) => {
     const passe = quand && quand < maintenant;
     const courant = prochain && quand && quand.getTime() === prochain[0].getTime();
     return `<div class="rangee${passe ? " passe" : ""}${courant ? " courant" : ""}">`
       + ico(sym, "") + `<span class="rangee-txt">${esc(nom)}</span>`
-      + `<span class="rangee-val"><b>${esc(val)}</b></span></div>`;
+      + valeur(...parts) + `</div>`;
   }).join("");
 
   const pct = Math.round(p.eclairee * 100);

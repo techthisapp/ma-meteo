@@ -628,6 +628,70 @@ ok("l'application reste utilisable", await pg.locator(".bd-deg").count() === 1);
 ok("l'accueil ne parle pas de mesure au poste",
   !(await txt("#ecran")).toLowerCase().includes("pluie mesurée"));
 
+console.log("\n--- Largeur des écrans ---");
+for (const cle of ["accueil", "temps", "semaine", "soleil", "lune"]) {
+  await onglet(cle);
+  await pg.waitForTimeout(500);
+  /* Le débord se mesure sur la couche de contenu, non sur le document : le
+     document est écrêté par `overflow-x:hidden`, ce qui masque la faute au
+     lieu de la corriger. Un bloc qui sort de la fenêtre coupe la colonne des
+     valeurs sur téléphone, et c'est lui qu'on cherche. */
+  const trop = await pg.evaluate(() => {
+    const ecran = document.getElementById("ecran");
+    const debord = ecran.scrollWidth - ecran.clientWidth;
+    const large = window.innerWidth;
+    const coupables = [...ecran.querySelectorAll(".carte, .section, .plein, .bandeau, .groupe")]
+      .filter(e => {
+        const b = e.getBoundingClientRect();
+        return b.width > 0 && (b.right > large + 1 || b.left < -1);
+      })
+      .map(e => e.className).slice(0, 3);
+    if (debord <= 1 && !coupables.length) return null;
+    return `${debord}px de débord | ${coupables.join(" | ")}`;
+  });
+  ok(`aucun débord horizontal sur ${cle}`, trop === null, trop);
+}
+await onglet("accueil");
+
+/* Grand corps de texte. Safari suit le réglage d'accessibilité du système :
+   à deux crans au-dessus, une valeur insécable débordait de sa carte et la
+   colonne des heures se coupait au bord de l'écran. */
+console.log("\n--- Grand corps de texte ---");
+await pg.addStyleTag({ content: ":root{font-size:22px}" });
+for (const cle of ["accueil", "temps", "semaine", "soleil", "lune"]) {
+  await onglet(cle);
+  await pg.waitForTimeout(500);
+  /* Deux fautes se cherchent ici : un contenu qui sort de sa rangée, et une
+     rangée dont le contenu vient toucher le bord de sa carte. La seconde ne
+     déborde pas au sens strict, mais la valeur se colle au bord et la coupure
+     paraît la même à la lecture. */
+  const deborde = await pg.evaluate(() => {
+    const fautifs = [];
+    for (const r of document.querySelectorAll("#ecran .rangee, #ecran .bd-m, #ecran .tm > div")) {
+      const b = r.getBoundingClientRect();
+      const carte = r.closest(".carte, .groupe");
+      const c = carte ? carte.getBoundingClientRect() : b;
+      for (const e of r.children) {
+        const z = e.getBoundingClientRect();
+        if (!z.width) continue;
+        // Sur un SVG, `className` n'est pas une chaîne : le nom de balise suffit.
+        const nom = typeof e.className === "string" && e.className
+          ? e.className : e.tagName.toLowerCase();
+        if (z.right > b.right + 1 || z.left < b.left - 1) fautifs.push(`hors rangée : ${nom}`);
+        else if (z.right > c.right - 8 || z.left < c.left + 8) fautifs.push(`collé au bord : ${nom}`);
+      }
+    }
+    return [...new Set(fautifs)].slice(0, 4);
+  });
+  ok(`aucune valeur ne touche le bord sur ${cle}`, deborde.length === 0, deborde.join(" | "));
+}
+await pg.evaluate(() => {
+  for (const s of document.querySelectorAll("style")) {
+    if (s.textContent.includes("font-size:22px")) s.remove();
+  }
+});
+await onglet("accueil");
+
 console.log("\n--- Design system ---");
 const petites = await pg.evaluate(() => {
   const cibles = [...document.querySelectorAll(
