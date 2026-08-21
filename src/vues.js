@@ -4,7 +4,6 @@
 import { nombreFr, hhmm, jourCourt, jourLong, esc, departementDe } from "./horloge.js";
 import * as P from "./previsions.js";
 import { ico, icoTemps, icoCiel, tempsDe } from "./icones.js";
-import { conseilsHTML } from "./conseils.js";
 import * as Ruban from "./ruban.js";
 import { liste, moments } from "./ecritures.js";
 import * as Reglages from "./reglages.js";
@@ -52,13 +51,13 @@ export function vueTemps(ctx, rendre) {
     `<button type="button" data-ecriture="${c}"${c === e ? ' class="actif"' : ""}>${esc(n)}</button>`)
     .join("") + `</div>`;
 
-  const conseils = conseilsHTML(s);
-  const tete = conseils ? `<div class="conseils">${conseils}</div>` : "";
-
+  /* Ce qui mérite d'être retenu se lit sur l'accueil, sous « À retenir ». Le
+     répéter en tête du temps redisait les mêmes trois phrases un écran plus
+     loin, à l'endroit où l'on vient justement chercher le détail. */
   return {
     titre: "Le temps",
     sousEcran: `${nombreFr(s.t[0])}° et ${tempsDe(s.code[0])[1].toLowerCase()}`,
-    corps: `${seg}${tete}<div class="carte">${corps}</div>`,
+    corps: `${seg}<div class="carte">${corps}</div>`,
     brancher(bloc) {
       for (const b of bloc.querySelectorAll("[data-ecriture]")) {
         b.addEventListener("click", () => { Reglages.poserEcriture(b.dataset.ecriture); rendre(); });

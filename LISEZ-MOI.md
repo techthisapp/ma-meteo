@@ -64,6 +64,10 @@ double toujours.
 
 ## De l'accueil au détail
 
+Ce qui mérite d'être retenu se lit sur l'accueil, sous « À retenir », et nulle
+part ailleurs. En tête de l'écran du temps, les mêmes phrases se redisaient un
+écran plus loin, à l'endroit où l'on vient justement chercher le détail.
+
 Les chiffres de l'accueil mènent à leurs vingt-quatre heures. Le grand chiffre
 et les quatre mesures ouvrent l'écran du temps en ruban, sur la voie
 correspondante déjà dépliée, et la page se place dessus. Le libellé du ciel mène

@@ -337,7 +337,13 @@ await pg.locator('.mg-b[data-voie="t"]').click();
 await pg.waitForTimeout(400);
 
 console.log("\n--- Le temps, ruban ---");
+
 await onglet("temps");
+/* Ce qui mérite d'être retenu se lit sur l'accueil, sous « À retenir ». Le
+   répéter en tête du temps redisait les mêmes phrases un écran plus loin, à
+   l'endroit où l'on vient justement chercher le détail. */
+ok("les conseils ne se répètent pas sur l'écran du temps",
+  await pg.locator("#ecran .conseils").count() === 0);
 ok("l'écran s'ouvre sur Le temps", (await txt(".titre-ecran h1")) === "Le temps", await txt(".titre-ecran h1"));
 ok("aucune feuille n'est ouverte", await pg.locator("#feuille:visible").count() === 0);
 const voies = await pg.locator(".mg-v .mg-n").allInnerTexts();
