@@ -23,6 +23,8 @@ let serie = null;
 let heureLue = -1;
 
 export const ouvrir = c => { voieOuverte = voieOuverte === c ? null : c; };
+// Ouverture franche, sans bascule : l'accueil désigne une voie, il ne la ferme pas.
+export const poserVoie = c => { voieOuverte = c; };
 export const voieCourante = () => voieOuverte;
 export const serieCourante = () => serie;
 export const heureCourante = () => heureLue;
@@ -362,7 +364,11 @@ export function brancher(bloc, surVoie) {
         const svg = cur.closest("svg");
         const x = M + ((k + 0.5) / s.n) * P;
         cur.setAttribute("x1", x); cur.setAttribute("x2", x);
-        cur.hidden = false;
+        /* `hidden` est une propriété de HTMLElement, non de SVGElement :
+           l'affecter sur une ligne SVG posait une propriété sans effet et
+           laissait l'attribut en place. Le montant de lecture ne paraissait
+           donc jamais. L'attribut se pose et se retire à la main. */
+        cur.removeAttribute("hidden");
         if (svg) svg.style.color = "";
       }
     }
@@ -374,7 +380,7 @@ export function brancher(bloc, surVoie) {
       const r = v.querySelector(".mg-r");
       if (r && r.dataset.plage) r.textContent = r.dataset.plage;
       const cur = v.querySelector(".mg-cur");
-      if (cur) cur.hidden = true;
+      if (cur) cur.setAttribute("hidden", "");
     }
   };
 
@@ -386,12 +392,49 @@ export function brancher(bloc, surVoie) {
     return Math.max(0, Math.min(s.n - 1, Math.floor(((rel - M) / P) * s.n)));
   };
 
+  /* Lecture au doigt, et défilement de la page, sur la même surface.
+
+     Le geste n'est pas tranché à l'appui : il l'est au premier déplacement franc,
+     et une fois tranché il ne se remet pas en cause. La lecture accepte donc un
+     déplacement oblique jusqu'à quarante degrés de l'horizontale, ce qu'un doigt
+     fait naturellement en suivant une courbe. Au delà, la page défile et la
+     lecture se retire.
+
+     `touch-action: pan-y` laisse le navigateur mener le défilement vertical, ce
+     qui reste plus fluide que de le simuler. */
+  const TANGENTE = Math.tan(40 * Math.PI / 180);
+  const SEUIL = 8;
+
   for (const svg of bloc.querySelectorAll(".mg-s")) {
-    svg.addEventListener("pointerdown", ev => { ev.preventDefault(); lire(kDe(ev)); });
-    svg.addEventListener("pointermove", ev => { if (ev.buttons) lire(kDe(ev)); });
-    svg.addEventListener("pointerup", relacher);
-    svg.addEventListener("pointerleave", relacher);
-    svg.addEventListener("pointercancel", relacher);
+    let x0 = 0, y0 = 0, mode = null;
+
+    svg.addEventListener("pointerdown", ev => {
+      x0 = ev.clientX; y0 = ev.clientY; mode = null;
+      lire(kDe(ev));
+    });
+
+    svg.addEventListener("pointermove", ev => {
+      if (!ev.buttons) return;
+      const dx = ev.clientX - x0, dy = ev.clientY - y0;
+      if (mode === null) {
+        if (Math.hypot(dx, dy) < SEUIL) { lire(kDe(ev)); return; }
+        mode = Math.abs(dy) <= Math.abs(dx) * TANGENTE ? "lit" : "defile";
+        if (mode === "defile") { relacher(); return; }
+        try { svg.setPointerCapture(ev.pointerId); } catch { /* souris déjà capturée */ }
+      }
+      if (mode !== "lit") return;
+      ev.preventDefault();
+      lire(kDe(ev));
+    });
+
+    const fin = () => { mode = null; relacher(); };
+    svg.addEventListener("pointerup", fin);
+    svg.addEventListener("pointercancel", fin);
+
+    /* La prise du pointeur fait sortir le curseur de l'élément aux yeux du
+       navigateur, qui émet aussitôt un `pointerleave`. Le traiter comme une fin
+       de geste coupait la lecture au premier déplacement. */
+    svg.addEventListener("pointerleave", () => { if (mode !== "lit") fin(); });
   }
 
   for (const b of bloc.querySelectorAll(".mg-b")) {

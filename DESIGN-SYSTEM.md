@@ -180,6 +180,17 @@ Deux groupes, `ic-a` pour la masse et `ic-b` pour l'accent, colorés par
 `icoTemps`. Six teintes seulement, peu saturées. `ico` rend les mêmes dessins en
 monochrome pour tous les autres emplois.
 
+### Geste de lecture
+
+Une surface qui se lit au doigt et qui défile doit trancher le geste, non le
+confisquer. Le tri se fait au premier déplacement franc, sur l'angle : jusqu'à
+quarante degrés de l'horizontale, c'est une lecture ; au delà, c'est un
+défilement. La décision ne se remet pas en cause en cours de geste.
+
+`touch-action: pan-y` laisse le défilement vertical au navigateur. La prise du
+pointeur émet un `pointerleave` immédiat qu'il ne faut pas confondre avec une
+fin de geste.
+
 ### Couleur d'information
 
 Cinq classes, `v-froid`, `v-eau`, `v-attention`, `v-chaud`, `v-brulant`, posées
@@ -289,7 +300,7 @@ Le titre d'écran porte l'action de changement de commune, à la façon d'un tit
 
 ## Contrôles automatiques
 
-`node essais/controle.mjs` exécute cent quatorze contrôles en navigateur, dont
+`node essais/controle.mjs` exécute cent vingt-cinq contrôles en navigateur, dont
 dix-sept portent sur le design system :
 
 1. toute cible interactive tient 44 pt ;

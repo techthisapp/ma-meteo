@@ -415,12 +415,16 @@ button.rangee:active{background:var(--surface-2)}
 .bd-haut{display:flex;align-items:center;gap:var(--espace-lg);flex-wrap:wrap}
 .bd-deg{
   font-size:4.7rem;line-height:.92;font-weight:200;letter-spacing:-.045em;
-  font-variant-numeric:tabular-nums;
+  font-variant-numeric:tabular-nums;text-align:left;
 }
+.bd-deg:active,.bd-ciel:active,.bd-bornes:active,.bd-m:active{opacity:.55}
 .bd-deg sup{font-size:.34em;font-weight:300;vertical-align:baseline;position:relative;top:-1.42em;left:.02em}
-.bd-etat{display:flex;flex-direction:column;gap:var(--espace-xs);min-width:0}
+/* Le libellé du ciel est une cible, il tient donc 44 pt ; les bornes restent du
+   texte, elles mènent au même endroit que le grand chiffre. */
+.bd-etat{display:flex;flex-direction:column;min-width:0}
 .bd-ciel{
-  display:flex;align-items:center;gap:var(--espace-sm);
+  display:flex;align-items:center;gap:var(--espace-sm);text-align:left;
+  min-height:var(--touche);
   font-size:var(--texte-titre3);font-weight:var(--graisse-semibold);letter-spacing:-.01em;
 }
 .bd-ic{width:24px;height:24px;flex:0 0 auto}
@@ -434,10 +438,19 @@ button.rangee:active{background:var(--surface-2)}
   overflow:hidden;
 }
 .bd-m{
-  display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:2px;
-  padding:var(--espace-md) var(--espace-base);text-align:left;min-width:0;
+  display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:2px;
+  padding:var(--espace-md) var(--espace-base);text-align:left;min-width:0;width:100%;
 }
-.bd-m i{font-style:normal;font-size:var(--texte-legende);color:var(--etiquette-2);letter-spacing:0}
+/* L'étiquette porte un chevron discret : la cellule mène quelque part, il faut
+   que cela se voie sans que cela pèse. */
+.bd-m i{
+  display:flex;align-items:center;justify-content:space-between;gap:var(--espace-sm);
+  font-style:normal;font-size:var(--texte-legende);color:var(--etiquette-2);letter-spacing:0;
+}
+.bd-chev{
+  width:13px;height:13px;flex:0 0 auto;color:var(--etiquette-3);
+  transform:rotate(-90deg);stroke-width:2.6;
+}
 .bd-m b{font-size:var(--texte-titre2);font-weight:var(--graisse-semibold);letter-spacing:-.018em;line-height:1.15}
 .bd-m em{font-style:normal;font-size:var(--texte-legende);color:var(--etiquette-3)}
 /* Les cellules s'alignent par le haut et se dimensionnent sur leur contenu :
@@ -655,7 +668,8 @@ button.rangee:active{background:var(--surface-2)}
   border-radius:50%;background:var(--surface-2);color:var(--etiquette-2);
 }
 .mg-r{margin-left:auto;font-weight:var(--graisse-medium);font-size:var(--texte-note);color:var(--etiquette-2)}
-.mg-s{display:block;width:100%;height:auto;overflow:visible}
+/* Le défilement vertical reste au navigateur, la lecture prend l'horizontale. */
+.mg-s{display:block;width:100%;height:auto;overflow:visible;touch-action:pan-y}
 .mg-l{font-size:var(--texte-legende);line-height:1.45;color:var(--etiquette-3);padding:var(--espace-xs) 0 2px}
 .mg-grand > .mg-t{color:var(--etiquette)}
 .mg-grand .mg-n i{background:var(--accent-doux);color:var(--accent)}

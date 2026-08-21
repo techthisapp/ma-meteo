@@ -175,6 +175,61 @@ ok("les chiffres des mesures sont au moins à l'échelle du titre 2", await pg.e
   return parseFloat(getComputedStyle(b).fontSize) >= t2 - 0.5;
 }));
 
+console.log("\n--- Un chiffre mène à sa voie ---");
+ok("chaque mesure de l'accueil porte une destination",
+  await pg.locator(".bd-m[data-detail]").count() === 4);
+ok("le grand chiffre et le ciel en portent une aussi",
+  await pg.locator(".bd-deg[data-detail]").count() === 1
+  && await pg.locator(".bd-ciel[data-detail]").count() === 1);
+
+await pg.locator('.bd-m[data-detail="uv"]').click();
+await pg.waitForTimeout(900);
+ok("l'écran du temps s'ouvre", (await txt(".titre-ecran h1")) === "Le temps", await txt(".titre-ecran h1"));
+ok("l'écriture retenue est le ruban",
+  (await pg.locator('.seg [data-ecriture="ruban"]').getAttribute("class") || "").includes("actif"));
+ok("la voie visée est dépliée",
+  await pg.locator('.mg-v[data-cle="uv"].mg-grand').count() === 1);
+ok("aucune autre voie n'est dépliée", await pg.locator(".mg-grand").count() === 1);
+ok("la page s'est placée sur la voie", await pg.evaluate(() => {
+  const v = document.querySelector('.mg-v[data-cle="uv"]');
+  const b = v.getBoundingClientRect();
+  return b.top < window.innerHeight && b.bottom > 0;
+}));
+
+await onglet("accueil");
+await pg.locator(".bd-deg").click();
+await pg.waitForTimeout(900);
+ok("le grand chiffre mène à la température",
+  await pg.locator('.mg-v[data-cle="t"].mg-grand').count() === 1);
+
+console.log("\n--- Lecture au doigt et défilement ---");
+const boite = await pg.locator('.mg-v[data-cle="t"] .mg-s').boundingBox();
+const cx = boite.x + boite.width * 0.5, cy = boite.y + boite.height * 0.5;
+
+// Déplacement à trente degrés : la lecture doit tenir.
+await pg.mouse.move(cx, cy);
+await pg.mouse.down();
+for (let k = 1; k <= 6; k++) await pg.mouse.move(cx + k * 12, cy + k * 7);
+ok("un déplacement oblique lit encore la courbe",
+  await pg.locator('.mg-v[data-cle="t"] .mg-cur:not([hidden])').count() === 1);
+await pg.mouse.up();
+await pg.waitForTimeout(200);
+
+// Déplacement à quatre-vingts degrés : la page défile, la lecture se retire.
+await pg.mouse.move(cx, cy);
+await pg.mouse.down();
+for (let k = 1; k <= 6; k++) await pg.mouse.move(cx + k * 2, cy + k * 12);
+ok("un déplacement vertical rend la main au défilement",
+  await pg.locator('.mg-v[data-cle="t"] .mg-cur:not([hidden])').count() === 0);
+await pg.mouse.up();
+await pg.waitForTimeout(200);
+ok("le défilement vertical reste au navigateur", await pg.evaluate(() =>
+  getComputedStyle(document.querySelector(".mg-s")).touchAction === "pan-y"));
+
+// La voie ouverte par l'accueil se referme : la suite éprouve l'agrandissement.
+await pg.locator('.mg-b[data-voie="t"]').click();
+await pg.waitForTimeout(400);
+
 console.log("\n--- Le temps, ruban ---");
 await onglet("temps");
 ok("l'écran s'ouvre sur Le temps", (await txt(".titre-ecran h1")) === "Le temps", await txt(".titre-ecran h1"));

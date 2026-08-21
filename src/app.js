@@ -14,6 +14,7 @@ import * as P from "./previsions.js";
 import * as Reglages from "./reglages.js";
 import { ico, icoTemps, icoCiel, tempsDe } from "./icones.js";
 import { conseilsHTML, SEUILS } from "./conseils.js";
+import * as Ruban from "./ruban.js";
 import { vueTemps, vueSemaine, vueVigilance, vueSoleil, vueLune, vueCommunes, vueReglages } from "./vues.js";
 
 const $ = id => document.getElementById(id);
@@ -148,7 +149,7 @@ const ossatureAccueil = () =>
   + `<div class="bd-etat"><p class="bd-ciel ossature">Temps en cours</p>`
   + `<p class="bd-bornes ossature">00° à 00° aujourd'hui</p></div></div>`
   + `<div class="bd-mesures">`
-  + [1, 2, 3, 4].map(() => `<div class="bd-m"><i class="ossature">Mesure</i>`
+  + [1, 2, 3, 4].map(() => `<div class="bd-m"><i><span class="ossature">Mesure</span></i>`
     + `<b class="ossature">00</b></div>`).join("")
   + `</div></div>`
   + `<p class="pied" role="status">Lecture de la prévision.</p>`;
@@ -200,31 +201,44 @@ function ecranAccueil() {
     const hum = s ? Math.round(s.hum[0]) : 0;
     const res = s ? Math.round(s.res[0]) : 0;
 
+    /* Chaque mesure désigne la voie du ruban qui la déplie : un chiffre de
+       l'accueil est une porte vers ses vingt-quatre heures. */
     const premiere = s && Math.abs(s.res[0] - t) >= 1
       ? ["Ressenti", `${res}°`, "",
-        res >= SEUILS.chaleur ? "v-chaud" : res <= SEUILS.gel ? "v-froid" : ""]
-      : ["Pluie", `${pb} %`, "sur 24 h", pb >= 60 ? "v-eau" : ""];
+        res >= SEUILS.chaleur ? "v-chaud" : res <= SEUILS.gel ? "v-froid" : "", "t"]
+      : ["Pluie", `${pb} %`, "sur 24 h", pb >= 60 ? "v-eau" : "", "mm"];
 
     const mesures = s ? [
       premiere,
       ["Vent", `${Math.round(s.v[0])} km/h`, `rafales ${raf} km/h`,
-        raf >= SEUILS.rafale || s.v[0] >= SEUILS.ventMoyen ? "v-attention" : ""],
-      ["Humidité", `${hum} %`, "", hum >= SEUILS.humidite ? "v-eau" : ""],
+        raf >= SEUILS.rafale || s.v[0] >= SEUILS.ventMoyen ? "v-attention" : "", "v"],
+      ["Humidité", `${hum} %`, "", hum >= SEUILS.humidite ? "v-eau" : "", "hum"],
       ["Indice UV", `${uv}`, uv >= SEUILS.uv ? "élevé" : "",
-        uv >= 8 ? "v-brulant" : uv >= SEUILS.uv ? "v-chaud" : uv >= 3 ? "v-attention" : ""],
+        uv >= 8 ? "v-brulant" : uv >= SEUILS.uv ? "v-chaud" : uv >= 3 ? "v-attention" : "", "uv"],
     ] : [];
 
+    const chevronM = ico("chevron_bas", "bd-chev");
+
     corps += `<div class="bandeau"><div class="bd-haut">`
-      + `<p class="bd-deg">${Math.round(t)}<sup>°</sup></p>`
+      + `<button type="button" class="bd-deg" data-detail="t" `
+      + `aria-label="Température, voir les vingt-quatre heures">`
+      + `${Math.round(t)}<sup>°</sup></button>`
       + `<div class="bd-etat">`
-      + `<p class="bd-ciel">${icoTemps(icoCiel(code, clair))}<span>${esc(lib)}</span></p>`
+      + `<button type="button" class="bd-ciel" data-detail="nua" `
+      + `aria-label="Ciel, voir les vingt-quatre heures">`
+      + `${icoTemps(icoCiel(code, clair))}<span>${esc(lib)}</span></button>`
+      /* Les bornes restent du texte : elles mènent au même endroit que le grand
+         chiffre, juste au-dessus. Deux cibles pour une destination, c'est une de
+         trop, et chacune coûte 44 points de hauteur. */
       + `<p class="bd-bornes">`
       + `<b${tn <= SEUILS.gel ? ' class="v-froid"' : ""}>${Math.round(tn)}°</b> à `
       + `<b${tx >= SEUILS.chaleur ? ' class="v-chaud"' : ""}>${Math.round(tx)}°</b> aujourd'hui</p>`
       + `</div></div>`
-      + (mesures.length ? `<div class="bd-mesures">` + mesures.map(([n, v, e, c]) =>
-        `<div class="bd-m"><i>${esc(n)}</i><b${c ? ` class="${c}"` : ""}>${esc(v)}</b>`
-        + `<em>${esc(e)}</em></div>`).join("")
+      + (mesures.length ? `<div class="bd-mesures">` + mesures.map(([n, v, e, c, voie]) =>
+        `<button type="button" class="bd-m" data-detail="${esc(voie)}" `
+        + `aria-label="${esc(n)}, ${esc(v)}, voir les vingt-quatre heures">`
+        + `<i>${esc(n)}${chevronM}</i><b${c ? ` class="${c}"` : ""}>${esc(v)}</b>`
+        + `<em>${esc(e)}</em></button>`).join("")
         + `</div>` : "")
       + `</div>`;
 
@@ -519,9 +533,25 @@ $("feuille-fermer").addEventListener("click", () => history.back());
 $("feuille-retour").addEventListener("click", retour);
 $("voile").addEventListener("click", () => history.back());
 
+/* Un chiffre de l'accueil mène à ses vingt-quatre heures : l'écran du temps
+   s'ouvre en ruban, sur la voie correspondante déjà dépliée, et la page se
+   place dessus. */
+function allerAuDetail(cle) {
+  Reglages.poserEcriture("ruban");
+  Ruban.poserVoie(cle);
+  sentir(8);
+  poserOnglet("temps");
+  requestAnimationFrame(() => {
+    const v = document.querySelector(`.mg-v[data-cle="${cle}"]`);
+    if (v) v.scrollIntoView({ block: "center", behavior: "smooth" });
+  });
+}
+
 $("ecran").addEventListener("click", ev => {
   const f = ev.target.closest("[data-feuille]");
   if (f) { ouvrirFeuille(f.dataset.feuille); return; }
+  const d = ev.target.closest("[data-detail]");
+  if (d) { allerAuDetail(d.dataset.detail); return; }
   const a = ev.target.closest('[data-action="geo"]');
   if (a) situerParPosition(a);
 });

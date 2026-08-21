@@ -59,6 +59,32 @@ ciel correspondant.
 La couleur ne porte jamais seule l'information : le chiffre ou le libellé la
 double toujours.
 
+## De l'accueil au détail
+
+Les chiffres de l'accueil mènent à leurs vingt-quatre heures. Le grand chiffre
+et les quatre mesures ouvrent l'écran du temps en ruban, sur la voie
+correspondante déjà dépliée, et la page se place dessus. Le libellé du ciel mène
+à la voie Ciel.
+
+| Chiffre | Voie ouverte |
+|---|---|
+| Grand chiffre, ressenti | Température |
+| Pluie | Pluie |
+| Vent | Vent |
+| Humidité | Humidité |
+| Indice UV | Indice UV |
+| Libellé du ciel | Ciel |
+
+## Lecture au doigt
+
+La lecture d'une courbe et le défilement de la page partagent la même surface.
+Le geste n'est pas tranché à l'appui, il l'est au premier déplacement franc, et
+une fois tranché il ne se remet pas en cause : la lecture accepte un déplacement
+oblique jusqu'à quarante degrés de l'horizontale, ce qu'un doigt fait
+naturellement en suivant une courbe. Au delà, la page défile et la lecture se
+retire. Le défilement vertical reste mené par le navigateur, par
+`touch-action: pan-y`.
+
 ## Taille des chiffres
 
 Les valeurs des quatre mesures sont à l'échelle du titre 2, les bornes de la
@@ -158,7 +184,7 @@ src/
   postes.js         fichier départemental et geojson des postes, non branché
   reserve.js        les deux vues débranchées
 essais/
-  controle.mjs      cent quatorze contrôles en navigateur
+  controle.mjs      cent vingt-cinq contrôles en navigateur
   meteo.json        données figées au 18 août 2026, 9 h
 ```
 
@@ -177,7 +203,7 @@ révision installée par Playwright ne correspond pas à celle du poste.
 
 Le lanceur sert le dossier, fige l'horloge au 18 août 2026 à 9 h, détourne les
 trois appels Open-Meteo vers `meteo.json` et coupe les sources data.gouv pour
-éprouver le repli. Cent quatorze contrôles, dont l'absence de répétition entre
+éprouver le repli. Cent vingt-cinq contrôles, dont l'absence de répétition entre
 les alertes et les conseils, les sept voies du ruban, l'agrandissement d'une
 voie, les treize colonnes de la liste, les vingt-quatre lignes de la fenêtre, la
 nature du renvoi de vigilance, et seize contrôles de conformité au design
