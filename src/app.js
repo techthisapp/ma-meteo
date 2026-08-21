@@ -15,6 +15,7 @@ import * as Reglages from "./reglages.js";
 import { ico, icoTemps, icoCiel, tempsDe } from "./icones.js";
 import { conseilsHTML, SEUILS } from "./conseils.js";
 import * as Ruban from "./ruban.js";
+import * as Feu from "./feu.js";
 import { vueTemps, vueSemaine, vueVigilance, vueSoleil, vueLune, vueCommunes, vueReglages } from "./vues.js";
 
 const $ = id => document.getElementById(id);
@@ -285,6 +286,9 @@ function ecranVue(nom) {
   const f = VUES_ONGLET[nom](ctx, () => rendre(), majEtat);
   return {
     titre: f.titre,
+    /* Le plein cadre porte son propre titre, dans le ciel : la coque ne pose
+       pas le sien par-dessus. */
+    pleinCadre: f.pleinCadre === true,
     /* La commune est dans la barre de tête : la répéter sous chaque titre
        d'écran occupait une ligne pour une information déjà présente. */
     sous: f.sousEcran || "",
@@ -332,7 +336,8 @@ function rendre() {
     ? (g.commune || "Ma position") : (g.commune || "Ma météo");
   $("navPos").hidden = !enPos;
   $("navLieu").hidden = false;
-  ecran.innerHTML = titreEcran(f.titre, f.sous) + f.corps;
+  ecran.classList.toggle("plein-cadre", f.pleinCadre === true);
+  ecran.innerHTML = (f.pleinCadre ? "" : titreEcran(f.titre, f.sous)) + f.corps;
   if (typeof f.brancher === "function") f.brancher(ecran);
   if (y) window.scrollTo({ top: y, behavior: "instant" });
 
@@ -373,13 +378,27 @@ $("onglets").addEventListener("click", ev => {
   if (b) poserOnglet(b.dataset.onglet);
 });
 
-/* Le grand titre se replie dans la barre de tête au défilement. */
+/* Le grand titre se replie dans la barre de tête au défilement.
+
+   Sur un écran à bandeau plein cadre, c'est le ciel qui passe sous la barre :
+   elle reste transparente et blanche tant qu'il est dessous, et ne reprend sa
+   matière de verre qu'une fois le bandeau dépassé. */
 function majPose() {
-  const h1 = $("ecran").querySelector(".titre-ecran h1");
   const nav = $("nav");
+  const hauteurNav = nav.getBoundingClientRect().height;
+  const ciel = $("ecran").querySelector(".ci");
+
+  if (ciel) {
+    const surCiel = ciel.getBoundingClientRect().bottom > hauteurNav;
+    nav.classList.toggle("sur-ciel", surCiel);
+    nav.classList.toggle("pose", !surCiel);
+    return;
+  }
+
+  nav.classList.remove("sur-ciel");
+  const h1 = $("ecran").querySelector(".titre-ecran h1");
   if (!h1) { nav.classList.remove("pose"); return; }
   const bas = h1.getBoundingClientRect().bottom;
-  const hauteurNav = nav.getBoundingClientRect().height;
   nav.classList.toggle("pose", bas < hauteurNav);
 }
 window.addEventListener("scroll", majPose, { passive: true });

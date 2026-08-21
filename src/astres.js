@@ -159,6 +159,30 @@ function borneJour(date) {
   return [jourJulien(debut), jourJulien(fin)];
 }
 
+/* Hauteur et azimut d'un corps à un instant donné. C'est ce que demande le
+   bandeau du ciel, qui place le disque à sa vraie place plutôt que sur un arc
+   supposé. */
+export function position(corps, date, lat, lon) {
+  const jj = jourJulien(date);
+  return horizon(positionDe(corps, jj), jj, lat, lon);
+}
+
+/* Hauteur d'un corps sur toute la journée locale qui contient `date`, par pas
+   de `pasMinutes`. Rend une suite de couples minute depuis minuit et hauteur
+   en degrés, la dernière valeur portant sur minuit du lendemain.
+
+   La courbe sert au tracé ; les instants remarquables restent affinés par
+   `evenements`, qui les cherche au dixième de seconde. */
+export function courbe(corps, date, lat, lon, pasMinutes = 5) {
+  const [jj0] = borneJour(date);
+  const out = [];
+  for (let m = 0; m <= 1440; m += pasMinutes) {
+    const jj = jj0 + m / 1440;
+    out.push({ m, h: horizon(positionDe(corps, jj), jj, lat, lon).hauteur });
+  }
+  return out;
+}
+
 /* Lever, coucher, passage au méridien et hauteur maximale d'un corps, pour la
    journée locale qui contient `date`.
 

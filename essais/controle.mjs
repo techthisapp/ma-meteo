@@ -323,16 +323,74 @@ ok("les symboles de temps sont en deux tons", await pg.evaluate(() => {
 
 console.log("\n--- Le soleil ---");
 await onglet("soleil");
-ok("l'écran s'appelle Le soleil", (await txt(".titre-ecran h1")) === "Le soleil", await txt(".titre-ecran h1"));
-ok("l'arc du jour est dessiné", await pg.locator(".aj").count() === 1);
-ok("la durée du jour est écrite", /\d+ h \d\d/.test(await txt("#ecran")));
+await pg.waitForTimeout(600);
 const soleilTxt = await txt("#ecran");
+ok("la durée du jour est écrite", /\d+ h \d\d/.test(soleilTxt));
 ok("le midi solaire est écrit", /Midi solaire/.test(soleilTxt));
 ok("la hauteur maximale est écrite", /Hauteur maximale[\s\S]{0,40}\d+°/.test(soleilTxt));
-ok("les trois crépuscules sont écrits",
-  /Crépuscule civil/.test(soleilTxt) && /Crépuscule nautique/.test(soleilTxt)
+ok("les crépuscules sont écrits",
+  /Premières lueurs/.test(soleilTxt) && /Crépuscule nautique/.test(soleilTxt)
   && /Nuit noire/.test(soleilTxt));
 ok("le lever porte un point cardinal", /Lever[\s\S]{0,40}(nord|est|sud|ouest)/.test(soleilTxt), soleilTxt.slice(0, 80));
+
+// Bandeau plein cadre : le ciel monte sous la barre de tête et la déshabille.
+ok("le bandeau du ciel occupe toute la largeur", await pg.evaluate(() => {
+  const ci = document.querySelector(".ci");
+  if (!ci) return false;
+  const b = ci.getBoundingClientRect();
+  return b.left <= 0.5 && Math.abs(b.right - window.innerWidth) < 0.5 && b.top <= 0.5;
+}));
+ok("aucun grand titre ne double celui du ciel",
+  await pg.locator("#ecran .titre-ecran").count() === 0);
+ok("le ciel porte le prochain évènement et son heure",
+  /\d\d:\d\d/.test(await txt(".plein-titre b")), await txt(".plein-titre b"));
+ok("la barre de tête se déshabille sur le ciel",
+  await pg.locator("#nav.sur-ciel").count() === 1);
+ok("la barre de tête reprend son verre au défilement", await pg.evaluate(async () => {
+  window.scrollTo({ top: 400, behavior: "instant" });
+  await new Promise(r => setTimeout(r, 200));
+  const nav = document.getElementById("nav");
+  const bon = !nav.classList.contains("sur-ciel") && nav.classList.contains("pose");
+  window.scrollTo({ top: 0, behavior: "instant" });
+  await new Promise(r => setTimeout(r, 200));
+  return bon;
+}));
+
+// La toile du Soleil : elle est peinte, et elle bouge.
+ok("le Soleil est peint sur une toile", await pg.locator("canvas#ciFeu").count() === 1);
+ok("la toile est teintée d'après la hauteur", await pg.evaluate(() => {
+  const v = Number(document.getElementById("ciFeu").dataset.chaud);
+  return Number.isFinite(v) && v >= 0 && v <= 1;
+}));
+ok("la toile porte des pixels", await pg.evaluate(() => {
+  const cv = document.getElementById("ciFeu");
+  const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+  for (let i = 3; i < d.length; i += 400) if (d[i] > 8) return true;
+  return false;
+}));
+ok("la matière bouge d'une image à l'autre", await pg.evaluate(async () => {
+  const cv = document.getElementById("ciFeu");
+  const lire = () => cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+  const a = lire();
+  await new Promise(r => setTimeout(r, 700));
+  const b = lire();
+  let som = 0, n = 0;
+  for (let i = 0; i < b.length; i += 16) { som += Math.abs(b[i] - a[i]); n++; }
+  return som / n > 0.5;
+}));
+ok("la trajectoire couvre les vingt-quatre heures", await pg.evaluate(() => {
+  const t = [...document.querySelectorAll(".tr-txt")].map(e => e.textContent);
+  return t.includes("00 h") && t.includes("24 h") && t.includes("90°");
+}));
+ok("la nuit est en pointillé, le jour en trait plein",
+  await pg.locator(".tr-ligne").count() === 1 && await pg.locator(".tr-ligne-nuit").count() === 2);
+ok("la course du jour se lit dans l'ordre", await pg.evaluate(() => {
+  const n = [...document.querySelectorAll(".ch .rangee-txt")].map(e => e.textContent);
+  return n[0] === "Premières lueurs" && n[1] === "Lever"
+    && n[2] === "Midi solaire" && n[3] === "Coucher";
+}));
+ok("les trois mesures tiennent sur une ligne",
+  await pg.locator(".tm > div").count() === 3);
 
 console.log("\n--- La lune ---");
 const requetes = [];

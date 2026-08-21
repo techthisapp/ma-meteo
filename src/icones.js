@@ -43,6 +43,18 @@ const D = {
     + 'M16 18v3.4M14.4 18.9l3.2 1.6M17.6 18.9l-3.2 1.6"/></g>',
   goutte: '<path d="M12 3.4c4.2 4.8 6.6 8.2 6.6 11.2a6.6 6.6 0 0 1-13.2 0c0-3 2.4-6.4 6.6-11.2z"/>',
   arc: '<path d="M3 18h18"/><path d="M6.2 18a5.8 5.8 0 0 1 11.6 0"/><path d="M12 6.4V4M5.2 9.2L3.6 7.6M18.8 9.2l1.6-1.6"/>',
+  /* La course du jour : cinq moments qui se distinguent d'un coup d'œil. La
+     lueur n'a qu'un demi-soleil, le lever une flèche montante, le coucher une
+     flèche descendante, le midi un soleil complet. */
+  lueur: '<path d="M2.6 18.4h18.8"/><path d="M8 18.4a4 4 0 0 1 8 0"/>'
+    + '<path d="M12 8.6V6.4M6.6 11l-1.5-1.5M17.4 11l1.5-1.5"/>',
+  lever: '<path d="M2.6 19.4h18.8"/><path d="M8 15.4a4 4 0 0 1 8 0"/>'
+    + '<path d="M12 3.2v6M9.2 6l2.8-2.8L14.8 6" stroke-linejoin="round"/>',
+  midi: '<circle cx="12" cy="12" r="4.4"/>'
+    + '<path d="M12 2.4v2.6M12 19v2.6M2.4 12H5M19 12h2.6'
+    + 'M5.2 5.2l1.8 1.8M17 17l1.8 1.8M18.8 5.2L17 7M7 17l-1.8 1.8"/>',
+  coucher: '<path d="M2.6 19.4h18.8"/><path d="M8 15.4a4 4 0 0 1 8 0"/>'
+    + '<path d="M12 9.2v-6M9.2 6.4L12 9.2l2.8-2.8" stroke-linejoin="round"/>',
   alerte: '<path d="M12 3.6 21.4 20H2.6z" stroke-linejoin="round"/><path d="M12 9.6v4.6M12 17.2v.1"/>',
   vent: '<path d="M3 8.4h11a3 3 0 1 0-3-3M3 13h15a3 3 0 1 1-3 3M3 17.6h8"/>',
   lune: '<g class="ic-b"><path d="M20.2 14.6A8.6 8.6 0 0 1 9.4 3.8a8.6 8.6 0 1 0 10.8 10.8z"/></g>',

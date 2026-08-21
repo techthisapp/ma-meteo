@@ -9,6 +9,7 @@ import * as Ruban from "./ruban.js";
 import { liste, moments } from "./ecritures.js";
 import * as Reglages from "./reglages.js";
 import * as Astres from "./astres.js";
+import * as Feu from "./feu.js";
 
 /* ---------- Fragments communs ---------- */
 
@@ -183,24 +184,147 @@ export function vueVigilance() {
 
 /* ---------- Le soleil ---------- */
 
-const arcDuJour = (lever, coucher, maintenant) => {
-  const W = 320, H = 108, sol = H - 26;
-  const t = Math.max(0, Math.min(1, (maintenant - lever) / ((coucher - lever) || 1)));
-  const pt = p => {
-    const a = Math.PI * (1 - p);
-    return [W / 2 + Math.cos(a) * (W / 2 - 14), sol - Math.sin(a) * (sol - 12)];
-  };
-  let d = `M${pt(0)[0].toFixed(1)},${pt(0)[1].toFixed(1)}`;
-  for (let k = 1; k <= 40; k++) { const [x, y] = pt(k / 40); d += ` L${x.toFixed(1)},${y.toFixed(1)}`; }
-  const [ax, ay] = pt(t);
-  const jour = maintenant >= lever && maintenant <= coucher;
-  return `<svg class="aj" viewBox="0 0 ${W} ${H}" aria-hidden="true">`
-    + `<path class="aj-plein" d="${d} L${pt(1)[0].toFixed(1)},${sol} L${pt(0)[0].toFixed(1)},${sol} Z"/>`
-    + `<path class="aj-arc" d="${d}"/>`
-    + `<line class="aj-sol" x1="8" y1="${sol}" x2="${W - 8}" y2="${sol}"/>`
-    + (jour ? `<circle class="aj-astre" cx="${ax.toFixed(1)}" cy="${ay.toFixed(1)}" r="6"/>` : "")
-    + `</svg>`;
+/* Le bandeau du ciel.
+
+   Il occupe toute la largeur et passe sous la barre de tête : c'est le seul
+   endroit de l'application où le contenu monte jusqu'au bord haut. Sa couleur
+   vient de la hauteur du Soleil, non du thème de l'appareil : un ciel de midi
+   reste clair en thème sombre, sans quoi midi ressemblerait à minuit. */
+
+const CIELS = {
+  nuit: ["#0A1120", "#16203A"],
+  aube: ["#1E2E52", "#C6764A"],
+  jour: ["#4F8FC4", "#BBD9EE"],
+  soir: ["#22325A", "#C2643F"],
 };
+
+const enRVB = c => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
+const ecritRVB = v => `rgb(${v[0]} ${v[1]} ${v[2]})`;
+const melange = (a, b, t) => {
+  const [r1, g1, b1] = enRVB(a), [r2, g2, b2] = enRVB(b);
+  const v = (x, y) => Math.round(x + (y - x) * t);
+  return [v(r1, r2), v(g1, g2), v(b1, b2)];
+};
+/* Le sol se déduit du bas du ciel par assombrissement : une bande ardoise fixe
+   ferait nuit à midi, et un sol clair ferait jour à minuit. */
+const assombrir = (v, k) => v.map(x => Math.round(x * k));
+
+function cielDe(hauteur, montant) {
+  const bord = montant ? CIELS.aube : CIELS.soir;
+  let de, vers, t;
+  if (hauteur <= -12) { de = CIELS.nuit; vers = CIELS.nuit; t = 0; }
+  else if (hauteur < 2) { de = CIELS.nuit; vers = bord; t = (hauteur + 12) / 14; }
+  else if (hauteur < 20) { de = bord; vers = CIELS.jour; t = (hauteur - 2) / 18; }
+  else { de = CIELS.jour; vers = CIELS.jour; t = 0; }
+  const haut = melange(de[0], vers[0], t);
+  const bas = melange(de[1], vers[1], t);
+  const borne = (v, a, b) => Math.max(0, Math.min(1, (v - a) / (b - a)));
+  return {
+    haut: ecritRVB(haut), bas: ecritRVB(bas),
+    solHaut: ecritRVB(assombrir(bas, 0.80)), sol: ecritRVB(assombrir(bas, 0.66)),
+    nuit: borne(-hauteur, 2, 12),
+    jour: borne(hauteur, -4, 4),
+    chaud: borne(25 - hauteur, 0, 25),
+  };
+}
+
+/* Étoiles réparties par hachage : une suite arithmétique dessinait une
+   diagonale. Elles ne paraissent qu'au-dessous de l'horizon. */
+const ETOILES = (() => {
+  const bruit = n => { const v = Math.sin(n * 12.9898) * 43758.5453; return v - Math.floor(v); };
+  let out = "";
+  for (let k = 0; k < 46; k++) {
+    out += `<i style="left:${(bruit(k + 1) * 98).toFixed(1)}%;`
+      + `top:${(bruit(k + 71) * 70).toFixed(1)}%;`
+      + `animation-delay:${(bruit(k + 131) * 3.4).toFixed(1)}s"></i>`;
+  }
+  return out;
+})();
+
+function bandeauCiel(g, maintenant, meridien) {
+  const p = Astres.position("soleil", maintenant, g.lat, g.lon);
+  const minuit = new Date(maintenant.getFullYear(), maintenant.getMonth(), maintenant.getDate());
+  const minutes = (maintenant - minuit) / 60000;
+  const montant = meridien ? maintenant < meridien : minutes < 720;
+  const c = cielDe(p.hauteur, montant);
+
+  /* L'abscisse suit l'avancement du jour, l'ordonnée la hauteur : le disque
+     est à sa place, non sur un arc supposé. */
+  const x = (minutes / 1440) * 100;
+  const solY = 85;
+  const y = solY - Math.max(-14, Math.min(90, p.hauteur)) / 90 * (solY - 13);
+
+  return `<div class="ci" style="`
+    + `--ci-haut:${c.haut};--ci-bas:${c.bas};--ci-sol-haut:${c.solHaut};--ci-sol:${c.sol};`
+    + `--ci-nuit:${c.nuit.toFixed(2)};--ci-jour:${c.jour.toFixed(2)}">`
+    + `<div class="ci-etoiles" aria-hidden="true">${ETOILES}</div>`
+    + `<div class="ci-astre${p.hauteur < -0.833 ? " sous" : ""}" `
+    + `style="--ax:${x.toFixed(1)}%;--ay:${y.toFixed(1)}%">`
+    + `<canvas class="ci-feu" id="ciFeu" data-chaud="${c.chaud.toFixed(3)}" `
+    + `role="img" aria-label="Le Soleil dans le ciel"></canvas></div>`
+    + `<div class="ci-sol"></div><div class="ci-horizon"></div>`
+    + `<div class="ci-voile-haut"></div><div class="ci-voile-bas"></div>`
+    + `</div>`;
+}
+
+/* La trajectoire du jour : la hauteur du Soleil de minuit à minuit. Le trait
+   plein est au-dessus de l'horizon, le pointillé au-dessous. */
+function trajectoire(courbe, lever, coucher, minutes) {
+  const W = 342, H = 170, G = 24, D = 16, BAS = 20;
+  const hx = m => G + (m / 1440) * (W - G - D);
+  const hy = h => {
+    const t = (Math.max(-30, Math.min(90, h)) + 30) / 120;
+    return (H - BAS) - t * (H - BAS - 10);
+  };
+  const sol = hy(0);
+
+  const trait = pts => pts.map((p, k) =>
+    `${k ? "L" : "M"}${hx(p.m).toFixed(1)},${hy(p.h).toFixed(1)}`).join(" ");
+
+  const jour = courbe.filter(p => p.h >= 0);
+  if (!jour.length) return "";
+  const nuitA = courbe.filter(p => p.m <= jour[0].m);
+  const nuitB = courbe.filter(p => p.m >= jour[jour.length - 1].m);
+
+  const aire = `${trait(jour)} L${hx(jour[jour.length - 1].m).toFixed(1)},${sol.toFixed(1)} `
+    + `L${hx(jour[0].m).toFixed(1)},${sol.toFixed(1)} Z`;
+
+  let ici = courbe[0];
+  for (const p of courbe) if (Math.abs(p.m - minutes) < Math.abs(ici.m - minutes)) ici = p;
+  const cx = hx(minutes), cy = hy(ici.h);
+
+  const deuxCh = n => String(n).padStart(2, "0");
+  const grille = [0, 6, 12, 18, 24].map(h =>
+    `<line class="tr-grille" x1="${hx(h * 60).toFixed(1)}" y1="10" `
+    + `x2="${hx(h * 60).toFixed(1)}" y2="${(H - BAS).toFixed(1)}"/>`
+    + `<text class="tr-txt" x="${hx(h * 60).toFixed(1)}" y="${H - 6}" text-anchor="middle">`
+    + `${deuxCh(h)} h</text>`).join("");
+
+  const echelle = [0, 30, 60, 90].map(v =>
+    `<text class="tr-txt" x="2" y="${(hy(v) + 3).toFixed(1)}">${v}°</text>`).join("");
+
+  const borne = m => m === null ? ""
+    : `<circle class="tr-borne" cx="${hx(m).toFixed(1)}" cy="${sol.toFixed(1)}" r="3.4"/>`;
+
+  return `<svg class="tr" viewBox="0 0 ${W} ${H}" role="img" `
+    + `aria-label="Hauteur du Soleil dans le ciel, de minuit à minuit">`
+    + `<defs><linearGradient id="grJour" x1="0" y1="0" x2="0" y2="1">`
+    + `<stop offset="0" stop-color="var(--ic-soleil)" stop-opacity=".26"/>`
+    + `<stop offset="1" stop-color="var(--ic-soleil)" stop-opacity=".04"/>`
+    + `</linearGradient></defs>`
+    + grille + echelle
+    + `<path class="tr-jour" d="${aire}"/>`
+    + `<path class="tr-ligne-nuit" d="${trait(nuitA)}"/>`
+    + `<path class="tr-ligne-nuit" d="${trait(nuitB)}"/>`
+    + `<path class="tr-ligne" d="${trait(jour)}"/>`
+    + `<line class="tr-sol" x1="${G}" y1="${sol.toFixed(1)}" x2="${W - D}" y2="${sol.toFixed(1)}"/>`
+    + borne(lever) + borne(coucher)
+    + `<line class="tr-fil" x1="${cx.toFixed(1)}" y1="${cy.toFixed(1)}" `
+    + `x2="${cx.toFixed(1)}" y2="${(H - BAS).toFixed(1)}"/>`
+    + `<circle class="tr-halo" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="9"/>`
+    + `<circle class="tr-astre" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="4"/>`
+    + `</svg>`;
+}
 
 export function vueSoleil() {
   const c = P.chargeCourante();
@@ -213,7 +337,7 @@ export function vueSoleil() {
   const d = c.daily;
   const lever = new Date(d.sunrise[i]).getTime();
   const coucher = new Date(d.sunset[i]).getTime();
-  const maintenant = Date.now();
+  const maintenant = new Date();
   const duree = d.daylight_duration[i];
   const veille = i > 0 ? d.daylight_duration[i - 1] : duree;
   const delta = Math.round((duree - veille) / 60);
@@ -221,8 +345,13 @@ export function vueSoleil() {
   /* Les heures de lever et de coucher viennent d'Open-Meteo, qui fait foi ici.
      Les azimuts, le midi solaire et les crépuscules se calculent sur l'appareil :
      la source ne les porte pas. */
-  const e = Astres.evenements("soleil", new Date(), g.lat, g.lon);
-  const cr = Astres.crepuscules(new Date(), g.lat, g.lon);
+  const e = Astres.evenements("soleil", maintenant, g.lat, g.lon);
+  const cr = Astres.crepuscules(maintenant, g.lat, g.lon);
+  const courbe = Astres.courbe("soleil", maintenant, g.lat, g.lon, 5);
+
+  const minuit = new Date(maintenant.getFullYear(), maintenant.getMonth(), maintenant.getDate());
+  const enMinutes = ms => (ms - minuit.getTime()) / 60000;
+  const minutes = enMinutes(maintenant.getTime());
 
   /* Le jour de passage du seuil de dix heures, dans un sens ou dans l'autre.
      C'est la borne au-delà de laquelle la lumière change de régime. */
@@ -237,18 +366,56 @@ export function vueSoleil() {
     }
   }
 
-  const course = [
-    ["Lever", `${hm(lever)}${e.azimutLever === null ? "" : `, ${cardinalDe(e.azimutLever)}`}`],
-    ["Coucher", `${hm(coucher)}${e.azimutCoucher === null ? "" : `, ${cardinalDe(e.azimutCoucher)}`}`],
-    ["Midi solaire", e.meridien ? hm(e.meridien.getTime()) : "—"],
-    ["Hauteur maximale", e.hauteurMax === null ? "—" : `${Math.round(e.hauteurMax)}°`],
-    ["Durée du jour", hhmm(duree)],
-    ["Écart à la veille", `${delta >= 0 ? "+" : "−"} ${Math.abs(delta)} min`],
+  /* Le prochain évènement, celui que le bandeau annonce en grand. Passé les
+     dernières lueurs, c'est l'aube du lendemain. */
+  const suite = [
+    [cr.civil.matin, "Premières lueurs"],
+    [new Date(lever), "Lever du soleil"],
+    [e.meridien, "Midi solaire"],
+    [new Date(coucher), "Coucher du soleil"],
+    [cr.civil.soir, "Dernières lueurs"],
+  ].filter(([x]) => x);
+  const prochain = suite.find(([x]) => x > maintenant)
+    || (cr.civil.matin ? [cr.civil.matin, "Premières lueurs demain"] : null);
+
+  const p = Astres.position("soleil", maintenant, g.lat, g.lon);
+  const etat = p.hauteur >= -0.833
+    ? `Soleil à ${Math.round(p.hauteur)}° au dessus de l'horizon`
+    : p.hauteur >= -6 ? "Le jour se retire" : "Le Soleil est sous l'horizon";
+
+  /* Course du jour, dans l'ordre où elle se vit. Ce qui est passé s'efface,
+     ce qui vient est en couleur. */
+  const chrono = [
+    ["lueur", "Premières lueurs", cr.civil.matin ? hm(cr.civil.matin.getTime()) : "—",
+      cr.civil.matin],
+    ["lever", "Lever", `${hm(lever)}${e.azimutLever === null ? "" : `, ${cardinalDe(e.azimutLever)}`}`,
+      new Date(lever)],
+    ["midi", "Midi solaire", e.meridien ? hm(e.meridien.getTime()) : "—", e.meridien],
+    ["coucher", "Coucher", `${hm(coucher)}${e.azimutCoucher === null ? "" : `, ${cardinalDe(e.azimutCoucher)}`}`,
+      new Date(coucher)],
+    ["lune", "Dernières lueurs", cr.civil.soir ? hm(cr.civil.soir.getTime()) : "—", cr.civil.soir],
+    ["horloge", "Lumière du jour", hhmm(duree), null],
   ];
-  if (passage) course.push(["Seuil de dix heures", `${passage.sens} le ${jourLong(passage.date)}`]);
+
+  const lignes = chrono.map(([sym, nom, val, quand]) => {
+    const passe = quand && quand < maintenant;
+    const courant = prochain && quand && quand.getTime() === prochain[0].getTime();
+    return `<div class="rangee${passe ? " passe" : ""}${courant ? " courant" : ""}">`
+      + ico(sym, "") + `<span class="rangee-txt">${esc(nom)}</span>`
+      + `<span class="rangee-val"><b>${esc(val)}</b></span></div>`;
+  }).join("");
+
+  const mesures = `<div class="tm">`
+    + `<div><i>Hauteur maximale</i>`
+    + `<b>${e.hauteurMax === null ? "—" : `${Math.round(e.hauteurMax)}°`}</b>`
+    + `<em>${e.meridien ? hm(e.meridien.getTime()) : ""}</em></div>`
+    + `<div><i>Durée du jour</i><b>${hhmm(duree)}</b>`
+    + `<em>${hm(lever)} à ${hm(coucher)}</em></div>`
+    + `<div><i>Écart à la veille</i><b>${delta >= 0 ? "+" : "−"} ${Math.abs(delta)} min</b>`
+    + `<em>${delta >= 0 ? "plus de lumière" : "moins de lumière"}</em></div>`
+    + `</div>`;
 
   const cieux = [
-    ["Crépuscule civil", cr.civil],
     ["Crépuscule nautique", cr.nautique],
     ["Nuit noire", cr.astronomique],
   ].map(([n, v]) => [n, v.matin && v.soir
@@ -257,15 +424,36 @@ export function vueSoleil() {
 
   return {
     titre: "Le soleil",
-    corps: `<div class="carte">${arcDuJour(lever, coucher, maintenant)}`
-      + `<div class="aj-b"><div><b>${hm(lever)}</b><i>lever</i></div>`
-      + `<div><b>${hm(coucher)}</b><i>coucher</i></div></div></div>`
+    pleinCadre: true,
+    corps: `<div class="plein">${bandeauCiel(g, maintenant, e.meridien)}`
+      + `<div class="plein-titre">`
+      + (prochain ? `<i>${esc(prochain[1])}</i><b>${hm(prochain[0].getTime())}</b>` : `<b>Le soleil</b>`)
+      + `<em>${esc(etat)}</em></div></div>`
+
+      + `<div class="ecran-corps">`
+      + `<div class="section"><h2>Trajectoire</h2>`
+      + `<div class="carte"><div class="carte-tete"><h3>Hauteur dans le ciel</h3>`
+      + `<em>Maintenant ${hm(maintenant.getTime())}</em></div>`
+      + trajectoire(courbe, enMinutes(lever), enMinutes(coucher), minutes)
+      + `</div></div>`
+
       + `<div class="section"><h2>Course du jour</h2>`
-      + `<div class="carte">${rangees(course)}</div></div>`
+      + `<div class="carte groupe-plat ch">${lignes}</div></div>`
+
+      + `<div class="carte">${mesures}`
+      + (passage ? `<p class="note">La durée du jour ${esc(passage.sens)} dix heures `
+        + `le ${esc(jourLong(passage.date))}.</p>` : "")
+      + `</div>`
+
       + `<div class="section"><h2>Fin et retour de la lumière</h2>`
       + `<div class="carte">${rangees(cieux)}`
       + `<p class="note">Le crépuscule civil borne la lecture au dehors, le nautique `
-      + `l'horizon en mer, la nuit noire l'absence de lueur solaire.</p></div></div>`,
+      + `l'horizon en mer, la nuit noire l'absence de lueur solaire.</p></div></div>`
+      + `</div>`,
+
+    brancher(bloc) {
+      Feu.poser(bloc.querySelector("#ciFeu"));
+    },
   };
 }
 

@@ -12,7 +12,7 @@ service dorsal, sans base de données, sans compte. Métropole française.
 | Accueil | Le jour en grand titre, température, ciel, bornes du jour, quatre mesures, puis une seule carte « À retenir » réunissant les vingt-quatre heures et ce qui vient au-delà, enfin l'accès à la vigilance |
 | Le temps | Vingt-quatre heures glissantes en trois écritures : ruban à sept voies, liste à treize colonnes, moments par tranches de six heures |
 | La semaine | Sept jours : symbole de ciel et lame sous lui, borne basse à gauche, plage de température sur une échelle commune, borne haute à droite, point du moment sur la journée en cours |
-| Le soleil | Arc du jour, lever et coucher avec leur point cardinal, midi solaire, hauteur maximale, durée, écart à la veille, seuil de dix heures, trois crépuscules |
+| Le soleil | Bandeau du ciel plein cadre avec le Soleil à sa vraie place, trajectoire du jour, course du jour dans l'ordre, hauteur maximale, durée, écart à la veille, crépuscules |
 | La lune | Phase dessinée et nommée, part éclairée, âge, lever et coucher avec leur point cardinal, passage au méridien, hauteur maximale, durée au-dessus de l'horizon, lunaison, quatre prochaines phases |
 | Vigilance | Renvoi vers Météo-France, avec le motif du renvoi, en feuille |
 | Réglages | Écriture retenue pour l'écran du temps, sources, coordonnées, en feuille |
@@ -107,6 +107,53 @@ Sinon la probabilité de pluie sur vingt-quatre heures prend sa place : « Resse
 
 Une plage horaire ne porte le mot « demain » qu'une fois : « demain de 03 h à
 06 h », non « de demain 03 h à demain 06 h ».
+
+## Le soleil
+
+Le ciel occupe toute la largeur et monte sous la barre de tête, qui devient
+blanche par-dessus et reprend son verre au défilement. C'est le seul endroit
+de l'application où le contenu déborde du rembourrage de la couche de contenu.
+
+La couleur du ciel vient de la hauteur du Soleil, du bleu de midi à l'ambre du
+couchant puis au bleu de nuit. Elle ne suit pas le thème de l'appareil : un ciel
+de midi resterait noir en thème sombre, ce qui n'aurait pas de sens. Le sol se
+déduit du bas du ciel par assombrissement, les étoiles ne paraissent qu'une fois
+le Soleil sous l'horizon.
+
+Le disque est à sa place calculée : l'abscisse suit l'avancement du jour,
+l'ordonnée la hauteur.
+
+### La boule de feu
+
+Le Soleil est peint sur une toile, dans `src/feu.js`. Le disque reçoit d'abord
+ses tons sombres, puis la matière chaude est ajoutée par-dessus en lumière : un
+bruit gris posé en incrustation délave la couleur, un bruit teinté ajouté en
+lumière la garde et donne le rougeoiement.
+
+| Couche | Mouvement |
+|---|---|
+| Matière | Bruit fractal creusé en filaments, posé deux fois à des échelles et des sens de rotation opposés, avec une dérive lente |
+| Cœur | Battement de trois secondes |
+| Limbe | Assombrissement du bord qui fait la sphère, débordement chaud qui la fait brûler dans le ciel |
+| Protubérances | Quatre jets, chacun sur sa période, de quatre à neuf secondes |
+| Couronne | Vingt-quatre rayons fins, deux copies tournant en sens contraires |
+
+La couleur suit la hauteur : ambre clair au zénith, orange profond près de
+l'horizon, comme le Soleil réel que l'atmosphère rougit.
+
+Le coût tient sur un téléphone. Les motifs coûteux sont dessinés une seule fois
+hors écran et gardés par pas de teinte, treize jeux au plus ; chaque image ne
+fait plus que composer des images déjà prêtes, à trente par seconde. La boucle
+s'arrête dès que la toile quitte le document ou que l'écran passe en
+arrière-plan, et ne démarre pas du tout sous mouvement réduit, où une seule
+image est rendue.
+
+### Trajectoire
+
+La courbe est celle de la hauteur calculée, de minuit à minuit, par pas de cinq
+minutes. Le trait plein est au-dessus de l'horizon, le pointillé au-dessous, et
+le moment courant porte un point et son fil. Les instants remarquables restent
+affinés par dichotomie, la courbe ne servant qu'au tracé.
 
 ## Communes suivies
 
@@ -204,6 +251,7 @@ src/
   ruban.js          météogramme à sept voies
   ecritures.js      liste et moments
   astres.js         positions du Soleil et de la Lune, phases, levers et couchers
+  feu.js            la boule de feu du bandeau, peinte sur une toile
   vues.js           temps, semaine, vigilance, soleil, lune, communes, réglages
   app.js            amorçage, barre d'onglets, écrans, coque de la feuille
   reseau.js         reprise à attente croissante, gzip, listage S3
@@ -211,7 +259,7 @@ src/
   postes.js         fichier départemental et geojson des postes, non branché
   reserve.js        les deux vues débranchées
 essais/
-  controle.mjs      cent cinquante contrôles en navigateur
+  controle.mjs      cent soixante et un contrôles en navigateur
   meteo.json        données figées au 18 août 2026, 9 h
 ```
 
@@ -230,7 +278,7 @@ révision installée par Playwright ne correspond pas à celle du poste.
 
 Le lanceur sert le dossier, fige l'horloge au 18 août 2026 à 9 h, détourne les
 trois appels Open-Meteo vers `meteo.json` et coupe les sources data.gouv pour
-éprouver le repli. Cent cinquante contrôles, dont l'absence de répétition entre
+éprouver le repli. Cent soixante et un contrôles, dont l'absence de répétition entre
 les alertes et les conseils, les sept voies du ruban, l'agrandissement d'une
 voie, les treize colonnes de la liste, les vingt-quatre lignes de la fenêtre, la
 nature du renvoi de vigilance, et seize contrôles de conformité au design
@@ -251,6 +299,10 @@ ailleurs, l'autorisation étant accordée : le relevé silencieux doit partir se
 et relire la prévision aux nouvelles coordonnées. Le troisième fait la même
 chose sans autorisation : rien ne doit partir et le dernier relevé doit rester
 servi.
+
+Le bandeau du soleil est éprouvé sur son débord, sur le déshabillage de la barre
+de tête et son retour au verre, sur la présence de la toile, sur le fait qu'elle
+porte des pixels, et sur le fait que la matière bouge d'une image à l'autre.
 
 ## Éphémérides
 

@@ -185,6 +185,27 @@ déjà où l'on se trouve.
 En mode position, une cible de 15 pt à l'accent précède le nom. Le nom dit où
 l'appareil se trouve, la cible dit qu'il suivra.
 
+Sur un bandeau plein cadre, la barre perd sa matière : fond transparent, aucun
+filet, texte blanc. Elle reprend son verre dès que le bandeau est dépassé, ce
+qui se mesure au défilement plutôt que de se supposer.
+
+### Bandeau plein cadre
+
+Une seule exception au rembourrage de la couche de contenu, portée par l'écran
+du soleil. Le bandeau déborde par marges négatives sur les mêmes tokens que ce
+rembourrage, `--haut` et `--nav-haut` en haut, `--marge` sur les côtés : quelle
+que soit l'encoche, le ciel remplit exactement la zone.
+
+Le grand titre d'écran est alors porté par le bandeau, non par la couche de
+contenu, et la coque ne pose pas le sien par-dessus.
+
+Deux voiles assurent la lisibilité du texte blanc, l'un en haut sous la barre,
+l'autre en bas sous le titre : le ciel va du bleu clair de midi au bleu nuit,
+aucune couleur de texte ne tient sur les deux sans eux.
+
+Les couleurs du ciel ne sont pas des couleurs d'interface : elles ne s'inversent
+pas avec le thème. Un ciel de midi reste clair en thème sombre.
+
 ### Symboles de temps
 
 Deux groupes, `ic-a` pour la masse et `ic-b` pour l'accent, colorés par

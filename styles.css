@@ -267,6 +267,20 @@ button:disabled,button[aria-disabled="true"],input:disabled{
 }
 .nav.pose{border-bottom-color:var(--verre-filet)}
 
+/* Sur un bandeau plein cadre, la barre de tête laisse voir le ciel : pas de
+   matière, pas de filet, texte blanc. Elle reprend son verre dès que le
+   bandeau est dépassé. */
+.nav.sur-ciel{
+  background:transparent;
+  backdrop-filter:none;-webkit-backdrop-filter:none;
+  border-bottom-color:transparent;
+  color:#FFFFFF;
+}
+.nav.sur-ciel .nav-chev{color:rgba(255,255,255,.78)}
+.nav.sur-ciel .nav-act{color:#FFFFFF}
+.nav.sur-ciel .nav-pos{color:#FFFFFF}
+.nav.sur-ciel .nav-act:active{background:rgba(255,255,255,.16)}
+
 .nav-corps{
   position:relative;
   display:flex;align-items:center;
@@ -790,15 +804,127 @@ button.rangee:active{background:var(--surface-2)}
 
 /* ---------- 14. Lumière ---------- */
 
-.aj{display:block;width:100%;height:auto}
-.aj-arc{fill:none;stroke:var(--accent);stroke-width:1.4;stroke-linecap:round;opacity:.55}
-.aj-plein{fill:var(--accent);opacity:.10;stroke:none}
-.aj-sol{stroke:var(--filet);stroke-width:1}
-.aj-astre{fill:#E0A63C;stroke:var(--surface);stroke-width:2.5}
-.aj-b{display:flex;justify-content:space-between;font-size:var(--texte-note);margin-top:var(--espace-sm)}
-.aj-b b{display:block;font-size:var(--texte-appel);font-weight:var(--graisse-semibold)}
-.aj-b i{font-style:normal;color:var(--etiquette-3);font-size:var(--texte-legende)}
-.aj-b div:last-child{text-align:right}
+/* ---------- 14. Le soleil : bandeau plein cadre ----------
+
+   Le ciel occupe toute la largeur et monte sous la barre de tête. C'est le
+   seul endroit de l'application où le contenu déborde du rembourrage de la
+   couche de contenu, débord obtenu par marges négatives sur les mêmes tokens
+   que ce rembourrage : quelle que soit l'encoche, le ciel remplit exactement
+   la zone. */
+
+.plein-cadre{padding-top:0;gap:0}
+.plein{
+  position:relative;
+  margin:calc((var(--haut) + var(--nav-haut)) * -1) calc(var(--marge) * -1) 0;
+}
+.ecran-corps{
+  display:flex;flex-direction:column;gap:var(--espace-xl);
+  padding-top:var(--espace-xl);
+}
+
+/* Les couleurs du ciel ne suivent pas le thème : un ciel de midi reste clair
+   en thème sombre. Elles sont posées à l'exécution, d'après la hauteur du
+   Soleil. */
+.ci{
+  position:relative;overflow:hidden;
+  aspect-ratio:390 / 306;
+  background:linear-gradient(180deg,var(--ci-haut) 0%,var(--ci-bas) 76%,var(--ci-bas) 100%);
+}
+
+.ci-etoiles{position:absolute;inset:0;opacity:var(--ci-nuit,0)}
+.ci-etoiles i{
+  position:absolute;width:2px;height:2px;border-radius:var(--rayon-plein);
+  background:#FFFFFF;
+  animation:scintille 3.4s ease-in-out infinite alternate;
+}
+
+/* Brume d'horizon, tirée du bas du ciel par assombrissement. */
+.ci-sol{
+  position:absolute;left:0;right:0;bottom:0;height:15%;
+  background:linear-gradient(180deg,var(--ci-sol-haut) 0%,var(--ci-sol) 70%);
+}
+.ci-horizon{
+  position:absolute;left:0;right:0;bottom:15%;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.20) 18%,
+    rgba(255,255,255,.20) 82%,transparent);
+}
+
+/* Voiles de lisibilité : le texte blanc doit tenir sur un ciel de midi comme
+   sur un ciel de minuit. */
+.ci-voile-haut{
+  position:absolute;left:0;right:0;top:0;height:34%;z-index:1;
+  background:linear-gradient(180deg,rgba(4,8,16,.42),rgba(4,8,16,0));
+}
+.ci-voile-bas{
+  position:absolute;left:0;right:0;bottom:0;height:48%;z-index:1;
+  background:linear-gradient(0deg,rgba(4,8,16,.56) 0%,rgba(4,8,16,.26) 44%,rgba(4,8,16,0) 100%);
+}
+
+/* L'astre : boîte de dimension nulle posée à la place calculée du Soleil, la
+   toile se centrant dessus. */
+.ci-astre{position:absolute;left:var(--ax);top:var(--ay);width:0;height:0}
+.ci-feu{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:300px;height:300px;
+  opacity:calc(.35 + .65 * var(--ci-jour,1));
+}
+.ci-astre.sous .ci-feu{opacity:.34}
+
+@keyframes scintille{from{opacity:.15}to{opacity:1}}
+@keyframes monte{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* Titre d'écran porté par le ciel. */
+.plein-titre{
+  position:absolute;left:var(--marge);right:var(--marge);bottom:var(--espace-lg);z-index:2;
+  color:#FFFFFF;text-shadow:0 1px 16px rgba(0,0,0,.55);
+  animation:monte var(--duree-complexe) var(--ressort) both;
+}
+.plein-titre i{
+  display:block;font-style:normal;font-size:var(--texte-note);
+  font-weight:var(--graisse-medium);opacity:.88;
+}
+.plein-titre b{
+  display:block;font-size:2.6rem;font-weight:var(--graisse-semibold);
+  letter-spacing:-.025em;line-height:1.02;margin-top:2px;
+}
+.plein-titre em{
+  display:block;font-style:normal;font-size:var(--texte-legende);
+  opacity:.76;margin-top:4px;
+}
+
+@media (prefers-reduced-motion:reduce){
+  .ci-etoiles i,.plein-titre{animation:none}
+}
+
+/* Trajectoire du jour. */
+.tr{display:block;width:100%;height:auto}
+.tr-jour{fill:url(#grJour)}
+.tr-ligne{fill:none;stroke:var(--ic-soleil);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tr-ligne-nuit{fill:none;stroke:var(--etiquette-3);stroke-width:1.4;opacity:.5;
+  stroke-dasharray:3 4;stroke-linecap:round}
+.tr-sol{stroke:var(--filet);stroke-width:1}
+.tr-grille{stroke:var(--filet-clair);stroke-width:1}
+.tr-txt{fill:var(--etiquette-3);font-size:9px;font-weight:500}
+.tr-borne{fill:var(--surface);stroke:var(--ic-soleil);stroke-width:1.6}
+.tr-astre{fill:var(--ic-soleil)}
+.tr-halo{fill:var(--ic-soleil);opacity:.18}
+.tr-fil{stroke:var(--ic-soleil);stroke-width:1;opacity:.35;stroke-dasharray:2 3}
+
+/* Trois mesures, même grammaire que les quatre mesures de l'accueil. */
+.tm{display:grid;grid-template-columns:repeat(3,1fr)}
+.tm > div{display:flex;flex-direction:column;gap:2px;padding:0 var(--espace-sm);text-align:center}
+.tm > div + div{box-shadow:inset 1px 0 0 var(--filet-clair)}
+.tm i{
+  font-style:normal;font-size:var(--texte-legende);color:var(--etiquette-2);
+  min-height:2.5em;display:flex;align-items:flex-start;justify-content:center;
+}
+.tm b{font-size:var(--texte-titre2);font-weight:var(--graisse-semibold);letter-spacing:-.02em}
+.tm em{font-style:normal;font-size:var(--texte-legende2);color:var(--etiquette-3)}
+
+/* Course du jour : ce qui est passé s'efface, ce qui vient est en couleur. */
+.ch .rangee > svg:first-child{color:var(--ic-soleil)}
+.ch .passe{opacity:.5}
+.ch .courant .rangee-val b{color:var(--ic-soleil)}
 /* Les lignes libellé et valeur de la lumière et des réglages emploient la
    rangée commune : un seul composant de liste dans toute l'application. */
 

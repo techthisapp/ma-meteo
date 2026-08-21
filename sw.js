@@ -18,6 +18,7 @@ const COQUE = [
   "./src/ecritures.js",
   "./src/vues.js",
   "./src/astres.js",
+  "./src/feu.js",
   "./icones/icone.svg",
   "./icones/icone-192.png",
   "./icones/icone-512.png",
