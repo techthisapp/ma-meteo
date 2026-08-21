@@ -17,7 +17,9 @@ import { conseilsHTML, SEUILS } from "./conseils.js";
 import * as Ruban from "./ruban.js";
 import * as Feu from "./feu.js";
 import * as Relief from "./relief.js";
-import { vueTemps, vueSemaine, vueVigilance, vueSoleil, vueLune, vueCommunes, vueReglages } from "./vues.js";
+import * as Temps from "./temps.js";
+import { vueTemps, vueSemaine, vueVigilance, vueSoleil, vueLune, vueCommunes, vueReglages,
+  bandeauAccueil } from "./vues.js";
 
 const $ = id => document.getElementById(id);
 
@@ -173,6 +175,7 @@ function ecranAccueil() {
     { weekday: "long", day: "numeric", month: "long" });
 
   let corps = "";
+  let plein = false;
 
   if (!c || i < 0) {
     corps = etatErreur();
@@ -221,28 +224,42 @@ function ecranAccueil() {
 
     const chevronM = ico("chevron_bas", "bd-chev");
 
-    corps += `<div class="bandeau"><div class="bd-haut">`
+    /* Le ciel porte le temps qu'il fait, et le titre est posé dedans : la
+       couverture nuageuse donne les nuages, le code donne la précipitation et
+       le brouillard, la lame d'eau donne l'intensité, le vent la dérive.
+
+       Le symbole de temps disparaît de la ligne d'état : un petit nuage dessiné
+       devant un ciel peint dirait deux fois la même chose. Les bornes perdent
+       leur couleur d'information pour la même raison qu'elles la portaient sur
+       fond de page, la lisibilité : un chiffre orange sur un ciel de couchant
+       ne se lit plus. */
+    const params = Temps.depuis(code, s ? s.nua[0] : null, s ? s.mm[0] : null);
+    plein = true;
+    corps += `<div class="plein">`
+      + bandeauAccueil(g, new Date(), params, s ? s.v[0] : 0)
+      + `<div class="plein-titre"><i>${esc(jour.charAt(0).toUpperCase() + jour.slice(1))}</i>`
+      + `<div class="pt-temps">`
       + `<button type="button" class="bd-deg" data-detail="t" `
       + `aria-label="Température, voir les vingt-quatre heures">`
       + `${Math.round(t)}<sup>°</sup></button>`
       + `<div class="bd-etat">`
       + `<button type="button" class="bd-ciel" data-detail="nua" `
-      + `aria-label="Ciel, voir les vingt-quatre heures">`
-      + `${icoTemps(icoCiel(code, clair))}<span>${esc(lib)}</span></button>`
+      + `aria-label="Ciel, voir les vingt-quatre heures">${esc(lib)}</button>`
       /* Les bornes restent du texte : elles mènent au même endroit que le grand
          chiffre, juste au-dessus. Deux cibles pour une destination, c'est une de
          trop, et chacune coûte 44 points de hauteur. */
-      + `<p class="bd-bornes">`
-      + `<b${tn <= SEUILS.gel ? ' class="v-froid"' : ""}>${Math.round(tn)}°</b> à `
-      + `<b${tx >= SEUILS.chaleur ? ' class="v-chaud"' : ""}>${Math.round(tx)}°</b> aujourd'hui</p>`
-      + `</div></div>`
-      + (mesures.length ? `<div class="bd-mesures">` + mesures.map(([n, v, e, c, voie]) =>
-        `<button type="button" class="bd-m" data-detail="${esc(voie)}" `
-        + `aria-label="${esc(n)}, ${esc(v)}, voir les vingt-quatre heures">`
-        + `<i>${esc(n)}${chevronM}</i><b${c ? ` class="${c}"` : ""}>${esc(v)}</b>`
-        + `<em>${esc(e)}</em></button>`).join("")
-        + `</div>` : "")
-      + `</div>`;
+      + `<p class="bd-bornes"><b>${Math.round(tn)}°</b> à `
+      + `<b>${Math.round(tx)}°</b> aujourd'hui</p>`
+      + `</div></div></div></div>`;
+
+    corps += `<div class="ecran-corps">`
+      + (mesures.length ? `<div class="bd-mesures">`
+        + mesures.map(([n, v, e, c, voie]) =>
+          `<button type="button" class="bd-m" data-detail="${esc(voie)}" `
+          + `aria-label="${esc(n)}, ${esc(v)}, voir les vingt-quatre heures">`
+          + `<i>${esc(n)}${chevronM}</i><b${c ? ` class="${c}"` : ""}>${esc(v)}</b>`
+          + `<em>${esc(e)}</em></button>`).join("")
+        + `</div>` : "");
 
     /* Un seul en-tête pour ce qui mérite d'être retenu : les vingt-quatre
        heures d'abord, puis ce qui vient au-delà. Trois en-têtes pour trois
@@ -266,16 +283,25 @@ function ecranAccueil() {
       + `</div>`;
 
     corps += `<p class="pied">Source : Open-Meteo, modèle AROME de Météo-France. `
-      + `Mise à jour toutes les heures.</p>`;
+      + `Mise à jour toutes les heures.</p>`
+      + `</div>`;
   }
 
   /* La commune est dans la barre de tête, à la même place sur les cinq écrans.
      La répéter en grand titre laissait deux fois le même mot à l'écran : le
-     grand titre porte donc le jour, seule chose que l'accueil n'écrivait pas. */
+     grand titre porte donc le jour. Il est maintenant posé dans le ciel, avec
+     la température et le temps qu'il fait ; il ne reste de titre d'écran que
+     pour les états où le ciel manque. */
   return {
     titre: g.commune ? jour.charAt(0).toUpperCase() + jour.slice(1) : "Ma météo",
     sous: "",
+    pleinCadre: plein,
     corps: bandeauHorsLigne() + corps,
+    brancher(bloc) {
+      Feu.poser(bloc.querySelector("#ciFeu"));
+      Relief.poser(bloc.querySelector("#ciLune"));
+      Temps.poser(bloc.querySelector("#ciTemps"));
+    },
   };
 }
 

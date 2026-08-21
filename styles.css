@@ -456,7 +456,6 @@ button.rangee:active{background:var(--surface-2)}
 
 .bd-mesures{
   display:grid;grid-template-columns:repeat(4,1fr);align-items:start;
-  margin-top:var(--espace-lg);
   background:var(--surface);border-radius:var(--rayon-lg);
   overflow:hidden;
 }
@@ -809,13 +808,12 @@ button.rangee:active{background:var(--surface-2)}
 
 /* ---------- 14. Lumière ---------- */
 
-/* ---------- 14. Le soleil : bandeau plein cadre ----------
+/* ---------- 14. Le ciel : bandeau plein cadre ----------
 
-   Le ciel occupe toute la largeur et monte sous la barre de tête. C'est le
-   seul endroit de l'application où le contenu déborde du rembourrage de la
-   couche de contenu, débord obtenu par marges négatives sur les mêmes tokens
-   que ce rembourrage : quelle que soit l'encoche, le ciel remplit exactement
-   la zone. */
+   Le ciel occupe toute la largeur et monte sous la barre de tête. Trois écrans
+   le portent, l'accueil, le soleil et la lune. C'est le seul endroit de
+   l'application où le contenu déborde du rembourrage de la couche de contenu :
+   quelle que soit l'encoche, le ciel remplit exactement la zone. */
 
 /* Le rembourrage de la couche de contenu est retiré, non contourné : un
    débord par marges négatives rendait l'écran plus large que la fenêtre, et le
@@ -872,6 +870,21 @@ button.rangee:active{background:var(--surface-2)}
 /* L'astre : boîte de dimension nulle posée à la place calculée du Soleil, la
    toile se centrant dessus. */
 .ci-astre{position:absolute;left:var(--ax);top:var(--ay);width:0;height:0}
+
+/* Le temps qu'il fait se peint par-dessus l'astre, sous les voiles de
+   lisibilité : un nuage passe devant le Soleil, non derrière. Une toile posée
+   par `inset` garde sa taille propre de 300 sur 150, ses dimensions sont donc
+   écrites. */
+.ci-temps{position:absolute;inset:0;width:100%;height:100%;z-index:1}
+
+/* Sous une couche mince l'astre pâlit et se dilue. Au-delà du seuil, la vue ne
+   le dessine plus du tout : un disque pâle resterait suspendu au travers du
+   plafond. */
+.ci-voile{
+  position:absolute;left:0;top:0;width:0;height:0;
+  opacity:calc(1 - var(--voile,0));
+  filter:blur(calc(var(--voile,0) * 7px));
+}
 .ci-feu{
   position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
   width:300px;height:300px;
@@ -888,15 +901,29 @@ button.rangee:active{background:var(--surface-2)}
   color:#FFFFFF;text-shadow:0 1px 16px rgba(0,0,0,.55);
   animation:monte var(--duree-complexe) var(--ressort) both;
 }
-.plein-titre i{
+.plein-titre > i{
   display:block;font-style:normal;font-size:var(--texte-note);
   font-weight:var(--graisse-medium);opacity:.88;
 }
-.plein-titre b{
+.plein-titre > b{
   display:block;font-size:2.6rem;font-weight:var(--graisse-semibold);
   letter-spacing:-.025em;line-height:1.02;margin-top:2px;
 }
-.plein-titre em{
+/* Le titre de l'accueil porte la température et le temps : les mêmes éléments
+   que sur fond de page, posés sur une image. Ils prennent donc le blanc du
+   titre, et perdent la couleur d'information, qui ne tiendrait pas sur un ciel
+   changeant. Le chiffre reste plus léger que sur fond de page : à cette taille,
+   sur un fond animé, une graisse pleine devient un bloc. */
+.pt-temps{display:flex;align-items:flex-end;gap:var(--espace-lg);margin-top:2px}
+.pt-temps .bd-deg{
+  font-size:3.7rem;line-height:.95;font-weight:250;letter-spacing:-.04em;color:inherit;
+}
+.pt-temps .bd-etat{justify-content:flex-end}
+.pt-temps .bd-ciel{color:inherit}
+.pt-temps .bd-bornes{color:inherit;opacity:.84}
+.pt-temps .bd-bornes b{color:inherit}
+
+.plein-titre > em{
   display:block;font-style:normal;font-size:var(--texte-legende);
   opacity:.76;margin-top:4px;
 }

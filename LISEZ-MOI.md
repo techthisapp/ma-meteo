@@ -9,7 +9,7 @@ service dorsal, sans base de données, sans compte. Métropole française.
 
 | Écran | Ce qu'il porte |
 |---|---|
-| Accueil | Le jour en grand titre, température, ciel, bornes du jour, quatre mesures, puis une seule carte « À retenir » réunissant les vingt-quatre heures et ce qui vient au-delà, enfin l'accès à la vigilance |
+| Accueil | Bandeau du ciel plein cadre portant le temps qu'il fait, le jour, la température, le ciel et les bornes du jour, puis quatre mesures, une seule carte « À retenir » réunissant les vingt-quatre heures et ce qui vient au-delà, enfin l'accès à la vigilance |
 | Le temps | Vingt-quatre heures glissantes en trois écritures : ruban à sept voies, liste à treize colonnes, moments par tranches de six heures |
 | La semaine | Sept jours : symbole de ciel et lame sous lui, borne basse à gauche, plage de température sur une échelle commune, borne haute à droite, point du moment sur la journée en cours |
 | Le soleil | Bandeau du ciel plein cadre avec le Soleil à sa vraie place, trajectoire du jour, course du jour dans l'ordre, hauteur maximale, durée, écart à la veille, crépuscules |
@@ -115,11 +115,74 @@ Sinon la probabilité de pluie sur vingt-quatre heures prend sa place : « Resse
 Une plage horaire ne porte le mot « demain » qu'une fois : « demain de 03 h à
 06 h », non « de demain 03 h à demain 06 h ».
 
+## Le ciel de l'accueil
+
+Le même panneau que les écrans du soleil et de la lune, avec le temps qu'il
+fait peint par-dessus. Le titre est posé dedans : le jour, la température, le
+libellé du ciel et les bornes de la journée.
+
+La toile du temps se pose devant celle de l'astre, non derrière : un nuage passe
+devant le Soleil. Le symbole de temps disparaît de la ligne d'état, un petit
+nuage dessiné devant un ciel peint dirait deux fois la même chose. Les bornes y
+perdent leur couleur d'information pour la raison qui la leur donnait ailleurs,
+la lisibilité : un chiffre orange sur un ciel de couchant ne se lit plus.
+
+### Ce que la prévision donne au dessin
+
+| Grandeur de la prévision | Ce qu'elle décide |
+|---|---|
+| Couverture nuageuse | La forme du ciel : cumulus, couche, ou les deux |
+| Code de temps sensible | La nature de la précipitation, le brouillard, l'orage |
+| Lame d'eau horaire | L'intensité de la précipitation et le plomb du ciel |
+| Vitesse du vent | La dérive des nuages et l'inclinaison des traits |
+
+La couverture ne se traduit pas par un simple nombre de nuages. Deux familles
+sont dessinées, parce que ce sont deux objets. Les cumulus sont des masses
+isolées qui passent devant le ciel, sur trois plans de parallaxe. La nappe est
+une couche continue vue par en dessous, dont seule la base se voit, ondulée et
+alourdie de lobes. La nappe prend le relais des cumulus au-delà des deux tiers
+de couverture : un ciel couvert n'est pas un ciel qui aurait beaucoup de
+cumulus.
+
+Sous une couche fermée, l'astre n'est plus dessiné du tout. Le laisser pâle
+suspendrait un disque au travers du plafond. Il ne reste que la lueur diffuse
+peinte dans la couche à l'endroit où il se tient. Sous une couche mince, il
+pâlit et se dilue à mesure qu'elle s'épaissit.
+
+La charge de secours ne porte que le code, sans couverture nuageuse. Chaque code
+en implique une, faute de quoi une pluie tomberait d'un ciel vide.
+
+### Comment un nuage est dessiné
+
+Un nuage est une masse, pas un tas de bulbes. Des dégradés translucides
+superposés font compter les bulbes : chacun montre son bord, et l'accumulation
+sature toute la vignette. Les formes pleines s'unissent au contraire sans se
+compter. La silhouette est donc bâtie en formes pleines, adoucie au flou,
+raffermie par une seconde passe resserrée, puis colorée d'un seul tenant, claire
+au sommet et sombre à la base.
+
+L'union efface les bords intérieurs, et la masse deviendrait un ballon. Le
+modelé les rend : un ventre sombre et une crête claire par bourgeon, en dégradés
+qui s'éteignent avant leur bord et découpés sur la silhouette, de sorte
+qu'aucun contour de bulbe ne ressorte. Chaque bourgeon repose sur la ligne de
+base sans la traverser, ce qui donne au cumulus son dessous plat, et la ligne
+ondule légèrement, une droite d'un bord à l'autre se verrait.
+
+De nuit, le nuage cesse de prendre sa couleur du ciel : il reste plus clair que
+lui, éclairé par en dessous. Sans ce renversement, une nuit couverte ne serait
+qu'un rectangle noir. Au ras de l'horizon, la lumière rousse prend le dessous
+des nuages avant le reste du ciel.
+
+Les motifs sont dessinés une fois par teinte et gardés, six jeux au plus. Chaque
+image ne fait que composer des images prêtes, à trente par seconde, et la boucle
+s'arrête dès que la toile quitte le document ou que l'onglet passe en
+arrière-plan.
+
 ## Le soleil
 
-Le ciel occupe toute la largeur et monte sous la barre de tête, qui devient
-blanche par-dessus et reprend son verre au défilement. C'est le seul endroit
-de l'application où le contenu déborde du rembourrage de la couche de contenu.
+Même panneau que l'accueil. Le ciel occupe toute la largeur et monte sous la
+barre de tête, qui devient blanche par-dessus et reprend son verre au
+défilement.
 
 La couleur du ciel vient de la hauteur du Soleil, du bleu de midi à l'ambre du
 couchant puis au bleu de nuit. Elle ne suit pas le thème de l'appareil : un ciel
@@ -305,6 +368,7 @@ src/
   ecritures.js      liste et moments
   astres.js         positions du Soleil et de la Lune, phases, levers et couchers
   feu.js            la boule de feu du bandeau, peinte sur une toile
+  temps.js          le temps qu'il fait, nuages, pluie, neige, brouillard, éclair
   relief.js         le relief lunaire, carte du disque visible et éclairage
   vues.js           temps, semaine, vigilance, soleil, lune, communes, réglages
   app.js            amorçage, barre d'onglets, écrans, coque de la feuille
@@ -359,6 +423,15 @@ de tête et son retour au verre, sur la présence de la toile, sur le fait qu'el
 porte des pixels, et sur le fait que la matière bouge d'une image à l'autre. Le
 bandeau de la lune l'est sur les mêmes points, plus la cohérence de la phase et
 de l'inclinaison du limbe, et la présence des deux courbes de trajectoire.
+
+Le ciel de l'accueil ajoute la toile du temps : elle couvre le panneau, elle se
+peint après l'astre et au-dessus de lui, elle porte des pixels et elle bouge.
+Onze contrôles éprouvent le passage de la prévision au dessin, code par code :
+un ciel clair sans couche ni précipitation, des éclaircies à cumulus sans
+couche, un ciel couvert à couche fermée, une averse gardant ses cumulus sous une
+couche partielle, la nature de la précipitation, l'orage marqué, le brouillard
+distingué d'une averse, la couverture déduite du code quand la source ne la
+porte pas, et le fait que l'astre disparaît sous une couche fermée.
 
 Deux familles de contrôles gardent la mise en page. La première mesure, sur les
 cinq écrans, qu'aucun bloc ne sort de la fenêtre. La seconde rejoue les cinq

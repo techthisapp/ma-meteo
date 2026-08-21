@@ -199,10 +199,10 @@ qui se mesure au défilement plutôt que de se supposer.
 
 ### Bandeau plein cadre
 
-Une seule exception au rembourrage de la couche de contenu, portée par l'écran
-du soleil. Le bandeau déborde par marges négatives sur les mêmes tokens que ce
-rembourrage, `--haut` et `--nav-haut` en haut, `--marge` sur les côtés : quelle
-que soit l'encoche, le ciel remplit exactement la zone.
+Une seule exception au rembourrage de la couche de contenu, portée par trois
+écrans : l'accueil, le soleil et la lune. Le rembourrage est retiré de la
+couche, et c'est le corps de l'écran qui le reprend sous le bandeau : quelle que
+soit l'encoche, le ciel remplit exactement la zone.
 
 Le grand titre d'écran est alors porté par le bandeau, non par la couche de
 contenu, et la coque ne pose pas le sien par-dessus.
@@ -214,10 +214,15 @@ aucune couleur de texte ne tient sur les deux sans eux.
 Les couleurs du ciel ne sont pas des couleurs d'interface : elles ne s'inversent
 pas avec le thème. Un ciel de midi reste clair en thème sombre.
 
-Deux écrans portent un bandeau, le soleil et la lune. Ils partagent le panneau,
-les voiles, les étoiles et la brume d'horizon : seul l'astre change, et sa place
-dans le ciel. Sur les deux, la couleur du ciel vient de la hauteur du Soleil,
-la Lune ne l'éclairant pas.
+Trois écrans portent un bandeau, l'accueil, le soleil et la lune. Ils partagent
+le panneau, les voiles, les étoiles et la brume d'horizon : seul l'astre change,
+et sa place dans le ciel. Sur les trois, la couleur du ciel vient de la hauteur
+du Soleil, la Lune ne l'éclairant pas.
+
+L'accueil ajoute une couche, celle du temps qu'il fait, peinte sur une toile
+posée devant l'astre : un nuage passe devant le Soleil, non derrière. Elle vient
+donc après lui dans l'ordre du document, et sous les voiles de lisibilité. Une
+couche fermée efface l'astre, qui n'est alors plus dessiné du tout.
 
 ### Symboles de temps
 
@@ -259,8 +264,8 @@ barre qui ne porte qu'un symbole ne servaient rien.
 ### Groupe encarté
 
 `.groupe`, alias `.carte`, unique surface du contenu, sans ombre. Il ne devient
-pas la structure par défaut : le bandeau du jour vit directement sur le fond,
-sans surface.
+pas la structure par défaut : la grille des mesures de l'accueil porte sa propre
+surface, sans encart.
 
 ### Feuille
 

@@ -141,11 +141,12 @@ ok("le bouton de commune ouvre la feuille des communes",
   await pg.getAttribute("#navLieu", "data-feuille") === "communes");
 
 console.log("\n--- Écran d'accueil ---");
-ok("le grand titre de l'accueil porte le jour",
-  /^[A-ZÀ-Ý][a-zà-ÿ]+ \d{1,2} [a-zà-ÿ]+$/.test(await txt(".titre-ecran h1")),
-  await txt(".titre-ecran h1"));
+ok("le jour est porté par le ciel, non par un titre d'écran",
+  /^[A-ZÀ-Ý][a-zà-ÿ]+ \d{1,2} [a-zà-ÿ]+$/.test(await txt(".plein-titre > i"))
+  && await pg.locator(".titre-ecran").count() === 0,
+  await txt(".plein-titre > i"));
 ok("la commune ne s'écrit pas deux fois sur l'accueil",
-  !(await txt(".titre-ecran")).includes("Fain"), await txt(".titre-ecran"));
+  !(await txt(".plein-titre")).includes("Fain"), await txt(".plein-titre"));
 ok("le bandeau porte un grand chiffre", /\d+°/.test(await txt(".bd-deg")), await txt(".bd-deg"));
 ok("le bandeau porte quatre mesures", await pg.locator(".bd-m").count() === 4);
 const mes = (await pg.locator(".bd-m i").allInnerTexts()).join(", ");
@@ -160,8 +161,8 @@ const conseilsTxt = cj.join(" ").toLowerCase();
 const motsCommuns = ["rafales", "gel probable", "indice uv", "mm attendus"]
   .filter(m => alertesTxt.includes(m) && conseilsTxt.includes(m));
 ok("les alertes ne répètent pas les conseils", motsCommuns.length === 0, motsCommuns.join(", "));
-ok("le ressenti n'est écrit qu'une fois dans le bandeau",
-  ((await txt(".bandeau")).toLowerCase().match(/ressenti/g) || []).length === 1);
+ok("le ressenti n'est écrit qu'une fois sur l'accueil",
+  ((await txt("#ecran")).toLowerCase().match(/ressenti/g) || []).length === 1);
 ok("la rangée de vigilance renvoie vers Météo-France",
   (await txt('[data-feuille="vigilance"]')).includes("Météo-France"));
 ok("l'accueil ne porte plus de tuiles", await pg.locator(".tu").count() === 0);
@@ -187,6 +188,98 @@ ok("les chiffres des mesures sont au moins à l'échelle du titre 2", await pg.e
     .getPropertyValue("--texte-titre2")) * parseFloat(getComputedStyle(document.documentElement).fontSize);
   return parseFloat(getComputedStyle(b).fontSize) >= t2 - 0.5;
 }));
+
+console.log("\n--- Le ciel de l'accueil ---");
+
+/* Le bandeau de l'accueil suit la grammaire du soleil et de la lune : plein
+   cadre, titre posé dans le ciel, barre de tête déshabillée. Ce qui lui est
+   propre, c'est le temps qu'il fait, peint devant l'astre. */
+ok("le ciel de l'accueil occupe toute la largeur", await pg.evaluate(() => {
+  const ci = document.querySelector("#ecran .ci");
+  if (!ci) return false;
+  const b = ci.getBoundingClientRect();
+  return b.left <= 0.5 && Math.abs(b.right - window.innerWidth) < 0.5 && b.top <= 0.5;
+}));
+ok("la barre de tête se déshabille sur le ciel de l'accueil",
+  await pg.locator("#nav.sur-ciel").count() === 1);
+ok("le temps est peint sur une toile",
+  await pg.locator("canvas#ciTemps").count() === 1);
+ok("la toile du temps couvre le panneau", await pg.evaluate(() => {
+  const cv = document.getElementById("ciTemps");
+  const ci = document.querySelector("#ecran .ci");
+  if (!cv || !ci) return false;
+  const a = cv.getBoundingClientRect(), b = ci.getBoundingClientRect();
+  return Math.abs(a.width - b.width) < 1 && Math.abs(a.height - b.height) < 1;
+}));
+/* Le temps passe devant l'astre : un nuage cache le Soleil, non l'inverse. La
+   toile vient donc après lui dans l'ordre du document, et au-dessus par sa
+   couche. */
+ok("le temps se peint devant l'astre", await pg.evaluate(() => {
+  const ci = document.querySelector("#ecran .ci");
+  const cv = document.getElementById("ciTemps");
+  const as = ci && ci.querySelector(".ci-astre");
+  if (!ci || !cv) return false;
+  if (!as) return true;
+  const apres = as.compareDocumentPosition(cv) & Node.DOCUMENT_POSITION_FOLLOWING;
+  return Boolean(apres) && Number(getComputedStyle(cv).zIndex) >= 1;
+}));
+ok("la toile du temps porte des pixels", await pg.evaluate(() => {
+  const cv = document.getElementById("ciTemps");
+  const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+  for (let i = 3; i < d.length; i += 400) if (d[i] > 8) return true;
+  return false;
+}));
+ok("le ciel bouge d'une image à l'autre", await pg.evaluate(async () => {
+  const cv = document.getElementById("ciTemps");
+  const lire = () => cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+  const a = lire();
+  await new Promise(r => setTimeout(r, 700));
+  const b = lire();
+  let som = 0, n = 0;
+  for (let i = 0; i < b.length; i += 16) { som += Math.abs(b[i] - a[i]); n++; }
+  return som / n > 0.5;
+}));
+
+/* Le passage de la prévision au dessin. La couverture décide de la forme du
+   ciel, le code décide de la précipitation, et la couche décide de ce qui reste
+   visible de l'astre. */
+const cielsRendus = await pg.evaluate(async () => {
+  const T = await import("/src/temps.js");
+  const cas = {
+    clair: T.depuis(0, 4, 0), eclaircies: T.depuis(2, 45, 0), couvert: T.depuis(3, 97, 0),
+    brume: T.depuis(45, 88, 0), pluie: T.depuis(63, 94, 2.1), averse: T.depuis(81, 74, 4.6),
+    orage: T.depuis(95, 98, 7.4), neige: T.depuis(73, 90, 1.8),
+    secours: T.depuis(63, null, null),
+  };
+  const voiles = {};
+  for (const [n, p] of Object.entries(cas)) voiles[n] = T.voileDe(p);
+  return { cas, voiles, seuil: T.SEUIL_VOILE };
+});
+const cr = cielsRendus;
+ok("un ciel clair n'a ni couche ni précipitation",
+  cr.cas.clair.nappe === 0 && cr.cas.clair.lame === 0 && cr.cas.clair.cumulus < 0.1);
+ok("des éclaircies portent des cumulus, sans couche",
+  cr.cas.eclaircies.nappe === 0 && cr.cas.eclaircies.cumulus > 0.3);
+ok("un ciel couvert porte une couche fermée",
+  cr.cas.couvert.nappe > 0.9 && cr.cas.couvert.cumulus < 0.3);
+ok("une averse garde ses cumulus sous une couche partielle",
+  cr.cas.averse.cumulus > 0.4 && cr.cas.averse.nappe > 0.1 && cr.cas.averse.nappe < 0.7);
+ok("la pluie, l'averse, l'orage et la neige portent une lame",
+  ["pluie", "averse", "orage", "neige"].every(n => cr.cas[n].lame > 0));
+ok("la neige tombe en neige, la pluie en pluie",
+  cr.cas.neige.genre === "neige" && cr.cas.pluie.genre === "pluie");
+ok("l'orage est marqué comme tel", cr.cas.orage.orage === true && cr.cas.clair.orage === false);
+ok("le brouillard est un voile, non une averse",
+  cr.cas.brume.brouillard > 0 && cr.cas.brume.lame === 0);
+/* La charge de secours ne porte que le code : une pluie ne peut pas tomber d'un
+   ciel vide, la couverture se déduit donc du code. */
+ok("sans couverture nuageuse, le code en tient lieu",
+  cr.cas.secours.nappe > 0.5 && cr.cas.secours.lame > 0);
+ok("sous une couche fermée l'astre n'est plus dessiné",
+  cr.voiles.couvert >= cr.seuil && cr.voiles.pluie >= cr.seuil
+  && cr.voiles.orage >= cr.seuil);
+ok("sous un ciel dégagé l'astre garde toute sa lumière",
+  cr.voiles.clair === 0 && cr.voiles.eclaircies < cr.seuil);
 
 console.log("\n--- Un chiffre mène à sa voie ---");
 ok("chaque mesure de l'accueil porte une destination",
@@ -684,6 +777,21 @@ for (const cle of ["accueil", "temps", "semaine", "soleil", "lune"]) {
     return [...new Set(fautifs)].slice(0, 4);
   });
   ok(`aucune valeur ne touche le bord sur ${cle}`, deborde.length === 0, deborde.join(" | "));
+
+  /* Le titre porté par le ciel doit y tenir : à grand corps de texte, un
+     chiffre de plusieurs centimètres à côté d'un libellé long débordait du
+     panneau par le bas, et passait sous la grille des mesures. */
+  const sort = await pg.evaluate(() => {
+    const t = document.querySelector("#ecran .plein-titre");
+    const ci = document.querySelector("#ecran .ci");
+    if (!t || !ci) return null;
+    const a = t.getBoundingClientRect(), b = ci.getBoundingClientRect();
+    if (a.bottom > b.bottom + 1) return `dépasse de ${Math.round(a.bottom - b.bottom)}px par le bas`;
+    if (a.top < b.top - 1) return "dépasse par le haut";
+    if (a.right > b.right + 1 || a.left < b.left - 1) return "dépasse sur les côtés";
+    return null;
+  });
+  ok(`le titre du ciel tient dans le panneau sur ${cle}`, sort === null, sort);
 }
 await pg.evaluate(() => {
   for (const s of document.querySelectorAll("style")) {
