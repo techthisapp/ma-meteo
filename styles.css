@@ -350,6 +350,10 @@ main{
 main:focus{outline:none}
 
 .titre-ecran{padding:var(--espace-xs) 0 0}
+/* Le titre partage sa ligne avec un contrôle facultatif, posé à droite et
+   aligné sur la base du titre. */
+.te-ligne{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--espace-md)}
+.te-ligne h1{min-width:0}
 .titre-ecran h1{
   font-size:var(--texte-grand-titre);font-weight:var(--graisse-semibold);
   letter-spacing:-.022em;line-height:1.1;
@@ -605,6 +609,13 @@ button.rangee:active{background:var(--surface-2)}
 
 /* Contrôle segmenté */
 .seg{display:flex;gap:2px;background:var(--piste);border-radius:var(--rayon-md);padding:3px}
+/* Sélecteur de ligne de titre : compact et calé à droite, il ne prend plus la
+   largeur. La hauteur de cible reste entière, seule l'emprise se réduit. */
+.seg-menu{flex:0 0 auto;padding:2px;border-radius:var(--rayon-sm)}
+.seg-menu button{
+  flex:0 0 auto;padding:0 var(--espace-md);
+  font-size:var(--texte-note);border-radius:calc(var(--rayon-sm) - 2px);
+}
 .seg button{
   flex:1;min-height:var(--touche);padding:0 var(--espace-xs);
   font-size:var(--texte-sous);font-weight:var(--graisse-medium);
@@ -739,10 +750,18 @@ button.rangee:active{background:var(--surface-2)}
 .mo-b + .mo-b{box-shadow:inset 0 1px 0 var(--filet-clair)}
 .mo-t{
   display:flex;align-items:center;gap:var(--espace-sm);
-  font-size:var(--texte-appel);font-weight:var(--graisse-semibold);margin-bottom:var(--espace-sm);
+  font-size:var(--texte-entete);font-weight:var(--graisse-semibold);margin-bottom:var(--espace-sm);
 }
 .mo-t svg{width:20px;height:20px;color:var(--etiquette-2)}
-.mo-t em{font-style:normal;margin-left:auto;font-size:var(--texte-legende);font-weight:var(--graisse-regular);color:var(--etiquette-3)}
+/* Les heures situent la tranche dans la journée : elles portent l'information,
+   et se lisent donc comme une valeur, non comme une mention en marge. */
+.mo-t em{
+  font-style:normal;margin-left:auto;flex:0 0 auto;
+  padding:3px var(--espace-sm);border-radius:var(--rayon-plein);
+  background:var(--surface-2);color:var(--etiquette-2);
+  font-size:var(--texte-note);font-weight:var(--graisse-medium);
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+}
 .mo-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(72px,1fr));gap:var(--espace-sm) var(--espace-xs)}
 .mo-c{display:flex;flex-direction:column;gap:1px}
 .mo-c i{font-style:normal;font-size:var(--texte-legende2);color:var(--etiquette-3)}

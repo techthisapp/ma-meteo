@@ -54,15 +54,18 @@ export function liste(s) {
    Bornes civiles de six heures : nuit, matin, après-midi, soirée. Une tranche
    d'une heure en fin de fenêtre est retirée, elle n'apprendrait rien.
 
-   « Demain, la nuit » s'écrivait pour la nuit qui commence dans quatre heures :
-   le nom d'une tranche se décide sur son jour et sur celui du départ de la
-   fenêtre, non sur la seule borne civile. */
+   Le nom se dit comme on le dirait à l'oral : « ce soir » plutôt que « la
+   soirée », « demain matin » plutôt que « demain, le matin ». La nuit fait
+   exception. Elle porte la date du lendemain dès minuit passé, mais celle qui
+   vient s'appelle « cette nuit » : personne ne dit « demain, la nuit » pour
+   dans quatre heures. La première nuit de la fenêtre prend donc le nom proche,
+   quelle que soit sa date. */
 
 const TRANCHES = [
-  [0, "nuit", "la nuit"],
-  [6, "matin", "le matin"],
-  [12, "apres-midi", "l'après-midi"],
-  [18, "soirée", "la soirée"],
+  [0, "nuit", "Cette nuit", "La nuit suivante"],
+  [6, "matin", "Ce matin", "Demain matin"],
+  [12, "apres-midi", "Cet après-midi", "Demain après-midi"],
+  [18, "soiree", "Ce soir", "Demain en soirée"],
 ];
 
 const nomTranche = h => TRANCHES[Math.floor(h / 6)];
@@ -84,6 +87,12 @@ export function moments(s) {
   // Une tranche d'une heure en fin de fenêtre est retirée.
   if (lots.length > 1 && lots[lots.length - 1].idx.length <= 1) lots.pop();
 
+  let nuitVue = false;
+  for (const lot of lots) {
+    if (lot.tr[1] === "nuit") { lot.titre = nuitVue ? lot.tr[3] : lot.tr[2]; nuitVue = true; }
+    else lot.titre = lot.jour === s.jour[0] ? lot.tr[2] : lot.tr[3];
+  }
+
   const bloc = lot => {
     const i = lot.idx;
     const moy = f => i.reduce((a, k) => a + f(k), 0) / i.length;
@@ -101,8 +110,6 @@ export function moments(s) {
     const code = i.reduce((a, k) => (graviteCiel(s.code[k]) > graviteCiel(a) ? s.code[k] : a), 0);
     const clair = i.some(k => s.clair[k]);
 
-    const demain = lot.jour !== s.jour[0];
-    const titre = (demain ? "Demain, " : "") + lot.tr[2];
     const h0 = s.heure[i[0]], h1 = (s.heure[i[i.length - 1]] + 1) % 24;
 
     const cases = [
@@ -115,8 +122,11 @@ export function moments(s) {
       uv >= 0.5 ? ["UV", nombreFr(uv)] : null,
     ].filter(Boolean);
 
+    /* Les heures portent l'information : c'est par elles qu'on situe la tranche
+       dans sa journée. Elles se lisent donc comme une valeur, non comme une
+       mention en marge. */
     return `<div class="mo-b"><p class="mo-t">${icoTemps(icoCiel(code, clair), "")}`
-      + `<span>${esc(titre.charAt(0).toUpperCase() + titre.slice(1))}</span>`
+      + `<span>${esc(lot.titre)}</span>`
       + `<em>${esc(heureTxt(h0))} à ${esc(heureTxt(h1))}</em></p>`
       + `<div class="mo-g">`
       + cases.map(([n, v]) => `<div class="mo-c"><i>${esc(n)}</i><b>${esc(v)}</b></div>`).join("")

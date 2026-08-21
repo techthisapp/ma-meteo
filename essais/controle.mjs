@@ -281,6 +281,59 @@ ok("sous une couche fermée l'astre n'est plus dessiné",
 ok("sous un ciel dégagé l'astre garde toute sa lumière",
   cr.voiles.clair === 0 && cr.voiles.eclaircies < cr.seuil);
 
+console.log("\n--- Les moments de l'accueil ---");
+
+/* Les moments racontent la journée qui vient, ce qui est l'affaire de
+   l'accueil. Ils en ferment le contenu, la vigilance et la source formant la
+   clôture. */
+const moTitres = await pg.locator("#ecran .mo-t span").allInnerTexts();
+ok("l'accueil porte les moments", moTitres.length >= 3, moTitres.join(" | "));
+ok("les moments ferment le contenu de l'accueil", await pg.evaluate(() => {
+  const mo = document.querySelector("#ecran .mo");
+  const vg = document.querySelector('#ecran [data-feuille="vigilance"]');
+  const re = document.querySelector("#ecran .retenir");
+  if (!mo || !vg || !re) return false;
+  const apresRetenir = re.compareDocumentPosition(mo) & Node.DOCUMENT_POSITION_FOLLOWING;
+  const avantVigilance = mo.compareDocumentPosition(vg) & Node.DOCUMENT_POSITION_FOLLOWING;
+  return Boolean(apresRetenir) && Boolean(avantVigilance);
+}));
+
+/* Le nom se dit comme on le dirait à l'oral. La nuit qui vient porte la date du
+   lendemain dès minuit passé : elle s'appelle pourtant « cette nuit ». */
+ok("les moments du jour se disent au démonstratif",
+  moTitres.some(t => /^(Ce matin|Cet après-midi|Ce soir|Cette nuit)$/.test(t)),
+  moTitres.join(" | "));
+ok("les moments du lendemain se disent sans virgule",
+  moTitres.filter(t => t.startsWith("Demain"))
+    .every(t => /^Demain (matin|après-midi|en soirée)$/.test(t)),
+  moTitres.join(" | "));
+ok("aucun moment ne dit « demain » pour la nuit qui vient",
+  !moTitres.some(t => /^Demain,? ?(la )?nuit/i.test(t)), moTitres.join(" | "));
+ok("la nuit qui vient s'appelle cette nuit",
+  moTitres.includes("Cette nuit"), moTitres.join(" | "));
+
+/* Les heures situent la tranche : elles se lisent comme une valeur, non comme
+   une mention en marge. */
+ok("chaque moment porte ses heures", await pg.evaluate(() => {
+  const e = [...document.querySelectorAll("#ecran .mo-t em")];
+  return e.length >= 3 && e.every(x => /\d\d h à \d\d h/.test(x.textContent));
+}));
+ok("les heures se lisent, elles ne s'effacent pas", await pg.evaluate(() => {
+  const r = getComputedStyle(document.documentElement);
+  const e = document.querySelector("#ecran .mo-t em");
+  const s = getComputedStyle(e);
+  const efface = r.getPropertyValue("--etiquette-3").trim();
+  const sonde = document.createElement("i");
+  sonde.style.color = efface;
+  document.body.append(sonde);
+  const attendu = getComputedStyle(sonde).color;
+  sonde.remove();
+  const fond = s.backgroundColor;
+  return s.color !== attendu
+    && fond !== "rgba(0, 0, 0, 0)" && fond !== "transparent"
+    && parseFloat(s.fontSize) >= parseFloat(getComputedStyle(document.body).fontSize) * 0.7;
+}));
+
 console.log("\n--- Un chiffre mène à sa voie ---");
 ok("chaque mesure de l'accueil porte une destination",
   await pg.locator(".bd-m[data-detail]").count() === 4);
@@ -372,7 +425,24 @@ ok("les autres voies gardent leur taille",
     - (await pg.locator(".mg-v").nth(5).locator("svg").boundingBox()).height * (86/48)) < 14);
 ok("la légende paraît avec l'agrandissement", await pg.locator(".mg-l:visible").count() === 1);
 
-console.log("\n--- Les trois écritures ---");
+console.log("\n--- Les deux écritures ---");
+/* Le sélecteur se tient sur la ligne du titre : c'est ce qui remonte le ruban
+   et la table en haut de la page. */
+ok("le sélecteur d'écriture est sur la ligne du titre",
+  await pg.locator(".titre-ecran .te-ligne .seg-menu").count() === 1);
+ok("le sélecteur ne propose que le ruban et la table",
+  await pg.locator(".seg-menu [data-ecriture]").count() === 2,
+  (await pg.locator(".seg-menu [data-ecriture]").allInnerTexts()).join(" | "));
+ok("le sélecteur reste plus étroit que la moitié de la largeur", await pg.evaluate(() => {
+  const g = document.querySelector(".seg-menu");
+  return g.getBoundingClientRect().width < window.innerWidth * 0.5;
+}));
+/* Le premier chiffre du ruban doit se voir sans défiler : c'est la raison
+   d'être du déplacement. */
+ok("le ruban commence au-dessus de la ligne de flottaison", await pg.evaluate(() => {
+  const c = document.querySelector("#ecran .carte");
+  return c.getBoundingClientRect().top < 200;
+}, ));
 await pg.locator('[data-ecriture="liste"]').click();
 await pg.waitForTimeout(420);
 ok("la liste porte treize colonnes", await pg.locator(".hh thead th").count() === 13,
@@ -381,11 +451,8 @@ ok("la liste porte vingt-quatre lignes", await pg.locator(".hh tbody tr").count(
   String(await pg.locator(".hh tbody tr").count()));
 const h1 = await pg.locator(".hh tbody tr").first().locator("td").first().innerText();
 ok("la première ligne est l'heure en cours", h1.trim() === "09 h", h1);
-await pg.locator('[data-ecriture="moments"]').click();
+await pg.locator('[data-ecriture="ruban"]').click();
 await pg.waitForTimeout(420);
-const mo = await pg.locator(".mo-t span").allInnerTexts();
-ok("les moments sont nommés", mo.length >= 3, mo.join(" | "));
-ok("aucun moment ne dit « demain » pour ce soir", !/^Demain, la soirée/.test(mo[1] || ""), mo.join(" | "));
 
 console.log("\n--- La semaine ---");
 await onglet("semaine");

@@ -14,7 +14,7 @@ const DEFAUT = {
   codePostal: null,
   lat: null,
   lon: null,
-  ecriture: "ruban",   // ruban, liste ou moments
+  ecriture: "ruban",   // ruban ou liste
   poste: null,         // numéro du poste de mesure retenu
   suivies: [],         // communes suivies, la courante comprise
   auto: false,         // le lieu courant suit la position de l'appareil
@@ -41,6 +41,8 @@ const nu = l => ({
 /* Reprise des réglages écrits avant les communes suivies : la commune courante
    ouvre la liste, sinon l'application paraîtrait avoir tout oublié. */
 if (!Array.isArray(etat.suivies)) etat.suivies = [];
+// Les moments ont quitté l'écran du temps : un réglage ancien y menait au vide.
+if (etat.ecriture !== "ruban" && etat.ecriture !== "liste") etat.ecriture = "ruban";
 if (typeof etat.auto !== "boolean") etat.auto = false;
 if (etat.auto && !etat.position) etat.auto = false;
 /* En mode position, le lieu courant n'est pas une commune choisie : le reprendre
@@ -164,7 +166,10 @@ export function retirerSuivie(cle) {
   return { lire: lire(), change: etaitCourante };
 }
 
-export const ECRITURES = [["ruban", "Ruban"], ["liste", "Liste"], ["moments", "Moments"]];
+/* Deux écritures pour l'écran du temps, le ruban et la table. Les moments ont
+   quitté cet écran : ils résument la journée, ce qui est l'affaire de
+   l'accueil, non du détail heure par heure. */
+export const ECRITURES = [["ruban", "Ruban"], ["liste", "Liste"]];
 
 export function poserEcriture(e) {
   if (!ECRITURES.some(([c]) => c === e)) return;

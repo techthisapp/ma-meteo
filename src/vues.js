@@ -46,18 +46,22 @@ export function vueTemps(ctx, rendre) {
   }
 
   const e = g.ecriture;
-  const corps = e === "liste" ? liste(s) : e === "moments" ? moments(s) : Ruban.dessiner(s);
-  const seg = `<div class="seg">` + Reglages.ECRITURES.map(([c, n]) =>
+  const corps = e === "liste" ? liste(s) : Ruban.dessiner(s);
+  /* Le sélecteur se tient sur la ligne du titre, en petit : le ruban et la
+     table commencent ainsi en haut de la page. */
+  const seg = `<div class="seg seg-menu">` + Reglages.ECRITURES.map(([c, n]) =>
     `<button type="button" data-ecriture="${c}"${c === e ? ' class="actif"' : ""}>${esc(n)}</button>`)
     .join("") + `</div>`;
 
-  /* Ce qui mérite d'être retenu se lit sur l'accueil, sous « À retenir ». Le
-     répéter en tête du temps redisait les mêmes trois phrases un écran plus
-     loin, à l'endroit où l'on vient justement chercher le détail. */
+  /* Ce qui mérite d'être retenu se lit sur l'accueil, sous « À retenir », et
+     les moments s'y lisent aussi, en bas de page. Les répéter ici redisait les
+     mêmes phrases un écran plus loin, à l'endroit où l'on vient justement
+     chercher le détail heure par heure. */
   return {
     titre: "Le temps",
     sousEcran: `${nombreFr(s.t[0])}° et ${tempsDe(s.code[0])[1].toLowerCase()}`,
-    corps: `${seg}<div class="carte">${corps}</div>`,
+    cote: seg,
+    corps: `<div class="carte">${corps}</div>`,
     brancher(bloc) {
       for (const b of bloc.querySelectorAll("[data-ecriture]")) {
         b.addEventListener("click", () => { Reglages.poserEcriture(b.dataset.ecriture); rendre(); });

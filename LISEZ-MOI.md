@@ -9,8 +9,8 @@ service dorsal, sans base de données, sans compte. Métropole française.
 
 | Écran | Ce qu'il porte |
 |---|---|
-| Accueil | Bandeau du ciel plein cadre portant le temps qu'il fait, le jour, la température, le ciel et les bornes du jour, puis quatre mesures, une seule carte « À retenir » réunissant les vingt-quatre heures et ce qui vient au-delà, enfin l'accès à la vigilance |
-| Le temps | Vingt-quatre heures glissantes en trois écritures : ruban à sept voies, liste à treize colonnes, moments par tranches de six heures |
+| Accueil | Bandeau du ciel plein cadre portant le temps qu'il fait, le jour, la température, le ciel et les bornes du jour, puis quatre mesures, une carte « À retenir » réunissant les vingt-quatre heures et ce qui vient au-delà, les prochaines heures par tranches de six heures, enfin l'accès à la vigilance |
+| Le temps | Vingt-quatre heures glissantes en deux écritures : ruban à sept voies, table à treize colonnes |
 | La semaine | Sept jours : symbole de ciel et lame sous lui, borne basse à gauche, plage de température sur une échelle commune, borne haute à droite, point du moment sur la journée en cours |
 | Le soleil | Bandeau du ciel plein cadre avec le Soleil à sa vraie place, trajectoire du jour, course du jour dans l'ordre, hauteur maximale, durée, écart à la veille, crépuscules |
 | La lune | Bandeau du ciel plein cadre avec la Lune en relief à sa vraie place, trajectoire du jour croisée avec celle du Soleil, course du jour, part éclairée, âge, lunaison, quatre prochaines phases |
@@ -40,8 +40,8 @@ symboles restent monochromes, un symbole coloré au milieu d'un texte détournan
 le regard.
 
 Le même symbole sert partout où le ciel est décrit : bandeau, table de la
-semaine, liste des communes, voie « Ciel » du ruban, écritures Liste et
-Moments.
+semaine, liste des communes, voie « Ciel » du ruban, table des heures et
+moments de l'accueil.
 
 ## Couleur d'information
 
@@ -63,6 +63,28 @@ La couleur ne porte jamais seule l'information : le chiffre ou le libellé la
 double toujours.
 
 ## De l'accueil au détail
+
+## Les prochaines heures
+
+L'accueil ferme sa page sur les moments : la journée qui vient, tranche par
+tranche de six heures, là où le haut de l'écran ne dit que l'instant. La
+vigilance et la source viennent après, en clôture.
+
+Le nom se dit comme on le dirait à l'oral : « ce soir » plutôt que « la
+soirée », « demain matin » plutôt que « demain, le matin ». La nuit fait
+exception. Elle porte la date du lendemain dès minuit passé, mais celle qui
+vient s'appelle « cette nuit » : personne ne dit « demain, la nuit » pour dans
+quatre heures. La première nuit de la fenêtre prend donc le nom proche, quelle
+que soit sa date.
+
+Les heures de la tranche portent l'information, c'est par elles qu'on la situe
+dans sa journée : elles se lisent comme une valeur, sur un fond, non comme une
+mention en marge.
+
+L'écran du temps garde deux écritures, le ruban et la table. Son sélecteur se
+tient sur la ligne du titre, à droite et compact : posé sous le titre, il
+coûtait une bande de soixante points avant le premier chiffre. Le ruban et la
+table commencent maintenant en haut de la page.
 
 Ce qui mérite d'être retenu se lit sur l'accueil, sous « À retenir », et nulle
 part ailleurs. En tête de l'écran du temps, les mêmes phrases se redisaient un
@@ -369,7 +391,7 @@ src/
   icones.js         codes de temps sensible, dessins
   conseils.js       les six règles et leurs seuils
   ruban.js          météogramme à sept voies
-  ecritures.js      liste et moments
+  ecritures.js      table des heures, moments par tranches de six heures
   astres.js         positions du Soleil et de la Lune, phases, levers et couchers
   feu.js            la boule de feu du bandeau, peinte sur une toile
   temps.js          le temps qu'il fait, nuages, pluie, neige, brouillard, éclair

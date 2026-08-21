@@ -20,6 +20,7 @@ import * as Relief from "./relief.js";
 import * as Temps from "./temps.js";
 import { vueTemps, vueSemaine, vueVigilance, vueSoleil, vueLune, vueCommunes, vueReglages,
   bandeauAccueil } from "./vues.js";
+import { moments } from "./ecritures.js";
 
 const $ = id => document.getElementById(id);
 
@@ -125,8 +126,12 @@ const chevron = `<svg class="rangee-chev" viewBox="0 0 24 24" aria-hidden="true"
 /* Le titre d'écran nomme l'écran. Le changement de commune vit dans la barre de
    tête, à la même place sur les cinq écrans : une seule cible, toujours au même
    endroit, plutôt qu'une cible différente par écran. */
-const titreEcran = (titre, sous) =>
-  `<div class="titre-ecran"><h1>${esc(titre)}</h1>`
+/* Le titre d'écran peut porter un contrôle à sa droite, sur sa ligne. C'est ce
+   qui remonte le ruban et la table en pleine page : un sélecteur posé sous le
+   titre leur coûtait une bande de soixante points avant le premier chiffre. */
+const titreEcran = (titre, sous, cote) =>
+  `<div class="titre-ecran"><div class="te-ligne"><h1>${esc(titre)}</h1>`
+  + (cote || "") + `</div>`
   + (sous ? `<p>${esc(sous)}</p>` : "")
   + `</div>`;
 
@@ -275,6 +280,14 @@ function ecranAccueil() {
         + `</div></div>`;
     }
 
+    /* Les moments ferment la page : ils racontent la journée qui vient, tranche
+       par tranche, là où le haut de l'écran ne dit que l'instant. C'est le
+       dernier bloc de contenu, la vigilance et la source formant la clôture. */
+    if (s) {
+      corps += `<div class="section"><h2>Les prochaines heures</h2>`
+        + `<div class="carte">${moments(s)}</div></div>`;
+    }
+
     // La vigilance est un accès, non une information : elle n'a pas d'en-tête.
     corps += `<div class="groupe groupe-plat">`
       + `<button type="button" class="rangee" data-feuille="vigilance">`
@@ -316,6 +329,7 @@ function ecranVue(nom) {
     /* Le plein cadre porte son propre titre, dans le ciel : la coque ne pose
        pas le sien par-dessus. */
     pleinCadre: f.pleinCadre === true,
+    cote: f.cote || "",
     /* La commune est dans la barre de tête : la répéter sous chaque titre
        d'écran occupait une ligne pour une information déjà présente. */
     sous: f.sousEcran || "",
@@ -364,7 +378,7 @@ function rendre() {
   $("navPos").hidden = !enPos;
   $("navLieu").hidden = false;
   ecran.classList.toggle("plein-cadre", f.pleinCadre === true);
-  ecran.innerHTML = (f.pleinCadre ? "" : titreEcran(f.titre, f.sous)) + f.corps;
+  ecran.innerHTML = (f.pleinCadre ? "" : titreEcran(f.titre, f.sous, f.cote)) + f.corps;
   if (typeof f.brancher === "function") f.brancher(ecran);
   if (y) window.scrollTo({ top: y, behavior: "instant" });
 

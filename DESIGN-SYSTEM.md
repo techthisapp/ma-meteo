@@ -224,6 +224,13 @@ posée devant l'astre : un nuage passe devant le Soleil, non derrière. Elle vie
 donc après lui dans l'ordre du document, et sous les voiles de lisibilité. Une
 couche fermée efface l'astre, qui n'est alors plus dessiné du tout.
 
+### Titre d'écran porteur
+
+Le grand titre partage sa ligne avec un contrôle facultatif, posé à droite et
+aligné sur sa base. Le sélecteur y devient compact, largeur au contenu plutôt
+que largeur pleine, la hauteur de cible restant entière. C'est ce qui remonte un
+graphique ou une table en haut de la page.
+
 ### Symboles de temps
 
 Deux groupes, `ic-a` pour la masse et `ic-b` pour l'accent, colorés par
