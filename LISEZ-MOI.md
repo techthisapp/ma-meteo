@@ -13,7 +13,7 @@ service dorsal, sans base de données, sans compte. Métropole française.
 | Le temps | Vingt-quatre heures glissantes en trois écritures : ruban à sept voies, liste à treize colonnes, moments par tranches de six heures |
 | La semaine | Sept jours : symbole de ciel et lame sous lui, borne basse à gauche, plage de température sur une échelle commune, borne haute à droite, point du moment sur la journée en cours |
 | Le soleil | Bandeau du ciel plein cadre avec le Soleil à sa vraie place, trajectoire du jour, course du jour dans l'ordre, hauteur maximale, durée, écart à la veille, crépuscules |
-| La lune | Phase dessinée et nommée, part éclairée, âge, lever et coucher avec leur point cardinal, passage au méridien, hauteur maximale, durée au-dessus de l'horizon, lunaison, quatre prochaines phases |
+| La lune | Bandeau du ciel plein cadre avec la Lune en relief à sa vraie place, trajectoire du jour croisée avec celle du Soleil, course du jour, part éclairée, âge, lunaison, quatre prochaines phases |
 | Vigilance | Renvoi vers Météo-France, avec le motif du renvoi, en feuille |
 | Réglages | Écriture retenue pour l'écran du temps, sources, coordonnées, en feuille |
 
@@ -155,6 +155,52 @@ minutes. Le trait plein est au-dessus de l'horizon, le pointillé au-dessous, et
 le moment courant porte un point et son fil. Les instants remarquables restent
 affinés par dichotomie, la courbe ne servant qu'au tracé.
 
+## La lune
+
+Même grammaire que l'écran du soleil : bandeau plein cadre, barre de tête
+déshabillée, prochain évènement en grand, trajectoire, course du jour, trois
+mesures.
+
+Trois choses lui sont propres.
+
+**Le ciel est celui du Soleil, pas celui de la Lune.** Sa couleur vient de la
+hauteur du Soleil : une Lune levée en plein jour se voit sur un ciel bleu, pâle
+et peu contrastée, comme dans le ciel réel. Les étoiles ne paraissent qu'une
+fois le Soleil assez bas.
+
+**La Lune se place par son azimut**, non par l'heure. Elle se lève et se couche
+à ses propres heures, qui reculent d'environ cinquante minutes par jour :
+l'heure ne dit rien de sa position. Quand la journée ne garde plus aucun
+évènement, le premier du lendemain est recalculé plutôt que repris.
+
+**La trajectoire porte deux courbes**, la Lune en trait plein et le Soleil en
+repère effacé : c'est le Soleil qui dit si la Lune se voit.
+
+### Le relief
+
+La Lune est peinte sur une toile, dans `src/relief.js`. Une carte du disque
+visible est dessinée une seule fois, la Lune montrant toujours la même face :
+mers à leur place, cratères écrasés dans le sens du rayon près du bord pour
+donner la sphère, traînées de Tycho au sud.
+
+L'éclairage suit la loi de Lommel et Seeliger, `mu0 / (mu0 + mu)`, celle qui
+rend la pleine Lune plate jusqu'au bord. Avec Lambert, elle aurait l'air d'une
+boule de billard. La part sombre n'est pas noire : la lumière cendrée l'éclaire
+d'autant plus que le croissant est fin, la Terre étant alors presque pleine vue
+de la Lune.
+
+L'inclinaison du limbe éclairé est calculée : le limbe pointe vers le Soleil,
+dont la position est connue au même instant. Le croissant penche donc comme
+dans le ciel, et s'incline au fil de la nuit.
+
+Les disques éclairés se gardent par pas de deux degrés de phase et cinq
+d'inclinaison, vingt-quatre au plus. La Lune ne bouillonne pas : ce qui vit
+dans le bandeau, c'est le halo, qui respire, la pâleur du jour, qui la mange,
+et le rougissement près de l'horizon.
+
+Les quatre prochaines phases restent des dessins géométriques : à quarante
+points, un relief ne se verrait pas et coûterait quatre textures.
+
 ## Communes suivies
 
 Dix communes au plus. Le titre de l'écran ouvre la liste, un appui sur une
@@ -252,6 +298,7 @@ src/
   ecritures.js      liste et moments
   astres.js         positions du Soleil et de la Lune, phases, levers et couchers
   feu.js            la boule de feu du bandeau, peinte sur une toile
+  relief.js         le relief lunaire, carte du disque visible et éclairage
   vues.js           temps, semaine, vigilance, soleil, lune, communes, réglages
   app.js            amorçage, barre d'onglets, écrans, coque de la feuille
   reseau.js         reprise à attente croissante, gzip, listage S3
@@ -259,7 +306,7 @@ src/
   postes.js         fichier départemental et geojson des postes, non branché
   reserve.js        les deux vues débranchées
 essais/
-  controle.mjs      cent soixante et un contrôles en navigateur
+  controle.mjs      cent soixante-sept contrôles en navigateur
   meteo.json        données figées au 18 août 2026, 9 h
 ```
 
@@ -278,7 +325,7 @@ révision installée par Playwright ne correspond pas à celle du poste.
 
 Le lanceur sert le dossier, fige l'horloge au 18 août 2026 à 9 h, détourne les
 trois appels Open-Meteo vers `meteo.json` et coupe les sources data.gouv pour
-éprouver le repli. Cent soixante et un contrôles, dont l'absence de répétition entre
+éprouver le repli. Cent soixante-sept contrôles, dont l'absence de répétition entre
 les alertes et les conseils, les sept voies du ruban, l'agrandissement d'une
 voie, les treize colonnes de la liste, les vingt-quatre lignes de la fenêtre, la
 nature du renvoi de vigilance, et seize contrôles de conformité au design
@@ -302,7 +349,9 @@ servi.
 
 Le bandeau du soleil est éprouvé sur son débord, sur le déshabillage de la barre
 de tête et son retour au verre, sur la présence de la toile, sur le fait qu'elle
-porte des pixels, et sur le fait que la matière bouge d'une image à l'autre.
+porte des pixels, et sur le fait que la matière bouge d'une image à l'autre. Le
+bandeau de la lune l'est sur les mêmes points, plus la cohérence de la phase et
+de l'inclinaison du limbe, et la présence des deux courbes de trajectoire.
 
 ## Éphémérides
 

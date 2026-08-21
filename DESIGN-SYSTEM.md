@@ -206,6 +206,11 @@ aucune couleur de texte ne tient sur les deux sans eux.
 Les couleurs du ciel ne sont pas des couleurs d'interface : elles ne s'inversent
 pas avec le thème. Un ciel de midi reste clair en thème sombre.
 
+Deux écrans portent un bandeau, le soleil et la lune. Ils partagent le panneau,
+les voiles, les étoiles et la brume d'horizon : seul l'astre change, et sa place
+dans le ciel. Sur les deux, la couleur du ciel vient de la hauteur du Soleil,
+la Lune ne l'éclairant pas.
+
 ### Symboles de temps
 
 Deux groupes, `ic-a` pour la masse et `ic-b` pour l'accent, colorés par

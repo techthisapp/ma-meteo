@@ -983,14 +983,40 @@ button.rangee:active{background:var(--surface-2)}
 
 /* ---------- 14 bis. Lune ---------- */
 
-.ln-tete{display:flex;align-items:center;gap:var(--espace-lg);flex-wrap:wrap}
 .ln-disque{width:104px;height:104px;flex:0 0 auto}
 .ln-sombre{fill:var(--lune-sombre)}
 .ln-claire{fill:var(--lune-claire)}
-.ln-dit{display:flex;flex-direction:column;gap:var(--espace-xs);min-width:0;flex:1 1 12ch}
-.ln-nom{font-size:var(--texte-titre2);font-weight:var(--graisse-semibold);letter-spacing:-.015em}
-.ln-part{font-size:var(--texte-sous);color:var(--etiquette-2)}
-.ln-age{font-size:var(--texte-note);color:var(--etiquette-3)}
+
+/* La toile de la Lune tient la place de celle du Soleil, aux mêmes règles. */
+.ci-lune{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:300px;height:300px;
+}
+.ci-astre.sous .ci-lune{opacity:.3}
+
+/* Trajectoire de la Lune : elle porte le trait plein, le Soleil un repère
+   effacé. C'est le Soleil qui dit si la Lune se voit. */
+.tr-lune .tr-ligne{stroke:var(--ic-lune)}
+.tr-lune .tr-borne{stroke:var(--ic-lune)}
+.tr-lune .tr-astre{fill:var(--ic-lune)}
+.tr-lune .tr-halo{fill:var(--ic-lune)}
+.tr-lune .tr-fil{stroke:var(--ic-lune)}
+.tr-fond{fill:none;stroke:var(--ic-soleil);stroke-width:1.2;opacity:.34;stroke-linecap:round}
+.tr-leg{display:flex;gap:var(--espace-base);margin-top:var(--espace-sm);
+  font-size:var(--texte-legende2);color:var(--etiquette-3)}
+.tr-leg span{display:inline-flex;align-items:center;gap:5px}
+.tr-leg i{width:14px;height:2px;border-radius:var(--rayon-plein);background:var(--ic-lune)}
+.tr-leg i.s{background:var(--ic-soleil);opacity:.55}
+
+.ch-lune .rangee > svg:first-child{color:var(--ic-lune)}
+.ch-lune .courant .rangee-val b{color:var(--ic-lune)}
+
+/* Les quatre prochaines phases, en dessins géométriques. */
+.ph{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--espace-sm)}
+.ph > div{display:flex;flex-direction:column;align-items:center;gap:var(--espace-xs)}
+.ph .ln-disque{width:40px;height:40px}
+.ph b{font-size:var(--texte-legende);font-weight:var(--graisse-medium);text-align:center}
+.ph em{font-style:normal;font-size:var(--texte-legende2);color:var(--etiquette-3)}
 
 /* ---------- 15. Mesure contre modèle, module en réserve ---------- */
 

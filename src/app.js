@@ -16,6 +16,7 @@ import { ico, icoTemps, icoCiel, tempsDe } from "./icones.js";
 import { conseilsHTML, SEUILS } from "./conseils.js";
 import * as Ruban from "./ruban.js";
 import * as Feu from "./feu.js";
+import * as Relief from "./relief.js";
 import { vueTemps, vueSemaine, vueVigilance, vueSoleil, vueLune, vueCommunes, vueReglages } from "./vues.js";
 
 const $ = id => document.getElementById(id);

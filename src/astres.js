@@ -167,6 +167,23 @@ export function position(corps, date, lat, lon) {
   return horizon(positionDe(corps, jj), jj, lat, lon);
 }
 
+/* Inclinaison du limbe éclairé de la Lune, comptée depuis le zénith.
+
+   Elle se lit directement sur l'horizon, sans passer par l'angle parallactique.
+   Face à l'astre, l'azimut croissant va vers la droite et la hauteur vers le
+   haut : le vecteur qui joint la Lune au Soleil, projeté sur le ciel, pointe
+   donc le limbe éclairé. Sans elle, le croissant regarderait toujours du même
+   côté, ce qu'il ne fait jamais. */
+export function angleLimbe(date, lat, lon) {
+  const jj = jourJulien(date);
+  const l = horizon(lune(enTT(jj)), jj, lat, lon);
+  const s = horizon(soleil(enTT(jj)), jj, lat, lon);
+  const dAz = ((s.azimut - l.azimut + 540) % 360) - 180;
+  const dx = dAz * cos(l.hauteur);
+  const dy = -(s.hauteur - l.hauteur);
+  return Math.atan2(dx, -dy);
+}
+
 /* Hauteur d'un corps sur toute la journée locale qui contient `date`, par pas
    de `pasMinutes`. Rend une suite de couples minute depuis minuit et hauteur
    en degrés, la dernière valeur portant sur minuit du lendemain.

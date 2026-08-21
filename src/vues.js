@@ -10,6 +10,7 @@ import { liste, moments } from "./ecritures.js";
 import * as Reglages from "./reglages.js";
 import * as Astres from "./astres.js";
 import * as Feu from "./feu.js";
+import * as Relief from "./relief.js";
 
 /* ---------- Fragments communs ---------- */
 
@@ -225,6 +226,8 @@ function cielDe(hauteur, montant) {
     nuit: borne(-hauteur, 2, 12),
     jour: borne(hauteur, -4, 4),
     chaud: borne(25 - hauteur, 0, 25),
+    // Un pour un ciel de plein jour : c'est lui qui pâlit la Lune.
+    clarte: borne(hauteur, -8, 6),
   };
 }
 
@@ -241,6 +244,24 @@ const ETOILES = (() => {
   return out;
 })();
 
+/* Ordonnée du disque dans le panneau, tirée de sa hauteur. L'horizon est à
+   quatre-vingt-cinq pour cent, le zénith à treize. */
+const ordonnee = hauteur => 85 - Math.max(-14, Math.min(90, hauteur)) / 90 * (85 - 13);
+
+/* Le panneau, commun aux deux bandeaux. Il ne sait rien de l'astre qu'il
+   porte : le Soleil et la Lune lui passent leur place et leur toile. */
+function panneauCiel(c, x, y, sous, corps) {
+  return `<div class="ci" style="`
+    + `--ci-haut:${c.haut};--ci-bas:${c.bas};--ci-sol-haut:${c.solHaut};--ci-sol:${c.sol};`
+    + `--ci-nuit:${c.nuit.toFixed(2)};--ci-jour:${c.jour.toFixed(2)}">`
+    + `<div class="ci-etoiles" aria-hidden="true">${ETOILES}</div>`
+    + `<div class="ci-astre${sous ? " sous" : ""}" `
+    + `style="--ax:${x.toFixed(1)}%;--ay:${y.toFixed(1)}%">${corps}</div>`
+    + `<div class="ci-sol"></div><div class="ci-horizon"></div>`
+    + `<div class="ci-voile-haut"></div><div class="ci-voile-bas"></div>`
+    + `</div>`;
+}
+
 function bandeauCiel(g, maintenant, meridien) {
   const p = Astres.position("soleil", maintenant, g.lat, g.lon);
   const minuit = new Date(maintenant.getFullYear(), maintenant.getMonth(), maintenant.getDate());
@@ -250,26 +271,41 @@ function bandeauCiel(g, maintenant, meridien) {
 
   /* L'abscisse suit l'avancement du jour, l'ordonnée la hauteur : le disque
      est à sa place, non sur un arc supposé. */
-  const x = (minutes / 1440) * 100;
-  const solY = 85;
-  const y = solY - Math.max(-14, Math.min(90, p.hauteur)) / 90 * (solY - 13);
+  const corps = `<canvas class="ci-feu" id="ciFeu" data-chaud="${c.chaud.toFixed(3)}" `
+    + `role="img" aria-label="Le Soleil dans le ciel"></canvas>`;
+  return panneauCiel(c, (minutes / 1440) * 100, ordonnee(p.hauteur),
+    p.hauteur < -0.833, corps);
+}
 
-  return `<div class="ci" style="`
-    + `--ci-haut:${c.haut};--ci-bas:${c.bas};--ci-sol-haut:${c.solHaut};--ci-sol:${c.sol};`
-    + `--ci-nuit:${c.nuit.toFixed(2)};--ci-jour:${c.jour.toFixed(2)}">`
-    + `<div class="ci-etoiles" aria-hidden="true">${ETOILES}</div>`
-    + `<div class="ci-astre${p.hauteur < -0.833 ? " sous" : ""}" `
-    + `style="--ax:${x.toFixed(1)}%;--ay:${y.toFixed(1)}%">`
-    + `<canvas class="ci-feu" id="ciFeu" data-chaud="${c.chaud.toFixed(3)}" `
-    + `role="img" aria-label="Le Soleil dans le ciel"></canvas></div>`
-    + `<div class="ci-sol"></div><div class="ci-horizon"></div>`
-    + `<div class="ci-voile-haut"></div><div class="ci-voile-bas"></div>`
-    + `</div>`;
+/* Le bandeau de la Lune. Le ciel est celui du Soleil : une Lune levée en plein
+   jour se voit sur un ciel bleu, pâle et peu contrastée, comme dans le ciel
+   réel. La Lune, elle, se place par son azimut : elle se lève à ses propres
+   heures, qui reculent d'environ cinquante minutes par jour, et l'heure ne dit
+   donc rien de sa position. */
+function bandeauLune(g, maintenant, phase) {
+  const ps = Astres.position("soleil", maintenant, g.lat, g.lon);
+  const pl = Astres.position("lune", maintenant, g.lat, g.lon);
+  const minuit = new Date(maintenant.getFullYear(), maintenant.getMonth(), maintenant.getDate());
+  const minutes = (maintenant - minuit) / 60000;
+  const c = cielDe(ps.hauteur, minutes < 720);
+
+  const az = ((pl.azimut % 360) + 360) % 360;
+  const x = Math.max(3, Math.min(97, (az - 55) / 250 * 100));
+  const chaud = Math.max(0, Math.min(1, (12 - pl.hauteur) / 20));
+  // L'angle de phase se déduit de la part éclairée, qui vaut (1 + cos i) / 2.
+  const angleI = Math.acos(Math.max(-1, Math.min(1, 2 * phase.eclairee - 1))) / (Math.PI / 180);
+  const angle = Astres.angleLimbe(maintenant, g.lat, g.lon);
+
+  const corps = `<canvas class="ci-lune" id="ciLune" `
+    + `data-phase="${angleI.toFixed(1)}" data-angle="${angle.toFixed(4)}" `
+    + `data-eclairee="${phase.eclairee.toFixed(3)}" data-clarte="${c.clarte.toFixed(3)}" `
+    + `data-chaud="${chaud.toFixed(3)}" role="img" aria-label="La Lune dans le ciel"></canvas>`;
+  return panneauCiel(c, x, ordonnee(pl.hauteur), pl.hauteur < 0.125, corps);
 }
 
 /* La trajectoire du jour : la hauteur du Soleil de minuit à minuit. Le trait
    plein est au-dessus de l'horizon, le pointillé au-dessous. */
-function trajectoire(courbe, lever, coucher, minutes) {
+function trajectoire(courbe, lever, coucher, minutes, opts = {}) {
   const W = 342, H = 170, G = 24, D = 16, BAS = 20;
   const hx = m => G + (m / 1440) * (W - G - D);
   const hy = h => {
@@ -281,17 +317,28 @@ function trajectoire(courbe, lever, coucher, minutes) {
   const trait = pts => pts.map((p, k) =>
     `${k ? "L" : "M"}${hx(p.m).toFixed(1)},${hy(p.h).toFixed(1)}`).join(" ");
 
-  const jour = courbe.filter(p => p.h >= 0);
-  if (!jour.length) return "";
-  const nuitA = courbe.filter(p => p.m <= jour[0].m);
-  const nuitB = courbe.filter(p => p.m >= jour[jour.length - 1].m);
+  /* Un astre peut être levé en début et en fin de journée, avec un coucher au
+     milieu : la courbe se découpe en tronçons contigus, sans quoi un trait
+     droit relierait les deux passages en rasant l'horizon. */
+  const troncons = dedans => {
+    const out = []; let cur = [];
+    for (const p of courbe) {
+      if (dedans(p)) cur.push(p);
+      else { if (cur.length > 1) out.push(cur); cur = []; }
+    }
+    if (cur.length > 1) out.push(cur);
+    return out;
+  };
+  const hauts = troncons(p => p.h >= 0);
+  const bas = troncons(p => p.h < 0);
 
-  const aire = `${trait(jour)} L${hx(jour[jour.length - 1].m).toFixed(1)},${sol.toFixed(1)} `
-    + `L${hx(jour[0].m).toFixed(1)},${sol.toFixed(1)} Z`;
+  const aire = hauts.map(t => `${trait(t)} L${hx(t[t.length - 1].m).toFixed(1)},${sol.toFixed(1)} `
+    + `L${hx(t[0].m).toFixed(1)},${sol.toFixed(1)} Z`).join(" ");
 
   let ici = courbe[0];
   for (const p of courbe) if (Math.abs(p.m - minutes) < Math.abs(ici.m - minutes)) ici = p;
   const cx = hx(minutes), cy = hy(ici.h);
+  const teinte = opts.teinte === "lune" ? "tr-lune" : "";
 
   const deuxCh = n => String(n).padStart(2, "0");
   const grille = [0, 6, 12, 18, 24].map(h =>
@@ -306,17 +353,17 @@ function trajectoire(courbe, lever, coucher, minutes) {
   const borne = m => m === null ? ""
     : `<circle class="tr-borne" cx="${hx(m).toFixed(1)}" cy="${sol.toFixed(1)}" r="3.4"/>`;
 
-  return `<svg class="tr" viewBox="0 0 ${W} ${H}" role="img" `
-    + `aria-label="Hauteur du Soleil dans le ciel, de minuit à minuit">`
+  return `<svg class="tr ${teinte}" viewBox="0 0 ${W} ${H}" role="img" `
+    + `aria-label="${esc(opts.titre || "Hauteur du Soleil dans le ciel, de minuit à minuit")}">`
     + `<defs><linearGradient id="grJour" x1="0" y1="0" x2="0" y2="1">`
-    + `<stop offset="0" stop-color="var(--ic-soleil)" stop-opacity=".26"/>`
-    + `<stop offset="1" stop-color="var(--ic-soleil)" stop-opacity=".04"/>`
+    + `<stop offset="0" stop-color="${opts.teinte === "lune" ? "var(--ic-lune)" : "var(--ic-soleil)"}" stop-opacity=".26"/>`
+    + `<stop offset="1" stop-color="${opts.teinte === "lune" ? "var(--ic-lune)" : "var(--ic-soleil)"}" stop-opacity=".04"/>`
     + `</linearGradient></defs>`
     + grille + echelle
-    + `<path class="tr-jour" d="${aire}"/>`
-    + `<path class="tr-ligne-nuit" d="${trait(nuitA)}"/>`
-    + `<path class="tr-ligne-nuit" d="${trait(nuitB)}"/>`
-    + `<path class="tr-ligne" d="${trait(jour)}"/>`
+    + (aire ? `<path class="tr-jour" d="${aire}"/>` : "")
+    + (opts.fond ? `<path class="tr-fond" d="${trait(opts.fond)}"/>` : "")
+    + bas.map(t => `<path class="tr-ligne-nuit" d="${trait(t)}"/>`).join("")
+    + hauts.map(t => `<path class="tr-ligne" d="${trait(t)}"/>`).join("")
     + `<line class="tr-sol" x1="${G}" y1="${sol.toFixed(1)}" x2="${W - D}" y2="${sol.toFixed(1)}"/>`
     + borne(lever) + borne(coucher)
     + `<line class="tr-fil" x1="${cx.toFixed(1)}" y1="${cy.toFixed(1)}" `
@@ -471,43 +518,121 @@ export function vueLune() {
   const l = Astres.lunaison(maintenant);
   const phases = Astres.prochainesPhases(maintenant);
 
-  const jourEtHeure = d => `${d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}, `
-    + `${hm(d.getTime())}`;
+  const courbe = Astres.courbe("lune", maintenant, g.lat, g.lon, 10);
+  const fond = Astres.courbe("soleil", maintenant, g.lat, g.lon, 10);
 
-  const cycle = [
-    ["Part éclairée", `${Math.round(p.eclairee * 100)} %`],
-    ["Âge", `${nombreFr(p.age)} jours`],
-    ["Sens", p.croissante ? "croissante" : "décroissante"],
-    ["Lunaison en cours", `${nombreFr(l.duree)} jours`],
+  const minuit = new Date(maintenant.getFullYear(), maintenant.getMonth(), maintenant.getDate());
+  const enMinutes = ms => (ms - minuit.getTime()) / 60000;
+  const minutes = enMinutes(maintenant.getTime());
+
+  /* Durée au-dessus de l'horizon : la somme des tronçons levés. Un lever du
+     soir et un coucher du matin appartiennent à deux passages, leur écart ne
+     dirait rien. La courbe suffit à la mesurer au quart d'heure près. */
+  let leves = 0;
+  for (let k = 1; k < courbe.length; k++) {
+    const a = courbe[k - 1].h > Astres.SEUIL.lune;
+    const b = courbe[k].h > Astres.SEUIL.lune;
+    leves += (a && b) ? 10 : (a || b) ? 5 : 0;
+  }
+  const duree = leves ? leves * 60 : null;
+
+  /* Le prochain évènement, dans la même grammaire que l'écran du soleil : ce
+     qui vient, et à quelle heure.
+
+     Les trois évènements de la Lune ne se suivent pas dans un ordre fixe, la
+     journée pouvant commencer avec la Lune déjà levée : ils se trient. Et quand
+     la journée n'en garde plus aucun, c'est le premier du lendemain qui vient,
+     recalculé plutôt que repris : les heures de la Lune reculent d'environ
+     cinquante minutes par jour. */
+  const trier = ev => [
+    [ev.lever, "Lever de la lune"],
+    [ev.meridien, "Passage au méridien"],
+    [ev.coucher, "Coucher de la lune"],
+  ].filter(([x]) => x).sort((a, b) => a[0] - b[0]);
+
+  let prochain = trier(e).find(([x]) => x > maintenant) || null;
+  if (!prochain) {
+    const lendemain = new Date(minuit.getFullYear(), minuit.getMonth(), minuit.getDate() + 1);
+    const p2 = trier(Astres.evenements("lune", lendemain, g.lat, g.lon))[0];
+    if (p2) prochain = [p2[0], `${p2[1]}, demain`];
+  }
+
+  const etat = `${p.nom}, ${Math.round(p.eclairee * 100)} % éclairée`;
+
+  const chrono = [
+    ["lever", "Lever", e.lever ? `${hm(e.lever.getTime())}, ${cardinalDe(e.azimutLever)}`
+      : "aucun ce jour", e.lever],
+    ["meridien", "Passage au méridien", e.meridien ? hm(e.meridien.getTime()) : "aucun ce jour",
+      e.meridien],
+    ["coucher", "Coucher", e.coucher ? `${hm(e.coucher.getTime())}, ${cardinalDe(e.azimutCoucher)}`
+      : "aucun ce jour", e.coucher],
+    ["arc", "Hauteur maximale", e.hauteurMax === null ? "—" : `${Math.round(e.hauteurMax)}°`, null],
+    ["horloge", "Durée au-dessus de l'horizon", duree === null ? "—" : hhmm(duree), null],
   ];
 
-  const horizonLignes = [
-    ["Lever", e.lever ? `${hm(e.lever.getTime())}, ${cardinalDe(e.azimutLever)}` : "aucun ce jour"],
-    ["Coucher", e.coucher ? `${hm(e.coucher.getTime())}, ${cardinalDe(e.azimutCoucher)}` : "aucun ce jour"],
-    ["Passage au méridien", e.meridien ? hm(e.meridien.getTime()) : "—"],
-    ["Hauteur maximale", e.hauteurMax === null ? "—" : `${Math.round(e.hauteurMax)}°`],
-    ["Durée au-dessus de l'horizon", e.duree === null ? "à cheval sur deux jours" : hhmm(e.duree)],
-  ];
+  const lignes = chrono.map(([sym, nom, val, quand]) => {
+    const passe = quand && quand < maintenant;
+    const courant = prochain && quand && quand.getTime() === prochain[0].getTime();
+    return `<div class="rangee${passe ? " passe" : ""}${courant ? " courant" : ""}">`
+      + ico(sym, "") + `<span class="rangee-txt">${esc(nom)}</span>`
+      + `<span class="rangee-val"><b>${esc(val)}</b></span></div>`;
+  }).join("");
+
+  const pct = Math.round(p.eclairee * 100);
+  const sens = pct >= 99 ? "au plus plein" : pct <= 1 ? "au plus mince"
+    : p.croissante ? "croissante" : "décroissante";
+
+  const mesures = `<div class="tm">`
+    + `<div><i>Part éclairée</i><b>${pct} %</b><em>${esc(sens)}</em></div>`
+    + `<div><i>Âge</i><b>${nombreFr(p.age)} j</b><em>depuis la nouvelle</em></div>`
+    + `<div><i>Lunaison</i><b>${nombreFr(l.duree)} j</b><em>du cycle en cours</em></div>`
+    + `</div>`;
+
+  /* Les quatre prochaines phases : dessins géométriques, non toiles. À quarante
+     points, un relief ne se verrait pas et coûterait quatre textures. */
+  const bande = `<div class="ph">` + phases.map(x => {
+    const eclairee = /Nouvelle/.test(x.nom) ? 0 : /Pleine/.test(x.nom) ? 1 : 0.5;
+    const court = x.nom.replace("Nouvelle lune", "Nouvelle").replace("Pleine lune", "Pleine")
+      .replace("Premier quartier", "1<sup>er</sup> quartier").replace("Dernier quartier", "Dern. quartier");
+    const quand = x.date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+    return `<div>${Astres.dessinPhase(eclairee, /Premier/.test(x.nom), 18)}`
+      + `<b>${court}</b><em>${esc(quand)}</em></div>`;
+  }).join("") + `</div>`;
 
   return {
     titre: "La lune",
-    corps: `<div class="ln-tete">${Astres.dessinPhase(p.eclairee, p.croissante)}`
-      + `<div class="ln-dit"><p class="ln-nom">${esc(p.nom)}</p>`
-      + `<p class="ln-part">${Math.round(p.eclairee * 100)} % de la face visible est éclairée</p>`
-      + `<p class="ln-age">${nombreFr(p.age)} jours depuis la nouvelle lune</p></div></div>`
+    pleinCadre: true,
+    corps: `<div class="plein">${bandeauLune(g, maintenant, p)}`
+      + `<div class="plein-titre">`
+      + (prochain ? `<i>${esc(prochain[1])}</i><b>${hm(prochain[0].getTime())}</b>`
+        : `<b>La lune</b>`)
+      + `<em>${esc(etat)}</em></div></div>`
 
-      + `<div class="section"><h2>Au-dessus de l'horizon</h2>`
-      + `<div class="carte">${rangees(horizonLignes)}</div></div>`
+      + `<div class="ecran-corps">`
+      + `<div class="section"><h2>Trajectoire</h2>`
+      + `<div class="carte"><div class="carte-tete"><h3>Hauteur dans le ciel</h3>`
+      + `<em>Maintenant ${hm(maintenant.getTime())}</em></div>`
+      + trajectoire(courbe, e.lever ? enMinutes(e.lever.getTime()) : null,
+        e.coucher ? enMinutes(e.coucher.getTime()) : null, minutes,
+        { fond, teinte: "lune", titre: "Hauteur de la Lune dans le ciel, de minuit à minuit" })
+      + `<div class="tr-leg"><span><i></i>Lune</span><span><i class="s"></i>Soleil</span></div>`
+      + `</div></div>`
 
-      + `<div class="section"><h2>Cycle</h2>`
-      + `<div class="carte">${rangees(cycle)}</div></div>`
+      + `<div class="section"><h2>Course du jour</h2>`
+      + `<div class="carte groupe-plat ch ch-lune">${lignes}</div></div>`
+
+      + `<div class="carte">${mesures}</div>`
 
       + `<div class="section"><h2>Prochaines phases</h2>`
-      + `<div class="carte">`
-      + rangees(phases.map(x => [x.nom, jourEtHeure(x.date)]))
+      + `<div class="carte">${bande}`
       + `<p class="note">Positions calculées sur l'appareil, sans source distante. `
       + `Écart de l'ordre de la minute sur les heures, de quelques minutes sur les `
-      + `instants de phase.</p></div></div>`,
+      + `instants de phase.</p></div></div>`
+      + `</div>`,
+
+    brancher(bloc) {
+      Relief.poser(bloc.querySelector("#ciLune"));
+    },
   };
 }
 

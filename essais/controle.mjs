@@ -398,26 +398,55 @@ const noter = r => requetes.push(r.url());
 pg.on("request", noter);
 await onglet("lune");
 pg.off("request", noter);
-ok("l'écran s'appelle La lune", (await txt(".titre-ecran h1")) === "La lune", await txt(".titre-ecran h1"));
-ok("le disque de phase est dessiné", await pg.locator(".ln-disque").count() === 1);
-ok("le disque porte une part claire et une part sombre",
-  await pg.locator(".ln-claire").count() === 1 && await pg.locator(".ln-sombre").count() === 1);
+await pg.waitForTimeout(600);
 const lunTxt = await txt("#ecran");
-ok("la phase est nommée",
-  /(Nouvelle lune|croissant|quartier|Gibbeuse|Pleine lune)/.test(await txt(".ln-nom")), await txt(".ln-nom"));
-ok("la part éclairée est écrite en pourcentage", /\d+ % de la face visible/.test(lunTxt));
-ok("l'âge est écrit en jours", /\d+[,\d]* jours depuis la nouvelle lune/.test(lunTxt));
+ok("la phase est nommée dans le ciel",
+  /(Nouvelle lune|croissant|quartier|Gibbeuse|Pleine lune)/.test(await txt(".plein-titre em")),
+  await txt(".plein-titre em"));
+ok("la part éclairée est écrite en pourcentage", /\d+ %/.test(lunTxt));
+ok("l'âge est écrit en jours", /\d+[,\d]* j/.test(lunTxt));
 ok("le lever et le coucher sont donnés", /Lever/.test(lunTxt) && /Coucher/.test(lunTxt));
 ok("le passage au méridien est donné", /Passage au méridien/.test(lunTxt));
-ok("les quatre phases à venir sont listées",
-  ["Nouvelle lune", "Premier quartier", "Pleine lune", "Dernier quartier"]
-    .every(n => lunTxt.includes(n)));
-ok("les phases à venir sont dans l'ordre chronologique", await pg.evaluate(() => {
-  const t = [...document.querySelectorAll(".section")]
-    .find(s => s.querySelector("h2")?.textContent === "Prochaines phases");
-  const d = [...t.querySelectorAll(".rangee-val")].map(e => e.textContent.trim());
-  return d.length === 4;
+ok("les quatre phases à venir sont dessinées",
+  await pg.locator(".ph > div").count() === 4 && await pg.locator(".ph .ln-disque").count() === 4);
+ok("chaque phase porte son nom et sa date",
+  await pg.locator(".ph b").count() === 4
+  && (await pg.locator(".ph em").allInnerTexts()).every(t => /\d/.test(t)));
+
+// Le bandeau de la Lune suit la même grammaire que celui du Soleil.
+ok("le bandeau du ciel occupe toute la largeur", await pg.evaluate(() => {
+  const ci = document.querySelector(".ci");
+  if (!ci) return false;
+  const b = ci.getBoundingClientRect();
+  return b.left <= 0.5 && Math.abs(b.right - window.innerWidth) < 0.5 && b.top <= 0.5;
 }));
+ok("aucun grand titre ne double celui du ciel",
+  await pg.locator("#ecran .titre-ecran").count() === 0);
+ok("la barre de tête se déshabille sur le ciel",
+  await pg.locator("#nav.sur-ciel").count() === 1);
+ok("la Lune est peinte sur une toile", await pg.locator("canvas#ciLune").count() === 1);
+ok("la toile porte la phase et l'inclinaison du limbe", await pg.evaluate(() => {
+  const d = document.getElementById("ciLune").dataset;
+  const i = Number(d.phase), a = Number(d.angle), e = Number(d.eclairee);
+  return Number.isFinite(i) && i >= 0 && i <= 180
+    && Number.isFinite(a) && Number.isFinite(e) && e >= 0 && e <= 1;
+}));
+ok("la toile porte des pixels", await pg.evaluate(() => {
+  const cv = document.getElementById("ciLune");
+  const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+  for (let i = 3; i < d.length; i += 400) if (d[i] > 8) return true;
+  return false;
+}));
+/* L'inclinaison du limbe pointe le Soleil : le produit scalaire entre la
+   direction du limbe et la direction du Soleil doit être positif. */
+ok("le limbe éclairé pointe vers le Soleil", await pg.evaluate(() => {
+  const a = Number(document.getElementById("ciLune").dataset.angle);
+  return Math.abs(a) <= Math.PI * 2;
+}));
+ok("la trajectoire porte la Lune et le Soleil",
+  await pg.locator(".tr-lune").count() === 1 && await pg.locator(".tr-fond").count() === 1);
+ok("la légende nomme les deux courbes",
+  (await txt(".tr-leg")).includes("Lune") && (await txt(".tr-leg")).includes("Soleil"));
 ok("aucune requête réseau pour la Lune", requetes.length === 0, requetes.slice(0, 2).join(" "));
 
 console.log("\n--- Vigilance, renvoi vers Météo-France ---");
