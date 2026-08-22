@@ -11,7 +11,7 @@ service dorsal, sans base de données, sans compte. Métropole française.
 |---|---|
 | Accueil | Le panneau de vigilance s'il y en a une, puis le bandeau du ciel plein cadre portant le temps qu'il fait, le jour, la température, le ciel et les bornes du jour, quatre mesures, une carte « À retenir » réunissant les vingt-quatre heures et ce qui vient au-delà, et les prochaines heures par tranches de six heures |
 | Le temps | Vingt-quatre heures glissantes en deux écritures : ruban à sept voies, table à treize colonnes |
-| La semaine | Sept jours : symbole de ciel et lame sous lui, borne basse à gauche, plage de température sur une échelle commune, borne haute à droite, point du moment sur la journée en cours |
+| La semaine | Sept jours : symbole de ciel et lame sous lui, borne basse à gauche, plage de température sur une échelle commune, borne haute à droite, point du moment sur la journée en cours. Un appui ouvre la journée sur ses quatre moments |
 | Le soleil | Bandeau du ciel plein cadre avec le Soleil à sa vraie place, trajectoire du jour, course du disque, durée du jour, clarté et nuit noire, ruban et table des trois crépuscules |
 | La lune | Bandeau du ciel plein cadre avec la Lune en relief à sa vraie place et la vignette de sa phase devant son nom, trajectoire du jour croisée avec celle du Soleil, course du jour, temps au-dessus de l'horizon, âge, lunaison, quatre prochaines phases avec leur délai |
 | Vigilance | Bulletin en vigueur, phénomènes signalés avec leur niveau et leur fenêtre, renvoi vers Météo-France, en feuille |
@@ -185,6 +185,42 @@ correspondante déjà dépliée, et la page se place dessus. Le libellé du ciel
 | Humidité | Humidité |
 | Indice UV | Indice UV |
 | Libellé du ciel | Ciel |
+
+## La semaine, journée par journée
+
+Les heures portent maintenant sur les sept jours, comme la charge quotidienne :
+chaque rangée se résume de ses heures, et un appui l'ouvre sur ses quatre
+moments. Le surcoût est de deux kilooctets compressés par requête, une fois par
+heure, gardés en cache.
+
+AROME ne va pas au delà d'environ soixante-neuf heures. Sa requête reste à trois
+jours, le lui demander sur sept ne rendrait que des colonnes vides, et la fusion
+laisse le modèle global au delà. C'est le même modèle qui produit la ligne
+quotidienne : la rangée fermée et le volet ouvert ne se contredisent pas.
+
+Le volet tient en quatre colonnes, nuit, matin, après-midi, soirée, mêmes bornes
+de six heures que les moments de l'accueil. Chaque colonne porte le symbole du
+ciel et une seule température, celle qui compte : le minimum la nuit, le maximum
+le jour. Les bornes de la journée sont déjà sur la rangée fermée, les redire
+quatre fois n'apprendrait rien.
+
+Deux lignes basses ne paraissent que si elles ont quelque chose à dire, la lame
+ou le risque d'abord, la rafale ensuite au delà de quarante kilomètres par
+heure. Les seuils sont ceux de la rangée fermée : elle annonce huit pour cent de
+risque, le volet ne peut pas se taire dessus.
+
+Un seul volet reste ouvert à la fois. Sept ouverts feraient de la semaine une
+page à défiler, ce que la rangée fermée évitait justement. Sur la journée en
+cours, un moment déjà passé s'efface.
+
+Une journée dont les heures ne sont pas complètes ne s'ouvre pas et ne porte
+alors pas de chevron : une cible qui ne mène à rien vaut moins qu'aucune cible.
+Un après-midi résumé de trois heures sur six dirait autre chose que ce qu'il
+montre.
+
+La table de la semaine est devenue une liste de boutons. Une cible de liste veut
+son `aria-expanded`, son clavier et son focus, ce qu'une cellule de table ne
+donne pas ; les colonnes s'alignent par leurs largeurs fixes, comme avant.
 
 ## Lecture au doigt
 
@@ -518,7 +554,7 @@ position en bord de mer restait anonyme, et la vigilance sans département.
 
 | Source | Adresse | Compte |
 |---|---|---|
-| Prévision | `api.open-meteo.com`, AROME de Météo-France forcé sur deux jours | Aucun |
+| Prévision | `api.open-meteo.com`, sept jours d'heures et de jours, AROME de Météo-France forcé sur les trois premiers | Aucun |
 | Commune, par le nom ou par les coordonnées | `api-adresse.data.gouv.fr` | Aucun |
 | Soleil et Lune | calcul sur l'appareil, `src/astres.js` | Aucune requête |
 | Aperçu des communes suivies | `api.open-meteo.com`, un seul appel pour toute la liste | Aucun |
@@ -583,7 +619,7 @@ src/
   postes.js         fichier départemental et geojson des postes, non branché
   reserve.js        les deux vues débranchées
 essais/
-  controle.mjs      deux cent soixante-treize contrôles en navigateur
+  controle.mjs      deux cent quatre-vingt-sept contrôles en navigateur
   vue-ecran.mjs     captures d'un écran, thème clair et sombre
   meteo.json        données figées au 18 août 2026, 9 h
 ```
@@ -617,7 +653,14 @@ verre réservé à la navigation, tailles de texte issues de l'échelle, transit
 neutralisées sous mouvement réduit, accroches de feuille, erreur sous le champ,
 état désactivé, rangée unique, état vide complet, ossature au premier
 chargement. Les écrans du Soleil et de la Lune sont contrôlés de la même façon,
-y compris l'absence de toute requête réseau pour la Lune. Sept contrôles portent
+y compris l'absence de toute requête réseau pour la Lune. La semaine ajoute onze
+contrôles : sept rangées ouvrables, aucun volet ouvert à l'arrivée, l'ouverture
+sur quatre moments, les quatre noms de tranche, un seul volet ouvert à la fois,
+la fermeture au second appui, la borne qui compte et rien de superflu dans
+chaque volet, la rafale signalée, le moment passé effacé, et sur une charge
+écourtée en milieu de journée, la journée incomplète qui ne s'ouvre pas ni ne
+porte de chevron. Deux autres gardent le contrat avec la source : les heures
+demandées sur sept jours, AROME sur trois. Sept contrôles portent
 sur la vignette de la Lune et sur la lecture de son écran : la vignette est
 devant le nom de la phase, elle porte des pixels opaques, sa part sombre est
 franche, elle dit la même phase que le ciel, elle garde sa pleine matière sous

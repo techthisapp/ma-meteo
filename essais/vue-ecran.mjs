@@ -73,6 +73,10 @@ for (const theme of ["light", "dark"]) {
   await pg.waitForTimeout(700);
 
   const cle = process.env.ECRAN || "soleil";
+  if (process.env.OUVRIR) {
+    await pg.locator(".sem-r").nth(Number(process.env.OUVRIR)).click();
+    await pg.waitForTimeout(500);
+  }
   await pg.screenshot({ path: path.join(SORTIE, `${cle}-haut-${theme}.png`) });
   await pg.evaluate(() => window.scrollTo({ top: 99999, behavior: "instant" }));
   await pg.waitForTimeout(400);

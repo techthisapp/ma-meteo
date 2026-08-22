@@ -789,11 +789,29 @@ button.rangee:active{background:var(--surface-2)}
 
 /* ---------- 12. Semaine ---------- */
 
-.sem{width:100%;border-collapse:collapse;font-size:var(--texte-sous)}
-.sem td{padding:var(--espace-md) 0;border-top:1px solid var(--filet-clair);vertical-align:middle}
-.sem tr:first-child td{border-top:0}
+/* La semaine est une liste de boutons, non une table : chaque journée s'ouvre
+   sur ses quatre moments, et une cible de liste veut son `aria-expanded`, son
+   clavier et son focus. Les colonnes s'alignent par leurs largeurs fixes, comme
+   le faisait la table. */
+.sem{font-size:var(--texte-sous)}
+.sem-j + .sem-j{box-shadow:inset 0 1px 0 var(--filet-clair)}
+.sem-r{
+  display:flex;align-items:center;width:100%;
+  padding:var(--espace-md) 0;background:none;border:0;
+  font:inherit;color:inherit;text-align:left;
+}
+.sem-r[aria-expanded]{cursor:pointer}
+.sem-r[aria-expanded]:active{background:var(--surface-2)}
+.sem-chev{
+  width:16px;height:16px;flex:0 0 auto;color:var(--etiquette-3);
+  margin-left:var(--espace-xs);transition:transform var(--duree-std) var(--ressort);
+}
+/* Le chevron dit seul que la rangée est ouverte. L'accent est déjà pris par la
+   journée en cours : le mettre aussi sur la rangée ouverte dirait deux choses
+   avec une seule couleur. */
+.sem-r[aria-expanded="true"] .sem-chev{transform:rotate(180deg);color:var(--etiquette-2)}
 
-.sem .j{width:64px;padding-right:var(--espace-sm)}
+.sem .j{width:64px;padding-right:var(--espace-sm);flex:0 0 auto}
 .sem .j b{display:block;font-weight:var(--graisse-semibold)}
 .sem .j em{
   display:block;font-style:normal;font-size:var(--texte-legende);
@@ -802,7 +820,7 @@ button.rangee:active{background:var(--surface-2)}
 
 /* Le symbole et la pluie tiennent la même colonne : la lame se lit sous le
    ciel qu'elle accompagne, non dans une colonne qui repoussait la rangée. */
-.sem .c{width:46px;text-align:center;padding:var(--espace-md) var(--espace-sm)}
+.sem .c{width:46px;flex:0 0 auto;text-align:center;padding:0 var(--espace-sm)}
 .sem .c svg{width:24px;height:24px;display:block;margin:0 auto}
 .sem .c em{
   display:block;margin-top:2px;font-style:normal;
@@ -811,7 +829,7 @@ button.rangee:active{background:var(--surface-2)}
 
 /* La borne basse à gauche de la piste, la haute à droite : la barre se lit
    entre ses deux chiffres. */
-.sem .b{display:flex;align-items:center;gap:var(--espace-sm);width:100%}
+.sem .b{display:flex;align-items:center;gap:var(--espace-sm);flex:1 1 auto;min-width:0}
 .sem .b b{
   flex:0 0 auto;width:40px;font-size:var(--texte-corps);
   font-weight:var(--graisse-semibold);font-variant-numeric:tabular-nums;
@@ -833,6 +851,37 @@ button.rangee:active{background:var(--surface-2)}
   box-shadow:0 0 0 2px var(--etiquette);
 }
 .sem-auj .j b{color:var(--accent)}
+
+/* Le volet des quatre moments, sous la rangée dépliée. Quatre colonnes, une
+   température par moment, et deux lignes basses qui ne paraissent que si elles
+   ont quelque chose à dire. */
+.md{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  padding:var(--espace-sm) 0 var(--espace-base);
+  animation:deplie var(--duree-std) var(--ressort) both;
+}
+.md > div{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:0 2px;min-width:0;
+}
+.md > div + div{box-shadow:inset 1px 0 0 var(--filet-clair)}
+.md > div.passe{opacity:.5}
+.md i{font-style:normal;font-size:var(--texte-legende);color:var(--etiquette-2)}
+.md svg{width:24px;height:24px}
+.md b{
+  font-size:var(--texte-appel);font-weight:var(--graisse-semibold);
+  font-variant-numeric:tabular-nums;
+}
+.md em{font-style:normal;font-size:var(--texte-legende2);color:var(--ic-pluie)}
+.md u{
+  text-decoration:none;font-size:var(--texte-legende2);color:var(--attention);
+  white-space:nowrap;
+}
+@keyframes deplie{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){
+  .md{animation:none}
+  .sem-chev{transition:none}
+}
 
 /* ---------- 13. Vigilance ----------
 

@@ -127,9 +127,16 @@ export async function charger({ lat, lon }) {
 
   const base = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`
     + `&timezone=Europe%2FParis`;
+  /* Les heures portent sur les sept jours, comme la charge quotidienne : c'est
+     d'elles que la semaine tire ses moments. Le surcoût est de deux kilooctets
+     compressés, une fois par heure, gardés en cache.
+
+     AROME ne va pas au delà d'environ soixante-neuf heures. Le lui demander sur
+     sept jours ne rendrait que des colonnes vides : sa requête reste à trois
+     jours, et la fusion laisse le modèle global au delà. */
   const uq = `${base}&daily=${QUOTIDIEN}&past_days=${PASSE}&forecast_days=7`;
-  const uh = `${base}&hourly=${HORAIRE}&forecast_days=2`;
-  const ua = `${uh}&models=${AROME.join(",")}`;
+  const uh = `${base}&hourly=${HORAIRE}&forecast_days=7`;
+  const ua = `${base}&hourly=${HORAIRE}&forecast_days=3&models=${AROME.join(",")}`;
 
   try {
     const [q, h] = await Promise.all([prendre(uq, 1), prendre(uh, 1)]);
@@ -307,6 +314,49 @@ export const graviteCiel = c => (c >= 95 ? 100 : c >= 80 ? 90 : c >= 71 ? 80 : c
    un seul jour font des contradictions dans une même feuille. La table prend
    donc les heures là où elles couvrent la journée entière, et la charge
    quotidienne au-delà. Une journée trouée ne se résume pas et rend la main. */
+/* Les quatre moments d'une journée civile : nuit, matin, après-midi, soirée,
+   par tranches de six heures. Mêmes bornes que les moments de l'accueil.
+
+   Rend `null` dès qu'une tranche n'est pas complète. Un après-midi résumé de
+   trois heures sur six dirait autre chose que ce qu'il montre, et la journée
+   ne doit alors pas s'ouvrir du tout. */
+export function momentsJour(date) {
+  const h = charge?.hourly;
+  if (!Array.isArray(h?.time)) return null;
+
+  const lots = [[], [], [], []];
+  h.time.forEach((t, j) => {
+    if (t.slice(0, 10) !== date) return;
+    lots[Math.floor(Number(t.slice(11, 13)) / 6)].push(j);
+  });
+  if (lots.some(l => l.length !== 6)) return null;
+
+  const val = (c, j) => {
+    const v = (h[c] || [])[j];
+    return v === null || v === undefined ? null : v;
+  };
+
+  const out = [];
+  for (let q = 0; q < 4; q++) {
+    const k = lots[q];
+    const t = k.map(j => val("temperature_2m", j)).filter(v => v !== null);
+    if (t.length < k.length) return null;
+    out.push({
+      q, h0: q * 6, h1: q * 6 + 6,
+      tn: Math.min(...t), tx: Math.max(...t),
+      mm: k.reduce((a, j) => a + (val("precipitation", j) || 0), 0),
+      pb: Math.max(...k.map(j => val("precipitation_probability", j) || 0)),
+      raf: Math.max(...k.map(j => val("wind_gusts_10m", j) || 0)),
+      clair: k.some(j => val("is_day", j) === 1),
+      code: k.reduce((a, j) => {
+        const c = val("weather_code", j);
+        return c !== null && graviteCiel(c) > graviteCiel(a) ? c : a;
+      }, 0),
+    });
+  }
+  return out;
+}
+
 export function jourHoraire(date) {
   const h = charge?.hourly;
   if (!Array.isArray(h?.time)) return null;

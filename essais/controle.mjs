@@ -509,7 +509,7 @@ await pg.waitForTimeout(420);
 
 console.log("\n--- La semaine ---");
 await onglet("semaine");
-ok("sept lignes", await pg.locator(".sem tbody tr").count() === 7, String(await pg.locator(".sem tbody tr").count()));
+ok("sept lignes", await pg.locator(".sem-r").count() === 7, String(await pg.locator(".sem-r").count()));
 const j1 = await pg.locator(".sem .j").first().innerText();
 ok("la première ligne est aujourd'hui", j1.startsWith("Auj."), j1.replace("\n"," "));
 ok("chaque ligne porte sa borne basse à gauche et sa borne haute à droite",
@@ -526,7 +526,7 @@ ok("la pluie se lit sous le symbole",
   await pg.locator(".sem .c em").count() >= 1
   && await pg.locator(".sem .p").count() === 0);
 ok("aucune rangée de la semaine ne dépasse deux lignes", await pg.evaluate(() =>
-  [...document.querySelectorAll(".sem tbody tr")].every(t => t.getBoundingClientRect().height < 76)));
+  [...document.querySelectorAll(".sem-r")].every(t => t.getBoundingClientRect().height < 76)));
 ok("le symbole du ciel est le même partout", await pg.evaluate(() => {
   // Bandeau, semaine et liste des communes emploient tous `icoTemps`.
   return document.querySelectorAll(".sem .c svg.ict").length === 7;
@@ -539,6 +539,81 @@ ok("les symboles de temps sont en deux tons", await pg.evaluate(() => {
   return !b || getComputedStyle(a).stroke !== getComputedStyle(b).stroke
     || getComputedStyle(a).stroke !== "rgb(0, 0, 0)";
 }));
+
+/* ---- Les moments d'une journée de la semaine ---- */
+
+ok("chaque journée annonce qu'elle s'ouvre",
+  await pg.locator('.sem-r[aria-expanded="false"]').count() === 7
+  && await pg.locator(".sem-chev").count() === 7);
+ok("aucun volet n'est ouvert à l'arrivée",
+  await pg.locator(".md:not([hidden])").count() === 0);
+
+await pg.locator(".sem-r").nth(2).click();
+await pg.waitForTimeout(350);
+ok("l'appui ouvre les quatre moments",
+  await pg.locator(".md:not([hidden])").count() === 1
+  && await pg.locator(".md:not([hidden]) > div").count() === 4);
+ok("les quatre moments sont nommés par tranche de six heures",
+  (await pg.locator(".md:not([hidden]) > div > i").allInnerTexts()).join("/")
+  === "nuit/matin/après-midi/soirée",
+  (await pg.locator(".md:not([hidden]) > div > i").allInnerTexts()).join("/"));
+
+await pg.locator(".sem-r").nth(4).click();
+await pg.waitForTimeout(350);
+ok("un seul volet reste ouvert",
+  await pg.locator(".md:not([hidden])").count() === 1
+  && await pg.locator('.sem-r[aria-expanded="true"]').count() === 1);
+await pg.locator(".sem-r").nth(4).click();
+await pg.waitForTimeout(350);
+ok("un second appui referme",
+  await pg.locator(".md:not([hidden])").count() === 0
+  && await pg.locator('.sem-r[aria-expanded="true"]').count() === 0);
+
+/* La donnée du volet est celle du module, non une valeur recopiée : la
+   température montrée est le minimum la nuit, le maximum le jour, et les deux
+   lignes basses ne paraissent que si elles ont quelque chose à dire. */
+const voletsKO = await pg.evaluate(async () => {
+  const P = await import("/src/previsions.js");
+  const maux = [];
+  for (const j of document.querySelectorAll(".sem-r[data-jour]")) {
+    const date = j.dataset.jour;
+    const mo = P.momentsJour(date);
+    if (!mo) { maux.push(`${date}: aucun moment`); continue; }
+    const cases = [...document.getElementById(j.getAttribute("aria-controls")).children];
+    if (cases.length !== 4) { maux.push(`${date}: ${cases.length} cases`); continue; }
+    cases.forEach((c, q) => {
+      const m = mo[q];
+      const attendu = Math.round(q === 0 ? m.tn : m.tx);
+      const vu = Number(c.querySelector("b").textContent.replace("°", ""));
+      if (vu !== attendu) maux.push(`${date} ${q}: ${vu} au lieu de ${attendu}`);
+      const eau = c.querySelector("em");
+      if (eau && !(m.mm >= 0.1 || m.pb >= 5)) maux.push(`${date} ${q}: eau sans motif`);
+      if (!eau && (m.mm >= 0.1 || m.pb >= 5)) maux.push(`${date} ${q}: eau manquante`);
+      const vent = c.querySelector("u");
+      if (vent && m.raf < 40) maux.push(`${date} ${q}: vent sans motif`);
+      if (!vent && m.raf >= 40) maux.push(`${date} ${q}: rafale tue`);
+    });
+  }
+  return maux;
+});
+ok("chaque volet dit la borne qui compte et rien de superflu",
+  voletsKO.length === 0, voletsKO.slice(0, 3).join(" | "));
+
+ok("la rafale forte est signalée quelque part dans la semaine", await pg.evaluate(() =>
+  [...document.querySelectorAll(".md u")].length > 0));
+
+// Sur la journée en cours, un moment déjà passé s'efface.
+await pg.locator(".sem-r").first().click();
+await pg.waitForTimeout(350);
+ok("un moment passé s'efface sur la journée en cours", await pg.evaluate(() => {
+  const v = document.querySelector(".md:not([hidden])");
+  if (!v) return false;
+  const h = new Date().getHours();
+  return [...v.children].every((c, q) =>
+    c.classList.contains("passe") === (q * 6 + 6 <= h));
+}));
+await pg.locator(".sem-r").first().click();
+await pg.waitForTimeout(300);
 
 console.log("\n--- Le soleil ---");
 await onglet("soleil");
@@ -1518,6 +1593,64 @@ ok("sur un temps calme, le reste de l'accueil tient",
   await pgCalme.locator("#ecran .bd-mesures").count() === 1
   && await pgCalme.locator("#ecran .mo").count() === 1);
 await ctxCalme.close();
+
+/* Heures écourtées : la source s'arrête au milieu du troisième jour. Les jours
+   sans heures complètes ne doivent alors pas s'ouvrir, ni porter de chevron, et
+   la journée coupée en deux ne doit pas s'ouvrir non plus sur des tranches
+   vides. */
+const ctxCourt = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+await ctxCourt.addInitScript(amorce(FAIN));
+await ctxCourt.route(/api\.open-meteo\.com/, route => {
+  const u = route.request().url();
+  const d = JSON.parse(JSON.stringify(METEO));
+  if (u.includes("current=")) {
+    route.fulfill({ status: 200, contentType: "application/json", body: "[]" }); return;
+  }
+  if (u.includes("hourly=")) {
+    const h = {};
+    for (const c of Object.keys(d.hourly)) h[c] = d.hourly[c].slice(0, 60);
+    route.fulfill({ status: 200, contentType: "application/json",
+      body: JSON.stringify({ hourly: h }) }); return;
+  }
+  delete d.hourly;
+  route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
+});
+await ctxCourt.route(/api-adresse\.data\.gouv\.fr|object\.files\.data\.gouv\.fr/, r => r.abort());
+await ctxCourt.route(/webservice\.meteofrance\.com/, r => r.abort());
+const pgCourt = await ctxCourt.newPage();
+const urls = [];
+pgCourt.on("request", r => {
+  if (r.url().includes("api.open-meteo.com")) urls.push(r.url());
+});
+await pgCourt.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await pgCourt.waitForTimeout(1400);
+
+/* Le contrat avec la source. Les heures portent sur les sept jours, c'est
+   d'elles que la semaine tire ses moments. AROME reste à trois jours : au delà
+   il ne rend que des colonnes vides. */
+const uHoraire = urls.find(u => u.includes("hourly=") && !u.includes("models="));
+const uArome = urls.find(u => u.includes("models=meteofrance_arome"));
+ok("les heures sont demandées sur sept jours",
+  !!uHoraire && uHoraire.includes("forecast_days=7"), uHoraire || "aucune requête horaire");
+ok("AROME n'est demandé que sur trois jours",
+  !!uArome && uArome.includes("forecast_days=3"), uArome || "aucune requête AROME");
+
+await pgCourt.locator('[data-onglet="semaine"]').click();
+await pgCourt.waitForTimeout(500);
+ok("sans heures complètes, la journée ne s'ouvre pas",
+  await pgCourt.locator(".sem-r").count() === 7
+  && await pgCourt.locator(".sem-r[aria-expanded]").count() === 2
+  && await pgCourt.locator(".sem-fixe").count() === 5,
+  `${await pgCourt.locator(".sem-r[aria-expanded]").count()} ouvrables`);
+ok("une journée qui ne s'ouvre pas ne porte pas de chevron",
+  await pgCourt.locator(".sem-chev").count() === 2);
+ok("les journées sans heures gardent leurs bornes",
+  await pgCourt.locator(".sem-min").count() === 7
+  && await pgCourt.locator(".sem-max").count() === 7);
+await ctxCourt.close();
 
 const ctxLent = await nav.newContext({
   viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,

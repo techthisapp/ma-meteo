@@ -5,13 +5,14 @@ import { nombreFr, hhmm, jourCourt, jourLong, esc, departementDe, heureJour } fr
 import * as P from "./previsions.js";
 import { ico, icoTemps, icoCiel, tempsDe } from "./icones.js";
 import * as Ruban from "./ruban.js";
-import { liste, moments } from "./ecritures.js";
+import { liste, moments, TRANCHES } from "./ecritures.js";
 import * as Reglages from "./reglages.js";
 import * as Astres from "./astres.js";
 import * as Feu from "./feu.js";
 import * as Relief from "./relief.js";
 import * as Temps from "./temps.js";
 import * as Vig from "./vigilance.js";
+import { SEUILS } from "./conseils.js";
 
 /* ---------- Fragments communs ---------- */
 
@@ -132,6 +133,7 @@ export function vueSemaine() {
   const amp = Math.max(1, tmax - tmin);
 
   const maintenant = P.serieHoraire()?.t?.[0] ?? null;
+  const heureCourante = new Date().getHours();
 
   for (let k = i; k < fin; k++) {
     /* Les heures là où elles couvrent la journée entière, la charge quotidienne
@@ -162,24 +164,86 @@ export function vueSemaine() {
       ? `<u class="sem-pt" style="left:${(((maintenant - tmin) / amp) * 100).toFixed(1)}%"></u>`
       : "";
 
-    lignes.push(`<tr${k === i ? ' class="sem-auj"' : ""}>`
-      + `<td class="j"><b>${esc(nom)}</b><em>${esc(date)}</em></td>`
-      + `<td class="c">${icoTemps(icoCiel(code, true), "")}`
-      + (eau ? `<em>${esc(eau)}</em>` : "") + `</td>`
-      + `<td class="b"><b class="sem-min">${Math.round(tn)}°</b>`
+    const mo = P.momentsJour(d.time[k]);
+    const cle = `sm-${d.time[k]}`;
+
+    const corps = `<span class="j"><b>${esc(nom)}</b><em>${esc(date)}</em></span>`
+      + `<span class="c">${icoTemps(icoCiel(code, true), "")}`
+      + (eau ? `<em>${esc(eau)}</em>` : "") + `</span>`
+      + `<span class="b"><b class="sem-min">${Math.round(tn)}°</b>`
       + `<i class="sem-piste"><s class="sem-plage" style="left:${gauche.toFixed(1)}%;`
       + `width:${large.toFixed(1)}%;`
       + `background:linear-gradient(90deg, ${couleurT(tn)}, ${couleurT(tx)})"></s>`
       + pointe + `</i>`
-      + `<b class="sem-max">${Math.round(tx)}°</b></td></tr>`);
+      + `<b class="sem-max">${Math.round(tx)}°</b></span>`;
+
+    /* Une journée sans heures complètes ne s'ouvre pas, et ne porte alors pas
+       de chevron : une cible qui ne mène à rien vaut moins qu'aucune cible. */
+    const tete = mo
+      ? `<button type="button" class="sem-r" data-jour="${esc(d.time[k])}" `
+        + `aria-expanded="false" aria-controls="${cle}">${corps}`
+        + ico("chevron_bas", "sem-chev") + `</button>`
+      : `<div class="sem-r sem-fixe">${corps}</div>`;
+
+    lignes.push(`<div class="sem-j${k === i ? " sem-auj" : ""}">${tete}`
+      + (mo ? `<div class="md" id="${cle}" hidden>${volet(mo, k === i, heureCourante)}</div>` : "")
+      + `</div>`);
   }
 
   return {
     titre: "La semaine",
-    corps: `<div class="carte"><table class="sem"><tbody>${lignes.join("")}</tbody></table>`
-      + `<p class="note">Aujourd'hui et demain se résument des heures, les jours `
-      + `suivants de la charge quotidienne.</p></div>`,
+    corps: `<div class="carte"><div class="sem">${lignes.join("")}</div>`
+      + `<p class="note">Chaque journée se résume de ses heures. Jusqu'à trois jours, `
+      + `la prévision est affinée par AROME ; au delà, elle vient du modèle `
+      + `global.</p></div>`,
+    brancher(bloc) { brancherSemaine(bloc); },
   };
+}
+
+/* Le volet des quatre moments. Une seule température, celle qui compte : le
+   minimum la nuit, le maximum le jour. Les bornes de la journée sont déjà sur
+   la rangée fermée, les redire quatre fois n'apprendrait rien.
+
+   Les deux lignes du bas ne paraissent que si elles ont quelque chose à dire,
+   l'eau d'abord, la rafale ensuite. Sur la journée en cours, un moment déjà
+   passé s'efface, comme la course du jour du soleil. */
+function volet(moments, aujourdhui, heureCourante) {
+  return moments.map(m => {
+    const passe = aujourdhui && m.h1 <= heureCourante;
+    /* Mêmes seuils que la rangée fermée : elle annonce huit pour cent de
+       risque, le volet ne peut pas se taire dessus. */
+    const eau = m.mm >= SEUILS.lame ? `${nombreFr(m.mm)} mm`
+      : m.pb >= SEUILS.risque ? `${Math.round(m.pb)} %` : "";
+    const vent = m.raf >= SEUILS.rafale ? `${Math.round(m.raf)} km/h` : "";
+    return `<div${passe ? ' class="passe"' : ""}>`
+      + `<i>${esc(TRANCHES[m.q][4])}</i>`
+      + icoTemps(icoCiel(m.code, m.clair), "")
+      + `<b>${Math.round(m.q === 0 ? m.tn : m.tx)}°</b>`
+      + (eau ? `<em>${esc(eau)}</em>` : "")
+      + (vent ? `<u>${esc(vent)}</u>` : "")
+      + `</div>`;
+  }).join("");
+}
+
+/* Un seul volet ouvert à la fois : sept ouverts feraient de la semaine une
+   page à défiler, ce que la rangée fermée évitait justement. */
+function brancherSemaine(bloc) {
+  const sem = bloc.querySelector(".sem");
+  if (!sem) return;
+  sem.addEventListener("click", ev => {
+    const b = ev.target.closest(".sem-r[aria-expanded]");
+    if (!b || !sem.contains(b)) return;
+    const ouvert = b.getAttribute("aria-expanded") === "true";
+    for (const autre of sem.querySelectorAll('.sem-r[aria-expanded="true"]')) {
+      autre.setAttribute("aria-expanded", "false");
+      const v = document.getElementById(autre.getAttribute("aria-controls"));
+      if (v) v.hidden = true;
+    }
+    if (ouvert) return;
+    b.setAttribute("aria-expanded", "true");
+    const v = document.getElementById(b.getAttribute("aria-controls"));
+    if (v) v.hidden = false;
+  });
 }
 
 /* ---------- Vigilance ----------

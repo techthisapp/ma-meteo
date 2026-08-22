@@ -61,11 +61,14 @@ export function liste(s) {
    dans quatre heures. La première nuit de la fenêtre prend donc le nom proche,
    quelle que soit sa date. */
 
-const TRANCHES = [
-  [0, "nuit", "Cette nuit", "La nuit suivante"],
-  [6, "matin", "Ce matin", "Demain matin"],
-  [12, "apres-midi", "Cet après-midi", "Demain après-midi"],
-  [18, "soiree", "Ce soir", "Demain en soirée"],
+/* Heure de début, clé, nom proche, nom du lendemain, nom court. Le nom court
+   sert là où la journée est déjà nommée par ailleurs : la semaine dépliée n'a
+   pas à redire « demain » sous la rangée « Demain ». */
+export const TRANCHES = [
+  [0, "nuit", "Cette nuit", "La nuit suivante", "nuit"],
+  [6, "matin", "Ce matin", "Demain matin", "matin"],
+  [12, "apres-midi", "Cet après-midi", "Demain après-midi", "après-midi"],
+  [18, "soiree", "Ce soir", "Demain en soirée", "soirée"],
 ];
 
 const nomTranche = h => TRANCHES[Math.floor(h / 6)];

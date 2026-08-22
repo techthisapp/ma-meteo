@@ -170,6 +170,21 @@ qualifie l'évènement plutôt que sa valeur, un point cardinal ou une hauteur, 
 tient sous le nom, en ligne de description. Les valeurs s'alignent alors en
 colonne, et le nom retrouve la largeur qu'une valeur à deux termes lui prenait.
 
+### Rangée qui s'ouvre
+
+`.sem-r`, un bouton de pleine largeur portant `aria-expanded` et `aria-controls`,
+suivi du volet qu'il commande. Une liste dont les entrées s'ouvrent n'est pas une
+table : la cible veut son état, son clavier et son focus, ce qu'une cellule ne
+donne pas. Les colonnes s'alignent par des largeurs fixes.
+
+Un chevron marque les entrées qui s'ouvrent, et lui seul dit l'état : il tourne
+d'un demi-tour à l'ouverture. L'accent reste réservé à ce qu'il désigne déjà,
+sans quoi une même couleur dirait deux choses. Une entrée qui ne s'ouvre pas ne
+porte pas de chevron.
+
+Un seul volet ouvert à la fois. Plusieurs ouverts font de la liste une page à
+défiler, ce que la rangée fermée évitait justement.
+
 ### Table à deux moments
 
 `.cp`, pour une grandeur qui se lit une fois le matin et une fois le soir. Trois
