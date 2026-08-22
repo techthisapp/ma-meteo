@@ -110,11 +110,47 @@ table des cent et une entrées est explicite et chacune a été vérifiée contr
 site : deux départements n'y prennent pas la forme attendue. Sans entrée, le
 renvoi se fait sur la carte de France, qui vaut toujours.
 
-## Les prochaines heures
+## Ce qui est à savoir
 
-L'accueil ferme sa page sur les moments : la journée qui vient, tranche par
-tranche de six heures, là où le haut de l'écran ne dit que l'instant. La
-vigilance et la source viennent après, en clôture.
+Une règle ne parle que si elle a quelque chose à dire. « Aucune lame annoncée
+d'ici demain 16 h » occupait la première ligne tous les jours de beau temps :
+une phrase qu'on lit cent fois pour n'y rien apprendre finit par cacher celles
+qui comptent. Le silence est l'état par défaut, et la section disparaît quand il
+n'y a rien.
+
+Chaque ligne porte sa portée, en heures, et le titre de la section l'annonce :
+« Dans les 14 prochaines heures ». Le lecteur sait jusqu'où porte ce qu'il lit
+sans avoir à relire chaque phrase. Au-delà de deux jours, la portée s'écrit en
+jours.
+
+Quatorze règles, quatre lignes au plus, ordonnées par gravité.
+
+| Règle | Ce qu'elle dit | Seuil |
+|---|---|---|
+| Orages | Plage annoncée | codes 95, 96, 99 |
+| Neige | Plage annoncée et lame | codes 71 à 77, 85, 86 |
+| Pluie | Plage, lame attendue, ou désaccord entre modèles | 0,1 mm |
+| Risque de pluie | Le maximum et son heure, sans lame annoncée | 40 % |
+| Brouillard | Plage attendue | codes 45, 48 |
+| Gel | Plage et minimum | 1 degré |
+| Vent | Rafale maximale et sa plage | 40 km/h de rafale, 25 km/h de moyenne |
+| Chaleur | Maximum et son heure | 30 degrés |
+| Renversement de température | Écart entre les deux moitiés de la fenêtre | 6 degrés |
+| Ressenti | L'écart le plus fort, avec son heure | 5 degrés |
+| Air saturé | Plage sous une température douce | 90 % sur 4 heures |
+| Pression | Variation sur la fenêtre, dégradation ou amélioration | 6 hPa |
+| Bascule du ciel | Le premier passage qui tienne trois heures | 60 % de couverture |
+| Lever ou coucher du Soleil | L'heure, s'il tombe dans les trois heures | 3 heures |
+
+Deux règles journalières s'y ajoutent, pour ce qui tombe au-delà de la fenêtre
+horaire : un gel ou une forte chaleur d'après-demain, et une lame de quinze
+millimètres ou plus. Elles portent leur portée en jours, et le titre s'y adapte.
+
+## La journée qui vient
+
+L'accueil ferme sa page sur les moments : le soir, la nuit et le lendemain,
+tranche par tranche de six heures, là où le haut de l'écran ne dit que
+l'instant. La vigilance et la source viennent après, en clôture.
 
 Le nom se dit comme on le dirait à l'oral : « ce soir » plutôt que « la
 soirée », « demain matin » plutôt que « demain, le matin ». La nuit fait
@@ -470,7 +506,7 @@ src/
   previsions.js     charge Open-Meteo, fusion AROME, série horaire
   reglages.js       stockage local, communes suivies, Ma position, recherche
   icones.js         codes de temps sensible, dessins
-  conseils.js       les six règles et leurs seuils
+  conseils.js       les quatorze règles, leurs seuils et leur portée
   ruban.js          météogramme à sept voies
   ecritures.js      table des heures, moments par tranches de six heures
   vigilance.js      bulletin en vigueur, phénomènes, niveaux, page du département
@@ -505,7 +541,7 @@ révision installée par Playwright ne correspond pas à celle du poste.
 Le lanceur sert le dossier, fige l'horloge au 18 août 2026 à 9 h, détourne les
 trois appels Open-Meteo vers `meteo.json`, sert une vigilance orange de
 convention, et coupe les sources data.gouv pour éprouver le repli. Deux cent
-cinquante contrôles, dont l'absence de répétition entre
+cinquante-cinq contrôles, dont l'absence de répétition entre
 les alertes et les conseils, les sept voies du ruban, l'agrandissement d'une
 voie, les treize colonnes de la liste, les vingt-quatre lignes de la fenêtre, la
 nature du renvoi de vigilance, et dix-sept contrôles de conformité au design
@@ -518,6 +554,11 @@ y compris l'absence de toute requête réseau pour la Lune. La bascule de commun
 est éprouvée de bout en bout : ouverture par le titre, ajout par la feuille
 poussée depuis la tête, bascule par appui, retrait par le clavier, et
 réordonnancement des deux façons, au clavier puis par appui long.
+
+Ce qui est à savoir est éprouvé sur un contexte de temps calme : aucune règle ne
+parle, la section entière disparaît, et le reste de l'accueil tient. Un contrôle
+mesure que la portée annoncée par le titre couvre bien l'heure la plus lointaine
+citée dans les lignes. Les trois ont été éprouvés en rétablissant la faute.
 
 La vigilance est éprouvée sur deux contextes. Le premier sert un bulletin orange
 sur les orages, jaune sur le vent en deux plages contiguës, et vert ailleurs : le

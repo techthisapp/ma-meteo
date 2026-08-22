@@ -13,7 +13,7 @@ import { nombreFr, esc, departementDe, heureJour } from "./horloge.js";
 import * as P from "./previsions.js";
 import * as Reglages from "./reglages.js";
 import { ico, icoTemps, icoCiel, tempsDe } from "./icones.js";
-import { conseilsHTML, SEUILS } from "./conseils.js";
+import { conseils, conseilsHTML, portee, titrePortee, SEUILS } from "./conseils.js";
 import * as Ruban from "./ruban.js";
 import * as Feu from "./feu.js";
 import * as Relief from "./relief.js";
@@ -22,6 +22,7 @@ import { vueTemps, vueSemaine, vueVigilance, vueSoleil, vueLune, vueCommunes, vu
   vueAjout, bandeauAccueil } from "./vues.js";
 import { moments } from "./ecritures.js";
 import * as Vig from "./vigilance.js";
+import * as Astres from "./astres.js";
 
 const $ = id => document.getElementById(id);
 
@@ -104,11 +105,13 @@ function alertes() {
   for (let k = i + 2; k <= Math.min(i + 4, d.time.length - 1); k++) {
     const tn = tMin(k), tx = tMax(k);
     if (tn !== null && tn <= SEUILS.gel) {
-      out.push({ ton: "froid", i: "alerte", t: `Gel probable ${quand(k)}, jusqu'à ${Math.round(tn)}°` });
+      out.push({ ton: "froid", i: "alerte", h: (k - i) * 24,
+        t: `Gel probable ${quand(k)}, jusqu'à ${Math.round(tn)}°` });
       break;
     }
     if (tx !== null && tx >= SEUILS.chaleur) {
-      out.push({ ton: "chaud", i: "soleil", t: `${Math.round(tx)}° ${quand(k)}` });
+      out.push({ ton: "chaud", i: "soleil", h: (k - i) * 24,
+        t: `${Math.round(tx)}° ${quand(k)}` });
       break;
     }
   }
@@ -116,7 +119,8 @@ function alertes() {
   for (let k = i + 2; k <= Math.min(i + 4, d.time.length - 1); k++) {
     const p = d.precipitation_sum[k];
     if (p !== null && p >= SEUILS.alerteLame) {
-      out.push({ ton: "eau", i: "goutte", t: `${Math.round(p)} mm annoncés ${quand(k)}` });
+      out.push({ ton: "eau", i: "goutte", h: (k - i) * 24,
+        t: `${Math.round(p)} mm annoncés ${quand(k)}` });
       break;
     }
   }
@@ -207,6 +211,22 @@ function panneauVigilance() {
       + `<b>${esc(a.nom)}</b><i>${esc(Vig.NIVEAUX[a.niveau].nom)}, ${esc(quand(a))}</i></span>`)
       .join("")
     + `</span></button></div>`;
+}
+
+/* Le prochain lever ou coucher du Soleil, calculé sur l'appareil. Il n'entre
+   dans la liste que s'il tombe dans les heures qui viennent : au-delà, ce n'est
+   plus un fait de la journée mais une donnée d'almanach, et l'écran du soleil
+   est là pour cela. */
+function prochainAstre() {
+  const g = Reglages.lire();
+  if (g.lat === null) return null;
+  try {
+    const e = Astres.evenements("soleil", new Date(), g.lat, g.lon);
+    const suite = [e.lever, e.coucher].filter(x => x && x > new Date());
+    if (!suite.length) return null;
+    const date = suite.sort((a, b) => a - b)[0];
+    return { date, lever: e.lever && date.getTime() === e.lever.getTime() };
+  } catch { return null; }
 }
 
 /* ---------- Écran d'accueil ---------- */
@@ -308,13 +328,18 @@ function ecranAccueil() {
           + `<em>${esc(e)}</em></button>`).join("")
         + `</div>` : "");
 
-    /* Un seul en-tête pour ce qui mérite d'être retenu : les vingt-quatre
-       heures d'abord, puis ce qui vient au-delà. Trois en-têtes pour trois
-       cartes d'une ligne coûtaient un tiers de l'écran sans rien porter. */
+    /* Un seul en-tête pour ce qui est à savoir : les heures qui viennent
+       d'abord, puis ce qui vient au-delà. Le titre annonce la portée réelle de
+       ce qui suit, en heures ou en jours : le lecteur sait jusqu'où porte ce
+       qu'il lit sans avoir à relire chaque phrase. Rien à dire, rien à
+       l'écran : la section entière disparaît. */
     const al = alertes();
-    const cj = s ? conseilsHTML(s) : "";
+    const cl = s ? conseils(s, { evenement: prochainAstre() }) : [];
+    const cj = conseilsHTML(cl);
     if (cj || al.length) {
-      corps += `<div class="section"><h2>À retenir</h2><div class="carte retenir">`
+      const h = Math.max(portee(cl), ...al.map(a => a.h || 0));
+      corps += `<div class="section"><h2>${esc(titrePortee(h))}</h2>`
+        + `<div class="carte retenir">`
         + (cj ? `<div class="conseils">${cj}</div>` : "")
         + (al.length ? `<div class="alertes">`
           + al.map(a => `<div class="al t-${a.ton}">${ico(a.i, "")}<span>${esc(a.t)}</span></div>`).join("")
@@ -326,7 +351,10 @@ function ecranAccueil() {
        par tranche, là où le haut de l'écran ne dit que l'instant. C'est le
        dernier bloc de contenu, la vigilance et la source formant la clôture. */
     if (s) {
-      corps += `<div class="section"><h2>Les prochaines heures</h2>`
+      /* « Les prochaines heures » se confondait avec le titre de la section du
+         dessus, qui annonce aussi des heures. Les moments couvrent le soir, la
+         nuit et le lendemain : c'est la journée qui vient. */
+      corps += `<div class="section"><h2>La journée qui vient</h2>`
         + `<div class="carte">${moments(s)}</div></div>`;
     }
 

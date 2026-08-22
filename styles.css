@@ -242,6 +242,11 @@ button:disabled,button[aria-disabled="true"],input:disabled{
 .icv-thermo{color:var(--ic-orage)}
 .icv-brume{color:var(--etiquette-3)}
 .icv-alerte{color:var(--attention)}
+.icv-orage{color:var(--ic-orage)}
+.icv-nuage{color:var(--ic-nuage)}
+.icv-jauge{color:var(--etiquette-2)}
+.icv-lever{color:var(--ic-soleil)}
+.icv-coucher{color:var(--ic-soleil)}
 
 /* Symboles de temps en deux tons. La masse prend le gris du ciel, l'accent
    prend sa couleur propre. Le libellé porte toujours l'information. */

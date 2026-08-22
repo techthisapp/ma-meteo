@@ -180,8 +180,33 @@ ok("le bandeau porte quatre mesures", await pg.locator(".bd-m").count() === 4);
 const mes = (await pg.locator(".bd-m i").allInnerTexts()).join(", ");
 ok("les quatre mesures sont nommées", mes.toLowerCase() === "ressenti, vent, humidité, indice uv", mes);
 const cj = await pg.locator(".cj-l").allInnerTexts();
-ok("trois lignes de conseil au plus", cj.length >= 1 && cj.length <= 3, cj.length + "");
-ok("la première ligne parle de pluie", /pluie|lame/i.test(cj[0] || ""), cj[0]);
+ok("quatre lignes à savoir au plus", cj.length >= 1 && cj.length <= 4, cj.length + "");
+/* Une règle ne parle que si elle a quelque chose à dire : une phrase qui
+   annonce qu'il ne se passe rien se lit cent fois pour rien apprendre. */
+ok("rien ne s'écrit pour dire qu'il n'y a rien",
+  !/aucune lame|rien à signaler|pas de pluie/i.test(cj.join(" ")), cj.join(" | "));
+/* Le titre annonce la portée réelle de ce qui suit : un titre qui promet
+   vingt-quatre heures alors que la dernière ligne s'arrête à seize ment. */
+const titreRet = (await pg.locator("#ecran .section h2").allInnerTexts())
+  .find(t => t.startsWith("Dans les")) || "";
+ok("le titre annonce la portée de ce qui suit",
+  /^Dans les \d+ prochain(e?)s (heures|jours)$/.test(titreRet), titreRet);
+ok("la portée annoncée couvre la ligne la plus lointaine", await pg.evaluate(() => {
+  const h2 = [...document.querySelectorAll("#ecran .section h2")]
+    .find(x => x.textContent.startsWith("Dans les"));
+  const m = /Dans les (\d+) prochain/.exec(h2.textContent);
+  const heures = /jours/.test(h2.textContent) ? Number(m[1]) * 24 : Number(m[1]);
+  const txt = h2.parentElement.textContent;
+  /* Toute heure citée doit tomber dans la fenêtre annoncée. Les heures de
+     demain comptent vingt-quatre de plus. */
+  const maintenant = new Date().getHours();
+  let pire = 0;
+  for (const c of txt.matchAll(/(demain )?(\d\d) h/g)) {
+    const h = Number(c[2]) + (c[1] ? 24 : 0);
+    pire = Math.max(pire, h - maintenant + (h < maintenant && !c[1] ? 24 : 0));
+  }
+  return pire <= heures;
+}));
 ok("aucune ligne ne se répète", new Set(cj).size === cj.length);
 ok("aucun verbe de jardin", !/arros|voiler|tuteur|repiquage|ombrer|plant/i.test(cj.join(" ")), cj.join(" | "));
 const alertesTxt = (await pg.locator(".al").allInnerTexts()).join(" ").toLowerCase();
@@ -1232,6 +1257,69 @@ ok("sans vigilance, le reste de l'accueil tient",
   await pgVert.locator("#ecran .bd-mesures").count() === 1
   && await pgVert.locator("#ecran .mo").count() === 1);
 await ctxVert.close();
+
+/* Une règle ne parle que si elle a quelque chose à dire. Sur un temps calme,
+   aucune ne parle, et la section entière disparaît : « Aucune lame annoncée
+   d'ici demain 16 h » occupait la première ligne tous les jours de beau temps,
+   et une phrase qu'on lit cent fois pour n'y rien apprendre finit par cacher
+   celles qui comptent. */
+const ctxCalme = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+await ctxCalme.addInitScript(amorce(FAIN));
+await ctxCalme.route(/api\.open-meteo\.com/, route => {
+  const u = route.request().url();
+  const d = JSON.parse(JSON.stringify(METEO));
+  const h = d.hourly;
+  const n = h.time.length;
+  const plat = v => Array.from({ length: n }, () => v);
+  h.weather_code = plat(0);
+  h.precipitation = plat(0);
+  h.precipitation_probability = plat(3);
+  h.cloud_cover = plat(8);
+  h.temperature_2m = plat(21);
+  h.apparent_temperature = plat(21);
+  h.dew_point_2m = plat(10);
+  h.relative_humidity_2m = plat(48);
+  h.wind_speed_10m = plat(9);
+  h.wind_gusts_10m = plat(16);
+  h.uv_index = plat(4);
+  h.pressure_msl = plat(1018);
+  // Les jours suivants sont calmes eux aussi : aucune alerte journalière.
+  const m = d.daily.time.length;
+  d.daily.temperature_2m_min = Array.from({ length: m }, () => 14);
+  d.daily.temperature_2m_max = Array.from({ length: m }, () => 24);
+  d.daily.precipitation_sum = Array.from({ length: m }, () => 0);
+  d.daily.weather_code = Array.from({ length: m }, () => 0);
+  if (u.includes("current=")) {
+    route.fulfill({ status: 200, contentType: "application/json", body: "[]" }); return;
+  }
+  if (u.includes("models=meteofrance_arome") || u.includes("hourly=")) {
+    route.fulfill({ status: 200, contentType: "application/json",
+      body: JSON.stringify({ hourly: h }) }); return;
+  }
+  delete d.hourly;
+  route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
+});
+await ctxCalme.route(/api-adresse\.data\.gouv\.fr|object\.files\.data\.gouv\.fr/, r => r.abort());
+await ctxCalme.route(/webservice\.meteofrance\.com/, r => r.fulfill({
+  status: 200, contentType: "application/json",
+  body: JSON.stringify({ domain_id: "21", timelaps: [] }) }));
+const pgCalme = await ctxCalme.newPage();
+await pgCalme.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await pgCalme.waitForTimeout(1600);
+ok("sur un temps calme, aucune ligne à savoir",
+  await pgCalme.locator("#ecran .cj-l").count() === 0
+  && await pgCalme.locator("#ecran .al").count() === 0,
+  await pgCalme.locator("#ecran .cj-l").allInnerTexts().then(x => x.join(" | ")));
+ok("sur un temps calme, la section entière disparaît", await pgCalme.evaluate(() =>
+  ![...document.querySelectorAll("#ecran .section h2")].some(x => x.textContent.startsWith("Dans les"))
+  && document.querySelectorAll("#ecran .retenir").length === 0));
+ok("sur un temps calme, le reste de l'accueil tient",
+  await pgCalme.locator("#ecran .bd-mesures").count() === 1
+  && await pgCalme.locator("#ecran .mo").count() === 1);
+await ctxCalme.close();
 
 const ctxLent = await nav.newContext({
   viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
