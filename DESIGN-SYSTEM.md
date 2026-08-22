@@ -76,6 +76,11 @@ Deux familles échappent à l'échelle et le contrôle automatique les exclut : 
 grand chiffre du bandeau, qui est un dessin, et les graduations tracées dans les
 SVG du ruban.
 
+Le grand chiffre est le même sur les trois bandeaux, la température de l'accueil
+comme l'heure du soleil et de la lune : même corps, même graisse, même approche.
+Il tient une graisse légère, non pleine : à cette taille, sur un fond animé, une
+graisse pleine devient un bloc. Un contrôle compare les trois.
+
 ## Couleurs
 
 Toutes les couleurs sont sémantiques. Aucun écran n'écrit une valeur

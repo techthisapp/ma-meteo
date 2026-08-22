@@ -1036,9 +1036,14 @@ button.rangee:active{background:var(--surface-2)}
   display:block;font-style:normal;font-size:var(--texte-note);
   font-weight:var(--graisse-medium);opacity:.88;
 }
+/* Le grand chiffre des trois bandeaux, la température de l'accueil comme
+   l'heure du soleil et de la lune : même corps, même graisse légère, même
+   approche. Deux traitements pour un même rôle donnaient trois écrans qui ne se
+   ressemblaient pas. La graisse reste légère : à cette taille, sur un fond
+   animé, une graisse pleine devient un bloc. */
 .plein-titre > b{
-  display:block;font-size:2.6rem;font-weight:var(--graisse-semibold);
-  letter-spacing:-.025em;line-height:1.02;margin-top:2px;
+  display:block;font-size:3.7rem;font-weight:250;
+  letter-spacing:-.04em;line-height:.95;margin-top:2px;
 }
 /* Le titre de l'accueil porte la température et le temps : les mêmes éléments
    que sur fond de page, posés sur une image. Ils prennent donc le blanc du

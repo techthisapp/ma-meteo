@@ -316,10 +316,30 @@ la lisibilité : un chiffre orange sur un ciel de couchant ne se lit plus.
 La couverture ne se traduit pas par un simple nombre de nuages. Deux familles
 sont dessinées, parce que ce sont deux objets. Les cumulus sont des masses
 isolées qui passent devant le ciel, sur trois plans de parallaxe. La nappe est
-une couche continue vue par en dessous, dont seule la base se voit, ondulée et
-alourdie de lobes. La nappe prend le relais des cumulus au-delà des deux tiers
-de couverture : un ciel couvert n'est pas un ciel qui aurait beaucoup de
-cumulus.
+une couche continue vue par en dessous, dont seule la base se voit. La nappe
+prend le relais des cumulus au-delà des deux tiers de couverture : un ciel
+couvert n'est pas un ciel qui aurait beaucoup de cumulus.
+
+Elle les éteint exactement là où elle se ferme. Sous un plafond continu, la
+masse qui subsistait se lisait comme un ballon suspendu devant lui. Et un plan
+ne porte jamais une seule masse : isolée au milieu du ciel, elle se lit comme un
+objet posé là plutôt que comme un nuage qui passe, un plan en porte donc deux au
+moins, ou aucune.
+
+Le bord de la nappe est une ligne irrégulière et molle, non une frise d'arches.
+Cinq périodes d'amplitude décroissante, qui se referment toutes sur la largeur,
+et vingt-deux lobes larges et plats qui ne bombent pas le bord mais
+l'épaississent. Leur profondeur varie autant que leur largeur : posés tous à la
+même hauteur sous la base, ils alignaient leur crête et rendaient au ciel la
+ligne droite qu'on venait de lui retirer. Le bord bas se dilue enfin, une couche
+n'ayant pas de découpe nette par en dessous.
+
+Le flou du masque se pose sur le masque entier, débord compris, et la découpe
+vient après, sans filtre. Un `drawImage` filtré découpe sa source avant de la
+flouter : le débord ne servait à rien, le bord de la couche était flouté contre
+du vide, et son raccord sautait de six points à chaque répétition, une couture
+verticale en plein ciel. Un contrôle mesure la position du bord colonne par
+colonne, au sous-pixel, et refuse toute cassure.
 
 Sous une couche fermée, l'astre n'est plus dessiné du tout. Le laisser pâle
 suspendrait un disque au travers du plafond. Il ne reste que la lueur diffuse
@@ -652,7 +672,7 @@ src/
   postes.js         fichier départemental et geojson des postes, non branché
   reserve.js        les deux vues débranchées
 essais/
-  controle.mjs      deux cent quatre-vingt-seize contrôles en navigateur
+  controle.mjs      deux cent quatre-vingt-dix-neuf contrôles en navigateur
   vue-ecran.mjs     captures d'un écran, thème clair et sombre
   meteo.json        données figées au 18 août 2026, 9 h
 ```
@@ -677,7 +697,7 @@ la destination et l'instant à figer.
 Le lanceur sert le dossier, fige l'horloge au 18 août 2026 à 9 h, détourne les
 trois appels Open-Meteo vers `meteo.json`, sert une vigilance orange de
 convention, et coupe les sources data.gouv pour éprouver le repli. Deux cent
-quatre-vingt-seize contrôles, dont l'absence de répétition entre
+quatre-vingt-dix-neuf contrôles, dont l'absence de répétition entre
 les alertes et les conseils, les sept voies du ruban, l'agrandissement d'une
 voie, les treize colonnes de la liste, les vingt-quatre lignes de la fenêtre, la
 nature du renvoi de vigilance, et dix-sept contrôles de conformité au design
@@ -753,7 +773,9 @@ un ciel clair sans couche ni précipitation, des éclaircies à cumulus sans
 couche, un ciel couvert à couche fermée, une averse gardant ses cumulus sous une
 couche partielle, la nature de la précipitation, l'orage marqué, le brouillard
 distingué d'une averse, la couverture déduite du code quand la source ne la
-porte pas, et le fait que l'astre disparaît sous une couche fermée.
+porte pas, le fait que l'astre disparaît sous une couche fermée, et qu'il n'y reste aucune
+masse isolée. Un contexte entièrement couvert mesure la position du bord de la
+couche colonne par colonne et refuse toute cassure au raccord.
 
 Deux familles de contrôles gardent la mise en page. La première mesure, sur les
 cinq écrans, qu'aucun bloc ne sort de la fenêtre. La seconde rejoue les cinq

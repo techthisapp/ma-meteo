@@ -315,6 +315,12 @@ ok("des éclaircies portent des cumulus, sans couche",
   cr.cas.eclaircies.nappe === 0 && cr.cas.eclaircies.cumulus > 0.3);
 ok("un ciel couvert porte une couche fermée",
   cr.cas.couvert.nappe > 0.9 && cr.cas.couvert.cumulus < 0.3);
+/* Sous une couche fermée, plus aucune masse isolée : celle qui restait se
+   lisait comme un ballon suspendu devant le plafond. Sous une couche partielle,
+   elles subsistent, c'est le ciel d'averse. */
+ok("sous une couche fermée il ne reste aucune masse isolée",
+  cr.cas.couvert.cumulus === 0 && cr.cas.averse.cumulus > 0.4,
+  `${cr.cas.couvert.cumulus} | ${cr.cas.averse.cumulus}`);
 ok("une averse garde ses cumulus sous une couche partielle",
   cr.cas.averse.cumulus > 0.4 && cr.cas.averse.nappe > 0.1 && cr.cas.averse.nappe < 0.7);
 ok("la pluie, l'averse, l'orage et la neige portent une lame",
@@ -813,6 +819,31 @@ ok("aucun grand titre ne double celui du ciel",
   await pg.locator("#ecran .titre-ecran").count() === 0);
 ok("le ciel porte le prochain évènement et son heure",
   /\d\d:\d\d/.test(await txt(".plein-titre b")), await txt(".plein-titre b"));
+
+/* Le grand chiffre est le même sur les trois bandeaux : la température de
+   l'accueil, l'heure du soleil, l'heure de la lune. Deux traitements pour un
+   même rôle donnaient trois écrans qui ne se ressemblaient pas. */
+const grandChiffre = await pg.evaluate(() => {
+  const faire = html => {
+    const d = document.createElement("div");
+    d.style.position = "absolute"; d.style.visibility = "hidden";
+    d.innerHTML = html;
+    document.body.append(d);
+    return d;
+  };
+  const a = faire('<div class="plein-titre"><b>0</b></div>');
+  const b = faire('<div class="plein-titre"><div class="pt-temps">'
+    + '<span class="bd-deg">0</span></div></div>');
+  const lire = e => {
+    const s = getComputedStyle(e);
+    return [s.fontSize, s.fontWeight, s.letterSpacing].join("/");
+  };
+  const r = [lire(a.querySelector("b")), lire(b.querySelector(".bd-deg"))];
+  a.remove(); b.remove();
+  return r;
+});
+ok("le grand chiffre du ciel est le même sur les trois bandeaux",
+  grandChiffre[0] === grandChiffre[1], grandChiffre.join("  contre  "));
 ok("la barre de tête se déshabille sur le ciel",
   await pg.locator("#nav.sur-ciel").count() === 1);
 ok("la barre de tête reprend son verre au défilement", await pg.evaluate(async () => {
@@ -1750,6 +1781,78 @@ ok("la semaine s'ouvre bien sur ses sept journées après une charge périmée",
   await pgVieux.locator(".sem-chev").count() === 7,
   String(await pgVieux.locator(".sem-chev").count()));
 await ctxVieux.close();
+
+/* Un ciel entièrement couvert. La couche se répète sur la largeur : son motif
+   fait sept cent vingt points pour un panneau de trois cent quatre-vingt-dix, et
+   le raccord tombe donc en plein écran. Flouter le masque en le découpant
+   revenait à flouter son bord contre du vide, et laissait une couture verticale
+   d'un bout à l'autre du ciel. */
+const ctxCouvert = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 1,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+  // Mouvement réduit : le ciel se peint une fois, à un instant fixe. Sans cela
+  // le raccord tombe ailleurs à chaque exécution et la mesure varie.
+  reducedMotion: "reduce",
+});
+await ctxCouvert.addInitScript(amorce(FAIN));
+await ctxCouvert.route(/api\.open-meteo\.com/, route => {
+  const u = route.request().url();
+  const d = JSON.parse(JSON.stringify(METEO));
+  const n = d.hourly.time.length;
+  d.hourly.cloud_cover = Array.from({ length: n }, () => 100);
+  d.hourly.weather_code = Array.from({ length: n }, () => 3);
+  d.hourly.precipitation = Array.from({ length: n }, () => 0);
+  if (u.includes("current=")) {
+    route.fulfill({ status: 200, contentType: "application/json", body: "[]" }); return;
+  }
+  if (u.includes("hourly=")) {
+    route.fulfill({ status: 200, contentType: "application/json",
+      body: JSON.stringify({ hourly: d.hourly }) }); return;
+  }
+  delete d.hourly;
+  route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
+});
+await ctxCouvert.route(/api-adresse\.data\.gouv\.fr|object\.files\.data\.gouv\.fr|webservice\.meteofrance\.com/,
+  r => r.abort());
+const pgCouvert = await ctxCouvert.newPage();
+await pgCouvert.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await pgCouvert.waitForTimeout(1600);
+/* Le bord bas de la couche, colonne par colonne. Un raccord se voit là et
+   nulle part ailleurs : la teinte moyenne d'une colonne le noie, la position du
+   bord le montre. */
+const couture = await pgCouvert.evaluate(() => {
+  const cv = document.getElementById("ciTemps");
+  if (!cv) return { erreur: "aucune toile" };
+  const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+  const L = cv.width;
+  const col = [];
+  /* Le bord se mesure au sous-pixel : à l'unité près, la seule quantification
+     donne déjà un point d'écart d'une colonne à l'autre et noie ce qu'on
+     cherche. */
+  for (let x = 0; x < L; x++) {
+    let bord = -1;
+    for (let y = 1; y < cv.height; y++) {
+      const a0 = d[((y - 1) * L + x) * 4 + 3], a1 = d[(y * L + x) * 4 + 3];
+      if (a0 >= 200 && a1 < 200) { bord = y - 1 + (a0 - 200) / Math.max(1, a0 - a1); break; }
+    }
+    col.push(bord);
+  }
+  if (col.some(v => v <= 0)) return { erreur: "aucun bord trouvé" };
+  if (new Set(col.map(v => Math.round(v))).size < 4) return { erreur: "bord plat" };
+  /* L'écart au milieu de ses voisins, non le pas d'une colonne à l'autre. Une
+     pente régulière, si raide soit-elle, y vaut zéro ; une cassure y vaut la
+     moitié de son saut. C'est une cassure qu'on cherche, non une pente. */
+  const saut = [];
+  for (let x = 4; x < L - 4; x++) {
+    saut.push([x, Math.abs(col[x] - (col[x - 4] + col[x + 4]) / 2)]);
+  }
+  saut.sort((a, b) => b[1] - a[1]);
+  return { max: saut[0][1], pires: saut.slice(0, 6).map(([x, v]) => `${x}:${v.toFixed(2)}`).join(" ") };
+});
+ok("la couche se répète sans couture verticale",
+  !couture.erreur && couture.max < 5,
+  couture.erreur || `saut maximal ${couture.max?.toFixed(2)} points | ${couture.pires}`);
+await ctxCouvert.close();
 
 const ctxLent = await nav.newContext({
   viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,

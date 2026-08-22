@@ -52,8 +52,11 @@ export function depuis(code, nua, mm) {
   const orage = ORAGE.includes(code);
   const mouille = orage || neige || AVERSE.includes(code) || (code >= 51 && code <= 67);
 
+  /* Sous une couche fermée il ne reste aucune masse isolée : le plafond est
+     continu, et ce qui subsistait se lisait comme un ballon suspendu devant
+     lui. Les cumulus s'éteignent donc exactement là où la nappe se ferme. */
   const nappe = borne((n - 0.62) / 0.30, 0, 1);
-  const cumulus = Math.min(1, n * 1.15) * (1 - 0.78 * nappe);
+  const cumulus = Math.min(1, n * 1.15) * (1 - nappe);
   /* Le code annonce la pluie pour l'heure en cours, la lame peut y valoir zéro :
      un ciel de pluie sans une goutte se lirait comme un défaut. */
   const lame = mouille ? borne((mm ?? 0) * 1.6, 1.2, 10) : 0;
@@ -197,20 +200,30 @@ function masse(L, H, tracer, modeler, flou, haut, bas, y0, y1, deborde) {
   q.fillStyle = "#FFFFFF";
   tracer(q);
 
+  /* Le flou se pose sur le masque entier, débord compris, et la découpe vient
+     après, sans filtre. Un `drawImage` filtré découpe sa source avant de la
+     flouter : le débord ne servait alors à rien, le bord de la couche était
+     flouté contre du vide, et son raccord sautait de six points à chaque
+     répétition, une couture verticale en plein ciel. */
+  const fl = document.createElement("canvas");
+  fl.width = mq.width; fl.height = H;
+  const fx = fl.getContext("2d");
+  const ok = flouPossible(fx);
+  if (ok) fx.filter = `blur(${flou}px)`;
+  fx.drawImage(mq, 0, 0);
+  if (ok) {
+    fx.filter = `blur(${(flou * 0.45).toFixed(2)}px)`;
+    fx.globalCompositeOperation = "lighter";
+    fx.globalAlpha = 0.9;
+    fx.drawImage(mq, 0, 0);
+    fx.filter = "none";
+    fx.globalAlpha = 1;
+  }
+
   const cv = document.createElement("canvas");
   cv.width = L; cv.height = H;
   const x = cv.getContext("2d");
-  const ok = flouPossible(x);
-  if (ok) x.filter = `blur(${flou}px)`;
-  x.drawImage(mq, D, 0, L, H, 0, 0, L, H);
-  if (ok) {
-    x.filter = `blur(${(flou * 0.45).toFixed(2)}px)`;
-    x.globalCompositeOperation = "lighter";
-    x.globalAlpha = 0.9;
-    x.drawImage(mq, D, 0, L, H, 0, 0, L, H);
-    x.filter = "none";
-    x.globalAlpha = 1;
-  }
+  x.drawImage(fl, D, 0, L, H, 0, 0, L, H);
 
   x.globalCompositeOperation = "source-in";
   const g = x.createLinearGradient(0, y0, 0, y1);
@@ -339,49 +352,107 @@ function motifs(cle, c) {
      trois périodes se referment sur la largeur, la couche défile donc sans
      couture. Le masque déborde de part et d'autre pour que le flou ne laisse pas
      une couture claire au raccord. */
-  const NL = 720, NH = 300, ND = 56;
-  const base = u => NH * 0.74
-    + Math.sin(u * Math.PI * 2) * NH * 0.060
-    + Math.sin(u * Math.PI * 6 + 1.1) * NH * 0.034
-    + Math.sin(u * Math.PI * 14 + 2.7) * NH * 0.014;
+  const NL = 720, NH = 300, ND = 72;
+  /* Cinq périodes d'amplitude décroissante, qui se referment toutes sur la
+     largeur. Une couche vue par en dessous n'a pas d'arches : son bord est une
+     ligne irrégulière et molle. Dix lobes ronds posés dessus en faisaient une
+     frise de cercles, que l'œil comptait un à un. */
+  const base = u => NH * 0.72
+    + Math.sin(u * Math.PI * 2 + 0.4) * NH * 0.050
+    + Math.sin(u * Math.PI * 6 + 1.1) * NH * 0.030
+    + Math.sin(u * Math.PI * 10 + 2.2) * NH * 0.020
+    + Math.sin(u * Math.PI * 18 + 0.7) * NH * 0.012
+    + Math.sin(u * Math.PI * 30 + 3.4) * NH * 0.006;
+
+  /* Les lobes ne bombent plus le bord, ils l'épaississent. Larges, plats,
+     nombreux et chevauchants, ils se fondent en une lisière irrégulière.
+
+     Leur hauteur varie autant que leur largeur : posés tous à la même profondeur
+     sous la base, vingt-deux lobes alignaient leur crête et rendaient au ciel la
+     ligne droite qu'on venait de lui retirer. */
   const lobes = [];
-  for (let b = 0; b < 10; b++) {
-    lobes.push([(b + 0.5) / 10 + (alea() - 0.5) * 0.03, NH * (0.07 + alea() * 0.09)]);
+  for (let b = 0; b < 22; b++) {
+    const u = (b + 0.5) / 22 + (alea() - 0.5) * 0.045;
+    const rx = NH * (0.09 + alea() * 0.12);
+    const ry = rx * (0.24 + alea() * 0.16);
+    lobes.push([u, rx, ry, (alea() - 0.35) * rx * 0.45]);
   }
+
+  /* Quelques taches larges et molles dans le corps de la couche. Un plafond
+     n'est pas une teinte plate : il est marbré, sans arêtes. */
+  const taches = [];
+  for (let b = 0; b < 6; b++) {
+    taches.push([alea(), NH * (0.16 + alea() * 0.24), NH * (0.20 + alea() * 0.30)]);
+  }
+
   const nappe = masse(NL, NH, q => {
     q.beginPath();
     q.moveTo(-ND - 4, -60); q.lineTo(NL + ND + 4, -60);
     for (let i = NL + ND + 4; i >= -ND - 4; i -= 4) q.lineTo(i, base(((i / NL) % 1 + 1) % 1));
     q.closePath(); q.fill();
-    for (const [u, r] of lobes) {
+    for (const [u, rx, ry, dy] of lobes) {
       for (const t of [-1, 0, 1]) {
         const bx = (u + t) * NL;
-        if (bx < -ND - r || bx > NL + ND + r) continue;
-        q.beginPath(); q.ellipse(bx, base(u) - r * 0.34, r, r, 0, 0, Math.PI * 2); q.fill();
+        if (bx < -ND - rx || bx > NL + ND + rx) continue;
+        q.beginPath();
+        q.ellipse(bx, base(u) - ry * 0.55 + dy, rx, ry, 0, 0, Math.PI * 2);
+        q.fill();
       }
     }
   }, x => {
     /* Les lobes se creusent par dessous : c'est ce qui donne son épaisseur à la
-       couche, qui autrement se lirait comme un simple bandeau. */
-    for (const [u, r] of lobes) {
+       couche, qui autrement se lirait comme un simple bandeau. Le modelé suit
+       leur forme aplatie, et reste léger : ils sont deux fois plus nombreux
+       qu'avant et se superposent. */
+    const ombre = (cx, cy, rx, ry, a0, a1) => {
+      x.save();
+      x.translate(cx, cy);
+      x.scale(1, Math.max(0.14, ry / rx));
+      const g = x.createRadialGradient(0, 0, 0, 0, 0, rx * 1.15);
+      g.addColorStop(0, rgba(c.sombre, a0));
+      g.addColorStop(0.55, rgba(c.sombre, a1));
+      g.addColorStop(1, rgba(c.sombre, 0));
+      x.fillStyle = g;
+      x.fillRect(-rx * 1.2, -rx * 1.2, rx * 2.4, rx * 2.4);
+      x.restore();
+    };
+
+    for (const [u, rx, ry, dy] of lobes) {
       for (const t of [-1, 0, 1]) {
-        const bx = (u + t) * NL, by = base(u) - r * 0.34;
-        if (bx < -r * 2 || bx > NL + r * 2) continue;
-        const g = x.createRadialGradient(bx, by + r * 0.40, 0, bx, by + r * 0.40, r * 1.10);
-        g.addColorStop(0, rgba(c.sombre, 0.40));
-        g.addColorStop(0.52, rgba(c.sombre, 0.20));
-        g.addColorStop(1, rgba(c.sombre, 0));
-        x.fillStyle = g;
-        x.fillRect(bx - r * 1.2, by - r * 0.8, r * 2.4, r * 2.4);
+        const bx = (u + t) * NL, by = base(u) - ry * 0.55 + dy;
+        if (bx < -rx * 2 || bx > NL + rx * 2) continue;
+        ombre(bx, by + ry * 0.5, rx, ry, 0.26, 0.13);
       }
     }
+
+    // Le marbré du plafond, très large et très faible.
+    for (const [u, rx, ry] of taches) {
+      for (const t of [-1, 0, 1]) {
+        const bx = (u + t) * NL;
+        if (bx < -rx * 2 || bx > NL + rx * 2) continue;
+        ombre(bx, NH * (0.30 + u * 0.28), rx, ry, 0.10, 0.05);
+      }
+    }
+
     // Le ventre de la couche s'assombrit vers son bord.
     const g = x.createLinearGradient(0, NH * 0.40, 0, NH * 0.90);
     g.addColorStop(0, rgba(c.sombre, 0));
     g.addColorStop(1, rgba(c.sombre, 0.30));
     x.fillStyle = g;
     x.fillRect(0, NH * 0.40, NL, NH * 0.50);
-  }, 5, melangeRVB(c.clair, c.sombre, 0.86), melangeRVB(c.clair, c.sombre, 0.28),
+
+    /* Le bord bas se dilue. Une couche n'a pas de découpe nette par en dessous,
+       et de nuit, où elle est plus claire que le ciel, une découpe nette
+       dessinait tout le contour au trait. */
+    x.save();
+    x.globalCompositeOperation = "destination-out";
+    const f = x.createLinearGradient(0, NH * 0.60, 0, NH * 0.93);
+    f.addColorStop(0, "rgba(0,0,0,0)");
+    f.addColorStop(1, "rgba(0,0,0,0.45)");
+    x.fillStyle = f;
+    x.fillRect(0, NH * 0.60, NL, NH * 0.33);
+    x.restore();
+  }, 9, melangeRVB(c.clair, c.sombre, 0.86), melangeRVB(c.clair, c.sombre, 0.28),
     0, NH * 0.78, ND);
 
   const out = { cumulus, nappe };
@@ -437,7 +508,11 @@ export function dessiner(cv, t) {
 
   const posePlan = p => {
     const plan = PLANS[p];
-    const combien = Math.round(plan.n * d.cumulus);
+    /* Jamais une seule masse sur un plan : isolée au milieu du ciel, elle se
+       lit comme un objet posé là plutôt que comme un nuage qui passe. Un plan
+       porte donc deux masses au moins, ou aucune. */
+    const brut = plan.n * d.cumulus;
+    const combien = brut < 0.6 ? 0 : Math.max(2, Math.round(brut));
     if (!combien) return;
     const large = L * 0.9 * plan.ech;
     const pas = (L + large * 1.3) / combien;
