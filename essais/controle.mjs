@@ -84,6 +84,34 @@ const brancherRoutes = async c => {
   });
   // Les deux sources data.gouv sont coupées : on éprouve le repli.
   await c.route(/object\.files\.data\.gouv\.fr|www\.data\.gouv\.fr/, r => r.abort());
+  /* La vigilance : orange sur les orages jusqu'à 20 h, jaune sur le vent de 14 h
+     à 18 h, vert ailleurs. Le département 99 sert le tout vert, pour éprouver
+     l'absence de panneau. */
+  await c.route(/webservice\.meteofrance\.com/, r => {
+    const dep = new URL(r.request().url()).searchParams.get("domain");
+    /* Les heures se posent en heure de Paris, celle du navigateur d'essai : les
+       construire dans le fuseau du conteneur les décalerait de deux heures. */
+    const h = n => Math.floor(
+      Date.parse(`2026-08-18T${String(n).padStart(2, "0")}:00:00+02:00`) / 1000);
+    const vert = id => ({ phenomenon_id: String(id),
+      timelaps_items: [{ begin_time: h(0), end_time: h(23), color_id: 1 }] });
+    const corps = dep === "99"
+      ? { domain_id: dep, update_time: h(6), end_validity_time: h(23),
+          timelaps: [1, 2, 3, 4, 5, 6].map(vert) }
+      : { domain_id: dep, update_time: h(6), end_validity_time: h(23),
+          timelaps: [
+            { phenomenon_id: "3", timelaps_items: [
+              { begin_time: h(6), end_time: h(20), color_id: 3 },
+              { begin_time: h(20), end_time: h(23), color_id: 1 }] },
+            { phenomenon_id: "1", timelaps_items: [
+              { begin_time: h(0), end_time: h(14), color_id: 1 },
+              { begin_time: h(14), end_time: h(16), color_id: 2 },
+              { begin_time: h(16), end_time: h(18), color_id: 2 },
+              { begin_time: h(18), end_time: h(23), color_id: 1 }] },
+            vert(2), vert(5), vert(6),
+          ] };
+    r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(corps) });
+  });
   await c.route(/api-adresse\.data\.gouv\.fr/, r => {
     const q = new URL(r.request().url()).searchParams.get("q") || "";
     const vide = { features: [] };
@@ -163,8 +191,8 @@ const motsCommuns = ["rafales", "gel probable", "indice uv", "mm attendus"]
 ok("les alertes ne répètent pas les conseils", motsCommuns.length === 0, motsCommuns.join(", "));
 ok("le ressenti n'est écrit qu'une fois sur l'accueil",
   ((await txt("#ecran")).toLowerCase().match(/ressenti/g) || []).length === 1);
-ok("la rangée de vigilance renvoie vers Météo-France",
-  (await txt('[data-feuille="vigilance"]')).includes("Météo-France"));
+ok("la vigilance ouvre son détail depuis l'accueil",
+  await pg.locator('#ecran .vg-c[data-feuille="vigilance"]').count() === 1);
 ok("l'accueil ne porte plus de tuiles", await pg.locator(".tu").count() === 0);
 ok("une valeur ne prend une couleur qu'au delà de son seuil", await pg.evaluate(() => {
   const v = [...document.querySelectorAll(".bd-m")].map(e => ({
@@ -290,12 +318,12 @@ const moTitres = await pg.locator("#ecran .mo-t span").allInnerTexts();
 ok("l'accueil porte les moments", moTitres.length >= 3, moTitres.join(" | "));
 ok("les moments ferment le contenu de l'accueil", await pg.evaluate(() => {
   const mo = document.querySelector("#ecran .mo");
-  const vg = document.querySelector('#ecran [data-feuille="vigilance"]');
   const re = document.querySelector("#ecran .retenir");
-  if (!mo || !vg || !re) return false;
+  const pied = document.querySelector("#ecran .pied");
+  if (!mo || !re || !pied) return false;
   const apresRetenir = re.compareDocumentPosition(mo) & Node.DOCUMENT_POSITION_FOLLOWING;
-  const avantVigilance = mo.compareDocumentPosition(vg) & Node.DOCUMENT_POSITION_FOLLOWING;
-  return Boolean(apresRetenir) && Boolean(avantVigilance);
+  const avantPied = mo.compareDocumentPosition(pied) & Node.DOCUMENT_POSITION_FOLLOWING;
+  return Boolean(apresRetenir) && Boolean(avantPied);
 }));
 
 /* Le nom se dit comme on le dirait à l'oral. La nuit qui vient porte la date du
@@ -615,18 +643,54 @@ ok("la légende nomme les deux courbes",
   (await txt(".tr-leg")).includes("Lune") && (await txt(".tr-leg")).includes("Soleil"));
 ok("aucune requête réseau pour la Lune", requetes.length === 0, requetes.slice(0, 2).join(" "));
 
-console.log("\n--- Vigilance, renvoi vers Météo-France ---");
+console.log("\n--- Vigilance ---");
 await onglet("accueil");
-await pg.locator('[data-feuille="vigilance"]').click(); await pg.waitForTimeout(500);
-ok("la vigilance s'ouvre en feuille", (await txt("#feuille-titre")).startsWith("Vigilance"));
+await pg.waitForTimeout(500);
+
+/* Le panneau ne paraît que s'il y a quelque chose à signaler, et il paraît alors
+   en premier : une vigilance orange ne se lit pas après la température. */
+ok("le panneau de vigilance paraît", await pg.locator("#ecran .vg").count() === 1);
+ok("il vient avant tout le reste du corps", await pg.evaluate(() => {
+  const c = document.querySelector("#ecran .ecran-corps");
+  return c && c.firstElementChild && c.firstElementChild.classList.contains("vg");
+}));
+ok("il écrit le niveau en toutes lettres, non par la seule couleur",
+  /Vigilance orange/i.test(await txt("#ecran .vg h2")), await txt("#ecran .vg h2"));
+ok("il porte la conduite à tenir",
+  /vigilant/i.test(await txt("#ecran .vg-txt")), await txt("#ecran .vg-txt"));
+/* Le numéro de département ne se lit pas : « Côte-d'Or » dit ce que « 21 » cache. */
+ok("il nomme le département plutôt que de le numéroter",
+  /Côte-d'Or/.test(await txt("#ecran .vg-txt"))
+  && !/Département 21/.test(await txt("#ecran .vg-txt")), await txt("#ecran .vg-txt"));
+
+/* Chaque phénomène signalé se décrit : son nom, son niveau écrit, sa fenêtre.
+   Le vert n'est pas une vigilance et ne doit pas remonter. */
+const vgA = await pg.locator("#ecran .vg-a").allInnerTexts();
+ok("les deux phénomènes signalés sont décrits", vgA.length === 2, vgA.join(" | "));
+ok("le plus grave passe devant", /Orages/.test(vgA[0] || ""), vgA.join(" | "));
+ok("chaque ligne écrit son niveau et sa fenêtre",
+  vgA.every(t => /(jaune|orange|rouge)/.test(t) && /\d+ h/.test(t)), vgA.join(" | "));
+ok("les phénomènes au vert ne remontent pas",
+  !vgA.some(t => /(Pluie|Neige|Canicule)/.test(t)), vgA.join(" | "));
+/* Deux plages contiguës de même couleur ne font qu'une : la source les découpe
+   sur ses propres bornes, qui ne sont pas celles du phénomène. */
+ok("les plages contiguës de même couleur sont fondues",
+  /de 14 h à 18 h/.test(vgA.find(t => /Vent/.test(t)) || ""), vgA.join(" | "));
+
+await pg.locator("#ecran .vg-c").click(); await pg.waitForTimeout(500);
+ok("le panneau ouvre le détail", (await txt("#feuille-titre")).startsWith("Vigilance"));
 const lien = pg.locator("#feuille-corps a.lien-plein");
 ok("un lien plein est proposé", await lien.count() === 1);
 const href = await lien.getAttribute("href");
-ok("il pointe vers Météo-France", /^https:\/\/vigilance\.meteofrance\.fr\//.test(href || ""), href);
+ok("il pointe vers la page du département sur Météo-France",
+  href === "https://vigilance.meteofrance.fr/fr/cote-d-or", href);
 ok("il s'ouvre hors de l'application", await lien.getAttribute("target") === "_blank"
   && /noopener/.test(await lien.getAttribute("rel") || ""));
-ok("le renvoi est motivé", /archive|retard|5 août/i.test(await txt("#feuille-corps")));
-ok("aucun bulletin archivé n'est affiché", await pg.locator(".vg-l").count() === 0);
+ok("le détail reprend les phénomènes", await pg.locator("#feuille-corps .vg-r").count() === 2);
+ok("le détail nomme sa source",
+  /Météo-France/.test(await txt("#feuille-corps")));
+ok("le détail nomme le département",
+  /Côte-d'Or/.test(await txt("#feuille-titre")), await txt("#feuille-titre"));
 
 ok("la feuille courte prend l'accroche intermédiaire",
   await pg.locator("#feuille.moyenne").count() === 1);
@@ -1013,6 +1077,65 @@ ok("sans autorisation, la prévision garde ses coordonnées", await pgRefus.eval
   return Math.abs(g.lat - 47.5) < 0.001;
 }));
 await ctxRefus.close();
+
+/* Le relevé peut avoir abouti alors que l'interface adresse était muette : la
+   prévision est juste, mais la barre de tête ne nomme pas la commune servie. Le
+   nom doit se rattraper seul, sans redemander la position à l'appareil, et sans
+   remettre à zéro l'horodatage du relevé. */
+const ctxAnonyme = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+const T_RELEVE = FIGE - 60 * 1000;
+await ctxAnonyme.addInitScript(amorce({
+  commune: null, codePostal: null, lat: 45.1885, lon: 5.7245,
+  ecriture: "ruban", poste: null, suivies: [],
+  auto: true,
+  position: { commune: null, codePostal: null, lat: 45.1885, lon: 5.7245, t: T_RELEVE },
+}));
+await brancherRoutes(ctxAnonyme);
+const pgAnonyme = await ctxAnonyme.newPage();
+const erreursAnonyme = [];
+pgAnonyme.on("pageerror", e => erreursAnonyme.push(String(e)));
+await pgAnonyme.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await pgAnonyme.waitForTimeout(1800);
+ok("une position sans nom se nomme seule",
+  (await pgAnonyme.locator("#navLieuNom").innerText()) === "Grenoble",
+  await pgAnonyme.locator("#navLieuNom").innerText());
+ok("la barre de tête garde sa cible en mode position",
+  await pgAnonyme.locator("#navPos:visible").count() === 1);
+ok("nommer n'est pas relever : l'horodatage ne bouge pas", await pgAnonyme.evaluate(t => {
+  const g = JSON.parse(localStorage.getItem("mameteo.reglages.v1"));
+  return g.position.t === t;
+}, T_RELEVE));
+ok("le code postal relevé ouvre la vigilance du bon département", await pgAnonyme.evaluate(() =>
+  JSON.parse(localStorage.getItem("mameteo.reglages.v1")).codePostal === "38000"));
+ok("nommer la position n'a soulevé aucune erreur",
+  erreursAnonyme.length === 0, erreursAnonyme.join(" | "));
+await ctxAnonyme.close();
+
+/* Sans vigilance en vigueur, rien du tout : pas de panneau, pas même une rangée
+   d'accès. Un bandeau permanent qui dit « rien à signaler » finit par ne plus se
+   lire, et le jour où il dit autre chose, personne ne le voit. */
+const ctxVert = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+await ctxVert.addInitScript(amorce({
+  commune: "Nulle-Part", codePostal: "99000", lat: 47.5, lon: 4.3,
+  ecriture: "ruban", poste: null, suivies: [],
+}));
+await brancherRoutes(ctxVert);
+const pgVert = await ctxVert.newPage();
+await pgVert.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await pgVert.waitForTimeout(1600);
+ok("sans vigilance, aucun panneau", await pgVert.locator("#ecran .vg").count() === 0);
+ok("sans vigilance, aucune rangée d'accès",
+  await pgVert.locator('#ecran [data-feuille="vigilance"]').count() === 0);
+ok("sans vigilance, le reste de l'accueil tient",
+  await pgVert.locator("#ecran .bd-mesures").count() === 1
+  && await pgVert.locator("#ecran .mo").count() === 1);
+await ctxVert.close();
 
 const ctxLent = await nav.newContext({
   viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,

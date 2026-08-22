@@ -9,12 +9,12 @@ service dorsal, sans base de données, sans compte. Métropole française.
 
 | Écran | Ce qu'il porte |
 |---|---|
-| Accueil | Bandeau du ciel plein cadre portant le temps qu'il fait, le jour, la température, le ciel et les bornes du jour, puis quatre mesures, une carte « À retenir » réunissant les vingt-quatre heures et ce qui vient au-delà, les prochaines heures par tranches de six heures, enfin l'accès à la vigilance |
+| Accueil | Le panneau de vigilance s'il y en a une, puis le bandeau du ciel plein cadre portant le temps qu'il fait, le jour, la température, le ciel et les bornes du jour, quatre mesures, une carte « À retenir » réunissant les vingt-quatre heures et ce qui vient au-delà, et les prochaines heures par tranches de six heures |
 | Le temps | Vingt-quatre heures glissantes en deux écritures : ruban à sept voies, table à treize colonnes |
 | La semaine | Sept jours : symbole de ciel et lame sous lui, borne basse à gauche, plage de température sur une échelle commune, borne haute à droite, point du moment sur la journée en cours |
 | Le soleil | Bandeau du ciel plein cadre avec le Soleil à sa vraie place, trajectoire du jour, course du jour dans l'ordre, hauteur maximale, durée, écart à la veille, crépuscules |
 | La lune | Bandeau du ciel plein cadre avec la Lune en relief à sa vraie place, trajectoire du jour croisée avec celle du Soleil, course du jour, part éclairée, âge, lunaison, quatre prochaines phases |
-| Vigilance | Renvoi vers Météo-France, avec le motif du renvoi, en feuille |
+| Vigilance | Bulletin en vigueur, phénomènes signalés avec leur niveau et leur fenêtre, renvoi vers Météo-France, en feuille |
 | Réglages | Écriture retenue pour l'écran du temps, sources, coordonnées, en feuille |
 
 Les cinq premiers écrans sont des destinations de la barre d'onglets. Communes,
@@ -63,6 +63,51 @@ La couleur ne porte jamais seule l'information : le chiffre ou le libellé la
 double toujours.
 
 ## De l'accueil au détail
+
+## Vigilance
+
+Le panneau ne paraît que s'il y a quelque chose à signaler, et il paraît alors
+en tête de l'accueil : une vigilance orange ne se lit pas après la température.
+Sans vigilance, rien du tout, pas même une rangée d'accès. Un bandeau permanent
+qui dit « rien à signaler » finit par ne plus se lire, et le jour où il dit
+autre chose, personne ne le voit.
+
+Le panneau donne le niveau maximal en toutes lettres, la conduite à tenir, le
+département nommé, la validité du bulletin, puis chaque phénomène signalé avec
+son niveau et sa fenêtre. Le plus grave passe devant, et à gravité égale le plus
+proche. L'appui ouvre le détail, qui reprend les phénomènes et renvoie sur la
+page du département de Météo-France. Les conséquences possibles et les conseils
+de comportement restent chez Météo-France, qui fait foi : les recopier ici les
+figerait.
+
+La couleur du niveau ne porte jamais seule l'information : le titre et chaque
+ligne l'écrivent en toutes lettres.
+
+### La source
+
+Trois voies mènent à cette donnée, et une seule convient à une application sans
+compte ni service dorsal. Le portail `public-api.meteofrance.fr` demande une
+clé, donc un compte, donc un secret à loger quelque part. Le jeu ouvert
+« Vigilance météorologique archivée » de data.gouv.fr porte le même contenu sans
+clé, mais c'est une archive et non un flux : au 19 août 2026 son dernier dépôt
+datait du 5 août, et une vigilance de quatorze jours ne dit rien du temps qu'il
+fait. Reste le service qui alimente l'application et le site de Météo-France. Il
+répond sans clé personnelle, en origine croisée ouverte, et c'est celui
+qu'emploient les bibliothèques libres. Le jeton porté par `src/vigilance.js`
+n'est pas un secret : il est le même pour tout le monde, publié avec ces
+bibliothèques, et il n'ouvre que des données publiques.
+
+Si le service se tait, rien ne s'affiche. Une vigilance qu'on ne sait pas lire
+ne se remplace pas par un message d'erreur sur l'écran d'accueil.
+
+Le bulletin est gardé un quart d'heure. La vigilance est révisée deux fois par
+jour en temps ordinaire, davantage quand la situation bouge : relire plus
+souvent n'apprendrait rien et pèserait sur la source.
+
+La page du détail se trouve par le nom du département, non par son numéro. La
+table des cent et une entrées est explicite et chacune a été vérifiée contre le
+site : deux départements n'y prennent pas la forme attendue. Sans entrée, le
+renvoi se fait sur la carte de France, qui vaut toujours.
 
 ## Les prochaines heures
 
@@ -337,6 +382,16 @@ kilomètres : au delà, il désignerait une autre commune.
 Choisir une commune quitte le mode position, les deux ne pouvant pas tenir
 ensemble. Retirer la dernière commune suivie y ramène quand un relevé est connu.
 
+La barre de tête nomme la commune servie, non le mode : c'est la cible devant le
+nom qui dit que la prévision suit l'appareil. Le relevé peut avoir abouti alors
+que l'interface adresse était muette, et la prévision est alors juste sans que
+rien ne dise sur quelle commune. Le nom se rattrape seul, sans redemander la
+position à l'appareil et sans remettre à zéro l'horodatage du relevé : un nom
+n'est pas un nouveau relevé. La recherche par commune ne rendant rien quand le
+point tombe hors d'un territoire communal, au large ou en limite de côte, une
+adresse ordinaire est alors demandée et sa commune sert. Sans ce repli, une
+position en bord de mer restait anonyme, et la vigilance sans département.
+
 ## Sources
 
 | Source | Adresse | Compte |
@@ -345,6 +400,7 @@ ensemble. Retirer la dernière commune suivie y ramène quand un relevé est con
 | Commune, par le nom ou par les coordonnées | `api-adresse.data.gouv.fr` | Aucun |
 | Soleil et Lune | calcul sur l'appareil, `src/astres.js` | Aucune requête |
 | Aperçu des communes suivies | `api.open-meteo.com`, un seul appel pour toute la liste | Aucun |
+| Vigilance en vigueur | `webservice.meteofrance.com`, le service qui alimente le site et l'application de Météo-France | Aucun |
 
 Les deux sources distantes répondent en origine croisée, ce qui a été vérifié
 depuis un navigateur le 19 août 2026.
@@ -354,7 +410,8 @@ depuis un navigateur le 19 août 2026.
 Les jeux archivés de Météo-France sur data.gouv.fr, vigilance
 `69cb8c3efb376113fa42881a` et données climatologiques
 `6569b51ae64326786e4e8e1a`, sont accessibles sans compte et servent bien les
-en-têtes d'origine croisée. Ils ne sont pourtant pas employés.
+en-têtes d'origine croisée. Ils ne sont pourtant pas employés. La vigilance se
+lit désormais sur le service en vigueur, décrit plus haut.
 
 Sondage du 19 août 2026, depuis un navigateur, sur le seau
 `object.files.data.gouv.fr/meteofrance` :
@@ -392,6 +449,7 @@ src/
   conseils.js       les six règles et leurs seuils
   ruban.js          météogramme à sept voies
   ecritures.js      table des heures, moments par tranches de six heures
+  vigilance.js      bulletin en vigueur, phénomènes, niveaux, page du département
   astres.js         positions du Soleil et de la Lune, phases, levers et couchers
   feu.js            la boule de feu du bandeau, peinte sur une toile
   temps.js          le temps qu'il fait, nuages, pluie, neige, brouillard, éclair
@@ -421,11 +479,12 @@ Le chemin du navigateur peut être imposé par la variable `CHROMIUM` lorsque la
 révision installée par Playwright ne correspond pas à celle du poste.
 
 Le lanceur sert le dossier, fige l'horloge au 18 août 2026 à 9 h, détourne les
-trois appels Open-Meteo vers `meteo.json` et coupe les sources data.gouv pour
-éprouver le repli. Cent soixante-dix-sept contrôles, dont l'absence de répétition entre
+trois appels Open-Meteo vers `meteo.json`, sert une vigilance orange de
+convention, et coupe les sources data.gouv pour éprouver le repli. Deux cent
+trente contrôles, dont l'absence de répétition entre
 les alertes et les conseils, les sept voies du ruban, l'agrandissement d'une
 voie, les treize colonnes de la liste, les vingt-quatre lignes de la fenêtre, la
-nature du renvoi de vigilance, et seize contrôles de conformité au design
+nature du renvoi de vigilance, et dix-sept contrôles de conformité au design
 system : cibles de 44 pt, fond issu du token, absence de rayon en valeur brute,
 verre réservé à la navigation, tailles de texte issues de l'échelle, transitions
 neutralisées sous mouvement réduit, accroches de feuille, erreur sous le champ,
@@ -435,14 +494,25 @@ y compris l'absence de toute requête réseau pour la Lune. La bascule de commun
 est éprouvée de bout en bout : ouverture par le titre, ajout par la recherche,
 bascule par appui, retrait par le clavier.
 
-Ma position est éprouvée sur trois contextes. Le premier prend le relevé au
+La vigilance est éprouvée sur deux contextes. Le premier sert un bulletin orange
+sur les orages, jaune sur le vent en deux plages contiguës, et vert ailleurs : le
+panneau doit paraître en tête du corps, écrire son niveau en toutes lettres,
+nommer le département plutôt que le numéroter, décrire les deux seuls phénomènes
+signalés en mettant le plus grave devant, fondre les deux plages contiguës de
+même couleur en une, et ouvrir un détail qui renvoie sur la bonne page de
+Météo-France. Le second sert un bulletin tout vert : ni panneau, ni rangée
+d'accès, et le reste de l'accueil intact.
+
+Ma position est éprouvée sur quatre contextes. Le premier prend le relevé au
 doigt et vérifie que la rangée est épinglée, qu'elle ne se retire pas, qu'elle
 porte la température du moment et la commune relevée, et que choisir une commune
 quitte le mode. Le deuxième s'ouvre en mode position sur un relevé ancien, pris
 ailleurs, l'autorisation étant accordée : le relevé silencieux doit partir seul
 et relire la prévision aux nouvelles coordonnées. Le troisième fait la même
 chose sans autorisation : rien ne doit partir et le dernier relevé doit rester
-servi.
+servi. Le quatrième s'ouvre sur une position sans nom : le nom doit se rattraper
+seul, la cible doit rester, l'horodatage du relevé ne doit pas bouger, et le
+code postal ainsi obtenu doit donner le bon département à la vigilance.
 
 Le bandeau du soleil est éprouvé sur son débord, sur le déshabillage de la barre
 de tête et son retour au verre, sur la présence de la toile, sur le fait qu'elle

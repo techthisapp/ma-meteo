@@ -1,7 +1,7 @@
 /* Les vues de la feuille. Chacune rend un titre, un sous-titre facultatif, un
    corps et un branchement facultatif. */
 
-import { nombreFr, hhmm, jourCourt, jourLong, esc, departementDe } from "./horloge.js";
+import { nombreFr, hhmm, jourCourt, jourLong, esc, departementDe, heureJour } from "./horloge.js";
 import * as P from "./previsions.js";
 import { ico, icoTemps, icoCiel, tempsDe } from "./icones.js";
 import * as Ruban from "./ruban.js";
@@ -11,6 +11,7 @@ import * as Astres from "./astres.js";
 import * as Feu from "./feu.js";
 import * as Relief from "./relief.js";
 import * as Temps from "./temps.js";
+import * as Vig from "./vigilance.js";
 
 /* ---------- Fragments communs ---------- */
 
@@ -160,39 +161,66 @@ export function vueSemaine() {
 
 /* ---------- Vigilance ----------
 
-   Renvoi vers Météo-France, non affichage du jeu archivé de data.gouv.fr.
+   Le détail du bulletin en vigueur, ouvert depuis le panneau de l'accueil. Le
+   bulletin est celui que `vigilance.js` a lu, porté par le contexte : la
+   feuille et le panneau disent la même chose, à deux niveaux de détail.
 
-   Le module `vigilance.js` sait lire ce jeu et son schéma est vérifié, mais
-   l'archive avait quatorze jours de retard au 19 août 2026. Une vigilance n'a de
-   sens que si elle est en vigueur : servir un bulletin de quinze jours serait
-   pire que renvoyer vers la source qui fait foi. */
+   Les conséquences possibles et les conseils de comportement restent sur
+   Météo-France, qui fait foi. Les recopier ici les figerait. */
 
-export function vueVigilance() {
+export function vueVigilance(ctx) {
   const g = Reglages.lire();
   const dep = departementDe(g.codePostal);
-  const lien = "https://vigilance.meteofrance.fr/fr";
+  const v = ctx && ctx.vigilance;
+  const lien = Vig.lienDe(dep);
+  const externe = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" `
+    + `stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">`
+    + `<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>`
+    + `</svg>`;
+  const bouton = `<a class="lien-plein" href="${lien}" target="_blank" rel="noopener noreferrer">`
+    + `<span>Ouvrir la vigilance${Vig.nomDe(dep) ? ` de ${esc(Vig.nomDe(dep))}` : ""} sur Météo-France</span>`
+    + `${externe}</a>`;
+
+  /* Sans vigilance en vigueur, la feuille reste atteignable par l'historique :
+     elle le dit alors, plutôt que de montrer un cadre vide. */
+  if (!v) {
+    return {
+      titre: "Vigilance",
+      corps: `<div class="carte">`
+        + `<p class="prose">Aucune vigilance en vigueur`
+        + (Vig.nomDe(dep) ? ` sur ${esc(Vig.nomDe(dep))}` : "")
+        + `. Le bulletin de Météo-France fait foi et se `
+        + `consulte à tout moment.</p>${bouton}</div>`,
+    };
+  }
+
+  const n = Vig.NIVEAUX[v.niveau];
+  const lignes = v.alertes.map(a => {
+    const na = Vig.NIVEAUX[a.niveau];
+    return `<div class="rangee vg-r n-${a.niveau}">${ico(a.symbole, "")}`
+      + `<span class="rangee-txt"><b>${esc(a.nom)}</b>`
+      + `<span>${esc(heureJour(a.debut))} à ${esc(heureJour(a.fin))}</span></span>`
+      + `<span class="rangee-val"><b>${esc(na.nom)}</b></span></div>`;
+  }).join("");
 
   return {
     titre: "Vigilance",
-    corps:
-      `<div class="carte">`
-      + `<p class="prose">La vigilance météorologique en vigueur `
-      + `est publiée par Météo-France. Elle couvre le vent violent, la pluie et l'inondation, `
-      + `les orages, les crues, la neige et le verglas, la canicule, le grand froid, les `
-      + `avalanches, les vagues et la submersion.</p>`
-      + `<a class="lien-plein" href="${lien}" target="_blank" rel="noopener noreferrer">`
-      + `<span>Ouvrir la vigilance${dep ? ` du département ${esc(dep)}` : ""}</span>`
-      + `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" `
-      + `stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">`
-      + `<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>`
-      + `</svg></a></div>`
+    sous: `${n.nom.charAt(0).toUpperCase()}${n.nom.slice(1)} sur ${v.nom || `le département ${dep}`}`,
+    corps: `<div class="carte vg-f vg-${esc(n.nom)}">`
+      + `<div class="vg-tete">${ico("alerte", "vg-ic")}`
+      + `<span class="vg-txt"><b>${esc(n.conduite)}</b>`
+      + (v.validite ? `<em>Bulletin valable jusqu'à ${esc(heureJour(v.validite))}</em>` : "")
+      + `</span></div>${bouton}</div>`
 
-      + `<div class="carte"><div class="carte-tete"><h3>Pourquoi ce renvoi</h3></div>`
-      + `<p class="prose-2">Le jeu ouvert `
-      + `« Vigilance météorologique archivée » de data.gouv.fr porte le même contenu sans `
-      + `demander de compte, mais c'est une archive et non un flux : au 19 août 2026, son `
-      + `dernier bulletin datait du 5 août. Une vigilance de quatorze jours ne dit rien du `
-      + `temps qu'il fait. L'application ne l'affiche donc pas.</p></div>`,
+      + `<div class="section"><h2>Phénomènes signalés</h2>`
+      + `<div class="carte groupe-plat">${lignes}</div></div>`
+
+      + `<div class="carte"><div class="carte-tete"><h3>Source</h3></div>`
+      + `<p class="prose-2">Bulletin de Météo-France, lu sur le service qui alimente son `
+      + `site et son application, sans compte ni clé`
+      + (v.maj ? `. Dernière révision ${esc(heureJour(v.maj))}` : "")
+      + `. Le détail par phénomène, les conséquences possibles et les conseils de `
+      + `comportement se lisent sur Météo-France, qui fait foi.</p></div>`,
   };
 }
 

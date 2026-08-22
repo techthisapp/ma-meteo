@@ -38,6 +38,21 @@ export const jourLong = t =>
 
 export const heureTxt = h => `${deux(h)} h`;
 
+/* Un instant, dit comme on le dirait : « 14 h » quand l'heure est ronde,
+   « 14:30 » sinon, et le jour devant quand ce n'est pas aujourd'hui. Sans le
+   jour, « jusqu'à 06 h » se lirait comme dans une heure. */
+export const heureJour = d => {
+  const h = d.getMinutes() ? `${deux(d.getHours())}:${deux(d.getMinutes())}`
+    : `${deux(d.getHours())} h`;
+  const n = new Date();
+  const jours = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate())
+    - new Date(n.getFullYear(), n.getMonth(), n.getDate())) / 86400000);
+  if (jours === 0) return h;
+  if (jours === 1) return `demain ${h}`;
+  if (jours === -1) return `hier ${h}`;
+  return `${d.toLocaleDateString("fr-FR", { weekday: "long" })} ${h}`;
+};
+
 /* Département d'un code postal. Outre-mer sur trois chiffres. La Corse a deux
    départements, 2A et 2B, que le code postal ne distingue pas : les codes 200 à
    201 sont en Corse-du-Sud, les codes 202 à 206 en Haute-Corse. « Mon jardin »

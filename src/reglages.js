@@ -203,21 +203,43 @@ export async function chercherCommune(q) {
 
 /* Le chemin inverse : des coordonnées vers une commune, pour la géolocalisation.
    « Mon jardin » n'en avait pas besoin, la commune venant du jardin actif. */
+/* Nom de la commune à des coordonnées. La recherche par commune ne rend rien
+   quand le point tombe hors d'un territoire communal, au large ou en limite de
+   côte : une adresse ordinaire est alors demandée, et sa commune sert. Sans ce
+   repli, une position en bord de mer restait anonyme. */
 export async function communeDe(lat, lon) {
-  const u = `https://api-adresse.data.gouv.fr/reverse/?type=municipality&lat=${lat}&lon=${lon}`;
-  try {
-    const r = await fetch(u);
-    if (!r.ok) return null;
-    const d = await r.json();
-    const f = (d.features || [])[0];
-    if (!f) return null;
-    return {
-      commune: f.properties.city || f.properties.name,
-      codePostal: f.properties.postcode,
-      lat: Math.round(lat * 10000) / 10000,
-      lon: Math.round(lon * 10000) / 10000,
-    };
-  } catch { return null; }
+  const base = `https://api-adresse.data.gouv.fr/reverse/?lat=${lat}&lon=${lon}`;
+  for (const u of [`${base}&type=municipality`, base]) {
+    try {
+      const r = await fetch(u);
+      if (!r.ok) continue;
+      const d = await r.json();
+      const f = (d.features || [])[0];
+      const nom = f && (f.properties.city || f.properties.municipality
+        || (f.properties.type === "municipality" ? f.properties.name : null));
+      if (!nom) continue;
+      return {
+        commune: nom,
+        codePostal: f.properties.postcode ?? null,
+        lat: Math.round(lat * 10000) / 10000,
+        lon: Math.round(lon * 10000) / 10000,
+      };
+    } catch { /* réseau muet : le repli suivant, sinon rien */ }
+  }
+  return null;
+}
+
+/* Nomme la position courante sans la relever à nouveau. Le relevé peut avoir
+   abouti alors que l'interface adresse était muette : la prévision est juste,
+   mais rien ne dit sur quelle commune. L'horodatage ne bouge pas, un nom n'est
+   pas un nouveau relevé. */
+export function nommerPosition(l) {
+  if (!etat.auto || !etat.position || !l || !l.commune) return lire();
+  if (ecart(etat.position, l) > 2000) return lire();
+  const pos = { ...etat.position, commune: l.commune, codePostal: l.codePostal ?? null };
+  etat = { ...etat, position: pos, commune: pos.commune, codePostal: pos.codePostal };
+  ecrire();
+  return lire();
 }
 
 export function geolocaliser() {

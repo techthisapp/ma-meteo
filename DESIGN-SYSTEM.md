@@ -224,6 +224,17 @@ posée devant l'astre : un nuage passe devant le Soleil, non derrière. Elle vie
 donc après lui dans l'ordre du document, et sous les voiles de lisibilité. Une
 couche fermée efface l'astre, qui n'est alors plus dessiné du tout.
 
+### Panneau d'alerte
+
+Une carte à rail coloré, posée en tête du contenu, qui ne paraît que s'il y a
+quelque chose à signaler. Le rail reprend la couleur du niveau, mais la couleur
+ne porte jamais seule l'information : le titre de section et chaque ligne
+écrivent le niveau en toutes lettres.
+
+Rien ne remplace le panneau absent : pas de bandeau permanent qui dirait « rien
+à signaler ». Un tel bandeau finit par ne plus se lire, et le jour où il dit
+autre chose, personne ne le voit.
+
 ### Titre d'écran porteur
 
 Le grand titre partage sa ligne avec un contrôle facultatif, posé à droite et

@@ -9,7 +9,7 @@
    couches, navigation par barre d'onglets, contenu posé sur le fond, feuilles
    pour les actions temporaires. */
 
-import { nombreFr, esc } from "./horloge.js";
+import { nombreFr, esc, departementDe, heureJour } from "./horloge.js";
 import * as P from "./previsions.js";
 import * as Reglages from "./reglages.js";
 import { ico, icoTemps, icoCiel, tempsDe } from "./icones.js";
@@ -21,6 +21,7 @@ import * as Temps from "./temps.js";
 import { vueTemps, vueSemaine, vueVigilance, vueSoleil, vueLune, vueCommunes, vueReglages,
   bandeauAccueil } from "./vues.js";
 import { moments } from "./ecritures.js";
+import * as Vig from "./vigilance.js";
 
 const $ = id => document.getElementById(id);
 
@@ -36,6 +37,12 @@ const $ = id => document.getElementById(id);
    si la synchronisation reprend. */
 
 const ctx = {};
+
+/* La vigilance en vigueur, gardée pour le rendu qui est synchrone. Elle se lit
+   après la prévision, sans la retarder : un bulletin manquant ne doit pas
+   priver l'écran de son temps qu'il fait. Le contexte la porte aussi, la
+   feuille du détail lisant le même bulletin que le panneau. */
+let vigilance = null;
 
 /* ---------- État de l'application ---------- */
 
@@ -168,6 +175,40 @@ const etatErreur = () =>
   + `<p>La source n'a pas répondu. Vérifier la connexion, puis réessayer.</p>`
   + `<button type="button" class="bouton-plein" id="btnReessayer">Réessayer</button></div>`;
 
+/* Le panneau de vigilance. Il ne paraît que s'il y a quelque chose à signaler,
+   et il paraît alors en premier : une vigilance orange ne se lit pas après la
+   température. Sans vigilance, rien du tout, pas même une rangée d'accès. Un
+   bandeau permanent qui dit « rien à signaler » finit par ne plus se lire, et
+   le jour où il dit autre chose, personne ne le voit. */
+function panneauVigilance() {
+  const v = vigilance;
+  if (!v) return "";
+  const n = Vig.NIVEAUX[v.niveau];
+
+  /* La fenêtre de chaque phénomène se dit en clair. Une plage déjà commencée se
+     dit par sa fin, c'est la seule chose qui reste à savoir. Une borne qui
+     tombe un autre jour le dit, sans quoi « jusqu'à 06 h » se lirait comme
+     dans une heure. */
+  const quand = a => (a.debut.getTime() > Date.now()
+    ? `de ${heureJour(a.debut)} à ${heureJour(a.fin)}`
+    : `jusqu'à ${heureJour(a.fin)}`);
+
+  return `<div class="section vg vg-${esc(n.nom)}">`
+    + `<h2>Vigilance ${esc(n.nom)}</h2>`
+    + `<button type="button" class="carte vg-c" data-feuille="vigilance" `
+    + `aria-label="Vigilance ${esc(n.nom)}, ${esc(n.conduite)}, voir le détail">`
+    + `<span class="vg-tete">${ico("alerte", "vg-ic")}`
+    + `<span class="vg-txt"><b>${esc(n.conduite)}</b>`
+    + `<em>${esc(v.nom || `Département ${v.dep}`)}`
+    + (v.validite ? `, bulletin valable jusqu'à ${esc(heureJour(v.validite))}` : "")
+    + `</em></span>${chevron}</span>`
+    + `<span class="vg-l">` + v.alertes.map(a =>
+      `<span class="vg-a n-${a.niveau}">${ico(a.symbole, "vg-as")}`
+      + `<b>${esc(a.nom)}</b><i>${esc(Vig.NIVEAUX[a.niveau].nom)}, ${esc(quand(a))}</i></span>`)
+      .join("")
+    + `</span></button></div>`;
+}
+
 /* ---------- Écran d'accueil ---------- */
 
 function ecranAccueil() {
@@ -258,6 +299,7 @@ function ecranAccueil() {
       + `</div></div></div></div>`;
 
     corps += `<div class="ecran-corps">`
+      + panneauVigilance()
       + (mesures.length ? `<div class="bd-mesures">`
         + mesures.map(([n, v, e, c, voie]) =>
           `<button type="button" class="bd-m" data-detail="${esc(voie)}" `
@@ -287,13 +329,6 @@ function ecranAccueil() {
       corps += `<div class="section"><h2>Les prochaines heures</h2>`
         + `<div class="carte">${moments(s)}</div></div>`;
     }
-
-    // La vigilance est un accès, non une information : elle n'a pas d'en-tête.
-    corps += `<div class="groupe groupe-plat">`
-      + `<button type="button" class="rangee" data-feuille="vigilance">`
-      + ico("alerte", "") + `<span class="rangee-txt"><b>Vigilance</b>`
-      + `<span>Bulletin en vigueur sur Météo-France</span></span>${chevron}</button>`
-      + `</div>`;
 
     corps += `<p class="pied">Source : Open-Meteo, modèle AROME de Météo-France. `
       + `Mise à jour toutes les heures.</p>`
@@ -611,9 +646,26 @@ function brancherGlissement() {
    pendant qu'une autre court. Seule la plus récente écrit l'écran. */
 let generation = 0;
 
+/* La vigilance en vigueur, gardée pour le rendu qui est synchrone. Elle se lit
+   après la prévision, sans la retarder : un bulletin manquant ne doit pas
+   priver l'écran de son temps qu'il fait. */
+async function lireVigilance() {
+  const dep = departementDe(Reglages.lire().codePostal);
+  const mien = generation;
+  const v = await Vig.lire(dep);
+  if (mien !== generation) return;
+  const change = JSON.stringify(v) !== JSON.stringify(vigilance);
+  vigilance = v;
+  ctx.vigilance = v;
+  if (change) { rendre(); if (vueCourante) rendreFeuille(); }
+}
+
 async function charger() {
   const g = Reglages.lire();
   const mien = ++generation;
+  Vig.oublier();
+  vigilance = null;
+  ctx.vigilance = null;
   if (!Reglages.situe()) { charge = "vide"; rendre(); return; }
   charge = "chargement";
   rendre();
@@ -622,6 +674,23 @@ async function charger() {
   charge = r ? "pret" : "erreur";
   rendre();
   if (vueCourante) rendreFeuille();
+  nommerPosition();
+  lireVigilance();
+}
+
+/* Le relevé peut avoir abouti alors que l'interface adresse était muette : la
+   prévision est juste, mais la barre de tête ne nomme pas la commune servie.
+   Le nom se rattrape seul, sans redemander la position à l'appareil. */
+async function nommerPosition() {
+  if (!Reglages.enPosition()) return;
+  const p = Reglages.position();
+  if (!p || p.lat === null || p.commune) return;
+  const mien = generation;
+  const l = await Reglages.communeDe(p.lat, p.lon);
+  if (mien !== generation || !l) return;
+  Reglages.nommerPosition(l);
+  rendre();
+  lireVigilance();
 }
 
 /* ---------- Amorçage ---------- */

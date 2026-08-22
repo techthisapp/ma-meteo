@@ -814,14 +814,53 @@ button.rangee:active{background:var(--surface-2)}
 }
 .sem-auj .j b{color:var(--accent)}
 
-/* ---------- 13. Vigilance ---------- */
+/* ---------- 13. Vigilance ----------
 
-.vg-l{display:flex;gap:var(--espace-md);align-items:flex-start;padding:var(--espace-md) 0;font-size:var(--texte-sous);line-height:1.45}
-.vg-l + .vg-l{box-shadow:inset 0 1px 0 var(--filet-clair)}
-.vg-p{width:10px;height:10px;border-radius:50%;flex:0 0 auto;margin-top:6px;background:var(--filet)}
-.vg-l.v-2 .vg-p{background:var(--v2)} .vg-l.v-3 .vg-p{background:var(--v3)} .vg-l.v-4 .vg-p{background:var(--v4)}
-.vg-l b{display:block;font-weight:var(--graisse-semibold)}
-.vg-l span{color:var(--etiquette-2);font-size:var(--texte-note)}
+   Le panneau ne paraît que s'il y a quelque chose à signaler, et il paraît
+   alors en tête de l'accueil. Sa couleur reprend celle du niveau, mais elle ne
+   porte jamais seule l'information : le titre et chaque ligne écrivent le
+   niveau en toutes lettres. */
+
+.vg{--vg:var(--v2)}
+.vg-jaune{--vg:var(--v2)}
+.vg-orange{--vg:var(--v3)}
+.vg-rouge{--vg:var(--v4)}
+
+.vg-c{
+  display:flex;flex-direction:column;width:100%;text-align:left;
+  padding:0 var(--espace-base);
+  box-shadow:inset 3px 0 0 var(--vg);
+}
+.vg-tete{
+  display:flex;align-items:center;gap:var(--espace-md);
+  padding:var(--espace-base) 0;min-height:var(--touche);
+}
+.vg-ic{width:26px;height:26px;flex:0 0 auto;color:var(--vg)}
+.vg-txt{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 auto}
+.vg-txt b{font-size:var(--texte-corps);font-weight:var(--graisse-semibold)}
+.vg-txt em{font-style:normal;font-size:var(--texte-note);color:var(--etiquette-2)}
+
+.vg-l{display:flex;flex-direction:column;box-shadow:inset 0 1px 0 var(--filet-clair)}
+.vg-a{
+  display:flex;align-items:center;gap:var(--espace-md);
+  padding:var(--espace-md) 0;font-size:var(--texte-sous);line-height:1.4;
+}
+.vg-a + .vg-a{box-shadow:inset 0 1px 0 var(--filet-clair)}
+.vg-as{width:22px;height:22px;flex:0 0 auto;color:var(--etiquette-2)}
+.vg-a.n-2 .vg-as{color:var(--v2)}
+.vg-a.n-3 .vg-as{color:var(--v3)}
+.vg-a.n-4 .vg-as{color:var(--v4)}
+.vg-a b{font-weight:var(--graisse-semibold);flex:0 1 auto;min-width:0}
+.vg-a i{
+  font-style:normal;margin-left:auto;flex:0 1 auto;text-align:right;
+  font-size:var(--texte-note);color:var(--etiquette-2);
+}
+
+/* La feuille du détail : même tête, sans chevron ni bord. */
+.vg-f .vg-tete{padding-bottom:var(--espace-md)}
+.vg-r.n-2 svg{color:var(--v2)}
+.vg-r.n-3 svg{color:var(--v3)}
+.vg-r.n-4 svg{color:var(--v4)}
 .prose{font-size:var(--texte-sous);line-height:1.55}
 .prose-2{font-size:var(--texte-note);line-height:1.5;color:var(--etiquette-2)}
 
