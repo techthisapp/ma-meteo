@@ -152,6 +152,25 @@ L'accueil ferme sa page sur les moments : le soir, la nuit et le lendemain,
 tranche par tranche de six heures, là où le haut de l'écran ne dit que
 l'instant. La vigilance et la source viennent après, en clôture.
 
+Les moments se lisent en tableau, les colonnes portant les tranches et les
+lignes les mesures. Cinq blocs empilés portant chacun ses propres libellés
+faisaient six cents points de haut et quatre fois le mot « Température », et le
+nombre de cases changeant d'un bloc à l'autre, les retours à la ligne tombaient
+chaque fois ailleurs. Le libellé écrit une fois en tête de ligne ramène la carte
+à trois cent quarante points, et une mesure se lit alors en travers de la
+journée.
+
+Le ciel se dit par son symbole seul, sur la première ligne. Les lignes Pluie,
+Risque, Rafales et UV ne paraissent que si un moment au moins a quelque chose à
+y dire ; les lignes Temp., Vent et Humidité tiennent toujours, elles font le
+profil. Une fois la ligne présente, chaque case porte sa valeur, même faible :
+le tiret est réservé à ce qui n'existe pas, non à ce qui est petit, et il
+s'écrit dans l'encre effacée.
+
+Les deux bornes de température se séparent par une espace, non par un trait :
+« 13-15° » se lit encore, « -3--1° » ne se lit plus. La borne basse prend
+l'encre secondaire, ce qui dit laquelle est laquelle sans un mot de plus.
+
 Le nom se dit comme on le dirait à l'oral : « ce soir » plutôt que « la
 soirée », « demain matin » plutôt que « demain, le matin ». La nuit fait
 exception. Elle porte la date du lendemain dès minuit passé, mais celle qui
@@ -159,9 +178,15 @@ vient s'appelle « cette nuit » : personne ne dit « demain, la nuit » pour da
 quatre heures. La première nuit de la fenêtre prend donc le nom proche, quelle
 que soit sa date.
 
-Les heures de la tranche portent l'information, c'est par elles qu'on la situe
-dans sa journée : elles se lisent comme une valeur, sur un fond, non comme une
-mention en marge.
+Les heures de la tranche se lisent sous son nom, dans la même colonne : c'est
+par elles qu'on la situe dans sa journée.
+
+Le nom garde sa forme entière tant qu'on est dans la journée en cours, « ce
+soir », « cette nuit », et prend sa forme courte ensuite, « matin »,
+« après-m. », « soirée ». Les colonnes se suivent dans l'ordre du temps depuis
+maintenant : après « cette nuit », « matin » ne peut désigner que le lendemain.
+L'après-midi s'abrège pour lui seul : à cinquante points de large il passait à
+la ligne et décalait toute la ligne d'entête.
 
 L'écran du temps garde deux écritures, le ruban et la table. Son sélecteur se
 tient sur la ligne du titre, à droite et compact : posé sous le titre, il
@@ -627,7 +652,7 @@ src/
   postes.js         fichier départemental et geojson des postes, non branché
   reserve.js        les deux vues débranchées
 essais/
-  controle.mjs      deux cent quatre-vingt-neuf contrôles en navigateur
+  controle.mjs      deux cent quatre-vingt-seize contrôles en navigateur
   vue-ecran.mjs     captures d'un écran, thème clair et sombre
   meteo.json        données figées au 18 août 2026, 9 h
 ```
@@ -652,7 +677,7 @@ la destination et l'instant à figer.
 Le lanceur sert le dossier, fige l'horloge au 18 août 2026 à 9 h, détourne les
 trois appels Open-Meteo vers `meteo.json`, sert une vigilance orange de
 convention, et coupe les sources data.gouv pour éprouver le repli. Deux cent
-quatre-vingt-neuf contrôles, dont l'absence de répétition entre
+quatre-vingt-seize contrôles, dont l'absence de répétition entre
 les alertes et les conseils, les sept voies du ruban, l'agrandissement d'une
 voie, les treize colonnes de la liste, les vingt-quatre lignes de la fenêtre, la
 nature du renvoi de vigilance, et dix-sept contrôles de conformité au design
@@ -661,7 +686,12 @@ verre réservé à la navigation, tailles de texte issues de l'échelle, transit
 neutralisées sous mouvement réduit, accroches de feuille, erreur sous le champ,
 état désactivé, rangée unique, état vide complet, ossature au premier
 chargement. Les écrans du Soleil et de la Lune sont contrôlés de la même façon,
-y compris l'absence de toute requête réseau pour la Lune. La semaine ajoute onze
+y compris l'absence de toute requête réseau pour la Lune. Le tableau des moments
+en ajoute six : chaque mesure nommée une seule fois, une case par mesure et par
+moment, aucune ligne creuse de bout en bout, aucun nom de tranche qui passe à la
+ligne, aucune borne de température collée par un trait, et la carte sous quatre
+cents points. Un septième, sur un temps calme, vérifie que le tableau ne garde
+que ses lignes utiles. La semaine ajoute onze
 contrôles : sept rangées ouvrables, aucun volet ouvert à l'arrivée, l'ouverture
 sur quatre moments, les quatre noms de tranche, un seul volet ouvert à la fois,
 la fermeture au second appui, la borne qui compte et rien de superflu dans

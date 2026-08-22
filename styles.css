@@ -763,29 +763,33 @@ button.rangee:active{background:var(--surface-2)}
 .hh td:last-child{padding-right:var(--espace-base)}
 .hh .ic{width:16px;height:16px;vertical-align:-3px}
 
-/* ---------- 11. Moments ---------- */
+/* ---------- 11. Moments ----------
 
-.mo{display:flex;flex-direction:column}
-.mo-b{padding:var(--espace-md) 0}
-.mo-b + .mo-b{box-shadow:inset 0 1px 0 var(--filet-clair)}
-.mo-t{
-  display:flex;align-items:center;gap:var(--espace-sm);
-  font-size:var(--texte-entete);font-weight:var(--graisse-semibold);margin-bottom:var(--espace-sm);
+   Les moments en colonnes, les mesures en lignes. Cinq blocs empilés portant
+   chacun ses propres libellés faisaient six cents points et quatre fois le mot
+   « Température » ; le libellé écrit une fois en tête de ligne les ramène à la
+   moitié, et une mesure se lit alors en travers de la journée. */
+
+.mt{display:grid;column-gap:var(--espace-xs);align-items:center}
+.mt > *{padding:5px 0}
+.mt-t{
+  font-size:var(--texte-legende2);color:var(--etiquette-2);
+  text-align:center;line-height:1.25;font-variant-numeric:tabular-nums;
 }
-.mo-t svg{width:20px;height:20px;color:var(--etiquette-2)}
-/* Les heures situent la tranche dans la journée : elles portent l'information,
-   et se lisent donc comme une valeur, non comme une mention en marge. */
-.mo-t em{
-  font-style:normal;margin-left:auto;flex:0 0 auto;
-  padding:3px var(--espace-sm);border-radius:var(--rayon-plein);
-  background:var(--surface-2);color:var(--etiquette-2);
-  font-size:var(--texte-note);font-weight:var(--graisse-medium);
-  font-variant-numeric:tabular-nums;white-space:nowrap;
+.mt-t b{display:block;font-weight:var(--graisse-medium);color:var(--etiquette)}
+.mt-l{
+  font-size:var(--texte-legende);color:var(--etiquette-2);
+  box-shadow:inset 0 1px 0 var(--filet-clair);
 }
-.mo-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(72px,1fr));gap:var(--espace-sm) var(--espace-xs)}
-.mo-c{display:flex;flex-direction:column;gap:1px}
-.mo-c i{font-style:normal;font-size:var(--texte-legende2);color:var(--etiquette-3)}
-.mo-c b{font-size:var(--texte-sous);font-weight:var(--graisse-semibold)}
+.mt-v{
+  font-size:var(--texte-sous);text-align:center;font-variant-numeric:tabular-nums;
+  box-shadow:inset 0 1px 0 var(--filet-clair);
+}
+.mt-c{text-align:center;box-shadow:inset 0 1px 0 var(--filet-clair)}
+.mt-c svg{width:22px;height:22px;display:block;margin:0 auto}
+.mt-v i{font-style:normal;color:var(--etiquette-2)}
+/* Le tiret dit ce qui n'existe pas : il s'efface, il ne se lit pas. */
+.mt-creux{color:var(--etiquette-3)}
 
 /* ---------- 12. Semaine ---------- */
 

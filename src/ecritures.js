@@ -1,11 +1,13 @@
-/* Les deux autres écritures de la feuille du temps : la liste et les moments.
+/* Les deux autres écritures de la série horaire : la liste, sur la feuille du
+   temps, et les moments, en bas de l'accueil.
 
-   Le ruban donne la forme, la liste donne les chiffres, les moments donnent le
-   récit. Les trois lisent la même série de vingt-quatre heures glissantes. */
+   Le ruban donne la forme, la liste donne les chiffres heure par heure, les
+   moments donnent le profil de la journée qui vient. Les trois lisent la même
+   série de vingt-quatre heures glissantes. */
 
 import { nombreFr, heureTxt, jourCourt, esc } from "./horloge.js";
 import { graviteCiel, CARD_ABR, iCard } from "./previsions.js";
-import { icoCiel, ico, icoTemps, tempsDe } from "./icones.js";
+import { icoCiel, icoTemps } from "./icones.js";
 
 /* ---------- La liste ----------
 
@@ -61,17 +63,46 @@ export function liste(s) {
    dans quatre heures. La première nuit de la fenêtre prend donc le nom proche,
    quelle que soit sa date. */
 
-/* Heure de début, clé, nom proche, nom du lendemain, nom court. Le nom court
-   sert là où la journée est déjà nommée par ailleurs : la semaine dépliée n'a
-   pas à redire « demain » sous la rangée « Demain ». */
+/* Heure de début, clé, nom proche, nom du lendemain, nom court, nom abrégé.
+
+   Le nom court sert là où la journée est déjà nommée par ailleurs : la semaine
+   dépliée n'a pas à redire « demain » sous la rangée « Demain ». Le nom abrégé
+   ne diffère que sur l'après-midi, et ne sert qu'au tableau de l'accueil, qui
+   tient cinq colonnes là où le volet de la semaine en tient quatre : à
+   cinquante points de large, « après-midi » passe à la ligne et décale toute la
+   ligne d'entête. */
 export const TRANCHES = [
-  [0, "nuit", "Cette nuit", "La nuit suivante", "nuit"],
-  [6, "matin", "Ce matin", "Demain matin", "matin"],
-  [12, "apres-midi", "Cet après-midi", "Demain après-midi", "après-midi"],
-  [18, "soiree", "Ce soir", "Demain en soirée", "soirée"],
+  [0, "nuit", "Cette nuit", "La nuit suivante", "nuit", "nuit"],
+  [6, "matin", "Ce matin", "Demain matin", "matin", "matin"],
+  [12, "apres-midi", "Cet après-midi", "Demain après-midi", "après-midi", "après-m."],
+  [18, "soiree", "Ce soir", "Demain en soirée", "soirée", "soirée"],
 ];
 
 const nomTranche = h => TRANCHES[Math.floor(h / 6)];
+
+/* Les mesures du tableau, dans l'ordre où elles se lisent.
+
+   `seuil` marque les lignes qui ne paraissent que si un moment au moins a
+   quelque chose à y dire : une ligne « UV » vide de bout en bout n'apprend
+   rien. Les autres tiennent toujours, elles font le profil de la journée.
+
+   Une fois la ligne présente, chaque case porte sa valeur, même faible : le
+   tiret est réservé à ce qui n'existe pas, non à ce qui est petit. */
+/* Les deux bornes de température se séparent par une espace, non par un trait.
+   « 13-15° » se lit encore, « -3--1° » ne se lit plus. La borne basse prend
+   l'encre secondaire, ce qui dit laquelle est laquelle sans un mot de plus. */
+const plage = m => (m.tn === m.tx ? `${Math.round(m.tx)}°`
+  : `<i>${Math.round(m.tn)}</i> ${Math.round(m.tx)}°`);
+
+const MESURES = [
+  { nom: "Temp.", brut: true, lire: plage },
+  { nom: "Pluie", seuil: m => m.mm >= 0.1, lire: m => (m.mm >= 0.1 ? nombreFr(m.mm) : null) },
+  { nom: "Risque", seuil: m => m.pb >= 5, lire: m => (m.pb >= 5 ? `${Math.round(m.pb)} %` : null) },
+  { nom: "Vent", lire: m => `${Math.round(m.v)}` },
+  { nom: "Rafales", seuil: m => m.raf >= 30, lire: m => `${Math.round(m.raf)}` },
+  { nom: "Humidité", lire: m => `${Math.round(m.hum)} %` },
+  { nom: "UV", seuil: m => m.uv >= 0.5, lire: m => (m.uv >= 0.5 ? nombreFr(m.uv) : null) },
+];
 
 export function moments(s) {
   const lots = [];
@@ -90,51 +121,67 @@ export function moments(s) {
   // Une tranche d'une heure en fin de fenêtre est retirée.
   if (lots.length > 1 && lots[lots.length - 1].idx.length <= 1) lots.pop();
 
+  /* Le nom entier tant qu'on est dans la journée en cours, le nom court ensuite.
+     Les colonnes se suivent dans l'ordre du temps depuis maintenant : « Matin »
+     après « Cette nuit » ne peut désigner que le lendemain, et les heures sous
+     le nom achèvent de le situer. */
   let nuitVue = false;
   for (const lot of lots) {
-    if (lot.tr[1] === "nuit") { lot.titre = nuitVue ? lot.tr[3] : lot.tr[2]; nuitVue = true; }
-    else lot.titre = lot.jour === s.jour[0] ? lot.tr[2] : lot.tr[3];
+    if (lot.tr[1] === "nuit") { lot.titre = nuitVue ? lot.tr[5] : lot.tr[2]; nuitVue = true; }
+    else lot.titre = lot.jour === s.jour[0] ? lot.tr[2] : lot.tr[5];
   }
 
-  const bloc = lot => {
+  const m = lot => {
     const i = lot.idx;
     const moy = f => i.reduce((a, k) => a + f(k), 0) / i.length;
     const max = f => Math.max(...i.map(f));
     const min = f => Math.min(...i.map(f));
-
-    const tn = min(k => s.t[k]), tx = max(k => s.t[k]);
-    const mm = i.reduce((a, k) => a + s.mm[k], 0);
-    const pb = max(k => s.pb[k]);
-    // L'humidité prend la moyenne de sa tranche, le vent son maximum.
-    const hum = moy(k => s.hum[k]);
-    const raf = max(k => s.raf[k]);
-    const vent = max(k => s.v[k]);
-    const uv = max(k => s.uv[k]);
-    const code = i.reduce((a, k) => (graviteCiel(s.code[k]) > graviteCiel(a) ? s.code[k] : a), 0);
-    const clair = i.some(k => s.clair[k]);
-
-    const h0 = s.heure[i[0]], h1 = (s.heure[i[i.length - 1]] + 1) % 24;
-
-    const cases = [
-      ["Température", `${nombreFr(tn)}° à ${nombreFr(tx)}°`],
-      ["Ciel", tempsDe(code)[1]],
-      mm >= 0.1 ? ["Pluie", `${nombreFr(mm)} mm`] : pb >= 5 ? ["Risque", `${Math.round(pb)} %`] : null,
-      ["Vent", `${Math.round(vent)} km/h`],
-      raf >= 30 ? ["Rafales", `${Math.round(raf)} km/h`] : null,
-      ["Humidité", `${Math.round(hum)} %`],
-      uv >= 0.5 ? ["UV", nombreFr(uv)] : null,
-    ].filter(Boolean);
-
-    /* Les heures portent l'information : c'est par elles qu'on situe la tranche
-       dans sa journée. Elles se lisent donc comme une valeur, non comme une
-       mention en marge. */
-    return `<div class="mo-b"><p class="mo-t">${icoTemps(icoCiel(code, clair), "")}`
-      + `<span>${esc(lot.titre)}</span>`
-      + `<em>${esc(heureTxt(h0))} à ${esc(heureTxt(h1))}</em></p>`
-      + `<div class="mo-g">`
-      + cases.map(([n, v]) => `<div class="mo-c"><i>${esc(n)}</i><b>${esc(v)}</b></div>`).join("")
-      + `</div></div>`;
+    return {
+      titre: lot.titre,
+      h0: s.heure[i[0]], h1: (s.heure[i[i.length - 1]] + 1) % 24,
+      tn: min(k => s.t[k]), tx: max(k => s.t[k]),
+      mm: i.reduce((a, k) => a + s.mm[k], 0),
+      pb: max(k => s.pb[k]),
+      // L'humidité prend la moyenne de sa tranche, le vent son maximum.
+      hum: moy(k => s.hum[k]),
+      raf: max(k => s.raf[k]),
+      v: max(k => s.v[k]),
+      uv: max(k => s.uv[k]),
+      code: i.reduce((a, k) => (graviteCiel(s.code[k]) > graviteCiel(a) ? s.code[k] : a), 0),
+      clair: i.some(k => s.clair[k]),
+    };
   };
 
-  return `<div class="mo">${lots.map(bloc).join("")}</div>`;
+  const mo = lots.map(m);
+  const deux = n => String(n).padStart(2, "0");
+
+  /* Les moments en colonnes, les mesures en lignes. Le libellé s'écrit une
+     fois : le répéter à chaque moment allongeait la carte de moitié sans rien
+     apprendre, et les retours à la ligne tombaient chaque fois ailleurs. */
+  const tete = `<span></span>` + mo.map(x =>
+    `<span class="mt-t"><b>${esc(x.titre)}</b>${deux(x.h0)}-${deux(x.h1)} h</span>`).join("");
+
+  const ciel = `<span class="mt-l"></span>` + mo.map(x =>
+    `<span class="mt-c">${icoTemps(icoCiel(x.code, x.clair), "")}</span>`).join("");
+
+  const gardees = MESURES.filter(r => !r.seuil || mo.some(r.seuil));
+  const corps = gardees.map(r => `<span class="mt-l">${esc(r.nom)}</span>`
+    + mo.map(x => {
+      const v = r.lire(x);
+      return v === null
+        ? `<span class="mt-v mt-creux">—</span>`
+        : `<span class="mt-v">${r.brut ? v : esc(v)}</span>`;
+    }).join("")).join("");
+
+  // Les unités des lignes retenues, et d'elles seules.
+  const tenue = n => gardees.some(r => r.nom === n);
+  const unites = [
+    tenue("Pluie") ? "pluie en millimètres" : null,
+    tenue("Rafales") ? "vent et rafales en kilomètres par heure"
+      : "vent en kilomètres par heure",
+  ].filter(Boolean);
+
+  return `<div class="mt" style="grid-template-columns:62px repeat(${mo.length},1fr)">`
+    + tete + ciel + corps + `</div>`
+    + `<p class="note">${unites.join(", ").replace(/^./, c => c.toUpperCase())}.</p>`;
 }

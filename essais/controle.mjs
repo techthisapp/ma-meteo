@@ -339,10 +339,10 @@ console.log("\n--- Les moments de l'accueil ---");
 /* Les moments racontent la journée qui vient, ce qui est l'affaire de
    l'accueil. Ils en ferment le contenu, la vigilance et la source formant la
    clôture. */
-const moTitres = await pg.locator("#ecran .mo-t span").allInnerTexts();
+const moTitres = await pg.locator("#ecran .mt-t b").allInnerTexts();
 ok("l'accueil porte les moments", moTitres.length >= 3, moTitres.join(" | "));
 ok("les moments ferment le contenu de l'accueil", await pg.evaluate(() => {
-  const mo = document.querySelector("#ecran .mo");
+  const mo = document.querySelector("#ecran .mt");
   const re = document.querySelector("#ecran .retenir");
   const pied = document.querySelector("#ecran .pied");
   if (!mo || !re || !pied) return false;
@@ -351,41 +351,97 @@ ok("les moments ferment le contenu de l'accueil", await pg.evaluate(() => {
   return Boolean(apresRetenir) && Boolean(avantPied);
 }));
 
-/* Le nom se dit comme on le dirait à l'oral. La nuit qui vient porte la date du
-   lendemain dès minuit passé : elle s'appelle pourtant « cette nuit ». */
+/* Le nom se dit comme on le dirait à l'oral tant qu'on est dans la journée en
+   cours. La nuit qui vient porte la date du lendemain dès minuit passé : elle
+   s'appelle pourtant « cette nuit ». Les colonnes suivantes prennent le nom
+   court, l'ordre du temps et les heures les situant déjà. */
 ok("les moments du jour se disent au démonstratif",
   moTitres.some(t => /^(Ce matin|Cet après-midi|Ce soir|Cette nuit)$/.test(t)),
   moTitres.join(" | "));
-ok("les moments du lendemain se disent sans virgule",
-  moTitres.filter(t => t.startsWith("Demain"))
-    .every(t => /^Demain (matin|après-midi|en soirée)$/.test(t)),
+ok("les moments du lendemain prennent le nom court",
+  moTitres.slice(1).every(t =>
+    /^(nuit|matin|après-midi|soirée|Cette nuit|Ce matin|Cet après-midi|Ce soir)$/.test(t)),
   moTitres.join(" | "));
-ok("aucun moment ne dit « demain » pour la nuit qui vient",
-  !moTitres.some(t => /^Demain,? ?(la )?nuit/i.test(t)), moTitres.join(" | "));
+ok("aucun moment ne dit « demain »",
+  !moTitres.some(t => /demain/i.test(t)), moTitres.join(" | "));
 ok("la nuit qui vient s'appelle cette nuit",
   moTitres.includes("Cette nuit"), moTitres.join(" | "));
 
-/* Les heures situent la tranche : elles se lisent comme une valeur, non comme
-   une mention en marge. */
+// Les heures situent la tranche, sous son nom, dans la même colonne.
 ok("chaque moment porte ses heures", await pg.evaluate(() => {
-  const e = [...document.querySelectorAll("#ecran .mo-t em")];
-  return e.length >= 3 && e.every(x => /\d\d h à \d\d h/.test(x.textContent));
+  const e = [...document.querySelectorAll("#ecran .mt-t")];
+  return e.length >= 3 && e.every(x => /\d\d-\d\d h/.test(x.textContent));
 }));
-ok("les heures se lisent, elles ne s'effacent pas", await pg.evaluate(() => {
-  const r = getComputedStyle(document.documentElement);
-  const e = document.querySelector("#ecran .mo-t em");
-  const s = getComputedStyle(e);
-  const efface = r.getPropertyValue("--etiquette-3").trim();
-  const sonde = document.createElement("i");
-  sonde.style.color = efface;
-  document.body.append(sonde);
-  const attendu = getComputedStyle(sonde).color;
-  sonde.remove();
-  const fond = s.backgroundColor;
-  return s.color !== attendu
-    && fond !== "rgba(0, 0, 0, 0)" && fond !== "transparent"
-    && parseFloat(s.fontSize) >= parseFloat(getComputedStyle(document.body).fontSize) * 0.7;
+
+/* Le libellé s'écrit une fois. C'était le défaut du bloc par moment : quatre
+   fois « Température », cinq fois « Vent », et six cents points de haut. */
+ok("chaque mesure n'est nommée qu'une fois", await pg.evaluate(() => {
+  const l = [...document.querySelectorAll("#ecran .mt-l")]
+    .map(e => e.textContent.trim()).filter(Boolean);
+  return l.length >= 3 && l.length === new Set(l).size;
+}), (await pg.locator("#ecran .mt-l").allInnerTexts()).join("/"));
+
+ok("le tableau porte une case par mesure et par moment", await pg.evaluate(() => {
+  const t = document.querySelector("#ecran .mt");
+  const n = document.querySelectorAll("#ecran .mt-t").length;
+  const lignes = document.querySelectorAll("#ecran .mt-l").length;
+  // Entête, ciel, puis une ligne par mesure. La ligne du ciel porte un libellé vide.
+  return t.children.length === (n + 1) * (lignes + 1);
 }));
+
+/* Une ligne ne paraît que si un moment au moins a quelque chose à y dire. Une
+   ligne entièrement creuse serait un libellé pour rien. */
+ok("aucune ligne n'est creuse de bout en bout", await pg.evaluate(() => {
+  const t = document.querySelector("#ecran .mt");
+  const n = document.querySelectorAll("#ecran .mt-t").length;
+  const cases = [...t.children].slice((n + 1) * 2);
+  for (let k = 0; k < cases.length; k += n + 1) {
+    const ligne = cases.slice(k + 1, k + 1 + n);
+    if (ligne.every(c => c.classList.contains("mt-creux"))) {
+      return `${cases[k].textContent} vide`;
+    }
+  }
+  return "";
+}) === "", await pg.evaluate(() => {
+  const t = document.querySelector("#ecran .mt");
+  const n = document.querySelectorAll("#ecran .mt-t").length;
+  const cases = [...t.children].slice((n + 1) * 2);
+  const maux = [];
+  for (let k = 0; k < cases.length; k += n + 1) {
+    if (cases.slice(k + 1, k + 1 + n).every(c => c.classList.contains("mt-creux"))) {
+      maux.push(cases[k].textContent);
+    }
+  }
+  return maux.join(" ");
+}));
+
+// Le tableau tient dans sa carte, sans défilement latéral.
+ok("le tableau des moments tient dans sa carte", await pg.evaluate(() => {
+  const t = document.querySelector("#ecran .mt");
+  return t.scrollWidth <= t.clientWidth + 1;
+}));
+
+/* À cinquante points de large, un nom de tranche qui passe à la ligne décale
+   toute la ligne d'entête : « après-midi » s'abrège. */
+ok("aucun nom de moment ne passe à la ligne", await pg.evaluate(() =>
+  [...document.querySelectorAll("#ecran .mt-t b")]
+    .every(e => e.scrollWidth <= e.clientWidth + 1)),
+  (await pg.locator("#ecran .mt-t b").allInnerTexts()).join("/"));
+
+/* Les deux bornes se séparent par une espace, non par un trait : « 13-15° » se
+   lit encore, « -3--1° » ne se lit plus. */
+ok("les bornes de température ne se collent pas par un trait", await pg.evaluate(() =>
+  [...document.querySelectorAll("#ecran .mt-v")]
+    .every(e => !/\d\s*-\s*\d/.test(e.textContent))),
+  (await pg.locator("#ecran .mt-v").allInnerTexts()).slice(0, 5).join("/"));
+
+/* La carte remplaçait cinq blocs de six cents points. Ce contrôle garde le
+   gain : elle ne doit pas regrossir sans qu'on s'en aperçoive. */
+ok("la journée qui vient tient sous quatre cents points", await pg.evaluate(() => {
+  const c = document.querySelector("#ecran .mt").closest(".carte");
+  return c.getBoundingClientRect().height < 400;
+}), String(await pg.evaluate(() =>
+  Math.round(document.querySelector("#ecran .mt").closest(".carte").getBoundingClientRect().height))));
 
 console.log("\n--- Un chiffre mène à sa voie ---");
 ok("chaque mesure de l'accueil porte une destination",
@@ -1528,7 +1584,7 @@ ok("sans vigilance, aucune rangée d'accès",
   await pgVert.locator('#ecran [data-feuille="vigilance"]').count() === 0);
 ok("sans vigilance, le reste de l'accueil tient",
   await pgVert.locator("#ecran .bd-mesures").count() === 1
-  && await pgVert.locator("#ecran .mo").count() === 1);
+  && await pgVert.locator("#ecran .mt").count() === 1);
 await ctxVert.close();
 
 /* Une règle ne parle que si elle a quelque chose à dire. Sur un temps calme,
@@ -1591,7 +1647,13 @@ ok("sur un temps calme, la section entière disparaît", await pgCalme.evaluate(
   && document.querySelectorAll("#ecran .retenir").length === 0));
 ok("sur un temps calme, le reste de l'accueil tient",
   await pgCalme.locator("#ecran .bd-mesures").count() === 1
-  && await pgCalme.locator("#ecran .mo").count() === 1);
+  && await pgCalme.locator("#ecran .mt").count() === 1);
+/* Sans pluie, sans risque et sans rafale, ces trois lignes n'ont rien à dire :
+   elles ne paraissent pas. Le profil de la journée, lui, tient toujours. */
+ok("sur un temps calme, le tableau ne garde que ses lignes utiles",
+  (await pgCalme.locator("#ecran .mt-l").allInnerTexts())
+    .map(t => t.trim()).filter(Boolean).join("/") === "Temp./Vent/Humidité/UV",
+  (await pgCalme.locator("#ecran .mt-l").allInnerTexts()).map(t => t.trim()).filter(Boolean).join("/"));
 await ctxCalme.close();
 
 /* Heures écourtées : la source s'arrête au milieu du troisième jour. Les jours

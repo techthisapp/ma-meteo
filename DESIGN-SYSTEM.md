@@ -185,6 +185,22 @@ porte pas de chevron.
 Un seul volet ouvert à la fois. Plusieurs ouverts font de la liste une page à
 défiler, ce que la rangée fermée évitait justement.
 
+### Tableau de profil
+
+`.mt`, pour une même série de mesures relevée sur plusieurs tranches de temps.
+Les tranches tiennent les colonnes, les mesures tiennent les lignes, et le
+libellé s'écrit une fois en tête de ligne. Un bloc par tranche portant chacun
+ses libellés multiplie le même mot par le nombre de tranches, et le nombre de
+cases variant d'un bloc à l'autre, les retours à la ligne tombent chaque fois
+ailleurs.
+
+Une ligne dont aucune tranche n'a rien à dire ne paraît pas. Une fois la ligne
+présente, chaque case porte sa valeur, même faible : le tiret est réservé à ce
+qui n'existe pas, non à ce qui est petit, et il s'écrit dans l'encre effacée.
+
+Un nom de colonne ne passe jamais à la ligne : il s'abrège plutôt, faute de quoi
+il décale toute la ligne d'entête.
+
 ### Table à deux moments
 
 `.cp`, pour une grandeur qui se lit une fois le matin et une fois le soir. Trois
