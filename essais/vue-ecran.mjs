@@ -69,14 +69,14 @@ for (const theme of ["light", "dark"]) {
   const pg = await ctx.newPage();
   await pg.goto("http://localhost:8141/", { waitUntil: "networkidle" });
   await pg.waitForTimeout(900);
-  await pg.locator('[data-onglet="soleil"]').click();
+  await pg.locator(`[data-onglet="${process.env.ECRAN || "soleil"}"]`).click();
   await pg.waitForTimeout(700);
 
-  const suffixe = process.env.SUFFIXE || "";
-  await pg.screenshot({ path: path.join(SORTIE, `soleil-haut-${theme}${suffixe}.png`) });
+  const cle = process.env.ECRAN || "soleil";
+  await pg.screenshot({ path: path.join(SORTIE, `${cle}-haut-${theme}.png`) });
   await pg.evaluate(() => window.scrollTo({ top: 99999, behavior: "instant" }));
   await pg.waitForTimeout(400);
-  await pg.screenshot({ path: path.join(SORTIE, `soleil-bas-${theme}${suffixe}.png`) });
+  await pg.screenshot({ path: path.join(SORTIE, `${cle}-bas-${theme}.png`) });
   await ctx.close();
 }
 

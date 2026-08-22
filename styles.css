@@ -1001,10 +1001,15 @@ button.rangee:active{background:var(--surface-2)}
 .pt-temps .bd-bornes{color:inherit;opacity:.84}
 .pt-temps .bd-bornes b{color:inherit}
 
+/* La ligne d'état sous le grand chiffre. Elle est en drapeau plutôt qu'en bloc :
+   l'écran de la lune y pose la vignette du disque devant le nom de la phase. La
+   pâleur porte sur le texte seul, une image atténuée se lirait mal. */
 .plein-titre > em{
-  display:block;font-style:normal;font-size:var(--texte-legende);
-  opacity:.76;margin-top:4px;
+  display:flex;align-items:center;gap:var(--espace-sm);
+  font-style:normal;font-size:var(--texte-legende);margin-top:var(--espace-xs);
 }
+.plein-titre > em > span{opacity:.76}
+.pt-lune{display:block;width:22px;height:22px;flex:0 0 auto}
 
 @media (prefers-reduced-motion:reduce){
   .ci-etoiles i,.plein-titre{animation:none}
@@ -1236,6 +1241,11 @@ button.rangee:active{background:var(--surface-2)}
 .ph .ln-disque{width:40px;height:40px}
 .ph b{font-size:var(--texte-legende);font-weight:var(--graisse-medium);text-align:center}
 .ph em{font-style:normal;font-size:var(--texte-legende2);color:var(--etiquette-3)}
+/* Le délai sous la date : la date situe, le délai mesure. */
+.ph u{
+  text-decoration:none;font-size:var(--texte-legende2);
+  font-weight:var(--graisse-medium);color:var(--etiquette-2);margin-top:-2px;
+}
 
 /* ---------- 15. Mesure contre modèle, module en réserve ---------- */
 

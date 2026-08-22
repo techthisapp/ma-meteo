@@ -13,7 +13,7 @@ service dorsal, sans base de données, sans compte. Métropole française.
 | Le temps | Vingt-quatre heures glissantes en deux écritures : ruban à sept voies, table à treize colonnes |
 | La semaine | Sept jours : symbole de ciel et lame sous lui, borne basse à gauche, plage de température sur une échelle commune, borne haute à droite, point du moment sur la journée en cours |
 | Le soleil | Bandeau du ciel plein cadre avec le Soleil à sa vraie place, trajectoire du jour, course du disque, durée du jour, clarté et nuit noire, ruban et table des trois crépuscules |
-| La lune | Bandeau du ciel plein cadre avec la Lune en relief à sa vraie place, trajectoire du jour croisée avec celle du Soleil, course du jour, part éclairée, âge, lunaison, quatre prochaines phases |
+| La lune | Bandeau du ciel plein cadre avec la Lune en relief à sa vraie place et la vignette de sa phase devant son nom, trajectoire du jour croisée avec celle du Soleil, course du jour, temps au-dessus de l'horizon, âge, lunaison, quatre prochaines phases avec leur délai |
 | Vigilance | Bulletin en vigueur, phénomènes signalés avec leur niveau et leur fenêtre, renvoi vers Météo-France, en feuille |
 | Mes lieux | Lieux suivis, chacun sous son propre ciel, réordonnables, en feuille. L'ajout se pousse derrière le bouton de la tête |
 | Réglages | Écriture retenue pour l'écran du temps, sources, coordonnées, en feuille |
@@ -338,6 +338,11 @@ affinés par dichotomie, la courbe ne servant qu'au tracé.
 La course du jour ne porte que les instants du disque : lever avec son point
 cardinal, midi solaire avec sa hauteur, coucher avec son point cardinal.
 
+La valeur d'une rangée ne porte que l'heure. Le point cardinal et la hauteur
+tiennent sous le nom de l'évènement, en ligne de description : les heures
+s'alignent alors en colonne, ce qu'une valeur composée interdisait, et
+« Passage au méridien » cesse de passer à la ligne sur l'écran de la lune.
+
 Les trois mesures qui suivent se partagent les vingt-quatre heures : la durée du
 jour et son écart à la veille, la clarté lueurs comprises, la part sans aucune
 lueur solaire. Aucune de ces valeurs n'est redite ailleurs sur l'écran, et un
@@ -372,7 +377,31 @@ Même grammaire que l'écran du soleil : bandeau plein cadre, barre de tête
 déshabillée, prochain évènement en grand, trajectoire, course du jour, trois
 mesures.
 
-Trois choses lui sont propres.
+La course du jour porte le lever, le passage au méridien et le coucher, avec
+le point cardinal ou la hauteur en ligne de description. Les trois mesures sont
+le temps passé au-dessus de l'horizon, l'âge et la lunaison. La part éclairée
+n'y figure pas : le ciel la dit déjà, en toutes lettres et en image.
+
+Les quatre prochaines phases portent leur date et leur délai. « 20 août » ne dit
+pas si c'est dans deux jours ou dans trois semaines.
+
+Quatre choses lui sont propres.
+
+**La forme du disque est montrée à côté de son nom.** Dans le bandeau, la Lune
+est à sa place réelle : sous l'horizon, basse derrière le sol ou pâlie par le
+plein jour, elle ne se voit pas. Une vignette de vingt-deux points, posée devant
+le nom de la phase, la montre toujours.
+
+Elle ne s'anime pas et ne passe pas par la boucle : c'est une image, non une
+scène. Le disque vient de la même réserve que celui du bandeau, à la même
+phase : la vignette ne coûte aucun calcul de plus.
+
+Deux réglages lui sont propres. Un cerne léger la borne, sans quoi une Lune
+nouvelle, qui n'est qu'une lueur cendrée, ne se distinguerait pas du fond. Et un
+contraste est porté sur ses quelques centaines de pixels : la lumière cendrée
+est juste à l'échelle du bandeau, où le disque fait deux cents points, mais à la
+taille d'un mot elle noie le croissant dans un rond gris. La courbe écrase la
+part cendrée vers le noir et garde le modelé de la part éclairée.
 
 **Le ciel est celui du Soleil, pas celui de la Lune.** Sa couleur vient de la
 hauteur du Soleil : une Lune levée en plein jour se voit sur un ciel bleu, pâle
@@ -554,8 +583,8 @@ src/
   postes.js         fichier départemental et geojson des postes, non branché
   reserve.js        les deux vues débranchées
 essais/
-  controle.mjs      deux cent soixante-trois contrôles en navigateur
-  vue-soleil.mjs    captures de l'écran du soleil, thème clair et sombre
+  controle.mjs      deux cent soixante-treize contrôles en navigateur
+  vue-ecran.mjs     captures d'un écran, thème clair et sombre
   meteo.json        données figées au 18 août 2026, 9 h
 ```
 
@@ -572,9 +601,9 @@ node essais/controle.mjs
 Le chemin du navigateur peut être imposé par la variable `CHROMIUM` lorsque la
 révision installée par Playwright ne correspond pas à celle du poste.
 
-`node essais/vue-soleil.mjs` rend l'écran du soleil dans les deux thèmes, en
-haut et en bas de page, sous `essais/captures`. La variable `QUAND` porte
-l'instant à figer.
+`node essais/vue-ecran.mjs` rend un écran dans les deux thèmes, en haut et en
+bas de page, sous `essais/captures`. Les variables `ECRAN` et `QUAND` portent
+la destination et l'instant à figer.
 
 Le lanceur sert le dossier, fige l'horloge au 18 août 2026 à 9 h, détourne les
 trois appels Open-Meteo vers `meteo.json`, sert une vigilance orange de
@@ -588,7 +617,12 @@ verre réservé à la navigation, tailles de texte issues de l'échelle, transit
 neutralisées sous mouvement réduit, accroches de feuille, erreur sous le champ,
 état désactivé, rangée unique, état vide complet, ossature au premier
 chargement. Les écrans du Soleil et de la Lune sont contrôlés de la même façon,
-y compris l'absence de toute requête réseau pour la Lune. L'écran du Soleil
+y compris l'absence de toute requête réseau pour la Lune. Sept contrôles portent
+sur la vignette de la Lune et sur la lecture de son écran : la vignette est
+devant le nom de la phase, elle porte des pixels opaques, sa part sombre est
+franche, elle dit la même phase que le ciel, elle garde sa pleine matière sous
+le texte pâli, la part éclairée n'est écrite que dans le ciel, et chaque phase à
+venir porte son délai. L'écran du Soleil
 ajoute neuf contrôles sur la lecture des durées et des crépuscules : aucune
 heure écrite deux fois dans le corps, la durée du jour écrite une seule fois,
 les trois crépuscules nommés, la note ne nommant que ceux qui sont montrés,

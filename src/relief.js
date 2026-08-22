@@ -306,6 +306,69 @@ export function dessiner(cv, t) {
   }
 }
 
+/* ---------- La vignette ----------
+
+   Le disque seul, sans halo, sans rougissement ni pâleur du jour, à la taille
+   d'un mot. Elle sert à montrer la forme de la Lune là où le ciel ne la montre
+   pas : basse sur l'horizon, mangée par le jour, ou simplement pas encore
+   levée. Le nom de la phase dit « gibbeuse croissante », la vignette la
+   montre.
+
+   Elle ne s'anime pas et ne passe pas par la boucle : c'est une image, non une
+   scène. Le disque vient de la même réserve que celui du bandeau, à la même
+   phase : la vignette ne coûte donc aucun calcul de plus.
+
+   Un cerne léger borne le disque. Sans lui, une Lune nouvelle, qui n'est
+   qu'une lueur cendrée, ne se distinguerait pas du fond. */
+export function vignette(cv) {
+  if (!cv) return;
+  const cote = cv.clientWidth || 22;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const px = Math.max(1, Math.round(cote * dpr));
+  if (cv.width !== px) { cv.width = px; cv.height = px; }
+
+  const x = cv.getContext("2d");
+  if (!x) return;
+  x.setTransform(dpr, 0, 0, dpr, 0, 0);
+  x.clearRect(0, 0, cote, cote);
+
+  const angleI = Number(cv.dataset.phase);
+  const angle = Number(cv.dataset.angle);
+  const eclairee = Number(cv.dataset.eclairee);
+  if (!Number.isFinite(angleI) || !Number.isFinite(angle) || !Number.isFinite(eclairee)) return;
+
+  x.drawImage(disque(angleI, angle, eclairee), 0, 0, cote, cote);
+
+  /* Contraste porté, sur la vignette seulement. La lumière cendrée est juste
+     à l'échelle du bandeau, où le disque fait deux cents points ; à la taille
+     d'un mot elle noie le croissant dans un rond gris et la forme se perd. La
+     courbe écrase la part cendrée vers le noir et garde le modelé de la part
+     éclairée. Elle porte sur quelques centaines de pixels, non sur la carte. */
+  const im = x.getImageData(0, 0, px, px);
+  const d = im.data;
+  const SEUIL = 0.15, PLAGE = 0.72;
+  for (let k = 0; k < d.length; k += 4) {
+    if (!d[k + 3]) continue;
+    for (let q = 0; q < 3; q++) {
+      const v = (d[k + q] / 255 - SEUIL) / PLAGE;
+      d[k + q] = Math.round(255 * Math.min(1, Math.max(0, v)));
+    }
+  }
+  x.save();
+  x.setTransform(1, 0, 0, 1, 0, 0);
+  x.putImageData(im, 0, 0);
+  x.restore();
+
+  x.save();
+  x.globalAlpha = 0.42;
+  x.strokeStyle = getComputedStyle(cv).color || "#FFFFFF";
+  x.lineWidth = 1;
+  x.beginPath();
+  x.arc(cote / 2, cote / 2, cote * (RAYON / COTE), 0, Math.PI * 2);
+  x.stroke();
+  x.restore();
+}
+
 /* ---------- Boucle ----------
 
    Même contrat que le module du feu : une seule toile animée à la fois, trente

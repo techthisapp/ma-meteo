@@ -20,6 +20,29 @@ const hm = ms => new Date(ms).toLocaleTimeString("fr-FR", { hour: "2-digit", min
 const CARDINAUX = ["nord", "nord-est", "est", "sud-est", "sud", "sud-ouest", "ouest", "nord-ouest"];
 const cardinalDe = az => CARDINAUX[Math.round((((az % 360) + 360) % 360) / 45) % 8];
 
+const versCardinal = az => {
+  const c = cardinalDe(az);
+  return /^[aeiou]/.test(c) ? `à l'${c}` : `au ${c}`;
+};
+
+// L'angle de phase se déduit de la part éclairée, qui vaut (1 + cos i) / 2.
+const anglePhase = eclairee =>
+  Math.acos(Math.max(-1, Math.min(1, 2 * eclairee - 1))) / (Math.PI / 180);
+
+/* Une rangée de course du jour, sur l'écran du soleil comme sur celui de la
+   lune. La valeur ne porte que l'heure : le point cardinal et la hauteur sont
+   des précisions sur l'évènement, elles tiennent sous son nom. Les heures
+   s'alignent alors en colonne, ce qu'une valeur composée interdisait. */
+const rangeeAstre = (maintenant, prochain) => ([sym, nom, sous, parts, quand]) => {
+  const passe = quand && quand < maintenant;
+  const courant = prochain && quand && quand.getTime() === prochain[0].getTime();
+  return `<div class="rangee${passe ? " passe" : ""}${courant ? " courant" : ""}">`
+    + ico(sym, "")
+    + `<span class="rangee-txt"><b>${esc(nom)}</b>`
+    + (sous ? `<span>${esc(sous)}</span>` : "") + `</span>`
+    + valeur(...parts) + `</div>`;
+};
+
 const rangees = lignes => lignes.map(([n, v]) =>
   `<div class="rangee"><span class="rangee-txt">${esc(n)}</span>`
   + `<span class="rangee-val"><b>${esc(v)}</b></span></div>`).join("");
@@ -337,8 +360,7 @@ function bandeauLune(g, maintenant, phase) {
   const az = ((pl.azimut % 360) + 360) % 360;
   const x = Math.max(3, Math.min(97, (az - 55) / 250 * 100));
   const chaud = Math.max(0, Math.min(1, (12 - pl.hauteur) / 20));
-  // L'angle de phase se déduit de la part éclairée, qui vaut (1 + cos i) / 2.
-  const angleI = Math.acos(Math.max(-1, Math.min(1, 2 * phase.eclairee - 1))) / (Math.PI / 180);
+  const angleI = anglePhase(phase.eclairee);
   const angle = Astres.angleLimbe(maintenant, g.lat, g.lon);
 
   const corps = `<canvas class="ci-lune" id="ciLune" `
@@ -609,25 +631,16 @@ export function vueSoleil() {
      crépuscules ont leur propre carte, où les trois seuils se comparent ; les
      redire ici en ferait lire deux fois les mêmes heures. */
   const chrono = [
-    ["lever", "Lever",
-      [hm(lever), e.azimutLever === null ? null : { doux: cardinalDe(e.azimutLever) }],
-      new Date(lever)],
+    ["lever", "Lever", e.azimutLever === null ? null : versCardinal(e.azimutLever),
+      [hm(lever)], new Date(lever)],
     ["midi", "Midi solaire",
-      [e.meridien ? hm(e.meridien.getTime()) : "—",
-        e.hauteurMax === null ? null : { doux: `${Math.round(e.hauteurMax)}° de hauteur` }],
-      e.meridien],
-    ["coucher", "Coucher",
-      [hm(coucher), e.azimutCoucher === null ? null : { doux: cardinalDe(e.azimutCoucher) }],
-      new Date(coucher)],
+      e.hauteurMax === null ? null : `${Math.round(e.hauteurMax)}° de hauteur`,
+      [e.meridien ? hm(e.meridien.getTime()) : "—"], e.meridien],
+    ["coucher", "Coucher", e.azimutCoucher === null ? null : versCardinal(e.azimutCoucher),
+      [hm(coucher)], new Date(coucher)],
   ];
 
-  const lignes = chrono.map(([sym, nom, parts, quand]) => {
-    const passe = quand && quand < maintenant;
-    const courant = prochain && quand && quand.getTime() === prochain[0].getTime();
-    return `<div class="rangee${passe ? " passe" : ""}${courant ? " courant" : ""}">`
-      + ico(sym, "") + `<span class="rangee-txt">${esc(nom)}</span>`
-      + valeur(...parts) + `</div>`;
-  }).join("");
+  const lignes = chrono.map(rangeeAstre(maintenant, prochain)).join("");
 
   /* Les trois durées qui se partagent les vingt-quatre heures : le disque
      au-dessus de l'horizon, la clarté lueurs comprises, et la part sans aucune
@@ -679,7 +692,7 @@ export function vueSoleil() {
     corps: `<div class="plein">${bandeauCiel(g, maintenant, e.meridien)}`
       + `<div class="plein-titre">`
       + (prochain ? `<i>${esc(prochain[1])}</i><b>${hm(prochain[0].getTime())}</b>` : `<b>Le soleil</b>`)
-      + `<em>${esc(etat)}</em></div></div>`
+      + `<em><span>${esc(etat)}</span></em></div></div>`
 
       + `<div class="ecran-corps">`
       + `<div class="section"><h2>Trajectoire</h2>`
@@ -764,35 +777,30 @@ export function vueLune() {
     if (p2) prochain = [p2[0], `${p2[1]}, demain`];
   }
 
-  const etat = `${p.nom}, ${Math.round(p.eclairee * 100)} % éclairée`;
+  const pct = Math.round(p.eclairee * 100);
+  const etat = `${p.nom}, ${pct} % éclairée`;
 
+  /* Course du jour : les instants du disque seulement, comme sur l'écran du
+     soleil. Les durées sont des mesures, elles ont leur ligne à part. */
   const aucun = [{ doux: "aucun ce jour" }];
   const chrono = [
-    ["lever", "Lever", e.lever
-      ? [hm(e.lever.getTime()), { doux: cardinalDe(e.azimutLever) }] : aucun, e.lever],
+    ["lever", "Lever", e.lever ? versCardinal(e.azimutLever) : null,
+      e.lever ? [hm(e.lever.getTime())] : aucun, e.lever],
     ["meridien", "Passage au méridien",
+      e.hauteurMax === null ? null : `${Math.round(e.hauteurMax)}° de hauteur`,
       e.meridien ? [hm(e.meridien.getTime())] : aucun, e.meridien],
-    ["coucher", "Coucher", e.coucher
-      ? [hm(e.coucher.getTime()), { doux: cardinalDe(e.azimutCoucher) }] : aucun, e.coucher],
-    ["culmination", "Hauteur maximale",
-      [e.hauteurMax === null ? "—" : `${Math.round(e.hauteurMax)}°`], null],
-    ["horloge", "Durée au-dessus de l'horizon", [duree === null ? "—" : hhmm(duree)], null],
+    ["coucher", "Coucher", e.coucher ? versCardinal(e.azimutCoucher) : null,
+      e.coucher ? [hm(e.coucher.getTime())] : aucun, e.coucher],
   ];
 
-  const lignes = chrono.map(([sym, nom, parts, quand]) => {
-    const passe = quand && quand < maintenant;
-    const courant = prochain && quand && quand.getTime() === prochain[0].getTime();
-    return `<div class="rangee${passe ? " passe" : ""}${courant ? " courant" : ""}">`
-      + ico(sym, "") + `<span class="rangee-txt">${esc(nom)}</span>`
-      + valeur(...parts) + `</div>`;
-  }).join("");
+  const lignes = chrono.map(rangeeAstre(maintenant, prochain)).join("");
 
-  const pct = Math.round(p.eclairee * 100);
-  const sens = pct >= 99 ? "au plus plein" : pct <= 1 ? "au plus mince"
-    : p.croissante ? "croissante" : "décroissante";
-
+  /* La part éclairée est déjà dite dans le ciel, en toutes lettres et en
+     image : la redire ici ferait lire deux fois la même chose. La place revient
+     au temps passé au-dessus de l'horizon, qui ne se lit nulle part ailleurs. */
   const mesures = `<div class="tm">`
-    + `<div><i>Part éclairée</i><b>${pct} %</b><em>${esc(sens)}</em></div>`
+    + `<div><i>Au-dessus de l'horizon</i><b>${duree === null ? "—" : hhmm(duree)}</b>`
+    + `<em>de minuit à minuit</em></div>`
     + `<div><i>Âge</i><b>${nombreFr(p.age)} j</b><em>depuis la nouvelle</em></div>`
     + `<div><i>Lunaison</i><b>${nombreFr(l.duree)} j</b><em>du cycle en cours</em></div>`
     + `</div>`;
@@ -804,8 +812,12 @@ export function vueLune() {
     const court = x.nom.replace("Nouvelle lune", "Nouvelle").replace("Pleine lune", "Pleine")
       .replace("Premier quartier", "1<sup>er</sup> quartier").replace("Dernier quartier", "Dern. quartier");
     const quand = x.date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+    /* Le délai autant que la date : « 20 août » ne dit pas si c'est dans deux
+       jours ou dans trois semaines. Le jour même se dit, il ne se compte pas. */
+    const jours = Math.round((x.date - maintenant) / 86400000);
+    const delai = jours <= 0 ? "aujourd'hui" : jours === 1 ? "demain" : `dans ${jours} j`;
     return `<div>${Astres.dessinPhase(eclairee, /Premier/.test(x.nom), 18)}`
-      + `<b>${court}</b><em>${esc(quand)}</em></div>`;
+      + `<b>${court}</b><em>${esc(quand)}</em><u>${esc(delai)}</u></div>`;
   }).join("") + `</div>`;
 
   return {
@@ -815,7 +827,14 @@ export function vueLune() {
       + `<div class="plein-titre">`
       + (prochain ? `<i>${esc(prochain[1])}</i><b>${hm(prochain[0].getTime())}</b>`
         : `<b>La lune</b>`)
-      + `<em>${esc(etat)}</em></div></div>`
+      /* La forme du disque, à côté de son nom. Dans le ciel du bandeau la Lune
+         est à sa place réelle : sous l'horizon, basse derrière le sol ou pâlie
+         par le jour, elle ne se voit pas. La vignette la montre toujours. */
+      + `<em><canvas class="pt-lune" id="ptLune" `
+      + `data-phase="${anglePhase(p.eclairee).toFixed(1)}" `
+      + `data-angle="${Astres.angleLimbe(maintenant, g.lat, g.lon).toFixed(4)}" `
+      + `data-eclairee="${p.eclairee.toFixed(3)}" aria-hidden="true"></canvas>`
+      + `<span>${esc(etat)}</span></em></div></div>`
 
       + `<div class="ecran-corps">`
       + `<div class="section"><h2>Trajectoire</h2>`
@@ -841,6 +860,7 @@ export function vueLune() {
 
     brancher(bloc) {
       Relief.poser(bloc.querySelector("#ciLune"));
+      Relief.vignette(bloc.querySelector("#ptLune"));
     },
   };
 }

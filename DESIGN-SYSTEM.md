@@ -165,6 +165,11 @@ La valeur peut être composée. Chaque partie forte reste insécable, la coupure
 fait entre les parties : sur un grand corps de texte, « 16:05, sud-est » d'un
 seul tenant débordait de sa carte, l'heure ne pouvant pas se couper.
 
+Une valeur composée reste néanmoins un dernier recours. Quand la seconde partie
+qualifie l'évènement plutôt que sa valeur, un point cardinal ou une hauteur, elle
+tient sous le nom, en ligne de description. Les valeurs s'alignent alors en
+colonne, et le nom retrouve la largeur qu'une valeur à deux termes lui prenait.
+
 ### Table à deux moments
 
 `.cp`, pour une grandeur qui se lit une fois le matin et une fois le soir. Trois
@@ -275,6 +280,18 @@ graphique ou une table en haut de la page.
 Deux groupes, `ic-a` pour la masse et `ic-b` pour l'accent, colorés par
 `icoTemps`. Six teintes seulement, peu saturées. `ico` rend les mêmes dessins en
 monochrome pour tous les autres emplois.
+
+### Vignette d'astre
+
+Un disque de vingt-deux points, posé devant le nom de ce qu'il montre. Il sert
+là où l'image principale ne peut pas répondre : sur le bandeau, l'astre est à sa
+place réelle et peut n'y être pas visible du tout.
+
+La vignette n'est pas une réduction de l'image principale. À la taille d'un mot,
+les nuances justes à deux cents points se referment en une tache : le contraste
+est porté, et un cerne borne le disque quand sa matière propre ne suffit plus à
+le détacher du fond. La pâleur d'une ligne d'état porte sur son texte, jamais
+sur elle.
 
 ### États de la lumière
 
