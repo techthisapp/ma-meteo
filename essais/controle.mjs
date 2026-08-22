@@ -546,11 +546,130 @@ await pg.waitForTimeout(600);
 const soleilTxt = await txt("#ecran");
 ok("la durée du jour est écrite", /\d+ h \d\d/.test(soleilTxt));
 ok("le midi solaire est écrit", /Midi solaire/.test(soleilTxt));
-ok("la hauteur maximale est écrite", /Hauteur maximale[\s\S]{0,40}\d+°/.test(soleilTxt));
-ok("les crépuscules sont écrits",
-  /Premières lueurs/.test(soleilTxt) && /Crépuscule nautique/.test(soleilTxt)
-  && /Nuit noire/.test(soleilTxt));
+ok("le midi solaire porte la hauteur maximale",
+  /Midi solaire[\s\S]{0,40}\d+° de hauteur/.test(soleilTxt), soleilTxt.slice(0, 120));
+ok("les trois crépuscules sont nommés",
+  ["Crépuscule civil", "Crépuscule nautique", "Crépuscule astronomique"]
+    .every(x => soleilTxt.includes(x)));
 ok("le lever porte un point cardinal", /Lever[\s\S]{0,40}(nord|est|sud|ouest)/.test(soleilTxt), soleilTxt.slice(0, 80));
+
+/* La plainte d'origine : la même heure écrite deux fois. Le bandeau annonce le
+   prochain évènement et redit donc son heure, il reste hors du compte. */
+ok("aucune heure n'est écrite deux fois dans le corps", await pg.evaluate(() => {
+  const h = (document.querySelector("#ecran .ecran-corps").innerText.match(/\b\d\d:\d\d\b/g) || []);
+  return h.length === new Set(h).size;
+}), await pg.evaluate(() =>
+  (document.querySelector("#ecran .ecran-corps").innerText.match(/\b\d\d:\d\d\b/g) || []).join(" ")));
+
+const dureeTxt = await txt(".tm > div:first-child b");
+ok("la durée du jour n'est écrite qu'une fois",
+  dureeTxt !== "" && soleilTxt.split(dureeTxt).length - 1 === 1,
+  `${dureeTxt} | ${soleilTxt.split(dureeTxt).length - 1}`);
+
+/* Le seconde plainte : la note nommait trois crépuscules, la carte en montrait
+   deux. Les deux listes doivent coïncider, dans le même ordre. */
+const nomsCrep = await pg.evaluate(() => {
+  const carte = document.querySelector("#ecran .cp").closest(".carte");
+  const note = (carte.querySelector(".note") || { textContent: "" }).textContent.toLowerCase();
+  const rangs = [...carte.querySelectorAll(".cp-n b")].map(e => e.textContent.toLowerCase());
+  const cles = ["civil", "nautique", "astronomique"];
+  return {
+    note: cles.filter(k => note.includes(k)),
+    rangs: cles.filter(k => rangs.some(r => r.includes(k))),
+  };
+});
+ok("la note ne nomme que les crépuscules montrés",
+  nomsCrep.note.length === 3 && nomsCrep.note.join() === nomsCrep.rangs.join(),
+  `${nomsCrep.note.join("/")} | ${nomsCrep.rangs.join("/")}`);
+
+/* La troisième : deux heures nues sans dire laquelle est le matin. Chaque
+   rangée porte donc deux colonnes, et chaque heure tombe dans sa moitié. */
+const crepRangs = await pg.evaluate(() => {
+  const tete = [...document.querySelectorAll(".cp-t")].map(e => e.textContent.trim());
+  if (tete[1] !== "Le matin" || tete[2] !== "Le soir") return "entête " + tete.join("/");
+  const cases = [...document.querySelectorAll(".cp > *")];
+  const enMin = t => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+  let i = 3, rangs = 0;
+  while (i < cases.length) {
+    if (!cases[i].classList.contains("cp-n")) return "rangée sans nom en " + i;
+    const a = cases[i + 1], b = cases[i + 2];
+    /* La case d'absence dit pourquoi il n'y a pas d'heure. Si elle en porte
+       une, les deux moments sont retombés dans la même case. */
+    if (a && a.classList.contains("cp-abs")) {
+      if (/\d\d:\d\d/.test(a.textContent)) return "deux moments dans une case: " + a.textContent;
+      i += 2; rangs++; continue;
+    }
+    if (!a || !b || !a.classList.contains("cp-h") || !b.classList.contains("cp-h")) {
+      return "heures manquantes en " + i;
+    }
+    if (enMin(a.textContent) >= 720 || enMin(b.textContent) <= 720) {
+      return `hors de sa moitié ${a.textContent} ${b.textContent}`;
+    }
+    i += 3; rangs++;
+  }
+  return rangs === 3 ? "" : "rangées " + rangs;
+});
+ok("chaque crépuscule dit son matin et son soir", crepRangs === "", crepRangs);
+
+// Le ruban de la lumière : il couvre le jour entier et montre ses cinq états.
+const ruban = await pg.evaluate(() => {
+  const r = [...document.querySelectorAll(".lm-r rect.lm")];
+  return {
+    largeur: r.reduce((a, e) => a + Number(e.getAttribute("width")), 0),
+    etats: new Set(r.map(e => e.getAttribute("class").split(" ")[1])).size,
+  };
+});
+ok("le ruban de la lumière couvre les vingt-quatre heures",
+  Math.abs(ruban.largeur - 334) < 1.5, String(ruban.largeur));
+ok("le ruban montre les cinq états de la lumière", ruban.etats === 5, String(ruban.etats));
+/* Le découpage doit couvrir la journée entière et sans trou, quel que soit le
+   ciel : un jour sans nuit noire, un jour sans coucher, un jour ordinaire. */
+const decoupe = await pg.evaluate(async () => {
+  const { bandesLum } = await import("/src/vues.js");
+  const courbe = f => {
+    const out = [];
+    for (let m = 0; m <= 1440; m += 5) out.push({ m, h: f(m) });
+    return out;
+  };
+  const cas = {
+    ordinaire: m => 55 * -Math.cos(2 * Math.PI * m / 1440) + 5,
+    "sans nuit noire": m => 20 * -Math.cos(2 * Math.PI * m / 1440) + 5,
+    "sans coucher": () => 12,
+    "sans lever": () => -40,
+  };
+  const maux = [];
+  for (const [nom, f] of Object.entries(cas)) {
+    const b = bandesLum(courbe(f));
+    if (!b.length) { maux.push(`${nom}: aucune bande`); continue; }
+    if (b[0].a !== 0) maux.push(`${nom}: débute à ${b[0].a}`);
+    if (b[b.length - 1].b !== 1440) maux.push(`${nom}: finit à ${b[b.length - 1].b}`);
+    for (let k = 1; k < b.length; k++) {
+      if (Math.abs(b[k].a - b[k - 1].b) > 1e-6) maux.push(`${nom}: trou en ${b[k].a}`);
+      if (b[k].z === b[k - 1].z) maux.push(`${nom}: deux bandes du même état`);
+    }
+  }
+  return maux;
+});
+ok("le découpage de la lumière couvre la journée sans trou",
+  decoupe.length === 0, decoupe.join(" | "));
+
+ok("chaque crépuscule porte la teinte de sa bande", await pg.evaluate(() => {
+  const sonde = document.createElement("div");
+  document.body.append(sonde);
+  const attendu = n => {
+    sonde.style.background = `var(${n})`;
+    return getComputedStyle(sonde).backgroundColor;
+  };
+  const vu = c => {
+    const e = document.querySelector(c);
+    return e ? getComputedStyle(e).backgroundColor : "";
+  };
+  const bon = vu(".cp-p.p-civil") === attendu("--lum-civil")
+    && vu(".cp-p.p-naut") === attendu("--lum-naut")
+    && vu(".cp-p.p-astro") === attendu("--lum-astro");
+  sonde.remove();
+  return bon;
+}));
 
 // Bandeau plein cadre : le ciel monte sous la barre de tête et la déshabille.
 ok("le bandeau du ciel occupe toute la largeur", await pg.evaluate(() => {
@@ -605,9 +724,9 @@ ok("la nuit est en pointillé, le jour en trait plein",
   await pg.locator(".tr-ligne").count() === 1 && await pg.locator(".tr-ligne-nuit").count() === 2);
 ok("la course du jour se lit dans l'ordre", await pg.evaluate(() => {
   const n = [...document.querySelectorAll(".ch .rangee-txt")].map(e => e.textContent);
-  return n[0] === "Premières lueurs" && n[1] === "Lever"
-    && n[2] === "Midi solaire" && n[3] === "Coucher";
-}));
+  return n.length === 3 && n[0] === "Lever" && n[1] === "Midi solaire" && n[2] === "Coucher";
+}), await pg.evaluate(() =>
+  [...document.querySelectorAll(".ch .rangee-txt")].map(e => e.textContent).join("/")));
 ok("les trois mesures tiennent sur une ligne",
   await pg.locator(".tm > div").count() === 3);
 

@@ -116,6 +116,15 @@
   --ic-neige:#6FAEDA;
   --ic-orage:#CE7A1E;
   --ic-lune:#6C7CA6;
+
+  /* Les cinq états de la lumière, du plein jour à la nuit noire. Ils forment
+     une échelle continue : chaque teinte doit se distinguer de sa voisine sur
+     une bande de trente points de haut. */
+  --lum-jour:#9CC9EC;
+  --lum-civil:#6C93C6;
+  --lum-naut:#47679C;
+  --lum-astro:#2C4170;
+  --lum-nuit:#151C31;
 }
 
 /* Le corps de texte suit le réglage de taille du système sur Safari. */
@@ -158,6 +167,12 @@
     --ic-neige:#8FC4E6;
     --ic-orage:#E29845;
     --ic-lune:#98A7CC;
+
+    --lum-jour:#7FB4DE;
+    --lum-civil:#5A80B4;
+    --lum-naut:#3E5B8C;
+    --lum-astro:#2A3B62;
+    --lum-nuit:#0C1220;
   }
 }
 
@@ -1019,6 +1034,60 @@ button.rangee:active{background:var(--surface-2)}
 }
 .tm b{font-size:var(--texte-titre2);font-weight:var(--graisse-semibold);letter-spacing:-.02em}
 .tm em{font-style:normal;font-size:var(--texte-legende2);color:var(--etiquette-3)}
+
+/* Le ruban de la lumière : vingt-quatre heures teintées par la hauteur du
+   Soleil, du plein jour à la nuit noire. La pastille de la table des
+   crépuscules porte la même teinte que la bande : la table est sa légende. */
+.lm-r{display:block;width:100%;height:auto;color:var(--etiquette)}
+.lm-jour{fill:var(--lum-jour)}
+.lm-civil{fill:var(--lum-civil)}
+.lm-naut{fill:var(--lum-naut)}
+.lm-astro{fill:var(--lum-astro)}
+.lm-nuit{fill:var(--lum-nuit)}
+.lm-grille{stroke:#FFFFFF;stroke-width:1;opacity:.24}
+.lm-txt{fill:var(--etiquette-3);font-size:9px;font-weight:500}
+.lm-marque{fill:currentColor}
+.lm-fil{stroke:currentColor;stroke-width:1.5;opacity:.9}
+
+/* Les crépuscules : trois seuils, deux moments. Le matin et le soir tiennent
+   chacun sa colonne, l'heure seule ne disant pas de quel côté du jour elle
+   tombe. */
+/* Les colonnes se touchent, l'écart se prend en marge intérieure : un filet de
+   rangée doit courir d'un bord à l'autre, non par tronçons. */
+.cp{
+  display:grid;grid-template-columns:1fr auto auto;
+  align-items:stretch;margin-top:var(--espace-base);
+}
+.cp-t{
+  font-size:var(--texte-legende);color:var(--etiquette-3);
+  text-align:right;padding:0 0 var(--espace-xs) var(--espace-base);
+}
+.cp-n{
+  display:flex;align-items:flex-start;gap:var(--espace-sm);
+  padding:var(--espace-md) 0;min-width:0;
+}
+.cp-n > span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.cp-n b{font-size:var(--texte-sous);font-weight:var(--graisse-medium)}
+.cp-n em{font-style:normal;font-size:var(--texte-note);color:var(--etiquette-3)}
+.cp-p{
+  width:10px;height:10px;flex:0 0 auto;margin-top:5px;
+  border-radius:var(--rayon-plein);
+}
+.cp-p.p-civil{background:var(--lum-civil)}
+.cp-p.p-naut{background:var(--lum-naut)}
+.cp-p.p-astro{background:var(--lum-astro)}
+.cp-h{
+  padding:var(--espace-md) 0 var(--espace-md) var(--espace-base);text-align:right;
+  font-size:var(--texte-corps);font-weight:var(--graisse-regular);
+  font-variant-numeric:tabular-nums;
+}
+.cp-h.courant{color:var(--ic-soleil);font-weight:var(--graisse-semibold)}
+.cp-abs{
+  grid-column:span 2;text-align:right;
+  padding:var(--espace-md) 0 var(--espace-md) var(--espace-base);
+  font-size:var(--texte-note);color:var(--etiquette-3);
+}
+.cp-n,.cp-h,.cp-abs{box-shadow:inset 0 1px 0 var(--filet-clair)}
 
 /* Course du jour : ce qui est passé s'efface, ce qui vient est en couleur. */
 .ch .rangee > svg:first-child{color:var(--ic-soleil)}

@@ -469,6 +469,82 @@ function trajectoire(courbe, lever, coucher, minutes, opts = {}) {
     + `</svg>`;
 }
 
+/* ---------- Le ruban de la lumière ----------
+
+   Les vingt-quatre heures du jour, teintées par la hauteur du Soleil. Cinq
+   états se suivent du plein jour à la nuit noire, séparés par les trois seuils
+   de crépuscule. Les bornes se placent par interpolation entre deux points de
+   la courbe : à cinq minutes de pas, la hauteur varie assez peu pour que la
+   droite suffise. */
+
+const SEUILS_LUM = [-0.833, -6, -12, -18];
+const ZONES_LUM = ["jour", "civil", "naut", "astro", "nuit"];
+
+const zoneLum = h => {
+  for (let z = 0; z < SEUILS_LUM.length; z++) if (h >= SEUILS_LUM[z]) return z;
+  return SEUILS_LUM.length;
+};
+
+export function bandesLum(courbe) {
+  const out = [];
+  let m0 = courbe[0].m;
+  let z = zoneLum(courbe[0].h);
+  const poser = (m1, zone) => {
+    if (m1 > m0 + 0.01) out.push({ a: m0, b: m1, z: zone });
+    m0 = Math.max(m0, m1);
+  };
+
+  for (let k = 1; k < courbe.length; k++) {
+    const a = courbe[k - 1], b = courbe[k];
+    const za = zoneLum(a.h), zb = zoneLum(b.h);
+    if (za === zb) continue;
+    const pas = zb > za ? 1 : -1;
+    /* Une même paire de points peut franchir plusieurs seuils aux latitudes
+       hautes : ils se traitent dans l'ordre où le temps les rencontre. */
+    const franchis = [];
+    for (let q = za; q !== zb; q += pas) franchis.push(pas > 0 ? q : q - 1);
+    for (const q of franchis) {
+      const t = (SEUILS_LUM[q] - a.h) / (b.h - a.h);
+      const part = Number.isFinite(t) ? Math.min(1, Math.max(0, t)) : 0;
+      poser(a.m + part * (b.m - a.m), z);
+      z += pas;
+    }
+  }
+  poser(courbe[courbe.length - 1].m, z);
+  return out;
+}
+
+function rubanLumiere(courbe, minutes) {
+  const W = 342, H = 54, G = 4, D = 4, Y = 8, EP = 30;
+  const x = m => G + (m / 1440) * (W - G - D);
+
+  const rects = bandesLum(courbe).map(b =>
+    `<rect class="lm lm-${ZONES_LUM[b.z]}" x="${x(b.a).toFixed(1)}" y="${Y}" `
+    + `width="${Math.max(0.6, x(b.b) - x(b.a)).toFixed(1)}" height="${EP}"/>`).join("");
+
+  const deuxCh = n => String(n).padStart(2, "0");
+  const traits = [6, 12, 18].map(h =>
+    `<line class="lm-grille" x1="${x(h * 60).toFixed(1)}" y1="${Y}" `
+    + `x2="${x(h * 60).toFixed(1)}" y2="${Y + EP}"/>`).join("");
+  const heures = [0, 6, 12, 18, 24].map((h, k) =>
+    `<text class="lm-txt" x="${x(h * 60).toFixed(1)}" y="${H - 2}" `
+    + `text-anchor="${k === 0 ? "start" : k === 4 ? "end" : "middle"}">`
+    + `${deuxCh(h)} h</text>`).join("");
+
+  const cx = x(Math.max(0, Math.min(1440, minutes)));
+  const marque = `<path class="lm-marque" d="M${(cx - 4).toFixed(1)},0 `
+    + `L${(cx + 4).toFixed(1)},0 L${cx.toFixed(1)},6 Z"/>`
+    + `<line class="lm-fil" x1="${cx.toFixed(1)}" y1="${Y}" `
+    + `x2="${cx.toFixed(1)}" y2="${Y + EP}"/>`;
+
+  return `<svg class="lm-r" viewBox="0 0 ${W} ${H}" role="img" `
+    + `aria-label="Ruban de la lumière, de minuit à minuit">`
+    + `<defs><clipPath id="lmClip">`
+    + `<rect x="${G}" y="${Y}" width="${W - G - D}" height="${EP}" rx="7"/></clipPath></defs>`
+    + `<g clip-path="url(#lmClip)">${rects}${traits}</g>`
+    + marque + heures + `</svg>`;
+}
+
 export function vueSoleil() {
   const c = P.chargeCourante();
   const i = P.iJour();
@@ -523,23 +599,26 @@ export function vueSoleil() {
 
   const p = Astres.position("soleil", maintenant, g.lat, g.lon);
   const etat = p.hauteur >= -0.833
-    ? `Soleil à ${Math.round(p.hauteur)}° au dessus de l'horizon`
-    : p.hauteur >= -6 ? "Le jour se retire" : "Le Soleil est sous l'horizon";
+    ? `Soleil à ${Math.round(p.hauteur)}° au-dessus de l'horizon`
+    : p.hauteur >= -6 ? "Crépuscule civil, il fait encore clair"
+      : p.hauteur >= -12 ? "Crépuscule nautique, le jour s'est retiré"
+        : p.hauteur >= -18 ? "Crépuscule astronomique, dernière lueur"
+          : "Nuit noire, aucune lueur du Soleil";
 
-  /* Course du jour, dans l'ordre où elle se vit. Ce qui est passé s'efface,
-     ce qui vient est en couleur. */
+  /* Course du jour : les instants du disque, dans l'ordre où ils se vivent. Les
+     crépuscules ont leur propre carte, où les trois seuils se comparent ; les
+     redire ici en ferait lire deux fois les mêmes heures. */
   const chrono = [
-    ["lueur", "Premières lueurs", [cr.civil.matin ? hm(cr.civil.matin.getTime()) : "—"],
-      cr.civil.matin],
     ["lever", "Lever",
       [hm(lever), e.azimutLever === null ? null : { doux: cardinalDe(e.azimutLever) }],
       new Date(lever)],
-    ["midi", "Midi solaire", [e.meridien ? hm(e.meridien.getTime()) : "—"], e.meridien],
+    ["midi", "Midi solaire",
+      [e.meridien ? hm(e.meridien.getTime()) : "—",
+        e.hauteurMax === null ? null : { doux: `${Math.round(e.hauteurMax)}° de hauteur` }],
+      e.meridien],
     ["coucher", "Coucher",
       [hm(coucher), e.azimutCoucher === null ? null : { doux: cardinalDe(e.azimutCoucher) }],
       new Date(coucher)],
-    ["lune", "Dernières lueurs", [cr.civil.soir ? hm(cr.civil.soir.getTime()) : "—"], cr.civil.soir],
-    ["horloge", "Lumière du jour", [hhmm(duree)], null],
   ];
 
   const lignes = chrono.map(([sym, nom, parts, quand]) => {
@@ -550,24 +629,49 @@ export function vueSoleil() {
       + valeur(...parts) + `</div>`;
   }).join("");
 
+  /* Les trois durées qui se partagent les vingt-quatre heures : le disque
+     au-dessus de l'horizon, la clarté lueurs comprises, et la part sans aucune
+     lueur. La nuit noire se mesure d'un soir à l'aube du lendemain : celle du
+     jour même en tient lieu, à deux ou trois minutes près. */
+  const clarte = cr.civil.matin && cr.civil.soir
+    ? Math.round((cr.civil.soir - cr.civil.matin) / 1000) : null;
+  const nuitNoire = cr.astronomique.matin && cr.astronomique.soir
+    ? 86400 - Math.round((cr.astronomique.soir - cr.astronomique.matin) / 1000) : 0;
+
   const mesures = `<div class="tm">`
-    + `<div><i>Hauteur maximale</i>`
-    + `<b>${e.hauteurMax === null ? "—" : `${Math.round(e.hauteurMax)}°`}</b>`
-    + `<em>${e.meridien ? hm(e.meridien.getTime()) : ""}</em></div>`
     + `<div><i>Durée du jour</i><b>${hhmm(duree)}</b>`
-    + `<em>${hm(lever)} à ${hm(coucher)}</em></div>`
-    + `<div><i>Écart à la veille</i><b>${delta >= 0 ? "+" : "−"} ${Math.abs(delta)} min</b>`
-    + `<em>${delta >= 0 ? "plus de lumière" : "moins de lumière"}</em></div>`
+    + `<em>${delta === 0 ? "comme hier"
+      : `${Math.abs(delta)} min de ${delta > 0 ? "plus" : "moins"} qu'hier`}</em></div>`
+    + `<div><i>Clarté</i><b>${clarte === null ? "—" : hhmm(clarte)}</b>`
+    + `<em>lueurs comprises</em></div>`
+    + `<div><i>Nuit noire</i><b>${nuitNoire > 0 ? hhmm(nuitNoire) : "aucune"}</b>`
+    + `<em>${nuitNoire > 0 ? "sans lueur du Soleil" : "le Soleil reste trop haut"}</em></div>`
     + `</div>`;
 
-  const cieux = [
-    ["Crépuscule nautique", cr.nautique],
-    ["Nuit noire", cr.astronomique],
-  ].map(([n, v]) => `<div class="rangee"><span class="rangee-txt">${esc(n)}</span>`
-    + (v.matin && v.soir
-      ? valeur(hm(v.matin.getTime()), { doux: "et" }, hm(v.soir.getTime()))
-      : valeur({ doux: "le Soleil ne descend pas si bas" }))
-    + `</div>`).join("");
+  /* Les trois seuils, du plus clair au plus sombre, chacun avec son heure du
+     matin et son heure du soir. Les deux colonnes disent de quel côté de la
+     journée tombe chaque heure : « 05:45 et 21:45 » ne le disait pas. */
+  const CREPS = [
+    ["civil", "Crépuscule civil", "on distingue encore sans lampe", cr.civil],
+    ["naut", "Crépuscule nautique", "l'horizon reste visible en mer", cr.nautique],
+    ["astro", "Crépuscule astronomique", "au-delà, la nuit noire", cr.astronomique],
+  ];
+
+  const heureCrep = d => {
+    if (!d) return `<b class="cp-h">—</b>`;
+    const ici = prochain && prochain[0].getTime() === d.getTime() ? " courant" : "";
+    return `<b class="cp-h${ici}">${hm(d.getTime())}</b>`;
+  };
+
+  const creps = `<div class="cp">`
+    + `<span class="cp-t"></span><span class="cp-t">Le matin</span><span class="cp-t">Le soir</span>`
+    + CREPS.map(([cle, nom, quoi, v]) =>
+      `<span class="cp-n"><i class="cp-p p-${cle}"></i>`
+      + `<span><b>${esc(nom)}</b><em>${esc(quoi)}</em></span></span>`
+      + (v.matin || v.soir
+        ? heureCrep(v.matin) + heureCrep(v.soir)
+        : `<span class="cp-abs">le Soleil ne descend pas si bas</span>`)).join("")
+    + `</div>`;
 
   return {
     titre: "Le soleil",
@@ -585,17 +689,20 @@ export function vueSoleil() {
       + `</div></div>`
 
       + `<div class="section"><h2>Course du jour</h2>`
-      + `<div class="carte groupe-plat ch">${lignes}</div></div>`
-
+      + `<div class="carte groupe-plat ch">${lignes}</div>`
       + `<div class="carte">${mesures}`
       + (passage ? `<p class="note">La durée du jour ${esc(passage.sens)} dix heures `
         + `le ${esc(jourLong(passage.date))}.</p>` : "")
-      + `</div>`
+      + `</div></div>`
 
-      + `<div class="section"><h2>Fin et retour de la lumière</h2>`
-      + `<div class="carte">${cieux}`
-      + `<p class="note">Le crépuscule civil borne la lecture au dehors, le nautique `
-      + `l'horizon en mer, la nuit noire l'absence de lueur solaire.</p></div></div>`
+      + `<div class="section"><h2>Les crépuscules</h2>`
+      + `<div class="carte"><div class="carte-tete"><h3>Du jour à la nuit noire</h3></div>`
+      + rubanLumiere(courbe, minutes)
+      + creps
+      + `<p class="note">Les seuils tiennent à la hauteur du Soleil sous l'horizon : `
+      + `six degrés pour le civil, douze pour le nautique, dix-huit pour `
+      + `l'astronomique. Passé le dernier, plus aucune lueur solaire n'atteint le `
+      + `ciel.</p></div></div>`
       + `</div>`,
 
     brancher(bloc) {

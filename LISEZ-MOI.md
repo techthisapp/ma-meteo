@@ -12,7 +12,7 @@ service dorsal, sans base de données, sans compte. Métropole française.
 | Accueil | Le panneau de vigilance s'il y en a une, puis le bandeau du ciel plein cadre portant le temps qu'il fait, le jour, la température, le ciel et les bornes du jour, quatre mesures, une carte « À retenir » réunissant les vingt-quatre heures et ce qui vient au-delà, et les prochaines heures par tranches de six heures |
 | Le temps | Vingt-quatre heures glissantes en deux écritures : ruban à sept voies, table à treize colonnes |
 | La semaine | Sept jours : symbole de ciel et lame sous lui, borne basse à gauche, plage de température sur une échelle commune, borne haute à droite, point du moment sur la journée en cours |
-| Le soleil | Bandeau du ciel plein cadre avec le Soleil à sa vraie place, trajectoire du jour, course du jour dans l'ordre, hauteur maximale, durée, écart à la veille, crépuscules |
+| Le soleil | Bandeau du ciel plein cadre avec le Soleil à sa vraie place, trajectoire du jour, course du disque, durée du jour, clarté et nuit noire, ruban et table des trois crépuscules |
 | La lune | Bandeau du ciel plein cadre avec la Lune en relief à sa vraie place, trajectoire du jour croisée avec celle du Soleil, course du jour, part éclairée, âge, lunaison, quatre prochaines phases |
 | Vigilance | Bulletin en vigueur, phénomènes signalés avec leur niveau et leur fenêtre, renvoi vers Météo-France, en feuille |
 | Mes lieux | Lieux suivis, chacun sous son propre ciel, réordonnables, en feuille. L'ajout se pousse derrière le bouton de la tête |
@@ -333,6 +333,39 @@ minutes. Le trait plein est au-dessus de l'horizon, le pointillé au-dessous, et
 le moment courant porte un point et son fil. Les instants remarquables restent
 affinés par dichotomie, la courbe ne servant qu'au tracé.
 
+### Course du jour et durées
+
+La course du jour ne porte que les instants du disque : lever avec son point
+cardinal, midi solaire avec sa hauteur, coucher avec son point cardinal.
+
+Les trois mesures qui suivent se partagent les vingt-quatre heures : la durée du
+jour et son écart à la veille, la clarté lueurs comprises, la part sans aucune
+lueur solaire. Aucune de ces valeurs n'est redite ailleurs sur l'écran, et un
+contrôle vérifie qu'aucune heure n'y paraît deux fois.
+
+La nuit noire se mesure du soir à l'aube du lendemain. C'est la nuit du jour
+même qui en tient lieu, l'écart d'un jour à l'autre restant de deux ou trois
+minutes.
+
+### Les crépuscules
+
+Un ruban porte les vingt-quatre heures, teintées par la hauteur du Soleil. Cinq
+états s'y suivent, du plein jour à la nuit noire, séparés par les trois seuils
+de crépuscule. Les bornes se placent par interpolation entre deux points de la
+courbe. Un contrôle vérifie que le découpage couvre la journée entière et sans
+trou, y compris les jours sans nuit noire, sans lever et sans coucher.
+
+La table qui suit sert de légende au ruban : chaque seuil porte la pastille de
+sa bande, son heure du matin et son heure du soir dans deux colonnes distinctes.
+Les trois seuils sont montrés, ceux-là mêmes que la note nomme, et un contrôle
+compare les deux listes.
+
+| Seuil | Hauteur du Soleil | Ce qu'il borne |
+|---|---|---|
+| Crépuscule civil | six degrés sous l'horizon | on distingue encore sans lampe |
+| Crépuscule nautique | douze degrés | l'horizon reste visible en mer |
+| Crépuscule astronomique | dix-huit degrés | au-delà, la nuit noire |
+
 ## La lune
 
 Même grammaire que l'écran du soleil : bandeau plein cadre, barre de tête
@@ -521,7 +554,8 @@ src/
   postes.js         fichier départemental et geojson des postes, non branché
   reserve.js        les deux vues débranchées
 essais/
-  controle.mjs      cent soixante-dix-sept contrôles en navigateur
+  controle.mjs      deux cent soixante-trois contrôles en navigateur
+  vue-soleil.mjs    captures de l'écran du soleil, thème clair et sombre
   meteo.json        données figées au 18 août 2026, 9 h
 ```
 
@@ -538,10 +572,14 @@ node essais/controle.mjs
 Le chemin du navigateur peut être imposé par la variable `CHROMIUM` lorsque la
 révision installée par Playwright ne correspond pas à celle du poste.
 
+`node essais/vue-soleil.mjs` rend l'écran du soleil dans les deux thèmes, en
+haut et en bas de page, sous `essais/captures`. La variable `QUAND` porte
+l'instant à figer.
+
 Le lanceur sert le dossier, fige l'horloge au 18 août 2026 à 9 h, détourne les
 trois appels Open-Meteo vers `meteo.json`, sert une vigilance orange de
 convention, et coupe les sources data.gouv pour éprouver le repli. Deux cent
-cinquante-cinq contrôles, dont l'absence de répétition entre
+soixante-trois contrôles, dont l'absence de répétition entre
 les alertes et les conseils, les sept voies du ruban, l'agrandissement d'une
 voie, les treize colonnes de la liste, les vingt-quatre lignes de la fenêtre, la
 nature du renvoi de vigilance, et dix-sept contrôles de conformité au design
@@ -550,7 +588,14 @@ verre réservé à la navigation, tailles de texte issues de l'échelle, transit
 neutralisées sous mouvement réduit, accroches de feuille, erreur sous le champ,
 état désactivé, rangée unique, état vide complet, ossature au premier
 chargement. Les écrans du Soleil et de la Lune sont contrôlés de la même façon,
-y compris l'absence de toute requête réseau pour la Lune. La bascule de commune
+y compris l'absence de toute requête réseau pour la Lune. L'écran du Soleil
+ajoute neuf contrôles sur la lecture des durées et des crépuscules : aucune
+heure écrite deux fois dans le corps, la durée du jour écrite une seule fois,
+les trois crépuscules nommés, la note ne nommant que ceux qui sont montrés,
+chaque seuil portant son matin et son soir dans deux colonnes, la teinte de la
+pastille égale à celle de sa bande, le ruban couvrant les vingt-quatre heures,
+ses cinq états présents, et le découpage sans trou sur quatre ciels
+d'épreuve. La bascule de commune
 est éprouvée de bout en bout : ouverture par le titre, ajout par la feuille
 poussée depuis la tête, bascule par appui, retrait par le clavier, et
 réordonnancement des deux façons, au clavier puis par appui long.

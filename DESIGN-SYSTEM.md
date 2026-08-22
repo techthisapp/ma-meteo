@@ -165,6 +165,19 @@ La valeur peut être composée. Chaque partie forte reste insécable, la coupure
 fait entre les parties : sur un grand corps de texte, « 16:05, sud-est » d'un
 seul tenant débordait de sa carte, l'heure ne pouvant pas se couper.
 
+### Table à deux moments
+
+`.cp`, pour une grandeur qui se lit une fois le matin et une fois le soir. Trois
+colonnes, le libellé et sa description à gauche, les deux heures à droite sous
+un entête qui les nomme. L'écart entre colonnes se prend en marge intérieure,
+non en gouttière : un filet de rangée doit courir d'un bord à l'autre.
+
+Deux heures dans une seule case, « 05:45 et 21:45 », ne disent pas laquelle est
+laquelle. La colonne le dit sans un mot de plus.
+
+Quand le seuil n'est pas atteint, une case unique couvre les deux colonnes et
+dit pourquoi. Elle ne porte alors aucune heure.
+
 ### Action de glissement
 
 La rangée de commune, `.co`, porte son action de retrait sous elle, non à côté.
@@ -262,6 +275,16 @@ graphique ou une table en haut de la page.
 Deux groupes, `ic-a` pour la masse et `ic-b` pour l'accent, colorés par
 `icoTemps`. Six teintes seulement, peu saturées. `ico` rend les mêmes dessins en
 monochrome pour tous les autres emplois.
+
+### États de la lumière
+
+Cinq teintes, `--lum-jour`, `--lum-civil`, `--lum-naut`, `--lum-astro`,
+`--lum-nuit`, du plein jour à la nuit noire. Elles forment une échelle continue
+et doivent se distinguer de leur voisine sur une bande de trente points de haut.
+
+Elles servent au ruban de l'écran du soleil et aux pastilles de la table des
+crépuscules. La pastille porte la teinte de sa bande : la table est la légende
+du ruban, aucune légende séparée n'est nécessaire.
 
 ### Geste de lecture
 
