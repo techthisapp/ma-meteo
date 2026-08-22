@@ -1652,6 +1652,43 @@ ok("les journées sans heures gardent leurs bornes",
   && await pgCourt.locator(".sem-max").count() === 7);
 await ctxCourt.close();
 
+/* Une charge gardée sous une autre forme. La version d'avant ne demandait que
+   deux jours d'heures ; sa charge restait servie jusqu'à la fin de l'heure en
+   cours, le nouveau code tournait sur l'ancienne donnée, et la semaine ne
+   s'ouvrait que sur ses deux premières journées. La portée demandée entre donc
+   dans la clé du cache. */
+const ctxVieux = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+const ancienne = JSON.parse(JSON.stringify(METEO));
+for (const c of Object.keys(ancienne.hourly)) {
+  ancienne.hourly[c] = ancienne.hourly[c].slice(0, 48);
+}
+ancienne.horaireSecours = ancienne.hourly;
+await ctxVieux.addInitScript(amorce(FAIN));
+await ctxVieux.addInitScript(`localStorage.setItem("mameteo.previsions.v1", JSON.stringify({
+  cle: "${FAIN.lat},${FAIN.lon}", t: Date.now(), h: "2026-08-18T09",
+  d: ${JSON.stringify(ancienne)},
+}));`);
+await brancherRoutes(ctxVieux);
+const pgVieux = await ctxVieux.newPage();
+await pgVieux.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await pgVieux.waitForTimeout(1600);
+ok("une charge gardée sous une autre forme n'est pas servie", await pgVieux.evaluate(async () => {
+  const P = await import("/src/previsions.js");
+  return (P.chargeCourante()?.hourly?.time?.length ?? 0) === 168;
+}), String(await pgVieux.evaluate(async () => {
+  const P = await import("/src/previsions.js");
+  return P.chargeCourante()?.hourly?.time?.length ?? 0;
+})));
+await pgVieux.locator('[data-onglet="semaine"]').click();
+await pgVieux.waitForTimeout(600);
+ok("la semaine s'ouvre bien sur ses sept journées après une charge périmée",
+  await pgVieux.locator(".sem-chev").count() === 7,
+  String(await pgVieux.locator(".sem-chev").count()));
+await ctxVieux.close();
+
 const ctxLent = await nav.newContext({
   viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
   locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,

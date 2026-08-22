@@ -218,6 +218,14 @@ alors pas de chevron : une cible qui ne mène à rien vaut moins qu'aucune cible
 Un après-midi résumé de trois heures sur six dirait autre chose que ce qu'il
 montre.
 
+La portée demandée à la source entre dans la clé du cache. Sans cela, une charge
+écrite par la version d'avant, qui ne demandait que deux jours d'heures, restait
+servie jusqu'à la fin de l'heure en cours : le nouveau code tournait sur
+l'ancienne donnée et la semaine ne s'ouvrait que sur ses deux premières
+journées. La clé porte donc les deux horizons, celui des heures et celui
+d'AROME, et le jour où ils changent la charge gardée cesse d'être servie
+d'elle-même, sans compteur à penser à incrémenter.
+
 La table de la semaine est devenue une liste de boutons. Une cible de liste veut
 son `aria-expanded`, son clavier et son focus, ce qu'une cellule de table ne
 donne pas ; les colonnes s'alignent par leurs largeurs fixes, comme avant.
@@ -619,7 +627,7 @@ src/
   postes.js         fichier départemental et geojson des postes, non branché
   reserve.js        les deux vues débranchées
 essais/
-  controle.mjs      deux cent quatre-vingt-sept contrôles en navigateur
+  controle.mjs      deux cent quatre-vingt-neuf contrôles en navigateur
   vue-ecran.mjs     captures d'un écran, thème clair et sombre
   meteo.json        données figées au 18 août 2026, 9 h
 ```
@@ -644,7 +652,7 @@ la destination et l'instant à figer.
 Le lanceur sert le dossier, fige l'horloge au 18 août 2026 à 9 h, détourne les
 trois appels Open-Meteo vers `meteo.json`, sert une vigilance orange de
 convention, et coupe les sources data.gouv pour éprouver le repli. Deux cent
-soixante-trois contrôles, dont l'absence de répétition entre
+quatre-vingt-neuf contrôles, dont l'absence de répétition entre
 les alertes et les conseils, les sept voies du ruban, l'agrandissement d'une
 voie, les treize colonnes de la liste, les vingt-quatre lignes de la fenêtre, la
 nature du renvoi de vigilance, et dix-sept contrôles de conformité au design
@@ -660,7 +668,7 @@ la fermeture au second appui, la borne qui compte et rien de superflu dans
 chaque volet, la rafale signalée, le moment passé effacé, et sur une charge
 écourtée en milieu de journée, la journée incomplète qui ne s'ouvre pas ni ne
 porte de chevron. Deux autres gardent le contrat avec la source : les heures
-demandées sur sept jours, AROME sur trois. Sept contrôles portent
+demandées sur sept jours, AROME sur trois. Deux derniers reprennent le défaut tel qu'il s'est produit : une charge gardée sous l'ancienne forme ne doit pas être servie, et la semaine doit s'ouvrir sur ses sept journées après elle. Sept contrôles portent
 sur la vignette de la Lune et sur la lecture de son écran : la vignette est
 devant le nom de la phase, elle porte des pixels opaques, sa part sombre est
 franche, elle dit la même phase que le ciel, elle garde sa pleine matière sous

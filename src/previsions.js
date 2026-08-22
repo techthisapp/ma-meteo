@@ -39,6 +39,17 @@ const HORAIRE = [
    à comparer la pluie mesurée au poste et la pluie annoncée. */
 const PASSE = 14;
 
+/* La portée demandée à la source. Elle entre dans la clé du cache : le jour où
+   elle change, la charge gardée sous l'ancienne forme cesse d'être servie
+   d'elle-même.
+
+   Sans cela, une charge écrite par la version d'avant, qui ne demandait que
+   deux jours d'heures, restait servie jusqu'à la fin de l'heure en cours. Le
+   nouveau code tournait sur l'ancienne donnée, et la semaine ne s'ouvrait que
+   sur ses deux premières journées. */
+const JOURS = 7;
+const JOURS_AROME = 3;
+
 let charge = null;
 let heureCharge = null;
 
@@ -117,7 +128,7 @@ async function prendre(url, essais) {
 
 export async function charger({ lat, lon }) {
   if (lat === null || lat === undefined) { charge = null; return null; }
-  const cle = `${lat},${lon}`;
+  const cle = `${lat},${lon}|${JOURS}j|${JOURS_AROME}a`;
   try {
     const c = JSON.parse(localStorage.getItem(CACHE) || "null");
     if (c && c.cle === cle && c.h === heureCle() && Date.now() - c.t < TTL) {
@@ -134,9 +145,10 @@ export async function charger({ lat, lon }) {
      AROME ne va pas au delà d'environ soixante-neuf heures. Le lui demander sur
      sept jours ne rendrait que des colonnes vides : sa requête reste à trois
      jours, et la fusion laisse le modèle global au delà. */
-  const uq = `${base}&daily=${QUOTIDIEN}&past_days=${PASSE}&forecast_days=7`;
-  const uh = `${base}&hourly=${HORAIRE}&forecast_days=7`;
-  const ua = `${base}&hourly=${HORAIRE}&forecast_days=3&models=${AROME.join(",")}`;
+  const uq = `${base}&daily=${QUOTIDIEN}&past_days=${PASSE}&forecast_days=${JOURS}`;
+  const uh = `${base}&hourly=${HORAIRE}&forecast_days=${JOURS}`;
+  const ua = `${base}&hourly=${HORAIRE}&forecast_days=${JOURS_AROME}`
+    + `&models=${AROME.join(",")}`;
 
   try {
     const [q, h] = await Promise.all([prendre(uq, 1), prendre(uh, 1)]);
