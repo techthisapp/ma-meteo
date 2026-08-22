@@ -150,6 +150,31 @@ function couleurs(ciel, couv, sombreur) {
   return { clair, sombre, lumiere: (1 - 0.82 * s) * (1 - 0.5 * n) };
 }
 
+/* Le ciel d'un lieu réduit à deux couleurs, tel qu'il paraîtrait en fond
+   d'accueil. Sans couche, le ciel reste le ciel, à peine grisé par les cumulus.
+   Sous une couche fermée, c'est la couche qu'on voit, sombre au zénith et claire
+   vers l'horizon : c'est elle qui donne les deux couleurs. Un ciel couvert n'est
+   pas un ciel bleu avec un nuage dessus. */
+export function fond(ciel, p) {
+  const couv = Math.max(p.cumulus, p.nappe);
+  /* Le plomb est de moitié : sur une bande de soixante points il n'y a ni base
+     claire ni horizon pour le compenser, et un ciel de pluie y virait au noir. */
+  const sombreur = Math.min(1, p.nappe * 0.92 + p.lame / 28) * (1 - 0.85 * p.brouillard) * 0.5;
+  const c = couleurs(ciel, couv, sombreur);
+  const k = p.nappe;
+  const rvb = v => `rgb(${v[0]},${v[1]},${v[2]})`;
+  /* Le mélange est plus clair que dans le bandeau : sur une bande de soixante
+     points, le sommet sombre d'une couche occupe la moitié de la hauteur, là où
+     il n'en occupe qu'un tiers sur trois cents. Repris tel quel, un ciel couvert
+     y virait au noir. */
+  return {
+    haut: rvb(melangeRVB(melangeRVB(ciel.hautRVB, c.sombre, 0.22 * (1 - k)),
+      melangeRVB(c.clair, c.sombre, 0.60), k)),
+    bas: rvb(melangeRVB(melangeRVB(ciel.basRVB, c.clair, 0.30 * (1 - k)),
+      melangeRVB(c.clair, c.sombre, 0.06), k)),
+  };
+}
+
 /* ---------- Silhouettes ---------- */
 
 // Le flou de toile manque à quelques navigateurs : le dessin tient sans lui.

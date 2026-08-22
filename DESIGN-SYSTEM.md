@@ -224,6 +224,21 @@ posée devant l'astre : un nuage passe devant le Soleil, non derrière. Elle vie
 donc après lui dans l'ordre du document, et sous les voiles de lisibilité. Une
 couche fermée efface l'astre, qui n'est alors plus dessiné du tout.
 
+### Tête de feuille porteuse
+
+La tête de feuille peut porter une action à droite du titre, entre lui et la
+fermeture. C'est là que se range ce qui crée, plutôt que dans une carte au bas
+de la liste : une carte de saisie en fin de page se fait oublier, et elle
+s'éloigne à mesure que la liste grandit.
+
+### Rangée sous son ciel
+
+Une rangée de liste peut prendre pour fond le ciel de ce qu'elle nomme, en deux
+couleurs et sans animation. Le texte passe alors au blanc, avec le même voile de
+lisibilité que le bandeau plein cadre, et les symboles au monochrome. La couleur
+y est une image, non une information : le libellé et le chiffre disent tout ce
+qu'il y a à savoir.
+
 ### Panneau d'alerte
 
 Une carte à rail coloré, posée en tête du contenu, qui ne paraît que s'il y a

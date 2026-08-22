@@ -702,8 +702,8 @@ await onglet("accueil");
 // Premier geste : le titre d'écran.
 await pg.locator("#navLieu").click();
 await pg.waitForTimeout(900);
-ok("le titre d'écran ouvre la feuille des communes",
-  (await txt("#feuille-titre")).startsWith("Communes"), await txt("#feuille-titre"));
+ok("le titre d'écran ouvre la feuille des lieux",
+  (await txt("#feuille-titre")).startsWith("Mes lieux"), await txt("#feuille-titre"));
 ok("la commune courante est suivie", await pg.locator(".co:not(.co-pos)").count() === 1);
 ok("la commune courante porte une coche",
   await pg.locator('.co-l[aria-current="true"] .co-coche').count() === 1);
@@ -724,6 +724,32 @@ ok("sans relevé, la cible tient la place du symbole",
 ok("sans relevé, Ma position invite à le prendre",
   (await txt(".co-pos .co-t em")).includes("Relever"), await txt(".co-pos .co-t em"));
 ok("le bouton de position redondant a disparu", await pg.locator("#rgGeo").count() === 0);
+
+/* Chaque rangée porte le ciel de son lieu : la même image qu'en fond d'accueil
+   là-bas, un bleu contre un gris. */
+ok("chaque rangée porte le ciel de son lieu", await pg.evaluate(() => {
+  const co = [...document.querySelectorAll(".co:not([data-plat])")];
+  return co.length > 0 && co.every(e => {
+    const f = e.style.getPropertyValue("--co-haut").trim();
+    return /^rgb\(\d+,\d+,\d+\)$/.test(f);
+  });
+}));
+ok("le ciel d'une rangée n'est pas le fond de la carte", await pg.evaluate(() => {
+  const l = document.querySelector(".co:not([data-plat]) .co-l");
+  return l && getComputedStyle(l).backgroundImage.includes("gradient");
+}));
+
+/* Ajouter ne vit plus au bas de la liste : c'est une action, elle se range dans
+   la tête de feuille, à droite du titre. */
+ok("l'ajout se range derrière un bouton dans la tête",
+  await pg.locator("#feuille-action .feuille-plus").count() === 1);
+ok("le champ d'ajout n'encombre plus la liste",
+  await pg.locator("#feuille-corps #rgQ").count() === 0);
+await pg.locator("#feuille-action .feuille-plus").click();
+await pg.waitForTimeout(700);
+ok("le bouton pousse la feuille d'ajout",
+  (await txt("#feuille-titre")).startsWith("Ajouter"), await txt("#feuille-titre"));
+ok("le retour ramène à Mes lieux", await pg.locator("#feuille-retour:visible").count() === 1);
 
 ok("le champ de commune porte une étiquette visible",
   await pg.locator('label[for="rgQ"]:visible').count() === 1);
@@ -752,6 +778,73 @@ ok("les deux communes sont suivies", await pg.locator(".co:not(.co-pos)").count(
   String(await pg.locator(".co:not(.co-pos)").count()));
 const nomsCo = (await pg.locator(".co:not(.co-pos) .co-t b").allInnerTexts()).join(",");
 ok("la dernière choisie est en tête", nomsCo.startsWith("Grenoble"), nomsCo);
+
+/* Réordonner. Au clavier d'abord, qui est le chemin d'un lecteur d'écran, puis
+   au doigt par appui long. L'ordre tient au rechargement : il est écrit. */
+const avantOrdre = (await pg.locator(".co:not(.co-pos) .co-t b").allInnerTexts()).join(",");
+ok("deux lieux avant de réordonner", (await pg.locator(".co:not(.co-pos)").count()) === 2,
+  avantOrdre);
+ok("chaque lieu porte de quoi monter et descendre",
+  await pg.locator(".co:not(.co-pos) [data-monter]").count() === 2
+  && await pg.locator(".co:not(.co-pos) [data-descendre]").count() === 2);
+ok("les commandes d'ordre ne se voient qu'au focus", await pg.evaluate(() => {
+  const o = document.querySelector(".co-ordre");
+  return parseFloat(getComputedStyle(o).opacity) === 0;
+}));
+await pg.locator(".co:not(.co-pos)").nth(1).locator("[data-monter]").focus();
+await pg.keyboard.press("Enter");
+await pg.waitForTimeout(700);
+const apresOrdre = (await pg.locator(".co:not(.co-pos) .co-t b").allInnerTexts()).join(",");
+ok("monter échange les deux lieux",
+  apresOrdre === avantOrdre.split(",").reverse().join(","), `${avantOrdre} -> ${apresOrdre}`);
+ok("le nouvel ordre est écrit", await pg.evaluate(nom => {
+  const g = JSON.parse(localStorage.getItem("mameteo.reglages.v1"));
+  return (g.suivies[0].commune || "").startsWith(nom);
+}, apresOrdre.split(",")[0].slice(0, 5)));
+/* Le premier lieu ne peut pas monter, le dernier ne peut pas descendre : la
+   commande ne fait rien plutôt que de sortir de la liste. */
+await pg.locator(".co:not(.co-pos)").first().locator("[data-monter]").focus();
+await pg.keyboard.press("Enter");
+await pg.waitForTimeout(500);
+ok("le premier lieu ne sort pas de la liste par le haut",
+  (await pg.locator(".co:not(.co-pos) .co-t b").allInnerTexts()).join(",") === apresOrdre);
+ok("Ma position ne se réordonne pas",
+  await pg.locator(".co-pos .co-ordre").count() === 0);
+await pg.locator(".co:not(.co-pos)").first().locator("[data-descendre]").focus();
+await pg.keyboard.press("Enter");
+await pg.waitForTimeout(700);
+ok("descendre rétablit l'ordre",
+  (await pg.locator(".co:not(.co-pos) .co-t b").allInnerTexts()).join(",") === avantOrdre);
+
+/* L'appui long soulève la rangée. Un déplacement avant la fin du délai annule
+   la prise, sans quoi le glissement de retrait n'aurait plus son geste. */
+const bRang = await pg.locator(".co:not(.co-pos)").first().boundingBox();
+await pg.mouse.move(bRang.x + 120, bRang.y + bRang.height / 2);
+await pg.mouse.down();
+await pg.waitForTimeout(450);
+ok("l'appui long soulève la rangée",
+  await pg.locator(".co-prise").count() === 1);
+await pg.mouse.move(bRang.x + 120, bRang.y + bRang.height * 1.7, { steps: 8 });
+await pg.waitForTimeout(200);
+ok("le déplacement change l'ordre en direct",
+  (await pg.locator(".co:not(.co-pos) .co-t b").allInnerTexts()).join(",")
+    === avantOrdre.split(",").reverse().join(","),
+  (await pg.locator(".co:not(.co-pos) .co-t b").allInnerTexts()).join(","));
+await pg.mouse.up();
+await pg.waitForTimeout(700);
+ok("le lâcher repose la rangée", await pg.locator(".co-prise").count() === 0);
+ok("l'appui long n'a pas basculé de lieu",
+  await pg.locator("#feuille:visible").count() === 1);
+ok("l'ordre déplacé au doigt est écrit", await pg.evaluate(() => {
+  const g = JSON.parse(localStorage.getItem("mameteo.reglages.v1"));
+  return g.suivies.length === 2;
+}));
+// L'ordre rétabli, la suite des contrôles repart de la même liste.
+await pg.locator(".co:not(.co-pos)").nth(1).locator("[data-monter]").focus();
+await pg.keyboard.press("Enter");
+await pg.waitForTimeout(600);
+ok("l'ordre est rétabli pour la suite",
+  (await pg.locator(".co:not(.co-pos) .co-t b").allInnerTexts()).join(",") === avantOrdre);
 
 await pg.locator(".co:not(.co-pos)").nth(1).locator(".co-l").click();
 await pg.waitForTimeout(1200);
@@ -816,9 +909,12 @@ ok("aucune autre rangée ne porte la coche",
   await pg.locator('.co-l[aria-current="true"]').count() === 1);
 ok("Ma position porte la température du moment",
   /^\d+°$/.test((await txt(".co-pos .co-d")).trim()), await txt(".co-pos .co-d"));
+/* Le symbole de ciel de la liste est monochrome : posé sur un ciel peint, un
+   dessin bicolore ne se détacherait plus. */
 ok("le relevé pris, la cible passe dans le titre",
   await pg.locator(".co-pos .co-cible").count() === 1
-  && await pg.locator(".co-pos .co-ic .ict").count() === 1);
+  && await pg.locator(".co-pos .co-ic svg").count() === 1
+  && await pg.locator(".co-pos .co-ic .ict").count() === 0);
 ok("Ma position nomme la commune relevée",
   (await txt(".co-pos .co-t em")).includes("Grenoble"), await txt(".co-pos .co-t em"));
 ok("le relevé n'ajoute pas de commune suivie",

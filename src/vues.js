@@ -750,15 +750,33 @@ export function vueLune() {
    la position et suit les déplacements. Elle est épinglée en tête et ne se
    retire pas. */
 
+/* Le ciel d'un lieu, en deux couleurs, pour le fond de sa rangée. La hauteur du
+   Soleil là-bas donne la teinte, le code de temps sensible la couvre et la
+   plombe : la rangée porte le même ciel que l'accueil de ce lieu, en petit. Tout
+   se calcule sur l'appareil, sans une requête de plus. */
+function fondLieu(l, a) {
+  const maintenant = new Date();
+  const p = Astres.position("soleil", maintenant, l.lat, l.lon);
+  const minuit = new Date(maintenant.getFullYear(), maintenant.getMonth(), maintenant.getDate());
+  const c = cielDe(p.hauteur, (maintenant - minuit) / 60000 < 720);
+  return Temps.fond(c, Temps.depuis(a ? a.code : 0, null, null));
+}
+
+const styleFond = f => `--co-haut:${f.haut};--co-bas:${f.bas}`;
+
 export function vueCommunes(ctx, rendre, majEtat) {
   const suivies = Reglages.suivies();
   const courante = Reglages.cleCourante();
   const pos = Reglages.position();
   const enPos = Reglages.enPosition();
 
+  /* Chaque rangée porte le ciel de son lieu, la même image qu'en fond d'accueil
+     là-bas : la liste se lit d'un coup d'œil, un bleu contre un gris. */
   const rangeePosition = () => {
     const sous = pos?.commune || (pos ? "Position relevée" : "Relever la position");
-    return `<div class="co co-pos" data-cle="${esc(Reglages.CLE_POSITION)}">`
+    const f = pos ? fondLieu(pos, null) : null;
+    return `<div class="co co-pos" data-cle="${esc(Reglages.CLE_POSITION)}"`
+      + (f ? ` style="${styleFond(f)}"` : ` data-plat`) + `>`
       + `<button type="button" class="co-l" id="coPos"`
       + (enPos ? ` aria-current="true"` : "")
       /* Une fois le relevé pris, le symbole de ciel occupe la même place que sur
@@ -776,11 +794,20 @@ export function vueCommunes(ctx, rendre, majEtat) {
   const rangee = (l, k) => {
     const c = Reglages.cleLieu(l);
     const ici = c === courante;
-    return `<div class="co" data-cle="${esc(c)}">`
+    const nom = l.commune || "Commune";
+    /* Monter et descendre sont là pour le clavier et la synthèse vocale : au
+       doigt, l'appui long suffit. Les boutons ne se voient qu'au focus, mais ils
+       gardent leur taille de cible. */
+    return `<div class="co" data-cle="${esc(c)}" style="${styleFond(fondLieu(l, null))}">`
+      + `<span class="co-ordre">`
+      + `<button type="button" class="co-o" data-monter="${esc(c)}" `
+      + `aria-label="Monter ${esc(nom)}">${ico("chevron", "")}</button>`
+      + `<button type="button" class="co-o" data-descendre="${esc(c)}" `
+      + `aria-label="Descendre ${esc(nom)}">${ico("chevron", "")}</button></span>`
       + `<button type="button" class="co-l" data-k="${k}"`
       + (ici ? ` aria-current="true"` : "")
       + `><span class="co-ic" data-ic></span>`
-      + `<span class="co-t"><b>${esc(l.commune || "Commune")}</b>`
+      + `<span class="co-t"><b>${esc(nom)}</b>`
       + `<em data-bornes>${esc(l.codePostal || "")}</em></span>`
       + `<span class="co-d" data-deg><i class="ossature">00°</i></span>`
       /* La coche garde sa place sur toutes les rangées : sans quoi la colonne
@@ -788,7 +815,7 @@ export function vueCommunes(ctx, rendre, majEtat) {
       + ico("coche", ici ? "co-coche" : "co-coche co-coche-vide")
       + `</button>`
       + `<button type="button" class="co-x" data-retirer="${esc(c)}">`
-      + `Retirer<span class="co-hors">${esc(l.commune || "")} des communes suivies</span></button>`
+      + `Retirer<span class="co-hors">${esc(nom)} des lieux suivis</span></button>`
       + `</div>`;
   };
 
@@ -799,19 +826,17 @@ export function vueCommunes(ctx, rendre, majEtat) {
   const plein = suivies.length >= Reglages.MAX_SUIVIES;
 
   return {
-    titre: "Communes",
+    titre: "Mes lieux",
+    /* Ajouter ne vit plus au bas de la liste : c'est une action, elle se range
+       dans la tête de feuille, à droite du titre. */
+    action: `<button type="button" class="feuille-plus" data-feuille="ajout" `
+      + `aria-label="Ajouter un lieu"${plein ? " disabled" : ""}>${ico("plus", "")}</button>`,
     corps: liste
-      + `<div class="carte"><div class="carte-tete"><h3>Ajouter</h3></div>`
-      + `<div class="champ"><label for="rgQ">Nom de commune ou code postal</label>`
-      + `<input class="rg-champ" id="rgQ" type="search" inputmode="search" autocomplete="off" `
-      + `placeholder="Grenoble, 38000"${plein ? " disabled" : ""}></div>`
-      + `<p class="champ-erreur" id="rgErr"${plein ? "" : " hidden"}>`
-      + (plein ? `Dix communes suivies au plus. En retirer une pour en ajouter une autre.` : "")
-      + `</p>`
-      + `<div class="rg-res" id="rgRes"></div></div>`
       + `<p class="note">Ma position suit l'appareil et se relève à chaque ouverture. `
-      + `Glisser une rangée vers la gauche pour retirer la commune. Le lieu courant `
-      + `porte une coche.</p>`,
+      + `Un appui long sur un lieu le déplace dans la liste. Glisser une rangée vers `
+      + `la gauche pour la retirer. Le lieu courant porte une coche.</p>`
+      + (plein ? `<p class="note">Dix lieux au plus. En retirer un pour en ajouter `
+        + `un autre.</p>` : ""),
 
     brancher(bloc) {
       /* Les températures arrivent après coup : la feuille s'ouvre tout de
@@ -830,7 +855,15 @@ export function vueCommunes(ctx, rendre, majEtat) {
             const icone = el.querySelector("[data-ic]");
             if (!a) { deg.textContent = "—"; continue; }
             deg.textContent = `${Math.round(a.t)}°`;
-            if (icone) icone.innerHTML = icoTemps(icoCiel(a.code, a.jour), "");
+            /* Le ciel de la rangée n'est connu qu'une fois l'aperçu reçu : le
+               marquage part d'un ciel dégagé, la couleur juste vient ici. Le
+               symbole reste monochrome, un dessin bicolore posé sur un ciel
+               peint ne se détacherait plus. */
+            if (icone) icone.innerHTML = ico(icoCiel(a.code, a.jour), "");
+            const f = fondLieu(l, a);
+            el.style.setProperty("--co-haut", f.haut);
+            el.style.setProperty("--co-bas", f.bas);
+            el.removeAttribute("data-plat");
             /* Sur Ma position, la commune relevée passe avant le code postal :
                c'est elle qui dit où l'appareil se trouve. */
             const tete = el.classList.contains("co-pos")
@@ -884,7 +917,44 @@ export function vueCommunes(ctx, rendre, majEtat) {
         rendre(change ? { recharger: true } : {});
       });
 
+      brancherOrdre(bloc, cles => { Reglages.reordonnerSuivies(cles); rendre(); });
+
+      for (const b of bloc.querySelectorAll("[data-monter],[data-descendre]")) {
+        b.addEventListener("click", () => {
+          const monte = b.hasAttribute("data-monter");
+          Reglages.deplacerSuivie(monte ? b.dataset.monter : b.dataset.descendre, monte ? -1 : 1);
+          rendre();
+        });
+      }
+    },
+  };
+}
+
+/* ---------- Ajouter un lieu ----------
+
+   Une feuille à elle, poussée par le bouton de la tête de « Mes lieux ». Le
+   champ occupait le bas de la liste et se faisait oublier ; il tient
+   maintenant la page entière, et le clavier s'ouvre dessus. */
+
+export function vueAjout(ctx, rendre, majEtat) {
+  const plein = Reglages.suivies().length >= Reglages.MAX_SUIVIES;
+  return {
+    titre: "Ajouter un lieu",
+    corps: `<div class="carte">`
+      + `<div class="champ"><label for="rgQ">Nom de commune ou code postal</label>`
+      + `<input class="rg-champ" id="rgQ" type="search" inputmode="search" autocomplete="off" `
+      + `placeholder="Grenoble, 38000"${plein ? " disabled" : ""}></div>`
+      + `<p class="champ-erreur" id="rgErr"${plein ? "" : " hidden"}>`
+      + (plein ? `Dix lieux au plus. En retirer un pour en ajouter un autre.` : "")
+      + `</p>`
+      + `<div class="rg-res" id="rgRes"></div></div>`
+      + `<p class="note">La recherche interroge l'interface adresse de data.gouv.fr, `
+      + `sans compte ni clé.</p>`,
+    brancher(bloc) {
       brancherRecherche(bloc, rendre, majEtat);
+      // Le clavier s'ouvre sur le champ : la feuille n'existe que pour lui.
+      const q = bloc.querySelector("#rgQ");
+      if (q && !plein) requestAnimationFrame(() => q.focus());
     },
   };
 }
@@ -945,6 +1015,72 @@ function brancherGlissement(bloc, retirer) {
 
 /* Recherche de commune par le nom ou le code postal. La position, elle, tient
    dans la rangée épinglée en tête de liste. */
+/* Réordonner par appui long. Un déplacement avant la fin du délai annule la
+   prise : le glissement de retrait garde donc son geste, et la liste n'a pas
+   besoin d'un mode d'édition. Une fois la prise faite, la rangée capture le
+   pointeur, ce qui met le glissement hors circuit pour la durée du
+   déplacement. */
+function brancherOrdre(bloc, ordonner) {
+  const liste = bloc.querySelector("#coListe");
+  if (!liste) return;
+  const DELAI = 300, SEUIL = 10;
+  const rangs = () => [...liste.querySelectorAll(".co:not(.co-pos)")];
+
+  for (const el of rangs()) {
+    let minuteur = null, x0 = 0, y0 = 0, prise = false, bouge = false;
+
+    const annuler = () => { clearTimeout(minuteur); minuteur = null; };
+
+    const lacher = () => {
+      annuler();
+      if (!prise) return;
+      prise = false;
+      el.classList.remove("co-prise");
+      liste.classList.remove("co-ordonne");
+      if (bouge) ordonner(rangs().map(x => x.dataset.cle));
+    };
+
+    el.addEventListener("pointerdown", ev => {
+      if (ev.pointerType === "mouse" && ev.button !== 0) return;
+      x0 = ev.clientX; y0 = ev.clientY; bouge = false;
+      minuteur = setTimeout(() => {
+        minuteur = null;
+        prise = true;
+        el.classList.add("co-prise");
+        liste.classList.add("co-ordonne");
+        el.setPointerCapture(ev.pointerId);
+        if (navigator.vibrate) navigator.vibrate(8);
+      }, DELAI);
+    });
+
+    el.addEventListener("pointermove", ev => {
+      if (!prise) {
+        if (minuteur !== null
+          && (Math.abs(ev.clientX - x0) > SEUIL || Math.abs(ev.clientY - y0) > SEUIL)) annuler();
+        return;
+      }
+      ev.preventDefault();
+      /* La rangée se déplace dans le document plutôt que sous un calque : la
+         liste montre en direct l'ordre qu'elle prendra. */
+      for (const f of rangs()) {
+        if (f === el) continue;
+        const b = f.getBoundingClientRect();
+        const milieu = b.top + b.height / 2;
+        const apres = Boolean(f.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING);
+        if (ev.clientY < milieu && apres) { liste.insertBefore(el, f); bouge = true; break; }
+        if (ev.clientY > milieu && !apres) { liste.insertBefore(el, f.nextSibling); bouge = true; break; }
+      }
+    });
+
+    el.addEventListener("pointerup", lacher);
+    el.addEventListener("pointercancel", lacher);
+    // Un appui long n'est pas un appui : il ne doit pas basculer de lieu.
+    el.addEventListener("click", ev => {
+      if (bouge) { ev.preventDefault(); ev.stopPropagation(); bouge = false; }
+    }, true);
+  }
+}
+
 function brancherRecherche(bloc, rendre, majEtat) {
   const q = bloc.querySelector("#rgQ");
   const res = bloc.querySelector("#rgRes");

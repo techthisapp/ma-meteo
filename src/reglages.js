@@ -143,6 +143,37 @@ export async function positionAutorisee() {
 
 /* Retirer une commune. Si c'était la courante, la première de la liste prend sa
    place ; si la liste se vide, l'application revient à son état sans commune. */
+/* Nouvel ordre des lieux suivis, donné par la suite de leurs clés. Les clés
+   inconnues sont ignorées et les lieux oubliés sont replacés à la fin : un
+   ordre partiel ne doit pas faire disparaître un lieu. */
+export function reordonnerSuivies(cles) {
+  const par = new Map(etat.suivies.map(l => [cleLieu(l), l]));
+  const out = [];
+  for (const c of cles || []) {
+    const l = par.get(c);
+    if (l && !out.includes(l)) out.push(l);
+  }
+  for (const l of etat.suivies) if (!out.includes(l)) out.push(l);
+  if (out.length !== etat.suivies.length) return lire();
+  if (out.every((l, k) => l === etat.suivies[k])) return lire();
+  etat = { ...etat, suivies: out };
+  ecrire();
+  return lire();
+}
+
+/* Déplace un lieu d'un rang, pour le clavier : le glissement long ne se fait
+   qu'au doigt, et un lieu doit pouvoir changer de place sans lui. */
+export function deplacerSuivie(cle, pas) {
+  const i = etat.suivies.findIndex(l => cleLieu(l) === cle);
+  const j = i + pas;
+  if (i < 0 || j < 0 || j >= etat.suivies.length) return { lire: lire(), change: false };
+  const out = [...etat.suivies];
+  [out[i], out[j]] = [out[j], out[i]];
+  etat = { ...etat, suivies: out };
+  ecrire();
+  return { lire: lire(), change: true };
+}
+
 export function retirerSuivie(cle) {
   const liste = etat.suivies.filter(x => cleLieu(x) !== cle);
   if (liste.length === etat.suivies.length) return { lire: lire(), change: false };

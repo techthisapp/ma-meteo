@@ -71,6 +71,7 @@ const D = {
   semaine: '<rect x="3.4" y="5" width="17.2" height="15.6" rx="2.4"/><path d="M3.4 9.8h17.2M8.4 3.4v3.2M15.6 3.4v3.2"/>',
   jauge: '<path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4.4-5"/>',
   chevron: '<path d="M9 5l7 7-7 7"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
   chevron_bas: '<path d="M6 9.5l6 6 6-6"/>',
   coche: '<path d="M4.5 12.6l4.8 4.8L19.5 7.2"/>',
   cible: '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8.4"/><path d="M12 1.6v3M12 19.4v3M1.6 12h3M19.4 12h3"/>',

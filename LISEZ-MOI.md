@@ -15,6 +15,7 @@ service dorsal, sans base de données, sans compte. Métropole française.
 | Le soleil | Bandeau du ciel plein cadre avec le Soleil à sa vraie place, trajectoire du jour, course du jour dans l'ordre, hauteur maximale, durée, écart à la veille, crépuscules |
 | La lune | Bandeau du ciel plein cadre avec la Lune en relief à sa vraie place, trajectoire du jour croisée avec celle du Soleil, course du jour, part éclairée, âge, lunaison, quatre prochaines phases |
 | Vigilance | Bulletin en vigueur, phénomènes signalés avec leur niveau et leur fenêtre, renvoi vers Météo-France, en feuille |
+| Mes lieux | Lieux suivis, chacun sous son propre ciel, réordonnables, en feuille. L'ajout se pousse derrière le bouton de la tête |
 | Réglages | Écriture retenue pour l'écran du temps, sources, coordonnées, en feuille |
 
 Les cinq premiers écrans sont des destinations de la barre d'onglets. Communes,
@@ -342,6 +343,29 @@ et le rougissement près de l'horizon.
 Les quatre prochaines phases restent des dessins géométriques : à quarante
 points, un relief ne se verrait pas et coûterait quatre textures.
 
+## Mes lieux
+
+Chaque rangée porte le ciel de son lieu, la même image qu'en fond d'accueil
+là-bas : la liste se lit d'un coup d'œil, un bleu contre un gris. La hauteur du
+Soleil sur place donne la teinte, le code de temps sensible la couvre et la
+plombe, et tout se calcule sur l'appareil, sans une requête de plus. Le plomb y
+est de moitié : sur une bande de soixante points il n'y a ni base claire ni
+horizon pour le compenser, et un ciel de pluie y virait au noir.
+
+Le symbole de ciel y passe au monochrome. Posé sur un ciel peint, un dessin
+bicolore ne se détacherait plus.
+
+L'ordre se change au doigt par appui long : la rangée se soulève, se déplace, et
+la liste montre en direct l'ordre qu'elle prendra. Un déplacement avant la fin
+du délai annule la prise, ce qui laisse au glissement de retrait son geste et
+évite un mode d'édition. Au clavier et à la synthèse vocale, deux boutons par
+rangée montent et descendent le lieu ; ils ne se voient qu'au focus mais gardent
+leur taille de cible.
+
+Ajouter ne vit plus au bas de la liste. C'est une action : elle se range dans la
+tête de feuille, à droite du titre, et pousse une feuille à elle où le champ
+tient la page et reçoit le clavier.
+
 ## Communes suivies
 
 Dix communes au plus. Le titre de l'écran ouvre la liste, un appui sur une
@@ -481,7 +505,7 @@ révision installée par Playwright ne correspond pas à celle du poste.
 Le lanceur sert le dossier, fige l'horloge au 18 août 2026 à 9 h, détourne les
 trois appels Open-Meteo vers `meteo.json`, sert une vigilance orange de
 convention, et coupe les sources data.gouv pour éprouver le repli. Deux cent
-trente contrôles, dont l'absence de répétition entre
+cinquante contrôles, dont l'absence de répétition entre
 les alertes et les conseils, les sept voies du ruban, l'agrandissement d'une
 voie, les treize colonnes de la liste, les vingt-quatre lignes de la fenêtre, la
 nature du renvoi de vigilance, et dix-sept contrôles de conformité au design
@@ -491,8 +515,9 @@ neutralisées sous mouvement réduit, accroches de feuille, erreur sous le champ
 état désactivé, rangée unique, état vide complet, ossature au premier
 chargement. Les écrans du Soleil et de la Lune sont contrôlés de la même façon,
 y compris l'absence de toute requête réseau pour la Lune. La bascule de commune
-est éprouvée de bout en bout : ouverture par le titre, ajout par la recherche,
-bascule par appui, retrait par le clavier.
+est éprouvée de bout en bout : ouverture par le titre, ajout par la feuille
+poussée depuis la tête, bascule par appui, retrait par le clavier, et
+réordonnancement des deux façons, au clavier puis par appui long.
 
 La vigilance est éprouvée sur deux contextes. Le premier sert un bulletin orange
 sur les orages, jaune sur le vent en deux plages contiguës, et vert ailleurs : le

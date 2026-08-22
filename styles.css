@@ -1032,35 +1032,86 @@ button.rangee:active{background:var(--surface-2)}
 
 /* ---------- 13 bis. Communes suivies ---------- */
 
+/* Chaque rangée porte le ciel de son lieu, la même image qu'en fond d'accueil
+   là-bas : la liste se lit d'un coup d'œil, un bleu contre un gris. Le texte
+   passe donc au blanc, avec le même voile de lisibilité que le bandeau. */
 .co-liste{padding:0;overflow:hidden}
 .co{position:relative;overflow:hidden}
-.co + .co{box-shadow:inset 0 1px 0 var(--filet-clair)}
 
 .co-l{
   position:relative;z-index:1;
   display:flex;align-items:center;gap:var(--espace-md);width:100%;
-  padding:var(--espace-md) var(--espace-base);min-height:60px;text-align:left;
-  background:var(--surface);
+  padding:var(--espace-md) var(--espace-base);min-height:66px;text-align:left;
+  background:linear-gradient(150deg,var(--co-haut,var(--surface)) 0%,var(--co-bas,var(--surface)) 100%);
+  color:#FFFFFF;text-shadow:0 1px 10px rgba(0,0,0,.45);
   transition:transform var(--duree-micro) var(--ressort);
 }
-.co-l:active{background:var(--surface-2)}
-.co-ic{display:flex;flex:0 0 auto;width:26px;height:26px;color:var(--etiquette-2)}
+.co-l::before{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(90deg,rgba(4,8,16,.26) 0%,rgba(4,8,16,.06) 62%,rgba(4,8,16,0) 100%);
+}
+.co-l > *{position:relative}
+.co-l:active::before{background:rgba(4,8,16,.42)}
+/* Avant le premier relevé, Ma position n'a pas de ciel : elle garde la surface. */
+.co[data-plat] .co-l{background:var(--surface);color:var(--etiquette);text-shadow:none}
+.co[data-plat] .co-l::before{background:none}
+.co[data-plat] .co-ic{color:var(--etiquette-2)}
+.co[data-plat] .co-t em{color:var(--etiquette-2)}
+
+.co-ic{display:flex;flex:0 0 auto;width:26px;height:26px;color:#FFFFFF}
 .co-ic svg{width:26px;height:26px}
 .co-t{display:flex;flex-direction:column;min-width:0;flex:1 1 auto}
-.co-t b{font-weight:var(--graisse-medium);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.co-t em{font-style:normal;font-size:var(--texte-note);color:var(--etiquette-2)}
+.co-t b{font-weight:var(--graisse-semibold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.co-t em{font-style:normal;font-size:var(--texte-note);opacity:.86}
 .co-d{
   flex:0 0 auto;font-size:var(--texte-titre2);font-weight:var(--graisse-semibold);
-  letter-spacing:-.02em;
+  letter-spacing:-.02em;font-variant-numeric:tabular-nums;
 }
-.co-coche{flex:0 0 auto;width:18px;height:18px;color:var(--accent);margin-left:var(--espace-xs)}
+.co-coche{flex:0 0 auto;width:18px;height:18px;color:#FFFFFF;margin-left:var(--espace-xs)}
+.co[data-plat] .co-coche{color:var(--accent)}
 .co-coche-vide{visibility:hidden}
 
 /* Ma position. La rangée est de la même famille que les autres : seule la cible
    du titre dit qu'elle suit l'appareil plutôt qu'un lieu fixe. */
 .co-pos .co-t b{display:flex;align-items:center;gap:var(--espace-xs)}
-.co-cible{width:13px;height:13px;flex:0 0 auto;color:var(--accent)}
-.co-err{padding:var(--espace-sm) var(--espace-base) var(--espace-md)}
+.co-cible{width:13px;height:13px;flex:0 0 auto;color:#FFFFFF}
+.co[data-plat] .co-cible{color:var(--accent)}
+.co-err{padding:var(--espace-sm) var(--espace-base) var(--espace-md);background:var(--surface)}
+
+/* Réordonner. Au doigt, l'appui long soulève la rangée ; au clavier, deux
+   boutons qui ne se voient qu'au focus et gardent leur taille de cible. */
+.co-prise{z-index:4}
+.co-prise .co-l{
+  transform:scale(1.02);
+  box-shadow:0 10px 26px rgba(4,8,16,.34);
+  transition:none;
+}
+.co-ordonne .co:not(.co-prise){transition:transform var(--duree-micro) var(--ressort)}
+.co-ordre{
+  position:absolute;left:0;top:0;bottom:0;z-index:3;
+  display:flex;align-items:center;
+  opacity:0;pointer-events:none;
+}
+.co-ordre:focus-within{opacity:1;pointer-events:auto}
+.co-o{
+  width:var(--touche);height:var(--touche);
+  display:flex;align-items:center;justify-content:center;
+  background:var(--surface);color:var(--accent);border-radius:var(--rayon-plein);
+}
+.co-o svg{width:20px;height:20px}
+.co-o[data-monter] svg{transform:rotate(-90deg)}
+.co-o[data-descendre] svg{transform:rotate(90deg)}
+
+/* Le bouton d'ajout, dans la tête de feuille. */
+.feuille-action{display:flex;flex:0 0 auto}
+.feuille-plus{
+  width:var(--touche);height:var(--touche);
+  display:flex;align-items:center;justify-content:center;
+  color:var(--accent);border-radius:var(--rayon-plein);
+}
+.feuille-plus svg{width:24px;height:24px}
+.feuille-plus:disabled{color:var(--etiquette-3)}
+.feuille-plus:active{background:var(--surface-2)}
 
 /* Action de retrait, découverte par glissement, par menu contextuel ou par le
    clavier. Elle occupe le dessous de la rangée, non une place permanente. */

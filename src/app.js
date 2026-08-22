@@ -19,7 +19,7 @@ import * as Feu from "./feu.js";
 import * as Relief from "./relief.js";
 import * as Temps from "./temps.js";
 import { vueTemps, vueSemaine, vueVigilance, vueSoleil, vueLune, vueCommunes, vueReglages,
-  bandeauAccueil } from "./vues.js";
+  vueAjout, bandeauAccueil } from "./vues.js";
 import { moments } from "./ecritures.js";
 import * as Vig from "./vigilance.js";
 
@@ -541,10 +541,12 @@ async function suivrePosition({ force } = {}) {
 
 /* ---------- Couche superposition ---------- */
 
-const FEUILLES = { vigilance: vueVigilance, communes: vueCommunes, reglages: vueReglages };
+const FEUILLES = { vigilance: vueVigilance, communes: vueCommunes,
+  ajout: vueAjout, reglages: vueReglages };
 
 /* Accroches : un contenu court n'occupe pas tout l'écran. */
-const ACCROCHE = { vigilance: "moyenne", communes: "grande", reglages: "grande" };
+const ACCROCHE = { vigilance: "moyenne", communes: "grande",
+  ajout: "grande", reglages: "grande" };
 
 function rendreFeuille() {
   if (!vueCourante) return;
@@ -557,10 +559,15 @@ function rendreFeuille() {
   }, majEtat);
   $("feuille-titre").innerHTML = esc(f.titre)
     + (f.sous ? `<span>${esc(f.sous)}</span>` : "");
+  /* La tête de feuille peut porter une action à droite du titre : c'est là que
+     se range ce qui crée, plutôt que dans une carte au bas de la liste. */
+  const action = $("feuille-action");
+  action.innerHTML = f.action || "";
   const corps = $("feuille-corps");
   corps.innerHTML = f.corps;
   if (typeof f.brancher === "function") f.brancher(corps);
-  for (const b of corps.querySelectorAll("[data-feuille]")) {
+  for (const b of [...corps.querySelectorAll("[data-feuille]"),
+    ...action.querySelectorAll("[data-feuille]")]) {
     b.addEventListener("click", () => ouvrirFeuille(b.dataset.feuille));
   }
 }
