@@ -375,6 +375,24 @@ Deux groupes, `ic-a` pour la masse et `ic-b` pour l'accent, colorés par
 `icoTemps`. Six teintes seulement, peu saturées. `ico` rend les mêmes dessins en
 monochrome pour tous les autres emplois.
 
+### Échelle de temps d'un écran
+
+Un écran qui parle de plusieurs horizons les range du plus proche au plus
+lointain, un bloc par horizon, chacun nommé par ce qu'il couvre. Un fait
+appartient au premier bloc dont la fenêtre le contient, et les suivants ne le
+redisent pas.
+
+Deux blocs voisins peuvent parler des mêmes heures si leurs registres diffèrent :
+une table montre tout, une liste de phrases ne retient que ce qui sort de
+l'ordinaire. Deux listes de phrases sur les mêmes heures, non.
+
+Un titre de bloc nomme ce que le bloc porte réellement, et rien de plus. Il
+s'adapte quand le contenu varie, « Demain » plutôt que « Demain et après-demain »
+quand la seconde journée n'a rien à dire.
+
+Le titre du bloc dit le cadre une fois pour toutes : les valeurs à l'intérieur
+n'ont plus à le répéter.
+
 ### Panneau de ciel
 
 Un astre s'y place par son azimut et sa hauteur, jamais par l'heure. L'heure est

@@ -250,12 +250,18 @@ export const iHeure = () => (charge?.hourly ? charge.hourly.time.indexOf(cleHeur
    Rend `null` quand les rafales manquent, ce qui arrive avec une charge
    enregistrée par une version antérieure, ou quand la fenêtre porte moins de
    huit heures. Les appelants doivent traiter le cas. */
-export function serieHoraire() {
-  const i = iHeure();
+/* La fenêtre part de l'heure en cours, décalée de `depart` heures, et court sur
+   `duree` heures. Les valeurs par défaut donnent les vingt-quatre heures à
+   venir, qui servent au ruban et à la table des moments. L'accueil s'en sert
+   aussi pour la fin de la journée en cours et pour les deux journées suivantes,
+   d'où le minimum réglable : quatre heures avant minuit sont une fenêtre
+   légitime, alors qu'un ruban de quatre heures n'en est pas une. */
+export function serieHoraire(depart = 0, duree = 24, minimum = 8) {
+  const i = iHeure() + depart;
   const h = charge?.hourly;
   if (i < 0 || !h?.wind_gusts_10m) return null;
-  const n = Math.min(24, h.time.length - i);
-  if (n < 8) return null;
+  const n = Math.min(duree, h.time.length - i);
+  if (n < minimum) return null;
 
   /* Un trou dans la charge n'est pas une valeur nulle. Zéro degré en août
      déclenchait « gel probable », un indice UV nul à midi ouvrait un créneau en

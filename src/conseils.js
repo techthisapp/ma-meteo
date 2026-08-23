@@ -1,14 +1,20 @@
-/* Ce qui est à savoir des heures qui viennent.
+/* Ce qui est à savoir, journée par journée.
 
    Une règle ne parle que si elle a quelque chose à dire. « Aucune lame annoncée
    d'ici demain 16 h » occupait la première ligne tous les jours de beau temps :
    une phrase qu'on lit cent fois pour n'y rien apprendre finit par cacher celles
-   qui comptent. Le silence est l'état par défaut, et la section disparaît quand
-   il n'y a rien.
+   qui comptent. Le silence est l'état par défaut, et le bloc disparaît quand il
+   n'y a rien.
 
-   Chaque ligne porte sa portée, en heures. C'est elle qui donne son titre à la
-   section : le lecteur sait jusqu'où porte ce qu'il lit, sans avoir à relire
-   chaque phrase.
+   Le même moteur tourne sur trois fenêtres, et c'est la fenêtre qui décide du
+   bloc : la fin de la journée en cours, puis demain, puis après-demain. Un fait
+   appartient au premier bloc dont la fenêtre le contient, et les suivants ne le
+   redisent pas. Un seul moteur, trois fenêtres : les alertes journalières, qui
+   portaient leurs propres seuils sur des moyennes de journée, n'ont plus lieu
+   d'être.
+
+   Chaque ligne porte sa journée et sa portée en heures. La journée nomme le
+   bloc, la portée sert de garde-fou.
 
    Les seuils sont ceux du document de reprise, et ils sont uniques : le bandeau
    et cette section portaient dans « Mon jardin » deux jeux distincts pour le
@@ -45,42 +51,50 @@ const ORAGE = [95, 96, 99];
 const NEIGE = [71, 73, 75, 77, 85, 86];
 const BROUILLARD = [45, 48];
 
-// Quatre lignes au plus : au-delà, la section cesse d'être un résumé.
-const LIGNES_MAX = 4;
+// Trois lignes au plus : au-delà, un bloc cesse d'être un résumé. Le même
+// plafond vaut pour un bloc composé de deux fenêtres, d'où l'export.
+export const LIGNES_MAX = 3;
+
+/* Le nom d'une journée, compté depuis aujourd'hui. Il est absolu, non relatif au
+   début de la fenêtre : une règle qui tourne sur après-demain appellerait sinon
+   ce jour « demain ». */
+const MOTS_JOUR = ["", "demain ", "après-demain "];
+const ecartJours = (a, b) =>
+  Math.round((new Date(`${a}T12:00`) - new Date(`${b}T12:00`)) / 86400000);
 
 export function conseils(s, g) {
   if (!s) return [];
+  const ici = (g && g.aujourdhui) || s.jour[0];
+  const jDe = k => ecartJours(s.jour[k], ici);
+  const motJour = j => MOTS_JOUR[j] !== undefined ? MOTS_JOUR[j] : "";
   const H = k => heureTxt(s.heure[k]);
-  const dem = k => (s.jour[k] !== s.jour[0] ? "demain " : "") + H(k);
+  const dem = k => motJour(jDe(k)) + H(k);
 
   /* La borne de fin est l'heure qui suit la dernière heure de la plage, et c'est
-     son jour qui décide du mot « demain ». Le test portait sur la seule heure
-     vingt-trois : une plage finissant à quatorze heures le lendemain s'écrivait
-     « de 16 h à 14 h », une fin avant son début. */
-  const fin = k => {
-    const change = k + 1 < s.n
-      ? s.jour[k + 1] !== s.jour[0]
-      : s.jour[k] !== s.jour[0] || s.heure[k] === 23;
-    return (change ? "demain " : "") + heureTxt((s.heure[k] + 1) % 24);
-  };
+     son jour qui décide du mot. Le test portait sur la seule heure vingt-trois :
+     une plage finissant à quatorze heures le lendemain s'écrivait « de 16 h à
+     14 h », une fin avant son début. */
+  const jFin = k => (k + 1 < s.n ? jDe(k + 1) : jDe(k) + (s.heure[k] === 23 ? 1 : 0));
+  const fin = k => motJour(jFin(k)) + heureTxt((s.heure[k] + 1) % 24);
 
-  /* Une plage s'écrit avec le mot « demain » une seule fois. « De demain 03 h à
+  /* Une plage s'écrit avec le nom du jour une seule fois. « De demain 03 h à
      demain 06 h » se lisait deux fois pour une seule journée. */
   const plage = (a, b) => {
-    const debutDemain = s.jour[a] !== s.jour[0];
-    const finTxt = fin(b);
-    const finDemain = finTxt.startsWith("demain ");
-    if (debutDemain && finDemain) {
-      return `demain de ${H(a)} à ${finTxt.slice(7)}`;
+    const ja = jDe(a), jb = jFin(b);
+    if (ja === jb && ja > 0) {
+      return `${motJour(ja)}de ${H(a)} à ${heureTxt((s.heure[b] + 1) % 24)}`;
     }
-    return `de ${dem(a)} à ${finTxt}`;
+    return `de ${dem(a)} à ${fin(b)}`;
   };
 
   const lignes = [];
   /* `h` est la portée de la ligne, en heures à partir de maintenant : c'est
-     l'heure qui suit le dernier instant dont elle parle. La section en tire son
-     titre. */
-  const dire = (i, g, h, t) => lignes.push({ i, g, h: h + 1, t });
+     l'heure qui suit le dernier instant dont elle parle. `j` est la journée
+     dont elle parle, comptée depuis aujourd'hui : c'est elle qui nomme le bloc
+     qui la porte. */
+  const decalage = (g && g.decalage) || 0;
+  const dire = (i, grav, k, t) =>
+    lignes.push({ i, g: grav, h: decalage + k + 1, j: jDe(Math.min(k, s.n - 1)), t });
   const plagesCode = codes => plagesDe(s.n, k => codes.includes(s.code[k]));
 
   // 1. L'orage, qui passe avant tout le reste.
@@ -179,8 +193,8 @@ export function conseils(s, g) {
      réel du lendemain. Les deux maximums viennent maintenant des journées
      entières, à la même source que la table de la semaine. */
   if (renverse) {
-    // La portée court jusqu'au bout de la journée de demain, `dire` ajoutant l'heure suivante.
-    dire("thermo", 3.5, 47 - s.heure[0],
+    // La ligne parle du dernier instant de la fenêtre, donc de la journée entière.
+    dire("thermo", 3.5, s.n - 1,
       `${bascule < 0 ? "Refroidissement" : "Réchauffement"} de ${Math.abs(bascule)} degrés `
       + `demain, ${Math.round(mx.demain)}° au plus chaud contre `
       + `${Math.round(mx.aujourdhui)}° aujourd'hui.`);
@@ -257,18 +271,15 @@ export function conseils(s, g) {
   return lignes.sort((a, b) => b.g - a.g).slice(0, LIGNES_MAX);
 }
 
-/* La portée d'une liste, en heures : c'est elle qui donne son titre à la
-   section. Un titre qui annonce vingt-quatre heures alors que la dernière ligne
-   s'arrête à seize promet plus qu'il ne tient. */
-export const portee = lignes => Math.max(0, ...lignes.map(x => x.h || 0));
-
-export function titrePortee(heures) {
-  if (heures <= 0) return "À retenir";
-  if (heures < 48) return `Dans les ${heures} prochaines heures`;
-  // Arrondi au jour supérieur : le titre ne doit pas promettre moins que la
-  // ligne la plus lointaine, et cinquante heures portent bien sur trois jours.
-  const j = Math.max(2, Math.ceil(heures / 24));
-  return `Dans les ${j} prochains jours`;
+/* Le titre d'un bloc nomme les journées dont il parle, et elles seules. Sur les
+   deux journées qui suivent, une seule peut avoir quelque chose à dire : le
+   titre ne promet alors pas l'autre. */
+export function titreJours(lignes) {
+  const j = [...new Set(lignes.map(x => x.j))].sort((a, b) => a - b);
+  const nom = x => (x === 1 ? "Demain" : x === 2 ? "Après-demain" : "");
+  if (!j.length) return "";
+  if (j.length === 1) return nom(j[0]);
+  return `Demain et après-demain`;
 }
 
 export const conseilsHTML = l => {

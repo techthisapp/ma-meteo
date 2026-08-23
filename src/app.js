@@ -13,7 +13,7 @@ import { nombreFr, esc, departementDe, heureJour } from "./horloge.js";
 import * as P from "./previsions.js";
 import * as Reglages from "./reglages.js";
 import { ico, icoTemps, icoCiel, tempsDe } from "./icones.js";
-import { conseils, conseilsHTML, portee, titrePortee, SEUILS } from "./conseils.js";
+import { conseils, conseilsHTML, titreJours, LIGNES_MAX, SEUILS } from "./conseils.js";
 import * as Ruban from "./ruban.js";
 import * as Feu from "./feu.js";
 import * as Relief from "./relief.js";
@@ -79,57 +79,6 @@ function majEtat(t) {
   z.textContent = t;
   z.hidden = false;
   minuteurEtat = setTimeout(() => { z.hidden = true; }, 4200);
-}
-
-/* ---------- Alertes de l'accueil ----------
-
-   Elles ne répètent pas les conseils, qui portent les vingt-quatre heures à
-   venir. L'alerte ne parle que de ce qui tombe hors de cette fenêtre, c'est-à-dire
-   d'après-demain et au-delà. Les seuils sont ceux de la feuille : un même fait
-   n'a qu'un seuil dans toute l'application. */
-
-function alertes() {
-  const c = P.chargeCourante();
-  const i = P.iJour();
-  if (!c || i < 0) return [];
-
-  const d = c.daily;
-  const out = [];
-
-  const jh = k => P.jourHoraire(d.time[k]);
-  const tMin = k => { const j = jh(k); return j ? j.tn : d.temperature_2m_min[k]; };
-  const tMax = k => { const j = jh(k); return j ? j.tx : d.temperature_2m_max[k]; };
-  const quand = k => new Date(`${d.time[k]}T12:00`)
-    .toLocaleDateString("fr-FR", { weekday: "long" });
-
-  /* La section s'arrête à après-demain. Les règles horaires couvrent le jour et
-     le lendemain, ces alertes le surlendemain, et rien au-delà : « 32° mercredi »
-     annoncé un dimanche n'est pas un fait marquant, c'est de l'almanach, et la
-     semaine est là pour cela.
-
-     La portée court jusqu'au bout de la journée visée, non jusqu'à son midi :
-     comptée en journées pleines, elle promettait moins qu'elle ne tenait. */
-  const dernier = i + 2;
-  const h = (k, heure) => (k - i + 1) * 24 - heure;
-  const maintenant = new Date().getHours();
-
-  if (dernier <= d.time.length - 1) {
-    const tn = tMin(dernier), tx = tMax(dernier);
-    if (tn !== null && tn <= SEUILS.gel) {
-      out.push({ ton: "froid", i: "alerte", h: h(dernier, maintenant),
-        t: `Gel probable ${quand(dernier)}, jusqu'à ${Math.round(tn)}°` });
-    } else if (tx !== null && tx >= SEUILS.chaleur) {
-      out.push({ ton: "chaud", i: "soleil", h: h(dernier, maintenant),
-        t: `${Math.round(tx)}° ${quand(dernier)}` });
-    }
-    const p = d.precipitation_sum[dernier];
-    if (p !== null && p >= SEUILS.alerteLame) {
-      out.push({ ton: "eau", i: "goutte", h: h(dernier, maintenant),
-        t: `${Math.round(p)} mm annoncés ${quand(dernier)}` });
-    }
-  }
-
-  return out.slice(0, 2);
 }
 
 /* Les maximums de la journée en cours et du lendemain, pris à la même source
@@ -286,8 +235,9 @@ function ecranAccueil() {
        sur une fenêtre glissante. À dix heures du soir, « indice UV 0 » et « vent
        11 km/h » ne disaient rien d'une journée montée à sept d'indice et à
        quatre-vingts de rafale. Le maximum du jour est ce qu'on retient d'une
-       journée, et c'est ce que porte déjà le titre au-dessus, « 18° à 32°
-       aujourd'hui ».
+       journée, et c'est ce que portent déjà le titre du bandeau, « 18° à 32°
+       aujourd'hui », et celui du bloc. Ce dernier dit le jour une fois pour
+       toutes : les tuiles se contentent de « au plus » et « de risque ».
 
        Le ressenti ne s'affiche que s'il s'écarte de la température : « Ressenti
        32° » à côté d'un maximum de 32° occupe un quart de la carte sans rien
@@ -316,7 +266,7 @@ function ecranAccueil() {
         res >= SEUILS.chaleur ? "v-chaud" : res <= SEUILS.gel ? "v-froid" : "", "t"]
       : jh && jh.mm >= SEUILS.lame
         ? ["Pluie", `${nombreFr(jh.mm)} mm`, "aujourd'hui", jh.mm >= 5 ? "v-eau" : "", "mm"]
-        : ["Pluie", `${pb} %`, "de risque aujourd'hui", pb >= 60 ? "v-eau" : "", "mm"];
+        : ["Pluie", `${pb} %`, "de risque", pb >= 60 ? "v-eau" : "", "mm"];
 
     const mesures = jh ? [
       premiere,
@@ -357,45 +307,59 @@ function ecranAccueil() {
       + `<b>${Math.round(tx)}°</b> aujourd'hui</p>`
       + `</div></div></div></div>`;
 
+    /* La page se lit en échelle de temps, du plus proche au plus lointain, et
+       chaque bloc répond à une question distincte.
+
+       Aujourd'hui : ce qu'il fait et ce qui reste de la journée en cours.
+       Les vingt-quatre prochaines heures : la table des moments, systématique.
+       Demain, après-demain : ce qui mérite d'être su au-delà.
+
+       Un fait appartient au premier bloc dont la fenêtre le contient. Les deux
+       blocs de phrases et la table ne se répètent pas : l'une montre tout,
+       les autres ne retiennent que ce qui sort de l'ordinaire. */
+    const cejour = d.time[i];
+    const restant = 24 - new Date().getHours();
+    const sJour = P.serieHoraire(0, restant, 1);
+    const sDemain = P.serieHoraire(restant, 24, 12);
+    const sApres = P.serieHoraire(restant + 24, 24, 12);
+
+    const lJour = sJour
+      ? conseils(sJour, { evenement: prochainAstre(), aujourdhui: cejour }) : [];
+    /* Le renversement de température ne se dit qu'avec demain : c'est de cette
+       journée qu'il parle. L'évènement du Soleil, lui, ne vaut que pour les
+       heures qui viennent. */
+    const lSuite = [
+      ...(sDemain ? conseils(sDemain,
+        { maxima: maximaJour(), aujourdhui: cejour, decalage: restant }) : []),
+      ...(sApres ? conseils(sApres, { aujourdhui: cejour, decalage: restant + 24 }) : []),
+    ].sort((a, b) => b.g - a.g).slice(0, LIGNES_MAX);
+
+    const bloc = (cle, titre, dedans) => (dedans
+      ? `<div class="section" data-bloc="${cle}"><h2>${esc(titre)}</h2>${dedans}</div>` : "");
+
     corps += `<div class="ecran-corps">`
       + panneauVigilance()
-      + (mesures.length ? `<div class="bd-mesures">`
-        + mesures.map(([n, v, e, c, voie]) =>
-          `<button type="button" class="bd-m" data-detail="${esc(voie)}" `
-          + `aria-label="${esc(n)}, ${esc(v)}, voir les vingt-quatre heures">`
-          + `<i>${esc(n)}${chevronM}</i><b${c ? ` class="${c}"` : ""}>${esc(v)}</b>`
-          + `<em>${esc(e)}</em></button>`).join("")
-        + `</div>` : "");
-
-    /* Un seul en-tête pour ce qui est à savoir : les heures qui viennent
-       d'abord, puis ce qui vient au-delà. Le titre annonce la portée réelle de
-       ce qui suit, en heures ou en jours : le lecteur sait jusqu'où porte ce
-       qu'il lit sans avoir à relire chaque phrase. Rien à dire, rien à
-       l'écran : la section entière disparaît. */
-    const al = alertes();
-    const cl = s ? conseils(s, { evenement: prochainAstre(), maxima: maximaJour() }) : [];
-    const cj = conseilsHTML(cl);
-    if (cj || al.length) {
-      const h = Math.max(portee(cl), ...al.map(a => a.h || 0));
-      corps += `<div class="section"><h2>${esc(titrePortee(h))}</h2>`
-        + `<div class="carte retenir">`
-        + (cj ? `<div class="conseils">${cj}</div>` : "")
-        + (al.length ? `<div class="alertes">`
-          + al.map(a => `<div class="al t-${a.ton}">${ico(a.i, "")}<span>${esc(a.t)}</span></div>`).join("")
+      + bloc("jour", "Aujourd'hui",
+        (mesures.length ? `<div class="bd-mesures">`
+          + mesures.map(([n, v, e, c, voie]) =>
+            `<button type="button" class="bd-m" data-detail="${esc(voie)}" `
+            + `aria-label="${esc(n)}, ${esc(v)}, voir les vingt-quatre heures">`
+            + `<i>${esc(n)}${chevronM}</i><b${c ? ` class="${c}"` : ""}>${esc(v)}</b>`
+            + `<em>${esc(e)}</em></button>`).join("")
           + `</div>` : "")
-        + `</div></div>`;
+        + (lJour.length ? `<div class="carte retenir">`
+          + `<div class="conseils">${conseilsHTML(lJour)}</div></div>` : ""));
+
+    /* La table des moments couvre exactement les vingt-quatre heures qui
+       viennent, tranche par tranche. Elle s'appelait « la journée qui vient »,
+       ce qui promettait une journée civile alors qu'elle traverse minuit. */
+    if (s) {
+      corps += bloc("h24", "Les 24 prochaines heures", `<div class="carte">${moments(s)}</div>`);
     }
 
-    /* Les moments ferment la page : ils racontent la journée qui vient, tranche
-       par tranche, là où le haut de l'écran ne dit que l'instant. C'est le
-       dernier bloc de contenu, la vigilance et la source formant la clôture. */
-    if (s) {
-      /* « Les prochaines heures » se confondait avec le titre de la section du
-         dessus, qui annonce aussi des heures. Les moments couvrent le soir, la
-         nuit et le lendemain : c'est la journée qui vient. */
-      corps += `<div class="section"><h2>La journée qui vient</h2>`
-        + `<div class="carte">${moments(s)}</div></div>`;
-    }
+    corps += bloc("suite", titreJours(lSuite), lSuite.length
+      ? `<div class="carte retenir"><div class="conseils">${conseilsHTML(lSuite)}</div></div>`
+      : "");
 
     corps += `<p class="pied">Source : Open-Meteo, modèle AROME de Météo-France. `
       + `Mise à jour toutes les heures.</p>`

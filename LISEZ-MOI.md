@@ -9,7 +9,7 @@ service dorsal, sans base de données, sans compte. Métropole française.
 
 | Écran | Ce qu'il porte |
 |---|---|
-| Accueil | Le panneau de vigilance s'il y en a une, puis le bandeau du ciel plein cadre portant le temps qu'il fait, le jour, la température, le ciel et les bornes du jour, quatre mesures, une carte « À retenir » réunissant les vingt-quatre heures et ce qui vient au-delà, et les prochaines heures par tranches de six heures |
+| Accueil | Le panneau de vigilance s'il y en a une, puis le bandeau du ciel plein cadre portant le temps qu'il fait, le jour, la température, le ciel et les bornes du jour, et trois blocs en échelle de temps : « Aujourd'hui » avec les quatre mesures et les faits du jour, « Les 24 prochaines heures » en tableau de tranches de six heures, « Demain et après-demain » avec ce qui mérite d'être su au-delà |
 | Le temps | Vingt-quatre heures glissantes en deux écritures : ruban à sept voies, table à treize colonnes |
 | La semaine | Sept jours : symbole de ciel et lame sous lui, borne basse à gauche, plage de température sur une échelle commune, borne haute à droite, point du moment sur la journée en cours. Un appui ouvre la journée sur ses quatre moments |
 | Le soleil | Bandeau du ciel plein cadre avec le Soleil à sa vraie place, trajectoire du jour, course du disque, durée du jour, clarté et nuit noire, ruban et table des trois crépuscules |
@@ -118,12 +118,28 @@ une phrase qu'on lit cent fois pour n'y rien apprendre finit par cacher celles
 qui comptent. Le silence est l'état par défaut, et la section disparaît quand il
 n'y a rien.
 
-Chaque ligne porte sa portée, en heures, et le titre de la section l'annonce :
-« Dans les 14 prochaines heures ». Le lecteur sait jusqu'où porte ce qu'il lit
-sans avoir à relire chaque phrase. Au-delà de deux jours, la portée s'écrit en
-jours.
+La page se lit en échelle de temps, du plus proche au plus lointain, et chaque
+bloc répond à une question distincte : « Aujourd'hui » pour ce qu'il fait et ce
+qui reste de la journée, « Les 24 prochaines heures » pour la table des moments,
+« Demain et après-demain » pour ce qui mérite d'être su au-delà.
 
-Quatorze règles, quatre lignes au plus, ordonnées par gravité.
+Le même moteur de règles tourne sur trois fenêtres, et c'est la fenêtre qui
+décide du bloc : de maintenant à minuit, puis demain, puis après-demain. Un fait
+appartient au premier bloc dont la fenêtre le contient, et les suivants ne le
+redisent pas. Les deux blocs de phrases et la table ne se répètent pas non plus,
+leurs registres différant : la table montre tout, les phrases ne retiennent que
+ce qui sort de l'ordinaire.
+
+Le nom d'une journée est absolu, non relatif au début de la fenêtre : aujourd'hui
+sans mot, demain, après-demain. Sans cela une règle tournant sur après-demain
+appellerait ce jour « demain ».
+
+Le bloc du jour s'arrête à minuit, sans exception. Le soir tard il est souvent
+muet, et c'est le bloc suivant qui porte la nuit : étendre le premier après une
+certaine heure ferait changer un fait de bloc selon le moment où l'on regarde,
+et la règle cesserait de tenir en une phrase.
+
+Quatorze règles, trois lignes par bloc au plus, ordonnées par gravité.
 
 Une règle ne compare que des grandeurs comparables. Le renversement de
 température prenait les deux moitiés de la fenêtre glissante de vingt-quatre
@@ -150,17 +166,16 @@ table de la semaine : les deux écrans s'accordent au degré.
 | Bascule du ciel | Le premier passage qui tienne trois heures | 60 % de couverture |
 | Lever ou coucher du Soleil | L'heure, s'il tombe dans les trois heures | 3 heures |
 
-Deux règles journalières s'y ajoutent, pour ce qui tombe au-delà de la fenêtre
-horaire : un gel ou une forte chaleur d'après-demain, et une lame de quinze
-millimètres ou plus le même jour. Elles portent leur portée en jours, et le titre
-s'y adapte.
+Les alertes journalières ont disparu comme mécanisme distinct. Elles portaient
+leurs propres seuils sur des moyennes de journée et annonçaient jusqu'à quatre
+jours : « 32° mercredi » annoncé un dimanche est de l'almanach, non un fait
+marquant, et la semaine est là pour cela. Le troisième bloc fait tourner le même
+moteur sur demain puis sur après-demain, une journée à la fois, et garde la
+précision horaire.
 
-La section s'arrête là. Les règles horaires couvrent le jour et le lendemain,
-ces deux règles le surlendemain, et rien au-delà : « 32° mercredi » annoncé un
-dimanche est de l'almanach, non un fait marquant, et la semaine est là pour
-cela. La portée d'une règle journalière court jusqu'au bout de la journée visée,
-non jusqu'à son midi, et le titre arrondit au jour supérieur : il ne doit pas
-promettre moins que la ligne la plus lointaine.
+Le titre du troisième bloc nomme les journées qu'il porte, et elles seules :
+« Demain », « Après-demain », ou les deux. Il ne promet pas une journée qui n'a
+rien à dire.
 
 Deux règles ne nomment pas le même chiffre à la suite. La chaleur et le
 renversement de température se décidaient chacune de son côté et écrivaient
@@ -168,11 +183,15 @@ renversement de température se décidaient chacune de son côté et écrivaient
 demain ». Quand elles désignent le même maximum, seul le renversement paraît :
 il dit ce chiffre et, en plus, d'où l'on vient.
 
-## La journée qui vient
+## Les 24 prochaines heures
 
-L'accueil ferme sa page sur les moments : le soir, la nuit et le lendemain,
-tranche par tranche de six heures, là où le haut de l'écran ne dit que
-l'instant. La vigilance et la source viennent après, en clôture.
+Le bloc du milieu porte les moments, tranche par tranche de six heures, là où le
+haut de l'écran ne dit que la journée en cours. Il s'appelait « la journée qui
+vient », ce qui promettait une journée civile alors qu'il traverse minuit par
+construction.
+
+C'est le seul bloc systématique de la page : il montre tout, les deux autres ne
+retiennent que ce qui sort de l'ordinaire. La source vient après, en clôture.
 
 Les moments se lisent en tableau, les colonnes portant les tranches et les
 lignes les mesures. Cinq blocs empilés portant chacun ses propres libellés
@@ -920,6 +939,10 @@ de l'inclinaison du limbe, et la présence des deux courbes de trajectoire.
 
 Le ciel de l'accueil ajoute la toile du temps : elle couvre le panneau, elle se
 peint après l'astre et au-dessus de lui, elle porte des pixels et elle bouge.
+Quatre contrôles gardent la découpe en blocs : l'accueil se lit en trois blocs
+de temps dans l'ordre, chaque bloc s'en tient à sa fenêtre, le titre du dernier
+nomme les journées qu'il porte, et aucun bloc ne dépasse trois lignes.
+
 Six contrôles gardent les faits marquants et les mesures du jour : les quatre
 mesures portent le maximum de la journée et non le relevé de l'heure, chacune dit
 sa portée, rien ne se dit au-delà d'après-demain, après-demain se dit encore, le

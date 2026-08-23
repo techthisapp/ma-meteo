@@ -193,33 +193,47 @@ ok("le bandeau porte quatre mesures", await pg.locator(".bd-m").count() === 4);
 const mes = (await pg.locator(".bd-m i").allInnerTexts()).join(", ");
 ok("les quatre mesures sont nommées", mes.toLowerCase() === "pluie, vent, humidité, indice uv", mes);
 const cj = await pg.locator(".cj-l").allInnerTexts();
-ok("quatre lignes à savoir au plus", cj.length >= 1 && cj.length <= 4, cj.length + "");
+/* Trois lignes par bloc au plus : au-delà, un bloc cesse d'être un résumé. Six
+   en tout au pire, comme du temps de la carte unique. */
+ok("trois lignes par bloc au plus", await pg.evaluate(() =>
+  [...document.querySelectorAll("#ecran .section[data-bloc]")]
+    .every(s => s.querySelectorAll(".cj-l").length <= 3)),
+  cj.length + " lignes en tout");
 /* Une règle ne parle que si elle a quelque chose à dire : une phrase qui
    annonce qu'il ne se passe rien se lit cent fois pour rien apprendre. */
 ok("rien ne s'écrit pour dire qu'il n'y a rien",
   !/aucune lame|rien à signaler|pas de pluie/i.test(cj.join(" ")), cj.join(" | "));
-/* Le titre annonce la portée réelle de ce qui suit : un titre qui promet
-   vingt-quatre heures alors que la dernière ligne s'arrête à seize ment. */
-const titreRet = (await pg.locator("#ecran .section h2").allInnerTexts())
-  .find(t => t.startsWith("Dans les")) || "";
-ok("le titre annonce la portée de ce qui suit",
-  /^Dans les \d+ prochain(e?)s (heures|jours)$/.test(titreRet), titreRet);
-ok("la portée annoncée couvre la ligne la plus lointaine", await pg.evaluate(() => {
-  const h2 = [...document.querySelectorAll("#ecran .section h2")]
-    .find(x => x.textContent.startsWith("Dans les"));
-  const m = /Dans les (\d+) prochain/.exec(h2.textContent);
-  const heures = /jours/.test(h2.textContent) ? Number(m[1]) * 24 : Number(m[1]);
-  const txt = h2.parentElement.textContent;
-  /* Toute heure citée doit tomber dans la fenêtre annoncée. Les heures de
-     demain comptent vingt-quatre de plus. */
-  const maintenant = new Date().getHours();
-  let pire = 0;
-  for (const c of txt.matchAll(/(demain )?(\d\d) h/g)) {
-    const h = Number(c[2]) + (c[1] ? 24 : 0);
-    pire = Math.max(pire, h - maintenant + (h < maintenant && !c[1] ? 24 : 0));
+/* La page se lit en échelle de temps : trois blocs, du plus proche au plus
+   lointain, chacun répondant à une question distincte. */
+const blocs = await pg.locator("#ecran .section[data-bloc] h2").allInnerTexts();
+ok("l'accueil se lit en trois blocs de temps",
+  blocs[0] === "Aujourd'hui" && blocs[1] === "Les 24 prochaines heures"
+  && /^(Demain|Après-demain|Demain et après-demain)$/.test(blocs[2] || ""),
+  blocs.join(" | "));
+
+/* Chaque bloc ne parle que de sa fenêtre. Le premier s'arrête à minuit, le
+   dernier ne dit rien d'aujourd'hui, et son titre nomme les journées qu'il
+   porte, ni plus ni moins. */
+ok("chaque bloc s'en tient à sa fenêtre", await pg.evaluate(() => {
+  const q = c => document.querySelector(`#ecran .section[data-bloc="${c}"]`);
+  const lignes = s => (s ? [...s.querySelectorAll(".cj-l")].map(e => e.textContent) : []);
+  const jour = lignes(q("jour")).join(" ");
+  if (/demain/.test(jour)) return `aujourd'hui parle de demain : ${jour}`;
+  const suite = q("suite");
+  if (!suite) return "";
+  const vus = new Set();
+  for (const l of lignes(suite)) {
+    if (/après-demain/.test(l)) vus.add(2);
+    else if (/demain/.test(l)) vus.add(1);
+    else return `une ligne sans journée : ${l}`;
   }
-  return pire <= heures;
-}));
+  const titre = suite.querySelector("h2").textContent;
+  const attendu = vus.size === 2 ? "Demain et après-demain"
+    : vus.has(2) ? "Après-demain" : "Demain";
+  return titre === attendu ? "" : `titre ${titre} pour ${[...vus].join(",")}`;
+}) === "", await pg.evaluate(() =>
+  [...document.querySelectorAll("#ecran .section[data-bloc] h2")]
+    .map(e => e.textContent).join(" | ")));
 ok("aucune ligne ne se répète", new Set(cj).size === cj.length);
 ok("aucun verbe de jardin", !/arros|voiler|tuteur|repiquage|ombrer|plant/i.test(cj.join(" ")), cj.join(" | "));
 const alertesTxt = (await pg.locator(".al").allInnerTexts()).join(" ").toLowerCase();
@@ -2287,6 +2301,11 @@ await ctxFrais.route(/api\.open-meteo\.com/, route => {
     d.hourly.temperature_2m[k] -= 12;
     d.hourly.apparent_temperature[k] -= 12;
   }
+  /* Charge asséchée : le bloc ne tient que trois lignes, et la pluie de la
+     charge d'essai en occuperait deux. C'est la phrase de température qu'on
+     éprouve ici, non l'ordre des gravités. */
+  d.hourly.precipitation = d.hourly.precipitation.map(() => 0);
+  d.hourly.precipitation_probability = d.hourly.precipitation_probability.map(() => 0);
   if (u.includes("current=")) {
     route.fulfill({ status: 200, contentType: "application/json", body: "[]" }); return;
   }
@@ -2391,26 +2410,37 @@ const profilLune = pg => pg.evaluate(() => {
    au-delà : « 32° mercredi » annoncé un dimanche est de l'almanach, non un fait
    marquant, et la semaine est là pour cela. */
 await pageA("2026-08-18T09:00:00+02:00", d => {
-  decaler("2026-08-21", 5)(d);   // i + 3, hors de portée
-  decaler("2026-08-22", 5)(d);   // i + 4, hors de portée
+  decaler("2026-08-21", 6)(d);   // i + 3, hors de portée
+  decaler("2026-08-22", 6)(d);   // i + 4, hors de portée
 }, async pg => {
-  const dit = (await pg.locator(".al").allInnerTexts()).join(" | ");
-  ok("rien ne se dit au-delà d'après-demain", dit === "", dit || "aucune alerte");
+  const dit = (await pg.locator("#ecran .cj-l").allInnerTexts()).join(" | ");
+  /* Aucune journée au-delà d'après-demain n'est nommée. Un jour de la semaine
+     écrit en toutes lettres est la marque de l'ancien mécanisme d'alertes, qui
+     portait jusqu'à quatre jours. */
+  ok("rien ne se dit au-delà d'après-demain",
+    !/lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche/i.test(dit), dit);
 });
-await pageA("2026-08-18T09:00:00+02:00", decaler("2026-08-20", 5), async pg => {
-  const dit = (await pg.locator(".al").allInnerTexts()).join(" | ");
-  ok("après-demain se dit encore", /33° jeudi/.test(dit), dit || "aucune alerte");
-  const titre = await pg.locator(".section h2").first().innerText();
-  /* Le titre ne promet pas moins que la ligne la plus lointaine : après-demain
-     s'achève dans soixante-trois heures à neuf heures du matin. */
-  ok("le titre couvre la journée la plus lointaine",
-    titre === "Dans les 3 prochains jours", titre);
+await pageA("2026-08-18T09:00:00+02:00", d => {
+  decaler("2026-08-20", 6)(d);
+  d.hourly.precipitation = d.hourly.precipitation.map(() => 0);
+  d.hourly.precipitation_probability = d.hourly.precipitation_probability.map(() => 0);
+}, async pg => {
+  const dit = (await pg.locator('#ecran .section[data-bloc="suite"] .cj-l')
+    .allInnerTexts()).join(" | ");
+  ok("après-demain se dit encore", /34 degrés vers après-demain/.test(dit), dit || "aucune ligne");
+  const titre = await pg.locator('#ecran .section[data-bloc="suite"] h2').innerText();
+  ok("le titre nomme les journées portées",
+    titre === "Après-demain" || titre === "Demain et après-demain", titre);
 });
 
 /* La chaleur et le renversement de température ne nomment pas deux fois le même
    chiffre. À vingt-deux heures la fenêtre glissante contient le pic du
    lendemain : les deux règles le voyaient et l'écrivaient à la suite. */
-await pageA("2026-08-18T22:00:00+02:00", decaler("2026-08-19", 8), async pg => {
+await pageA("2026-08-18T22:00:00+02:00", d => {
+  decaler("2026-08-19", 8)(d);
+  d.hourly.precipitation = d.hourly.precipitation.map(() => 0);
+  d.hourly.precipitation_probability = d.hourly.precipitation_probability.map(() => 0);
+}, async pg => {
   const cj = await pg.locator(".conseils .cj-l").allInnerTexts();
   const avec33 = cj.filter(x => /33/.test(x));
   ok("un même maximum n'est pas annoncé deux fois",
