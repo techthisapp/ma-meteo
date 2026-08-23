@@ -289,6 +289,19 @@ ok("le temps se peint devant l'astre", await pg.evaluate(() => {
   const apres = as.compareDocumentPosition(cv) & Node.DOCUMENT_POSITION_FOLLOWING;
   return Boolean(apres) && Number(getComputedStyle(cv).zIndex) >= 1;
 }));
+/* Le renversement de température se juge d'un maximum de journée à l'autre. La
+   règle coupait en deux la fenêtre de vingt-quatre heures, ce qui revenait à
+   comparer un après-midi à une nuit : elle annonçait un refroidissement tous les
+   jours de beau temps, et nommait « le plus chaud de demain » un relevé du petit
+   matin. La charge d'essai a deux journées de même chaleur : rien ne doit se
+   dire. */
+ok("aucun renversement annoncé quand demain vaut aujourd'hui", await pg.evaluate(() =>
+  [...document.querySelectorAll(".conseils .cj-l")]
+    .filter(e => /Refroidissement|Réchauffement/.test(e.textContent))
+    .map(e => e.textContent).join(" | ")) === "",
+  await pg.evaluate(() => [...document.querySelectorAll(".conseils .cj-l")]
+    .map(e => e.textContent.trim()).join(" | ")));
+
 /* Le Soleil et la Lune partagent le ciel dès qu'ils sont levés tous les deux.
    À neuf heures du matin la Lune est à quarante degrés sous l'horizon : le
    Soleil est seul, et rien ne doit tenir sa place. */
@@ -2237,6 +2250,56 @@ ok("un ciel dégagé n'écrit pas sa file de zéros", await pgSerein.evaluate(()
 }) === "", await pgSerein.evaluate(() => [...document.querySelectorAll(
   '.mg-v[data-cle="nua"] text.mg-p')].map(e => e.textContent).join(" ") || "aucune"));
 await ctxSerein.close();
+
+/* Un lendemain nettement plus frais. La charge d'essai a deux journées de même
+   chaleur, ce qui est justement le cas où la règle parlait à tort : on retire
+   douze degrés au 19 août pour éprouver la phrase elle-même. Douze et non huit,
+   pour que le maximum de la journée ne tombe pas par hasard sur celui que la
+   fenêtre glissante aurait retenu. */
+const ctxFrais = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+await ctxFrais.addInitScript(amorce(FAIN));
+await ctxFrais.route(/api\.open-meteo\.com/, route => {
+  const u = route.request().url();
+  const d = JSON.parse(JSON.stringify(METEO));
+  const i0 = d.hourly.time.findIndex(x => x.startsWith("2026-08-19"));
+  for (let k = i0; k < i0 + 24; k++) {
+    d.hourly.temperature_2m[k] -= 12;
+    d.hourly.apparent_temperature[k] -= 12;
+  }
+  if (u.includes("current=")) {
+    route.fulfill({ status: 200, contentType: "application/json", body: "[]" }); return;
+  }
+  if (u.includes("hourly=")) {
+    route.fulfill({ status: 200, contentType: "application/json",
+      body: JSON.stringify({ hourly: d.hourly }) }); return;
+  }
+  delete d.hourly;
+  route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
+});
+await ctxFrais.route(/api-adresse\.data\.gouv\.fr|object\.files\.data\.gouv\.fr|webservice\.meteofrance\.com/,
+  r => r.abort());
+const pgFrais = await ctxFrais.newPage();
+await pgFrais.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await pgFrais.waitForTimeout(1400);
+
+const bascule = (await pgFrais.locator(".conseils .cj-l").allInnerTexts())
+  .find(x => /Refroidissement|Réchauffement/.test(x)) || "";
+ok("un vrai renversement de température se dit",
+  /^Refroidissement de 12 degrés demain/.test(bascule.trim()), bascule || "aucune ligne");
+
+/* Le chiffre nommé doit être celui de la table de la semaine : c'est le même
+   maximum de journée, il ne peut pas valoir vingt-quatre ici et trente-trois
+   là. C'est la plainte d'origine. */
+await pgFrais.locator('[data-onglet="semaine"]').click();
+await pgFrais.waitForTimeout(600);
+const maxDemain = (await pgFrais.locator(".sem-r").nth(1).locator(".sem-max").innerText()).trim();
+ok("le maximum de demain est le même sur les deux écrans",
+  bascule.includes(`${maxDemain} au plus chaud`),
+  `« ${bascule.trim()} » contre « ${maxDemain} » sur la semaine`);
+await ctxFrais.close();
 
 /* Le ciel à deux astres. Le 18 août 2026 à dix-neuf heures, le Soleil est à
    dix-sept degrés et la Lune à vingt-deux : le vrai ciel les porte tous les

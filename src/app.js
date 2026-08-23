@@ -128,6 +128,27 @@ function alertes() {
   return out.slice(0, 2);
 }
 
+/* Les maximums de la journée en cours et du lendemain, pris à la même source
+   que la table de la semaine : les deux écrans doivent s'accorder au degré.
+
+   Un renversement de température se juge d'un maximum de journée à l'autre. La
+   règle coupait en deux une fenêtre de vingt-quatre heures glissante, ce qui
+   revenait à comparer un après-midi à une nuit : elle annonçait un
+   refroidissement tous les jours de beau temps, et nommait « le plus chaud de
+   demain » un relevé de dix heures du matin, très en dessous du maximum réel. */
+function maximaJour() {
+  const c = P.chargeCourante();
+  const i = P.iJour();
+  if (!c || i < 0 || i + 1 >= c.daily.time.length) return null;
+  const tx = k => {
+    const j = P.jourHoraire(c.daily.time[k]);
+    const v = j && j.tx !== null && j.tx !== undefined ? j.tx : c.daily.temperature_2m_max[k];
+    return Number.isFinite(v) ? v : null;
+  };
+  const a = tx(i), b = tx(i + 1);
+  return a === null || b === null ? null : { aujourdhui: a, demain: b };
+}
+
 /* ---------- Fragments partagés ---------- */
 
 const chevron = `<svg class="rangee-chev" viewBox="0 0 24 24" aria-hidden="true" fill="none" `
@@ -334,7 +355,7 @@ function ecranAccueil() {
        qu'il lit sans avoir à relire chaque phrase. Rien à dire, rien à
        l'écran : la section entière disparaît. */
     const al = alertes();
-    const cl = s ? conseils(s, { evenement: prochainAstre() }) : [];
+    const cl = s ? conseils(s, { evenement: prochainAstre(), maxima: maximaJour() }) : [];
     const cj = conseilsHTML(cl);
     if (cj || al.length) {
       const h = Math.max(portee(cl), ...al.map(a => a.h || 0));

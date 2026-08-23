@@ -159,21 +159,25 @@ export function conseils(s, g) {
     dire("soleil", 4, kt, `Jusqu'à ${Math.round(tmax)} degrés vers ${dem(kt)}.`);
   }
 
-  /* 8. Le renversement de température. La fenêtre se coupe en deux, et l'écart
-     entre les deux maximums dit si l'air change de régime. Une prévision qui
-     annonce huit degrés de moins demain mérite mieux qu'un chiffre noyé dans un
-     graphique. */
-  const moitie = Math.min(12, s.n);
-  if (s.n > moitie + 2) {
-    const t1 = Math.max(...s.t.slice(0, moitie));
-    const t2 = Math.max(...s.t.slice(moitie));
-    const ecart = Math.round(t2 - t1);
+  /* 8. Le renversement de température, d'un maximum de journée à l'autre. Une
+     prévision qui annonce huit degrés de moins demain mérite mieux qu'un chiffre
+     noyé dans un graphique.
+
+     La règle coupait en deux la fenêtre de vingt-quatre heures et comparait les
+     deux maximums, ce qui revenait à comparer un après-midi à une nuit : elle
+     annonçait un refroidissement tous les jours de beau temps, et nommait « le
+     plus chaud de demain » un relevé du petit matin, très en dessous du maximum
+     réel du lendemain. Les deux maximums viennent maintenant des journées
+     entières, à la même source que la table de la semaine. */
+  const mx = g && g.maxima;
+  if (mx) {
+    const t1 = Math.round(mx.aujourdhui), t2 = Math.round(mx.demain);
+    const ecart = t2 - t1;
     if (Math.abs(ecart) >= SEUILS.bascule) {
-      const k2 = s.t.indexOf(t2, moitie);
-      dire("thermo", 3.5, k2, ecart < 0
-        ? `Refroidissement de ${-ecart} degrés, ${Math.round(t2)}° au plus chaud `
-          + `vers ${dem(k2)}.`
-        : `Réchauffement de ${ecart} degrés, ${Math.round(t2)}° vers ${dem(k2)}.`);
+      // La portée court jusqu'au bout de la journée de demain, `dire` ajoutant l'heure suivante.
+      dire("thermo", 3.5, 47 - s.heure[0],
+        `${ecart < 0 ? "Refroidissement" : "Réchauffement"} de ${Math.abs(ecart)} degrés `
+        + `demain, ${t2}° au plus chaud contre ${t1}° aujourd'hui.`);
     }
   }
 

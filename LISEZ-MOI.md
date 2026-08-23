@@ -125,6 +125,14 @@ jours.
 
 Quatorze règles, quatre lignes au plus, ordonnées par gravité.
 
+Une règle ne compare que des grandeurs comparables. Le renversement de
+température prenait les deux moitiés de la fenêtre glissante de vingt-quatre
+heures, ce qui revenait à comparer un après-midi à une nuit : la ligne
+paraissait tous les jours de beau temps, et nommait « le plus chaud de demain »
+un relevé du petit matin, très en dessous du maximum réel du lendemain. Les deux
+maximums viennent maintenant des journées entières, à la même source que la
+table de la semaine : les deux écrans s'accordent au degré.
+
 | Règle | Ce qu'elle dit | Seuil |
 |---|---|---|
 | Orages | Plage annoncée | codes 95, 96, 99 |
@@ -135,7 +143,7 @@ Quatorze règles, quatre lignes au plus, ordonnées par gravité.
 | Gel | Plage et minimum | 1 degré |
 | Vent | Rafale maximale et sa plage | 40 km/h de rafale, 25 km/h de moyenne |
 | Chaleur | Maximum et son heure | 30 degrés |
-| Renversement de température | Écart entre les deux moitiés de la fenêtre | 6 degrés |
+| Renversement de température | Écart d'un maximum de journée à l'autre | 6 degrés |
 | Ressenti | L'écart le plus fort, avec son heure | 5 degrés |
 | Air saturé | Plage sous une température douce | 90 % sur 4 heures |
 | Pression | Variation sur la fenêtre, dégradation ou amélioration | 6 hPa |
@@ -789,7 +797,7 @@ src/
   postes.js         fichier départemental et geojson des postes, non branché
   reserve.js        les deux vues débranchées
 essais/
-  controle.mjs      trois cent trente contrôles en navigateur
+  controle.mjs      trois cent trente-trois contrôles en navigateur
   vue-ecran.mjs     captures d'un écran, thème clair et sombre
   meteo.json        données figées au 18 août 2026, 9 h
 ```
@@ -815,7 +823,7 @@ destination et l'instant à figer, `OUVRIRVOIE` la voie du ruban à déplier et
 Le lanceur sert le dossier, fige l'horloge au 18 août 2026 à 9 h, détourne les
 trois appels Open-Meteo vers `meteo.json`, sert une vigilance orange de
 convention, et coupe les sources data.gouv pour éprouver le repli. Deux cent
-trois cent trente contrôles, dont l'absence de répétition entre
+trois cent trente-trois contrôles, dont l'absence de répétition entre
 les alertes et les conseils, les sept voies du ruban, l'agrandissement d'une
 voie, les treize colonnes de la liste, les vingt-quatre lignes de la fenêtre, la
 nature du renvoi de vigilance, et dix-sept contrôles de conformité au design
@@ -886,6 +894,10 @@ de l'inclinaison du limbe, et la présence des deux courbes de trajectoire.
 
 Le ciel de l'accueil ajoute la toile du temps : elle couvre le panneau, elle se
 peint après l'astre et au-dessus de lui, elle porte des pixels et elle bouge.
+Trois contrôles gardent le renversement de température : rien ne se dit quand
+demain vaut aujourd'hui, la phrase paraît quand l'écart est réel, et le maximum
+qu'elle nomme est celui que porte la table de la semaine.
+
 Huit contrôles gardent le ciel à deux astres : le Soleil seul quand la Lune est
 couchée, les deux ensemble quand ils sont levés, la Lune seule la nuit, la même
 place pour le Soleil sur l'accueil et sur son écran, l'écart gardé entre les
