@@ -152,9 +152,18 @@ export function conseils(s, g) {
       + `${plage(gv[0][0], gv[gv.length - 1][1])}.`);
   }
 
-  // 7. La chaleur.
+  /* 7. La chaleur, et 8. le renversement de température. Les deux se décident
+     ensemble : ils nommaient le même chiffre à la suite, « Jusqu'à 33 degrés
+     vers demain 14 h » puis « Réchauffement de 8 degrés, 33° demain ». Quand
+     c'est le cas, seul le renversement paraît : il dit le même maximum et, en
+     plus, d'où l'on vient. */
+  const mx = g && g.maxima;
+  const bascule = mx ? Math.round(mx.demain) - Math.round(mx.aujourdhui) : 0;
+  const renverse = mx && Math.abs(bascule) >= SEUILS.bascule;
+
   const tmax = Math.max(...s.t);
-  if (tmax >= SEUILS.chaleur) {
+  if (tmax >= SEUILS.chaleur
+    && !(renverse && Math.round(tmax) === Math.round(mx.demain))) {
     const kt = s.t.indexOf(tmax);
     dire("soleil", 4, kt, `Jusqu'à ${Math.round(tmax)} degrés vers ${dem(kt)}.`);
   }
@@ -169,16 +178,12 @@ export function conseils(s, g) {
      plus chaud de demain » un relevé du petit matin, très en dessous du maximum
      réel du lendemain. Les deux maximums viennent maintenant des journées
      entières, à la même source que la table de la semaine. */
-  const mx = g && g.maxima;
-  if (mx) {
-    const t1 = Math.round(mx.aujourdhui), t2 = Math.round(mx.demain);
-    const ecart = t2 - t1;
-    if (Math.abs(ecart) >= SEUILS.bascule) {
-      // La portée court jusqu'au bout de la journée de demain, `dire` ajoutant l'heure suivante.
-      dire("thermo", 3.5, 47 - s.heure[0],
-        `${ecart < 0 ? "Refroidissement" : "Réchauffement"} de ${Math.abs(ecart)} degrés `
-        + `demain, ${t2}° au plus chaud contre ${t1}° aujourd'hui.`);
-    }
+  if (renverse) {
+    // La portée court jusqu'au bout de la journée de demain, `dire` ajoutant l'heure suivante.
+    dire("thermo", 3.5, 47 - s.heure[0],
+      `${bascule < 0 ? "Refroidissement" : "Réchauffement"} de ${Math.abs(bascule)} degrés `
+      + `demain, ${Math.round(mx.demain)}° au plus chaud contre `
+      + `${Math.round(mx.aujourdhui)}° aujourd'hui.`);
   }
 
   /* 9. Le ressenti, quand il s'écarte franchement de la température. C'est lui
@@ -260,7 +265,9 @@ export const portee = lignes => Math.max(0, ...lignes.map(x => x.h || 0));
 export function titrePortee(heures) {
   if (heures <= 0) return "À retenir";
   if (heures < 48) return `Dans les ${heures} prochaines heures`;
-  const j = Math.max(2, Math.round(heures / 24));
+  // Arrondi au jour supérieur : le titre ne doit pas promettre moins que la
+  // ligne la plus lointaine, et cinquante heures portent bien sur trois jours.
+  const j = Math.max(2, Math.ceil(heures / 24));
   return `Dans les ${j} prochains jours`;
 }
 

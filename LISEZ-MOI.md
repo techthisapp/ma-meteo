@@ -152,7 +152,21 @@ table de la semaine : les deux écrans s'accordent au degré.
 
 Deux règles journalières s'y ajoutent, pour ce qui tombe au-delà de la fenêtre
 horaire : un gel ou une forte chaleur d'après-demain, et une lame de quinze
-millimètres ou plus. Elles portent leur portée en jours, et le titre s'y adapte.
+millimètres ou plus le même jour. Elles portent leur portée en jours, et le titre
+s'y adapte.
+
+La section s'arrête là. Les règles horaires couvrent le jour et le lendemain,
+ces deux règles le surlendemain, et rien au-delà : « 32° mercredi » annoncé un
+dimanche est de l'almanach, non un fait marquant, et la semaine est là pour
+cela. La portée d'une règle journalière court jusqu'au bout de la journée visée,
+non jusqu'à son midi, et le titre arrondit au jour supérieur : il ne doit pas
+promettre moins que la ligne la plus lointaine.
+
+Deux règles ne nomment pas le même chiffre à la suite. La chaleur et le
+renversement de température se décidaient chacune de son côté et écrivaient
+« Jusqu'à 33 degrés vers demain 14 h » puis « Réchauffement de 8 degrés, 33°
+demain ». Quand elles désignent le même maximum, seul le renversement paraît :
+il dit ce chiffre et, en plus, d'où l'on vient.
 
 ## La journée qui vient
 
@@ -381,9 +395,21 @@ alertes et dans les rangées. L'indice UV s'écrit sans décimale, « 7 » et no
 « 7,3 » : une décimale sur un indice entier donne une fausse impression de
 mesure fine.
 
-Le ressenti ne paraît que s'il s'écarte d'au moins un degré de la température.
-Sinon la probabilité de pluie sur vingt-quatre heures prend sa place : « Ressenti
-20° » à côté d'un grand 20° occupait un quart de la carte sans rien apprendre.
+Les quatre mesures portent sur la journée civile entière, non sur l'heure en
+cours. À dix heures du soir, « indice UV 0 » et « vent 11 km/h » ne disaient rien
+d'une journée montée à sept d'indice et à quatre-vingts de rafale. Chacune est le
+maximum du jour, et chacune écrit sur quoi elle porte, « au plus », « élevé »,
+« de risque aujourd'hui » : un chiffre de journée présenté comme un relevé
+d'instant se lirait de travers. Le titre au-dessus dit déjà la même chose des
+températures, « 18° à 32° aujourd'hui ».
+
+La pluie se dit en millimètres quand il en tombe, en risque sinon, comme dans la
+table de la semaine.
+
+Le ressenti ne paraît que s'il s'écarte d'au moins deux degrés du maximum du
+jour. Sinon la pluie prend sa place : « Ressenti 32° » à côté d'un maximum de 32°
+occupait un quart de la carte sans rien apprendre. Deux degrés et non un seul,
+la comparaison portant ici sur deux maximums de journée.
 
 Une plage horaire ne porte le mot « demain » qu'une fois : « demain de 03 h à
 06 h », non « de demain 03 h à demain 06 h ».
@@ -797,7 +823,7 @@ src/
   postes.js         fichier départemental et geojson des postes, non branché
   reserve.js        les deux vues débranchées
 essais/
-  controle.mjs      trois cent trente-trois contrôles en navigateur
+  controle.mjs      trois cent trente-neuf contrôles en navigateur
   vue-ecran.mjs     captures d'un écran, thème clair et sombre
   meteo.json        données figées au 18 août 2026, 9 h
 ```
@@ -823,7 +849,7 @@ destination et l'instant à figer, `OUVRIRVOIE` la voie du ruban à déplier et
 Le lanceur sert le dossier, fige l'horloge au 18 août 2026 à 9 h, détourne les
 trois appels Open-Meteo vers `meteo.json`, sert une vigilance orange de
 convention, et coupe les sources data.gouv pour éprouver le repli. Deux cent
-trois cent trente-trois contrôles, dont l'absence de répétition entre
+trois cent trente-neuf contrôles, dont l'absence de répétition entre
 les alertes et les conseils, les sept voies du ruban, l'agrandissement d'une
 voie, les treize colonnes de la liste, les vingt-quatre lignes de la fenêtre, la
 nature du renvoi de vigilance, et dix-sept contrôles de conformité au design
@@ -894,6 +920,12 @@ de l'inclinaison du limbe, et la présence des deux courbes de trajectoire.
 
 Le ciel de l'accueil ajoute la toile du temps : elle couvre le panneau, elle se
 peint après l'astre et au-dessus de lui, elle porte des pixels et elle bouge.
+Six contrôles gardent les faits marquants et les mesures du jour : les quatre
+mesures portent le maximum de la journée et non le relevé de l'heure, chacune dit
+sa portée, rien ne se dit au-delà d'après-demain, après-demain se dit encore, le
+titre couvre la journée la plus lointaine, et un même maximum n'est pas annoncé
+deux fois.
+
 Trois contrôles gardent le renversement de température : rien ne se dit quand
 demain vaut aujourd'hui, la phrase paraît quand l'écart est réel, et le maximum
 qu'elle nomme est celui que porte la table de la semaine.

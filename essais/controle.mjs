@@ -191,7 +191,7 @@ ok("la commune ne s'écrit pas deux fois sur l'accueil",
 ok("le bandeau porte un grand chiffre", /\d+°/.test(await txt(".bd-deg")), await txt(".bd-deg"));
 ok("le bandeau porte quatre mesures", await pg.locator(".bd-m").count() === 4);
 const mes = (await pg.locator(".bd-m i").allInnerTexts()).join(", ");
-ok("les quatre mesures sont nommées", mes.toLowerCase() === "ressenti, vent, humidité, indice uv", mes);
+ok("les quatre mesures sont nommées", mes.toLowerCase() === "pluie, vent, humidité, indice uv", mes);
 const cj = await pg.locator(".cj-l").allInnerTexts();
 ok("quatre lignes à savoir au plus", cj.length >= 1 && cj.length <= 4, cj.length + "");
 /* Une règle ne parle que si elle a quelque chose à dire : une phrase qui
@@ -227,8 +227,11 @@ const conseilsTxt = cj.join(" ").toLowerCase();
 const motsCommuns = ["rafales", "gel probable", "indice uv", "mm attendus"]
   .filter(m => alertesTxt.includes(m) && conseilsTxt.includes(m));
 ok("les alertes ne répètent pas les conseils", motsCommuns.length === 0, motsCommuns.join(", "));
-ok("le ressenti n'est écrit qu'une fois sur l'accueil",
-  ((await txt("#ecran")).toLowerCase().match(/ressenti/g) || []).length === 1);
+/* Le mot ne doit pas paraître deux fois, en tuile et en ligne de conseil. Zéro
+   fois est un état normal : la tuile cède sa place à la pluie quand le ressenti
+   ne s'écarte pas du maximum du jour. */
+ok("le ressenti n'est pas écrit deux fois sur l'accueil",
+  ((await txt("#ecran")).toLowerCase().match(/ressenti/g) || []).length <= 1);
 ok("la vigilance ouvre son détail depuis l'accueil",
   await pg.locator('#ecran .vg-c[data-feuille="vigilance"]').count() === 1);
 ok("l'accueil ne porte plus de tuiles", await pg.locator(".tu").count() === 0);
@@ -237,10 +240,10 @@ ok("une valeur ne prend une couleur qu'au delà de son seuil", await pg.evaluate
     nom: e.querySelector("i").textContent,
     classe: e.querySelector("b").className,
   }));
-  const uv = v.find(x => x.nom === "Indice UV");
   const hum = v.find(x => x.nom === "Humidité");
-  // Indice UV de 5 et humidité de 80 % dans le jeu figé : l'un signale, l'autre non.
-  return uv.classe === "v-attention" && hum.classe === "";
+  const pluie = v.find(x => x.nom === "Pluie");
+  // Humidité à 98 % et risque de pluie à 8 % dans le jeu figé : l'un signale, l'autre non.
+  return hum.classe === "v-eau" && pluie.classe === "";
 }));
 ok("le symbole d'un conseil porte la couleur de son sujet", await pg.evaluate(() => {
   const g = document.querySelector(".cj-l .icv-goutte");
@@ -289,6 +292,21 @@ ok("le temps se peint devant l'astre", await pg.evaluate(() => {
   const apres = as.compareDocumentPosition(cv) & Node.DOCUMENT_POSITION_FOLLOWING;
   return Boolean(apres) && Number(getComputedStyle(cv).zIndex) >= 1;
 }));
+/* Les quatre mesures portent sur la journée civile, non sur l'heure en cours.
+   « Indice UV 0 » à dix heures du soir ne dit rien d'une journée montée à sept.
+   Le jeu figé donne sept d'indice au plus contre cinq à neuf heures, et
+   quatre-vingt-dix-huit pour cent d'humidité au plus contre quatre-vingts. */
+const jour = await pg.evaluate(() => Object.fromEntries(
+  [...document.querySelectorAll(".bd-m")].map(e =>
+    [e.querySelector("i").textContent.trim(), e.querySelector("b").textContent.trim()])));
+ok("les mesures portent sur la journée, non sur l'heure",
+  jour["Indice UV"] === "7" && jour["Humidité"] === "98 %" && jour["Vent"] === "23 km/h",
+  JSON.stringify(jour));
+/* Chaque mesure dit sur quoi elle porte : un chiffre de journée présenté comme
+   un relevé d'instant se lirait de travers. */
+ok("chaque mesure dit sa portée", await pg.evaluate(() =>
+  [...document.querySelectorAll(".bd-m")].every(e => (e.querySelector("em") || {}).textContent)));
+
 /* Le renversement de température se juge d'un maximum de journée à l'autre. La
    règle coupait en deux la fenêtre de vingt-quatre heures, ce qui revenait à
    comparer un après-midi à une nuit : elle annonçait un refroidissement tous les
@@ -2304,7 +2322,7 @@ await ctxFrais.close();
 /* Le ciel à deux astres. Le 18 août 2026 à dix-neuf heures, le Soleil est à
    dix-sept degrés et la Lune à vingt-deux : le vrai ciel les porte tous les
    deux, l'application doit les porter aussi. */
-const cielA = async (quand, faire) => {
+const pageA = async (quand, patch, faire) => {
   const c = await nav.newContext({
     viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
     locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
@@ -2314,6 +2332,7 @@ const cielA = async (quand, faire) => {
   await c.route(/api\.open-meteo\.com/, route => {
     const u = route.request().url();
     const d = JSON.parse(JSON.stringify(METEO));
+    if (patch) patch(d);
     if (u.includes("current=")) {
       route.fulfill({ status: 200, contentType: "application/json", body: "[]" }); return;
     }
@@ -2331,6 +2350,21 @@ const cielA = async (quand, faire) => {
   await pg.waitForTimeout(1500);
   await faire(pg);
   await c.close();
+};
+
+/* Décale la température d'une journée entière, heures et jour, pour composer un
+   cas que la charge d'essai ne porte pas. */
+const decaler = (jour, ecart) => d => {
+  const i0 = d.hourly.time.findIndex(x => x.startsWith(jour));
+  for (let k = i0; k < i0 + 24; k++) {
+    d.hourly.temperature_2m[k] += ecart;
+    d.hourly.apparent_temperature[k] += ecart;
+  }
+  const j = d.daily.time.indexOf(jour);
+  if (j >= 0) {
+    d.daily.temperature_2m_max[j] += ecart;
+    d.daily.temperature_2m_min[j] += ecart;
+  }
 };
 
 /* Le profil d'opacité du disque de la Lune, sur sa ligne médiane. De nuit il est
@@ -2352,7 +2386,38 @@ const profilLune = pg => pg.evaluate(() => {
   return { mn, mx, clarte: Number(cv.dataset.clarte) };
 });
 
-await cielA("2026-08-18T19:00:00+02:00", async pg => {
+/* La section des faits marquants s'arrête à après-demain. Les règles horaires
+   couvrent le jour et le lendemain, les alertes le surlendemain, et rien
+   au-delà : « 32° mercredi » annoncé un dimanche est de l'almanach, non un fait
+   marquant, et la semaine est là pour cela. */
+await pageA("2026-08-18T09:00:00+02:00", d => {
+  decaler("2026-08-21", 5)(d);   // i + 3, hors de portée
+  decaler("2026-08-22", 5)(d);   // i + 4, hors de portée
+}, async pg => {
+  const dit = (await pg.locator(".al").allInnerTexts()).join(" | ");
+  ok("rien ne se dit au-delà d'après-demain", dit === "", dit || "aucune alerte");
+});
+await pageA("2026-08-18T09:00:00+02:00", decaler("2026-08-20", 5), async pg => {
+  const dit = (await pg.locator(".al").allInnerTexts()).join(" | ");
+  ok("après-demain se dit encore", /33° jeudi/.test(dit), dit || "aucune alerte");
+  const titre = await pg.locator(".section h2").first().innerText();
+  /* Le titre ne promet pas moins que la ligne la plus lointaine : après-demain
+     s'achève dans soixante-trois heures à neuf heures du matin. */
+  ok("le titre couvre la journée la plus lointaine",
+    titre === "Dans les 3 prochains jours", titre);
+});
+
+/* La chaleur et le renversement de température ne nomment pas deux fois le même
+   chiffre. À vingt-deux heures la fenêtre glissante contient le pic du
+   lendemain : les deux règles le voyaient et l'écrivaient à la suite. */
+await pageA("2026-08-18T22:00:00+02:00", decaler("2026-08-19", 8), async pg => {
+  const cj = await pg.locator(".conseils .cj-l").allInnerTexts();
+  const avec33 = cj.filter(x => /33/.test(x));
+  ok("un même maximum n'est pas annoncé deux fois",
+    avec33.length === 1 && /Réchauffement/.test(avec33[0]), cj.join(" | "));
+});
+
+await pageA("2026-08-18T19:00:00+02:00", null, async pg => {
   ok("les deux astres levés partagent le ciel",
     await pg.locator("#ecran canvas#ciFeu").count() === 1
     && await pg.locator("#ecran canvas#ciLune").count() === 1,
@@ -2373,7 +2438,7 @@ await cielA("2026-08-18T19:00:00+02:00", async pg => {
 
 /* La nuit, la Lune est seule et garde son disque entier : la part cendrée est
    ce qui reste de Lune quand le Soleil n'en éclaire qu'un croissant. */
-await cielA("2026-08-20T22:00:00+02:00", async pg => {
+await pageA("2026-08-20T22:00:00+02:00", null, async pg => {
   ok("la nuit, la Lune est seule dans le ciel",
     await pg.locator("#ecran canvas#ciLune").count() === 1
     && await pg.locator("#ecran canvas#ciFeu").count() === 0,

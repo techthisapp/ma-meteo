@@ -102,26 +102,30 @@ function alertes() {
   const quand = k => new Date(`${d.time[k]}T12:00`)
     .toLocaleDateString("fr-FR", { weekday: "long" });
 
-  for (let k = i + 2; k <= Math.min(i + 4, d.time.length - 1); k++) {
-    const tn = tMin(k), tx = tMax(k);
-    if (tn !== null && tn <= SEUILS.gel) {
-      out.push({ ton: "froid", i: "alerte", h: (k - i) * 24,
-        t: `Gel probable ${quand(k)}, jusqu'à ${Math.round(tn)}°` });
-      break;
-    }
-    if (tx !== null && tx >= SEUILS.chaleur) {
-      out.push({ ton: "chaud", i: "soleil", h: (k - i) * 24,
-        t: `${Math.round(tx)}° ${quand(k)}` });
-      break;
-    }
-  }
+  /* La section s'arrête à après-demain. Les règles horaires couvrent le jour et
+     le lendemain, ces alertes le surlendemain, et rien au-delà : « 32° mercredi »
+     annoncé un dimanche n'est pas un fait marquant, c'est de l'almanach, et la
+     semaine est là pour cela.
 
-  for (let k = i + 2; k <= Math.min(i + 4, d.time.length - 1); k++) {
-    const p = d.precipitation_sum[k];
+     La portée court jusqu'au bout de la journée visée, non jusqu'à son midi :
+     comptée en journées pleines, elle promettait moins qu'elle ne tenait. */
+  const dernier = i + 2;
+  const h = (k, heure) => (k - i + 1) * 24 - heure;
+  const maintenant = new Date().getHours();
+
+  if (dernier <= d.time.length - 1) {
+    const tn = tMin(dernier), tx = tMax(dernier);
+    if (tn !== null && tn <= SEUILS.gel) {
+      out.push({ ton: "froid", i: "alerte", h: h(dernier, maintenant),
+        t: `Gel probable ${quand(dernier)}, jusqu'à ${Math.round(tn)}°` });
+    } else if (tx !== null && tx >= SEUILS.chaleur) {
+      out.push({ ton: "chaud", i: "soleil", h: h(dernier, maintenant),
+        t: `${Math.round(tx)}° ${quand(dernier)}` });
+    }
+    const p = d.precipitation_sum[dernier];
     if (p !== null && p >= SEUILS.alerteLame) {
-      out.push({ ton: "eau", i: "goutte", h: (k - i) * 24,
-        t: `${Math.round(p)} mm annoncés ${quand(k)}` });
-      break;
+      out.push({ ton: "eau", i: "goutte", h: h(dernier, maintenant),
+        t: `${Math.round(p)} mm annoncés ${quand(dernier)}` });
     }
   }
 
@@ -278,34 +282,48 @@ function ecranAccueil() {
 
     /* Les quatre mesures que le grand chiffre ne peut pas tenir.
 
+       Elles portent sur la journée civile entière, non sur l'heure en cours ni
+       sur une fenêtre glissante. À dix heures du soir, « indice UV 0 » et « vent
+       11 km/h » ne disaient rien d'une journée montée à sept d'indice et à
+       quatre-vingts de rafale. Le maximum du jour est ce qu'on retient d'une
+       journée, et c'est ce que porte déjà le titre au-dessus, « 18° à 32°
+       aujourd'hui ».
+
        Le ressenti ne s'affiche que s'il s'écarte de la température : « Ressenti
-       20° » à côté d'un grand 20° occupe un quart de la carte sans rien
+       32° » à côté d'un maximum de 32° occupe un quart de la carte sans rien
        apprendre. La probabilité de pluie prend alors sa place, plus utile.
 
-       L'indice UV s'écrit sans décimale : « 0,0 » à huit heures du matin donne
-       une fausse impression de mesure fine. */
-    /* Une valeur ne prend une couleur que lorsqu'elle passe un seuil : colorer
+       L'indice UV s'écrit sans décimale : « 0,0 » donne une fausse impression de
+       mesure fine.
+
+       Une valeur ne prend une couleur que lorsqu'elle passe un seuil : colorer
        une valeur ordinaire ferait du bruit et userait le signal. Le chiffre
        porte l'information, la couleur ne fait que la doubler. */
-    const pb = s ? Math.round(Math.max(...s.pb)) : 0;
-    const uv = s ? Math.round(s.uv[0]) : 0;
-    const raf = s ? Math.round(s.raf[0]) : 0;
-    const hum = s ? Math.round(s.hum[0]) : 0;
-    const res = s ? Math.round(s.res[0]) : 0;
+    const pb = jh ? Math.round(jh.pb) : 0;
+    const uv = jh ? Math.round(jh.uv) : 0;
+    const raf = jh ? Math.round(jh.raf) : 0;
+    const vent = jh ? Math.round(jh.v) : 0;
+    const hum = jh ? Math.round(jh.hum) : 0;
+    const res = jh ? Math.round(jh.res) : 0;
 
     /* Chaque mesure désigne la voie du ruban qui la déplie : un chiffre de
        l'accueil est une porte vers ses vingt-quatre heures. */
-    const premiere = s && Math.abs(s.res[0] - t) >= 1
-      ? ["Ressenti", `${res}°`, "",
+    /* Deux degrés d'écart, non un seul : le ressenti se compare ici à un maximum
+       de journée, non à la valeur de l'heure, et un degré de différence entre
+       deux maximums ne vaut pas la place d'une tuile. */
+    const premiere = jh && Math.abs(jh.res - tx) >= 2
+      ? ["Ressenti", `${res}°`, "au plus chaud",
         res >= SEUILS.chaleur ? "v-chaud" : res <= SEUILS.gel ? "v-froid" : "", "t"]
-      : ["Pluie", `${pb} %`, "sur 24 h", pb >= 60 ? "v-eau" : "", "mm"];
+      : jh && jh.mm >= SEUILS.lame
+        ? ["Pluie", `${nombreFr(jh.mm)} mm`, "aujourd'hui", jh.mm >= 5 ? "v-eau" : "", "mm"]
+        : ["Pluie", `${pb} %`, "de risque aujourd'hui", pb >= 60 ? "v-eau" : "", "mm"];
 
-    const mesures = s ? [
+    const mesures = jh ? [
       premiere,
-      ["Vent", `${Math.round(s.v[0])} km/h`, `rafales ${raf} km/h`,
-        raf >= SEUILS.rafale || s.v[0] >= SEUILS.ventMoyen ? "v-attention" : "", "v"],
-      ["Humidité", `${hum} %`, "", hum >= SEUILS.humidite ? "v-eau" : "", "hum"],
-      ["Indice UV", `${uv}`, uv >= SEUILS.uv ? "élevé" : "",
+      ["Vent", `${vent} km/h`, `rafales ${raf} km/h`,
+        raf >= SEUILS.rafale || vent >= SEUILS.ventMoyen ? "v-attention" : "", "v"],
+      ["Humidité", `${hum} %`, "au plus", hum >= SEUILS.humidite ? "v-eau" : "", "hum"],
+      ["Indice UV", `${uv}`, uv >= SEUILS.uv ? "élevé" : "au plus",
         uv >= 8 ? "v-brulant" : uv >= SEUILS.uv ? "v-chaud" : uv >= 3 ? "v-attention" : "", "uv"],
     ] : [];
 

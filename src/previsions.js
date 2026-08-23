@@ -392,6 +392,17 @@ export function jourHoraire(date) {
       : k.filter(j => j < ih).reduce((a, j) => a + (val("precipitation", j) || 0), 0),
     pb: Math.max(...k.map(j => val("precipitation_probability", j) || 0)),
     raf: Math.max(...k.map(j => val("wind_gusts_10m", j) || 0)),
+    /* Les maximums de la journée civile. L'accueil les préfère aux valeurs de
+       l'heure en cours : « indice UV 0 » à dix heures du soir ne dit rien de la
+       journée, et un vent de onze kilomètres par heure relevé à cet instant
+       n'annonce pas les quatre-vingts de l'après-midi. */
+    v: Math.max(...k.map(j => val("wind_speed_10m", j) || 0)),
+    hum: Math.max(...k.map(j => val("relative_humidity_2m", j) || 0)),
+    uv: Math.max(...k.map(j => val("uv_index", j) || 0)),
+    res: Math.max(...k.map(j => {
+      const v = val("apparent_temperature", j);
+      return v === null ? -99 : v;
+    })),
     code: k.reduce((a, j) => {
       const c = val("weather_code", j);
       return c !== null && graviteCiel(c) > graviteCiel(a) ? c : a;
