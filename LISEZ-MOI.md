@@ -741,7 +741,7 @@ src/
   postes.js         fichier départemental et geojson des postes, non branché
   reserve.js        les deux vues débranchées
 essais/
-  controle.mjs      trois cent dix contrôles en navigateur
+  controle.mjs      trois cent dix-sept contrôles en navigateur
   vue-ecran.mjs     captures d'un écran, thème clair et sombre
   meteo.json        données figées au 18 août 2026, 9 h
 ```
@@ -767,7 +767,7 @@ destination et l'instant à figer, `OUVRIRVOIE` la voie du ruban à déplier et
 Le lanceur sert le dossier, fige l'horloge au 18 août 2026 à 9 h, détourne les
 trois appels Open-Meteo vers `meteo.json`, sert une vigilance orange de
 convention, et coupe les sources data.gouv pour éprouver le repli. Deux cent
-trois cent dix contrôles, dont l'absence de répétition entre
+trois cent dix-sept contrôles, dont l'absence de répétition entre
 les alertes et les conseils, les sept voies du ruban, l'agrandissement d'une
 voie, les treize colonnes de la liste, les vingt-quatre lignes de la fenêtre, la
 nature du renvoi de vigilance, et dix-sept contrôles de conformité au design
@@ -847,12 +847,25 @@ porte pas, le fait que l'astre disparaît sous une couche fermée, et qu'il n'y 
 masse isolée. Un contexte entièrement couvert mesure la position du bord de la
 couche colonne par colonne et refuse toute cassure au raccord.
 
-Douze contrôles gardent la grammaire du tracé : l'échelle dans la gouttière,
+Seize contrôles gardent la grammaire du tracé : l'échelle dans la gouttière,
 deux chiffres qui ne se superposent pas, les seuils nommés dans le tracé, les
 flèches de direction du vent, la rampe sur la température en largeur et en
 hauteur, la couleur des barres ultraviolettes, la nuit sur les sept voies et à
 l'encre du texte, le résumé qui porte un fait, l'axe répété sous une voie
 dépliée, et les deux bandes qui ne se recouvrent pas.
+
+Quatre s'ajoutent sur ce que le tracé recouvre. Un nom de bande doit occuper une
+place nette dès qu'il en existe une : le contrôle balaye la largeur de la voie,
+distingue une aire d'un trait, et ne reproche au mot sa place que si une autre
+était libre. Le liseré qui le détache doit rester opaque. Les symboles du ciel
+doivent porter leur taille en attributs et tenir dans leur bande : en feuille de
+style seule, WebKit déploie un SVG imbriqué sur la hauteur de son parent et le
+symbole déborde de la carte.
+
+Un contexte sec et dégagé garde deux défauts que la donnée courante ne montre
+pas : une voie sans tracé doit se réduire à sa ligne de titre, sans la réserve
+de hauteur d'une touche qu'elle n'est pas, et un ciel dégagé ne doit pas écrire
+sa file de zéros.
 
 Deux familles de contrôles gardent la mise en page. La première mesure, sur les
 cinq écrans, qu'aucun bloc ne sort de la fenêtre. La seconde rejoue les cinq

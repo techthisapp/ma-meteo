@@ -564,6 +564,72 @@ ok("les échelles nommées portent leurs seuils dans le tracé", await pg.evalua
 }) === "", await pg.evaluate(() =>
   [...document.querySelectorAll("text.mg-bn")].map(e => e.textContent).join("/")));
 
+/* Le nom de bande cherche l'espace libre. Un mot posé sur l'aire pleine se
+   noyait ; il se déporte au milieu ou à droite quand la gauche est prise. */
+const noms = await pg.evaluate(() => {
+  const fautes = [];
+  for (const cle of ["v", "hum", "uv", "mm"]) {
+    const voie = document.querySelector(`.mg-v[data-cle="${cle}"]`);
+    if (!voie) continue;
+    const svg = voie.querySelector("svg.mg-s");
+    const m = svg.getScreenCTM();
+    const ecran = (x, y) => ({ x: m.a * x + m.e, y: m.d * y + m.f });
+    /* Une aire et un trait ne salissent pas de la même façon. L'aire couvre tout
+       ce qui est sous sa courbe, un trait haut au-dessus du mot ne le touche
+       pas : les deux se comptent séparément. */
+    const traits = [], toits = [];
+    for (const pl of svg.querySelectorAll("polyline")) {
+      for (const p of (pl.getAttribute("points") || "").trim().split(/\s+/)) {
+        const [x, y] = p.split(",").map(Number);
+        if (Number.isFinite(x) && Number.isFinite(y)) traits.push(ecran(x, y));
+      }
+    }
+    for (const pa of svg.querySelectorAll("path[fill]")) {
+      const f = pa.getAttribute("fill");
+      if (f === "none" || Number(pa.getAttribute("opacity") || 1) < 0.2) continue;
+      for (const c of (pa.getAttribute("d") || "").matchAll(/([-\d.]+),([-\d.]+)/g)) {
+        toits.push(ecran(Number(c[1]), Number(c[2])));
+      }
+    }
+    const barres = [...svg.querySelectorAll("rect")]
+      .filter(r => !r.classList.contains("mg-nuit"))
+      .map(r => r.getBoundingClientRect());
+    /* Le tracé s'étend d'un bout à l'autre des filets de seuil : ce sont eux qui
+       donnent la zone de dessin, sans avoir à refaire le calcul des marges. */
+    const filets = [...svg.querySelectorAll("line")].filter(l =>
+      Math.abs(Number(l.getAttribute("y1")) - Number(l.getAttribute("y2"))) < 0.01);
+    if (!filets.length) continue;
+    const zone = filets[0].getBoundingClientRect();
+    const pris = (g, dr, haut, bas) =>
+      traits.some(p => p.x > g && p.x < dr && p.y > haut && p.y < bas)
+      || toits.some(p => p.x > g && p.x < dr && p.y < bas)
+      || barres.some(r => r.right > g && r.left < dr && r.top < bas - 1);
+    for (const t of voie.querySelectorAll("text.mg-bn")) {
+      const b = t.getBoundingClientRect();
+      /* Une ligne peut être prise sur toute sa longueur : on ne reproche au mot
+         sa place que s'il en existait une nette. La recherche est plus exigeante
+         que la pose, d'une marge de quatre points de chaque côté. */
+      let libre = false;
+      for (let g = zone.left; g + b.width + 10 <= zone.right && !libre; g += 4) {
+        if (!pris(g, g + b.width + 10, b.top - 4, b.bottom + 4)) libre = true;
+      }
+      if (libre && pris(b.left - 2, b.right + 2, b.top + 1, b.bottom - 1)) {
+        fautes.push(`${cle}/${t.textContent}`);
+      }
+    }
+  }
+  return fautes.join(", ");
+});
+ok("les noms de bande évitent l'encre quand ils le peuvent", noms === "", noms);
+
+/* Le liseré du nom doit être opaque : à trois quarts, il laissait passer l'aire
+   qu'il devait masquer et le mot s'y noyait. */
+ok("le liseré des noms de bande est opaque", await pg.evaluate(() => {
+  const st = getComputedStyle(document.querySelector("text.mg-bn"));
+  return st.opacity === "1" && st.paintOrder.includes("stroke")
+    && parseFloat(st.strokeWidth) >= 2;
+}));
+
 // Le vent porte ses flèches de direction, repliée comme dépliée.
 ok("le vent porte ses flèches de direction",
   await pg.locator('.mg-v[data-cle="v"] .mg-fl').count() >= 6,
@@ -641,6 +707,35 @@ ok("les symboles et les valeurs ne partagent pas leur bande", await pg.evaluate(
     + `${Math.min(...va.map(e => e.getBoundingClientRect().top)).toFixed(0)}`;
 }));
 await pg.locator('.mg-b[data-voie="v"]').click();
+await pg.waitForTimeout(320);
+
+/* Le symbole du ciel est un SVG dans un SVG. Sa taille passe par des attributs,
+   non par la feuille de style : WebKit ignore `width` et `height` venus du CSS
+   sur un SVG imbriqué, déploie le dessin sur toute la hauteur du parent, et le
+   symbole débordait alors de la carte. */
+await pg.locator('.mg-b[data-voie="nua"]').click();
+await pg.waitForTimeout(320);
+ok("les symboles du ciel portent leur taille en attributs", await pg.evaluate(() => {
+  const ic = [...document.querySelectorAll('.mg-v[data-cle="nua"] svg.mg-ic')];
+  if (ic.length < 6) return `seulement ${ic.length} symboles`;
+  const nus = ic.filter(e => !e.getAttribute("width") || !e.getAttribute("height"));
+  return nus.length ? `${nus.length} symboles sans taille` : "";
+}) === "", String(await pg.locator('.mg-v[data-cle="nua"] svg.mg-ic').count()));
+ok("les symboles du ciel tiennent dans leur bande", await pg.evaluate(() => {
+  const voie = document.querySelector('.mg-v[data-cle="nua"]');
+  const cadre = voie.querySelector("svg.mg-s").getBoundingClientRect();
+  for (const e of voie.querySelectorAll("svg.mg-ic")) {
+    const b = e.getBoundingClientRect();
+    if (b.height > 22 || b.width > 22) return `symbole de ${b.width.toFixed(0)} sur ${b.height.toFixed(0)}`;
+    if (b.bottom > cadre.top + 40 || b.right > cadre.right + 1) return "symbole hors de la bande";
+  }
+  return "";
+}) === "", await pg.evaluate(() => {
+  const e = document.querySelector('.mg-v[data-cle="nua"] svg.mg-ic');
+  const b = e && e.getBoundingClientRect();
+  return b ? `${b.width.toFixed(0)} sur ${b.height.toFixed(0)}` : "aucun";
+}));
+await pg.locator('.mg-b[data-voie="nua"]').click();
 await pg.waitForTimeout(320);
 
 console.log("\n--- Les deux écritures ---");
@@ -1956,6 +2051,78 @@ ok("la couche se répète sans couture verticale",
   !couture.erreur && couture.max < 5,
   couture.erreur || `saut maximal ${couture.max?.toFixed(2)} points | ${couture.pires}`);
 await ctxCouvert.close();
+
+/* Un temps sec et dégagé. Deux défauts n'y paraissent que là : une voie sans
+   tracé gardait sous son titre la réserve de hauteur d'une touche, ce qui
+   portait la ligne « Pluie, aucune » de quarante-deux à soixante points, et la
+   voie du ciel écrivait une file de zéros qui se lisait comme du bruit. */
+const ctxSerein = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+await ctxSerein.addInitScript(amorce(FAIN));
+await ctxSerein.route(/api\.open-meteo\.com/, route => {
+  const u = route.request().url();
+  const d = JSON.parse(JSON.stringify(METEO));
+  const n = d.hourly.time.length;
+  d.hourly.precipitation = Array.from({ length: n }, () => 0);
+  d.hourly.precipitation_probability = Array.from({ length: n }, () => 0);
+  // Dégagé d'abord, couvert ensuite : la voie doit taire les zéros et écrire le reste.
+  d.hourly.cloud_cover = Array.from({ length: n }, (_, i) => (i < 20 ? 0 : 70));
+  d.hourly.weather_code = Array.from({ length: n }, () => 0);
+  if (u.includes("current=")) {
+    route.fulfill({ status: 200, contentType: "application/json", body: "[]" }); return;
+  }
+  if (u.includes("hourly=")) {
+    route.fulfill({ status: 200, contentType: "application/json",
+      body: JSON.stringify({ hourly: d.hourly }) }); return;
+  }
+  delete d.hourly;
+  route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
+});
+await ctxSerein.route(/api-adresse\.data\.gouv\.fr|object\.files\.data\.gouv\.fr|webservice\.meteofrance\.com/,
+  r => r.abort());
+const pgSerein = await ctxSerein.newPage();
+await pgSerein.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await pgSerein.waitForTimeout(1400);
+await pgSerein.locator('[data-onglet="temps"]').click();
+await pgSerein.waitForTimeout(600);
+
+ok("sans pluie, la voie se réduit à sa ligne de titre", await pgSerein.evaluate(() => {
+  const v = document.querySelector('.mg-v[data-cle="mm"]')
+    || [...document.querySelectorAll(".mg-v")].find(e => /^Pluie/.test(e.textContent));
+  if (!v) return "voie absente";
+  if (v.querySelector("svg.mg-s")) return "un tracé subsiste";
+  const t = v.querySelector(".mg-t");
+  /* La hauteur du titre contre celle de son encre : la réserve de touche gonfle
+     la boîte sans rien y mettre, et `scrollHeight` la suit, donc ne la voit
+     pas. Ce sont les enfants qu'il faut mesurer. */
+  const k = [...t.children].map(e => e.getBoundingClientRect());
+  const encre = Math.max(...k.map(r => r.bottom)) - Math.min(...k.map(r => r.top));
+  const vide = t.getBoundingClientRect().height - encre;
+  return vide > 16 ? `bande vide de ${vide.toFixed(0)} points` : "";
+}) === "", await pgSerein.evaluate(() => {
+  const v = [...document.querySelectorAll(".mg-v")].find(e => /^Pluie/.test(e.textContent));
+  return v ? `${v.getBoundingClientRect().height.toFixed(0)} points` : "voie absente";
+}));
+
+/* La ligne de titre qui s'ouvre garde sa cible de touche : c'est un bouton, il
+   se vise au pouce. */
+ok("le titre qui s'ouvre garde sa cible de touche", await pgSerein.evaluate(() =>
+  [...document.querySelectorAll(".mg-b")].every(e => e.getBoundingClientRect().height >= 40)));
+
+await pgSerein.locator('.mg-b[data-voie="nua"]').click();
+await pgSerein.waitForTimeout(400);
+ok("un ciel dégagé n'écrit pas sa file de zéros", await pgSerein.evaluate(() => {
+  const v = document.querySelector('.mg-v[data-cle="nua"]');
+  const vus = [...v.querySelectorAll("text.mg-p")].map(e => e.textContent.trim());
+  if (!vus.length) return "aucune valeur";
+  if (!vus.some(x => Number(x) >= 5)) return "aucune valeur utile";
+  const creux = vus.filter(x => x === "0" || x === "");
+  return creux.length ? `${creux.length} valeurs creuses` : "";
+}) === "", await pgSerein.evaluate(() => [...document.querySelectorAll(
+  '.mg-v[data-cle="nua"] text.mg-p')].map(e => e.textContent).join(" ") || "aucune"));
+await ctxSerein.close();
 
 const ctxLent = await nav.newContext({
   viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,

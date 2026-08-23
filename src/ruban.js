@@ -147,20 +147,58 @@ export function dessiner(s) {
   };
 
   // Le nom d'un seuil, dans le tracé, sur sa ligne.
-  const nomSeuil = (y, txt) =>
-    `<text class="mg-bn" x="${M + 3}" y="${u(y - 2.5)}">${esc(txt)}</text>`;
+  const nomSeuil = (x, y, txt) =>
+    `<text class="mg-bn" x="${u(x)}" y="${u(y - 2.5)}">${esc(txt)}</text>`;
+
+  /* Le mot se pose là où l'encre ne passe pas. La largeur est balayée de gauche
+     à droite ; on retient la place que le tracé recouvre le moins, puis, à
+     égalité, celle dont il s'écarte le plus. Fixé à gauche, « Confortable »
+     tombait sur l'aire pleine de l'humidité et s'y noyait.
+
+     Une aire et un trait ne salissent pas de la même façon : l'aire couvre tout
+     ce qui est sous sa courbe, le trait ne couvre que son propre passage. Une
+     ligne entièrement prise garde son mot : le liseré le porte alors seul. */
+  const placerNom = (y, txt, encres) => {
+    const larg = 7 + txt.length * 4.7;
+    const xMin = M + 3, xMax = L - GOUT - 3 - larg;
+    if (!encres || !encres.length || xMax <= xMin) return nomSeuil(xMin, y, txt);
+    const yt = y - 6;                    // milieu vertical du mot
+    let mieux = null;
+    /* Le balayage part de la gauche et garde la première place nette : le mot ne
+       s'éloigne qu'autant qu'il le faut, et deux mots d'une même voie ne se
+       retrouvent pas alignés au milieu sans raison. */
+    const pasX = Math.max(4, (xMax - xMin) / 24);
+    for (let x = xMin; x <= xMax + 0.01; x += pasX) {
+      let couvre = 0, loin = 1e9;
+      for (let k = 0; k < s.n; k++) {
+        const xk = X(k + 0.5);
+        if (xk < x - 4 || xk > x + larg + 4) continue;
+        for (const [genre, ys] of encres) {
+          const d = Math.abs(ys[k] - yt);
+          if (genre === "aire" ? ys[k] < y + 3 : d < 5.5) couvre++;
+          loin = Math.min(loin, d);
+        }
+      }
+      if (!mieux || couvre < mieux.c || (couvre === mieux.c && loin > mieux.l + 0.01)) {
+        mieux = { c: couvre, l: loin, x };
+      }
+    }
+    return nomSeuil(mieux.x, y, txt);
+  };
 
   /* Les seuils nommés d'une échelle, avec leur filet. Seuls ceux qui tombent
      dans la fenêtre paraissent, et le premier, qui vaut zéro, n'a pas de filet :
      il serait le plancher du tracé. */
-  const seuils = (cle, y0, y1, mn, mx, chiffrer) => {
+  const seuils = (cle, y0, y1, mn, mx, chiffrer, encres) => {
+    const ec = (encres || []).map(([genre, vals]) =>
+      [genre, vals.map(v => yDe(v, y0, y1, mn, mx))]);
     let traits = "", noms = "";
     for (const [borne, nom] of ECHELLES[cle]) {
       if (borne <= mn || borne >= mx) continue;
       const y = yDe(borne, y0, y1, mn, mx);
       traits += `<line x1="${M}" y1="${u(y)}" x2="${L - GOUT}" y2="${u(y)}" `
         + `stroke="currentColor" opacity=".16" stroke-dasharray="2 3"/>`;
-      noms += nomSeuil(y, nom);
+      noms += placerNom(y, nom, ec);
       if (chiffrer) noms += chiffre(y + 3, chiffrer(borne));
     }
     return [traits, noms];
@@ -215,6 +253,9 @@ export function dessiner(s) {
     `<circle class="mg-x" cx="${u(X(k + 0.5))}" cy="${u(y)}" r="2.6"/>`;
 
   const etiq = (k, y, txt, cls) => {
+    // Une valeur vide ne laisse pas d'élément derrière elle : un texte creux
+    // reste un nœud dans le dessin, et la voie du ciel en portait une file.
+    if (txt === "" || txt === null || txt === undefined) return "";
     const anc = k < 2 ? "start" : k > s.n - 3 ? "end" : "middle";
     const x = k < 2 ? M + 1 : k > s.n - 3 ? L - GOUT - 1 : X(k + 0.5);
     return `<text class="${cls}" x="${u(x)}" y="${u(y)}" text-anchor="${anc}">${esc(txt)}</text>`;
@@ -343,7 +384,7 @@ export function dessiner(s) {
       let d = fond(hb, h);
       /* Les bandes nommées tiennent lieu de graduation : une lame horaire en
          millimètres n'est pas un nombre qu'on porte en tête, « modérée » l'est. */
-      const [smTr, smNo] = seuils("mm", y0, y1, 0, mx);
+      const [smTr, smNo] = seuils("mm", y0, y1, 0, mx, null, [["aire", s.mm]]);
       d += smTr;
       /* Le risque passe derrière les barres, en aire très faible : deux
          questions sur une voie, combien et quelle chance. En pointillé par
@@ -377,7 +418,8 @@ export function dessiner(s) {
     let d = fond(hb, h);
     // Les bandes nommées tiennent lieu de graduation : cinq chiffres de plus
     // dans la gouttière ne diraient rien que « modéré » ne dise déjà.
-    const [svTr, svNo] = seuils("v", y0, y1, 0, mx, v => `${v}`);
+    // C'est la rafale qui recouvre, elle passe au-dessus du vent.
+    const [svTr, svNo] = seuils("v", y0, y1, 0, mx, v => `${v}`, [["aire", s.v], ["trait", s.raf]]);
     d += svTr;
     /* La rafale est l'enveloppe, le vent est le corps. Le pointillé disait la
        même chose une troisième fois : la position, au-dessus, et le
@@ -422,8 +464,10 @@ export function dessiner(s) {
        la hauteur, il s'ajouterait à la densité et fausserait la lecture : la
        colonne de nuit continue, la valeur reste juste. */
     d += fond(hb, h, 5);
-    if (hs) d += bande(g, k => icoTemps(icoCiel(s.code[k], s.clair[k]), "mg-ic"));
-    if (g) d += valeurs(s.nua, v => Math.round(v), hs + 9);
+    if (hs) d += bande(g, k => icoTemps(icoCiel(s.code[k], s.clair[k]), "mg-ic", 14));
+    /* Un ciel dégagé n'a pas de chiffre : une file de zéros se lisait comme du
+       bruit, et le symbole du soleil dit déjà tout. */
+    if (g) d += valeurs(s.nua, v => (v >= 5 ? Math.round(v) : ""), hs + 9);
     /* Le premier basculement du ciel : c'est lui qu'on cherche en ouvrant la
        voie, non la moyenne de la fenêtre. */
     const seuil = 60;
@@ -450,7 +494,7 @@ export function dessiner(s) {
       const y0 = hb + 3, y1 = h - 3;
       const mx = Math.max(3, Math.ceil(mxUV));
       let d = fond(hb, h);
-      const [suTr, suNo] = seuils("uv", y0, y1, 0, mx, v => `${v}`);
+      const [suTr, suNo] = seuils("uv", y0, y1, 0, mx, v => `${v}`, [["aire", s.uv]]);
       d += suTr;
       s.uv.forEach((v, k) => {
         if (v < 0.1) return;
@@ -482,7 +526,7 @@ export function dessiner(s) {
        dessinait sinon une ligne plate au sommet de sa voie. */
     const mn = Math.min(60, Math.floor(Math.min(...s.hum) / 10) * 10);
     let d = fond(hb, h);
-    const [shTr, shNo] = seuils("hum", y0, y1, mn, 100, v => `${v}`);
+    const [shTr, shNo] = seuils("hum", y0, y1, mn, 100, v => `${v}`, [["aire", s.hum]]);
     d += shTr;
     d += `<path d="${aire(s.hum, y0, y1, mn, 100)}" fill="currentColor" opacity=".14"/>`;
     d += `<polyline points="${pts(s.hum, y0, y1, mn, 100)}" fill="none" stroke="currentColor" `

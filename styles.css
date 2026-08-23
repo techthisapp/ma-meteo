@@ -712,8 +712,11 @@ button.rangee:active{background:var(--surface-2)}
   font-size:var(--texte-note);font-weight:var(--graisse-semibold);
   letter-spacing:0;text-transform:none;
   color:var(--etiquette-2);padding:var(--espace-xs) 0;
-  min-height:var(--touche);
 }
+/* La hauteur de touche ne vaut que pour le titre qui s'ouvre. Sur une voie sans
+   tracé, « Pluie, aucune » n'est pas un bouton : la réserve portait la ligne de
+   quarante-deux à soixante points et laissait un vide sous elle. */
+.mg-b{min-height:var(--touche)}
 .mg-n{display:inline-flex;align-items:center;gap:var(--espace-xs)}
 .mg-n i{
   font-style:normal;font-size:var(--texte-legende);font-weight:var(--graisse-regular);line-height:1;
@@ -743,9 +746,12 @@ button.rangee:active{background:var(--surface-2)}
 .mg-g{font-size:9px;fill:var(--etiquette-3)}
 /* Le nom d'un seuil, écrit dans le tracé sur sa ligne. Il dit ce que vaut la
    valeur là où on la regarde, ce qu'une légende en bas de carte ne fait pas. */
+/* Le liseré reste opaque. Porté par une opacité de trois quarts, il laissait
+   passer l'aire pleine qu'il devait masquer, et le mot s'y noyait : c'est la
+   couleur du texte qui porte la retenue, non la transparence du groupe. */
 .mg-bn{
-  font-size:9px;fill:var(--etiquette-3);opacity:.75;
-  paint-order:stroke;stroke:var(--surface);stroke-width:2.4px;
+  font-size:9px;fill:var(--etiquette-3);
+  paint-order:stroke;stroke:var(--surface);stroke-width:2.6px;stroke-linejoin:round;
 }
 /* Les symboles de la bande, et le point qui marque un extrême. */
 .mg-ic{width:14px;height:14px}

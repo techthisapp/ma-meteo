@@ -99,8 +99,13 @@ export const ico = (n, cls = "bd-ic") =>
 /* Symbole de temps en deux tons. Réservé aux endroits qui décrivent le ciel :
    le bandeau, la table de la semaine, la liste des communes. Ailleurs, un
    symbole coloré au milieu d'un texte détournerait le regard. */
-export const icoTemps = (n, cls = "bd-ic") =>
+/* La taille passe par des attributs, non par la feuille de style : dans un SVG
+   imbriqué dans un autre SVG, WebKit ignore `width` et `height` venus du CSS et
+   déploie le dessin sur toute la hauteur du parent. Le symbole du ciel occupait
+   alors la voie entière et débordait de la carte. */
+export const icoTemps = (n, cls = "bd-ic", px = 0) =>
   `<svg class="${esc(cls)} ict ict-${esc(n)}" viewBox="0 0 24 24" aria-hidden="true" `
+  + (px ? `width="${px}" height="${px}" ` : "")
   + `fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">`
   + `${D[n] || ""}</svg>`;
 

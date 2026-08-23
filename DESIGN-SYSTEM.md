@@ -135,6 +135,10 @@ Aucune cible interactive ne descend sous 44 × 44 pt. Une icône peut mesurer
 18 pt et porter une zone de 44 pt. Le contrôle automatique mesure toutes les
 cibles visibles de l'écran et échoue si l'une d'elles est plus petite.
 
+La réserve de hauteur suit la cible, non la ligne qui lui ressemble. Une ligne
+de titre qui ne s'ouvre pas n'est pas un bouton : la réserve y laisse une bande
+vide sous le texte.
+
 ## Composants
 
 ### Boutons
@@ -198,14 +202,27 @@ L'échelle vit dans une gouttière hors du tracé, toujours à droite. Posée de
 elle traverse les courbes. Deux chiffres à moins de sept points l'un de l'autre
 se chevauchent : le second est écarté.
 
-Les seuils d'une échelle nommée s'écrivent à gauche, sur leur ligne, dans le
-tracé, et tiennent lieu de graduation. Le nom se répète en tête, accolé au
-chiffre, pour dire ce que ce chiffre vaut. Les noms se posent après les tracés :
-posés avant, les barres et les aires les recouvrent.
+Les seuils d'une échelle nommée s'écrivent sur leur ligne, dans le tracé, et
+tiennent lieu de graduation. Le nom se répète en tête, accolé au chiffre, pour
+dire ce que ce chiffre vaut. Les noms se posent après les tracés : posés avant,
+les barres et les aires les recouvrent.
+
+Le nom cherche sa place sur sa ligne. La largeur est balayée de gauche à droite
+et la première place nette l'emporte : le mot ne s'éloigne qu'autant qu'il le
+faut. Une aire couvre tout ce qui est sous sa courbe, un trait ne couvre que son
+propre passage, et les deux se comptent séparément. Quand la ligne est prise sur
+toute sa longueur, le mot reste où il est et son liseré le porte seul : ce
+liseré est opaque, une transparence laisserait passer ce qu'il doit masquer.
 
 Une bande au-dessus du tracé porte une seconde grandeur en symboles. Les valeurs
 chiffrées occupent une seconde bande, sous elle, jamais la même : au même niveau
-elles se recouvrent, et sur la courbe elles la coupent.
+elles se recouvrent, et sur la courbe elles la coupent. Une valeur qui ne dit
+rien ne s'écrit pas, et ne laisse pas d'élément vide derrière elle : une file de
+zéros sur un ciel dégagé se lit comme du bruit.
+
+Un symbole posé dans un tracé porte sa taille en attributs. En feuille de style,
+elle est ignorée sur un SVG imbriqué dans un SVG et le dessin se déploie sur la
+hauteur entière de son parent.
 
 La couleur n'est une donnée que là où l'échelle se lit d'un coup d'œil. Ailleurs
 la forme, les symboles et les seuils nommés suffisent, et une couleur de plus
