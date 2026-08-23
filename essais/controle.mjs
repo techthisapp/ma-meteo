@@ -46,6 +46,19 @@ const FAIN = {
   ecriture: "ruban", poste: null,
 };
 
+/* Même amorce, à un autre instant : les cas d'astres ne se rencontrent pas tous
+   à neuf heures du matin. */
+const amorceA = (reglages, quand) => `{
+  const ecart = ${new Date(quand).getTime()} - Date.now();
+  const D = Date;
+  globalThis.Date = class extends D {
+    constructor(...a){ super(...(a.length ? a : [D.now() + ecart])); }
+    static now(){ return D.now() + ecart; }
+  };
+  Object.setPrototypeOf(globalThis.Date, D);
+  localStorage.setItem("mameteo.reglages.v1", ${JSON.stringify(JSON.stringify(reglages))});
+}`;
+
 const amorce = reglages => `{
   const ecart = ${FIGE} - Date.now();
   const D = Date;
@@ -276,6 +289,51 @@ ok("le temps se peint devant l'astre", await pg.evaluate(() => {
   const apres = as.compareDocumentPosition(cv) & Node.DOCUMENT_POSITION_FOLLOWING;
   return Boolean(apres) && Number(getComputedStyle(cv).zIndex) >= 1;
 }));
+/* Le Soleil et la Lune partagent le ciel dès qu'ils sont levés tous les deux.
+   À neuf heures du matin la Lune est à quarante degrés sous l'horizon : le
+   Soleil est seul, et rien ne doit tenir sa place. */
+ok("de jour, Lune couchée, le Soleil est seul",
+  await pg.locator("canvas#ciFeu").count() === 1
+  && await pg.locator("#ecran canvas#ciLune").count() === 0,
+  `${await pg.locator("canvas#ciFeu").count()} soleil, ${await pg.locator("#ecran canvas#ciLune").count()} lune`);
+
+/* Les deux astres se placent par leur azimut, dans un même repère. Le Soleil
+   suivait l'heure, ce qui le posait ailleurs que là où il est : à neuf heures
+   il tombait au milieu du panneau alors qu'il est à l'est-nord-est. La même
+   règle sur les deux écrans donne la même place au même instant. */
+const placeAccueil = await pg.evaluate(() =>
+  document.querySelector("#ecran .ci-astre").style.getPropertyValue("--ax"));
+await onglet("soleil");
+const placeSoleil = await pg.evaluate(() =>
+  document.querySelector("#ecran .ci-astre").style.getPropertyValue("--ax"));
+await onglet("accueil");
+ok("le Soleil est à la même place sur les deux écrans",
+  placeAccueil === placeSoleil && parseFloat(placeAccueil) < 30,
+  `${placeAccueil} contre ${placeSoleil}`);
+
+/* La règle de choix, éprouvée sur des cas que la charge d'essai ne porte pas :
+   une Lune neuve en plein jour, deux astres qui se frôlent. */
+const choix = await pg.evaluate(async () => {
+  const V = await import("/src/vues.js");
+  const cas = [
+    ["jour, Lune levée et écartée", { hauteur: 17, azimut: 270 }, { hauteur: 22, azimut: 191 }, 0.37, true, true],
+    ["jour, Lune sous l'horizon", { hauteur: 22, azimut: 95 }, { hauteur: -43, azimut: 67 }, 0.33, true, false],
+    ["nuit, Lune levée", { hauteur: -12, azimut: 300 }, { hauteur: 11, azimut: 200 }, 0.57, false, true],
+    ["nuit, Lune couchée", { hauteur: -30, azimut: 20 }, { hauteur: -20, azimut: 60 }, 0.5, false, true],
+    ["jour, Lune neuve", { hauteur: 27, azimut: 130 }, { hauteur: 58, azimut: 170 }, 0.10, true, false],
+    ["jour, astres qui se frôlent", { hauteur: 39, azimut: 220 }, { hauteur: 16, azimut: 205 }, 0.25, true, false],
+  ];
+  const fautes = [];
+  for (const [nom, ps, pl, ecl, soleil, lune] of cas) {
+    const v = V.astresVus(ps, pl, ecl);
+    if (v.soleil !== soleil || v.lune !== lune) {
+      fautes.push(`${nom} : soleil ${v.soleil}, lune ${v.lune}`);
+    }
+  }
+  return fautes.join(" | ");
+});
+ok("le ciel choisit ses astres", choix === "", choix);
+
 ok("la toile du temps porte des pixels", await pg.evaluate(() => {
   const cv = document.getElementById("ciTemps");
   const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
@@ -2179,6 +2237,90 @@ ok("un ciel dégagé n'écrit pas sa file de zéros", await pgSerein.evaluate(()
 }) === "", await pgSerein.evaluate(() => [...document.querySelectorAll(
   '.mg-v[data-cle="nua"] text.mg-p')].map(e => e.textContent).join(" ") || "aucune"));
 await ctxSerein.close();
+
+/* Le ciel à deux astres. Le 18 août 2026 à dix-neuf heures, le Soleil est à
+   dix-sept degrés et la Lune à vingt-deux : le vrai ciel les porte tous les
+   deux, l'application doit les porter aussi. */
+const cielA = async (quand, faire) => {
+  const c = await nav.newContext({
+    viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+    locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+    reducedMotion: "reduce",
+  });
+  await c.addInitScript(amorceA(FAIN, quand));
+  await c.route(/api\.open-meteo\.com/, route => {
+    const u = route.request().url();
+    const d = JSON.parse(JSON.stringify(METEO));
+    if (u.includes("current=")) {
+      route.fulfill({ status: 200, contentType: "application/json", body: "[]" }); return;
+    }
+    if (u.includes("hourly=")) {
+      route.fulfill({ status: 200, contentType: "application/json",
+        body: JSON.stringify({ hourly: d.hourly }) }); return;
+    }
+    delete d.hourly;
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
+  });
+  await c.route(/api-adresse\.data\.gouv\.fr|object\.files\.data\.gouv\.fr|webservice\.meteofrance\.com/,
+    r => r.abort());
+  const pg = await c.newPage();
+  await pg.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+  await pg.waitForTimeout(1500);
+  await faire(pg);
+  await c.close();
+};
+
+/* Le profil d'opacité du disque de la Lune, sur sa ligne médiane. De nuit il est
+   plein d'un bord à l'autre, la part cendrée comprise. De jour la part sombre
+   s'efface : seule reste la part éclairée, comme dans le vrai ciel. */
+const profilLune = pg => pg.evaluate(() => {
+  const cv = document.getElementById("ciLune");
+  if (!cv) return null;
+  const x = cv.getContext("2d");
+  const d = x.getImageData(0, 0, cv.width, cv.height).data;
+  const y = Math.round(cv.height / 2), L = cv.width, c = L / 2;
+  const R = L * 0.155 * 0.8;          // bien à l'intérieur du disque
+  let mn = 255, mx = 0;
+  for (let i = Math.round(c - R); i <= Math.round(c + R); i++) {
+    const a = d[(y * L + i) * 4 + 3];
+    if (a < mn) mn = a;
+    if (a > mx) mx = a;
+  }
+  return { mn, mx, clarte: Number(cv.dataset.clarte) };
+});
+
+await cielA("2026-08-18T19:00:00+02:00", async pg => {
+  ok("les deux astres levés partagent le ciel",
+    await pg.locator("#ecran canvas#ciFeu").count() === 1
+    && await pg.locator("#ecran canvas#ciLune").count() === 1,
+    `${await pg.locator("#ecran canvas#ciFeu").count()} soleil, `
+    + `${await pg.locator("#ecran canvas#ciLune").count()} lune`);
+  const places = await pg.evaluate(() => [...document.querySelectorAll("#ecran .ci-astre")]
+    .map(e => parseFloat(e.style.getPropertyValue("--ax"))));
+  /* Chacun à sa place, et les disques ne se touchent pas : leurs rayons font
+     ensemble près d'un tiers de la largeur du panneau. */
+  ok("les deux disques gardent leur écart",
+    places.length === 2 && Math.abs(places[0] - places[1]) > 25,
+    places.map(v => v.toFixed(0)).join(" et "));
+  const pf = await profilLune(pg);
+  ok("de jour, la part sombre de la Lune s'efface",
+    pf && pf.clarte > 0.9 && pf.mn < 60 && pf.mx > 150,
+    pf ? `opacité de ${pf.mn} à ${pf.mx}, clarté ${pf.clarte}` : "aucune toile");
+});
+
+/* La nuit, la Lune est seule et garde son disque entier : la part cendrée est
+   ce qui reste de Lune quand le Soleil n'en éclaire qu'un croissant. */
+await cielA("2026-08-20T22:00:00+02:00", async pg => {
+  ok("la nuit, la Lune est seule dans le ciel",
+    await pg.locator("#ecran canvas#ciLune").count() === 1
+    && await pg.locator("#ecran canvas#ciFeu").count() === 0,
+    `${await pg.locator("#ecran canvas#ciFeu").count()} soleil, `
+    + `${await pg.locator("#ecran canvas#ciLune").count()} lune`);
+  const pf = await profilLune(pg);
+  ok("la nuit, la Lune garde son disque entier",
+    pf && pf.clarte < 0.1 && pf.mn > 150,
+    pf ? `opacité de ${pf.mn} à ${pf.mx}, clarté ${pf.clarte}` : "aucune toile");
+});
 
 const ctxLent = await nav.newContext({
   viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,

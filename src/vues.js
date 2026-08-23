@@ -363,20 +363,73 @@ const ETOILES = (() => {
    quatre-vingt-cinq pour cent, le zénith à treize. */
 const ordonnee = hauteur => 85 - Math.max(-14, Math.min(90, hauteur)) / 90 * (85 - 13);
 
-/* Le panneau, commun aux deux bandeaux. Il ne sait rien de l'astre qu'il
-   porte : le Soleil et la Lune lui passent leur place et leur toile. */
-function panneauCiel(c, x, y, sous, corps, temps = "") {
+/* Abscisse du disque, tirée de son azimut. L'heure ne convient pas : deux
+   astres dans un même ciel doivent partager la même règle, et l'heure ne dit
+   rien de la place de la Lune, qui se lève cinquante minutes plus tard chaque
+   jour. L'arc couvert va de l'est-nord-est à l'ouest-nord-ouest, ce qui contient
+   les levers et les couchers aux latitudes françaises en toute saison. */
+const abscisse = azimut => {
+  const az = ((azimut % 360) + 360) % 360;
+  return Math.max(3, Math.min(97, (az - 55) / 250 * 100));
+};
+
+// Le panneau est plus large que haut : un écart vertical compte moins qu'un
+// écart horizontal de même valeur en pour cent.
+const PANNEAU = 306 / 390;
+
+/* Le panneau, commun aux trois bandeaux. Il ne sait rien des astres qu'il
+   porte : chacun lui passe sa place et sa toile. Il en prend un, deux, ou
+   aucun, le dernier de la liste étant devant. */
+function panneauCiel(c, astres, temps = "") {
   return `<div class="ci" style="`
     + `--ci-haut:${c.haut};--ci-bas:${c.bas};--ci-sol-haut:${c.solHaut};--ci-sol:${c.sol};`
     + `--ci-nuit:${c.nuit.toFixed(2)};--ci-jour:${c.jour.toFixed(2)}">`
     + `<div class="ci-etoiles" aria-hidden="true">${ETOILES}</div>`
-    + (corps ? `<div class="ci-astre${sous ? " sous" : ""}" `
-      + `style="--ax:${x.toFixed(1)}%;--ay:${y.toFixed(1)}%">${corps}</div>` : "")
+    + astres.filter(a => a.corps).map(a =>
+      `<div class="ci-astre${a.sous ? " sous" : ""}" `
+      + `style="--ax:${a.x.toFixed(1)}%;--ay:${a.y.toFixed(1)}%">${a.corps}</div>`).join("")
     + temps
     + `<div class="ci-sol"></div><div class="ci-horizon"></div>`
     + `<div class="ci-voile-haut"></div><div class="ci-voile-bas"></div>`
     + `</div>`;
 }
+
+/* Qui se montre dans le ciel de l'accueil.
+
+   Le Soleil dès qu'il n'est pas trop bas sous l'horizon, la lueur du crépuscule
+   comptant encore pour lui. La Lune dès qu'elle est levée, de jour comme de
+   nuit, et de nuit même couchée, faute de quoi le panneau serait vide.
+
+   Deux réserves de jour, chacune sa raison. Un croissant trop mince est une
+   Lune trop proche du Soleil pour être vue, un huitième éclairé valant environ
+   quarante degrés d'écart. Et deux disques ne se recouvrent pas : leurs rayons
+   font ensemble près d'un tiers de la largeur du panneau.
+
+   La règle est sortie de la vue pour être éprouvée sur des cas que la charge
+   d'essai ne contient pas, une Lune neuve de plein jour et deux astres qui se
+   frôlent. */
+export function astresVus(ps, pl, eclairee) {
+  const ecart = Math.hypot(
+    (abscisse(ps.azimut) - abscisse(pl.azimut)) / 100,
+    ((ordonnee(ps.hauteur) - ordonnee(pl.hauteur)) / 100) * PANNEAU);
+  const soleil = ps.hauteur > -6;
+  const lune = soleil
+    ? pl.hauteur > Astres.SEUIL.lune && eclairee > 0.12 && ecart > 0.30
+    : true;
+  return { soleil, lune, ecart };
+}
+
+const corpsSoleil = c =>
+  `<canvas class="ci-feu" id="ciFeu" data-chaud="${c.chaud.toFixed(3)}" `
+  + `role="img" aria-label="Le Soleil dans le ciel"></canvas>`;
+
+const corpsLune = (c, ph, pl, maintenant, g) =>
+  `<canvas class="ci-lune" id="ciLune" `
+  + `data-phase="${anglePhase(ph.eclairee).toFixed(1)}" `
+  + `data-angle="${Astres.angleLimbe(maintenant, g.lat, g.lon).toFixed(4)}" `
+  + `data-eclairee="${ph.eclairee.toFixed(3)}" data-clarte="${c.clarte.toFixed(3)}" `
+  + `data-chaud="${Math.max(0, Math.min(1, (12 - pl.hauteur) / 20)).toFixed(3)}" `
+  + `role="img" aria-label="La Lune dans le ciel"></canvas>`;
 
 function bandeauCiel(g, maintenant, meridien) {
   const p = Astres.position("soleil", maintenant, g.lat, g.lon);
@@ -385,12 +438,10 @@ function bandeauCiel(g, maintenant, meridien) {
   const montant = meridien ? maintenant < meridien : minutes < 720;
   const c = cielDe(p.hauteur, montant);
 
-  /* L'abscisse suit l'avancement du jour, l'ordonnée la hauteur : le disque
-     est à sa place, non sur un arc supposé. */
-  const corps = `<canvas class="ci-feu" id="ciFeu" data-chaud="${c.chaud.toFixed(3)}" `
-    + `role="img" aria-label="Le Soleil dans le ciel"></canvas>`;
-  return panneauCiel(c, (minutes / 1440) * 100, ordonnee(p.hauteur),
-    p.hauteur < -0.833, corps);
+  /* L'abscisse suit l'azimut, l'ordonnée la hauteur : le disque est à sa place,
+     non sur un arc supposé. */
+  return panneauCiel(c, [{ x: abscisse(p.azimut), y: ordonnee(p.hauteur),
+    sous: p.hauteur < Astres.SEUIL.soleil, corps: corpsSoleil(c) }]);
 }
 
 /* Le bandeau de la Lune. Le ciel est celui du Soleil : une Lune levée en plein
@@ -405,68 +456,64 @@ function bandeauLune(g, maintenant, phase) {
   const minutes = (maintenant - minuit) / 60000;
   const c = cielDe(ps.hauteur, minutes < 720);
 
-  const az = ((pl.azimut % 360) + 360) % 360;
-  const x = Math.max(3, Math.min(97, (az - 55) / 250 * 100));
-  const chaud = Math.max(0, Math.min(1, (12 - pl.hauteur) / 20));
-  const angleI = anglePhase(phase.eclairee);
-  const angle = Astres.angleLimbe(maintenant, g.lat, g.lon);
-
-  const corps = `<canvas class="ci-lune" id="ciLune" `
-    + `data-phase="${angleI.toFixed(1)}" data-angle="${angle.toFixed(4)}" `
-    + `data-eclairee="${phase.eclairee.toFixed(3)}" data-clarte="${c.clarte.toFixed(3)}" `
-    + `data-chaud="${chaud.toFixed(3)}" role="img" aria-label="La Lune dans le ciel"></canvas>`;
-  return panneauCiel(c, x, ordonnee(pl.hauteur), pl.hauteur < 0.125, corps);
+  return panneauCiel(c, [{ x: abscisse(pl.azimut), y: ordonnee(pl.hauteur),
+    sous: pl.hauteur < Astres.SEUIL.lune,
+    corps: corpsLune(c, phase, pl, maintenant, g) }]);
 }
 
 /* Le bandeau de l'accueil. Même panneau que les deux autres, avec le temps
-   qu'il fait peint par-dessus l'astre : un nuage passe devant le Soleil, non
-   derrière. De jour le Soleil, de nuit la Lune, et sous une couche fermée ni
-   l'un ni l'autre, seule reste la lueur diffuse à l'endroit où l'astre se
-   tient. */
+   qu'il fait peint par-dessus les astres : un nuage passe devant le Soleil, non
+   derrière. Sous une couche fermée aucun disque n'est dessiné, seule reste la
+   lueur diffuse à l'endroit où l'astre se tient.
+
+   Le Soleil et la Lune partagent le ciel quand ils sont levés tous les deux, ce
+   qui arrive une bonne partie du mois : la Lune se voit en plein jour, pâle,
+   dès qu'elle s'écarte du Soleil. Ne montrer que l'un des deux donnait un ciel
+   faux la moitié des après-midi.
+
+   Deux réserves. Trop près du Soleil, la Lune est une Lune nouvelle noyée dans
+   sa lueur : elle n'est pas dessinée, elle ne se voit pas davantage dans le vrai
+   ciel, et les deux disques se recouvriraient. Et de nuit la Lune reste
+   dessinée sous l'horizon, faute de quoi le panneau serait vide. */
 export function bandeauAccueil(g, maintenant, p, vent) {
   const ps = Astres.position("soleil", maintenant, g.lat, g.lon);
+  const pl = Astres.position("lune", maintenant, g.lat, g.lon);
   const minuit = new Date(maintenant.getFullYear(), maintenant.getMonth(), maintenant.getDate());
   const minutes = (maintenant - minuit) / 60000;
   const c = cielDe(ps.hauteur, minutes < 720);
   const voile = Temps.voileDe(p);
   const visible = voile < Temps.SEUIL_VOILE;
 
-  let astre, x, y, sous, corps = "";
-  if (ps.hauteur > -6) {
-    x = (minutes / 1440) * 100;
-    y = ordonnee(ps.hauteur);
-    sous = ps.hauteur < Astres.SEUIL.soleil;
-    astre = { sorte: "soleil", x: x / 100, y: y / 100 };
-    if (visible) {
-      corps = `<canvas class="ci-feu" id="ciFeu" data-chaud="${c.chaud.toFixed(3)}" `
-        + `role="img" aria-label="Le Soleil dans le ciel"></canvas>`;
-    }
-  } else {
-    const pl = Astres.position("lune", maintenant, g.lat, g.lon);
-    const ph = Astres.phase(maintenant);
-    const az = ((pl.azimut % 360) + 360) % 360;
-    x = Math.max(3, Math.min(97, (az - 55) / 250 * 100));
-    y = ordonnee(pl.hauteur);
-    sous = pl.hauteur < Astres.SEUIL.lune;
-    astre = { sorte: "lune", x: x / 100, y: y / 100 };
-    if (visible) {
-      const angleI = Math.acos(Math.max(-1, Math.min(1, 2 * ph.eclairee - 1))) / (Math.PI / 180);
-      const chaud = Math.max(0, Math.min(1, (12 - pl.hauteur) / 20));
-      corps = `<canvas class="ci-lune" id="ciLune" `
-        + `data-phase="${angleI.toFixed(1)}" `
-        + `data-angle="${Astres.angleLimbe(maintenant, g.lat, g.lon).toFixed(4)}" `
-        + `data-eclairee="${ph.eclairee.toFixed(3)}" data-clarte="${c.clarte.toFixed(3)}" `
-        + `data-chaud="${chaud.toFixed(3)}" role="img" aria-label="La Lune dans le ciel"></canvas>`;
-    }
-  }
+  const xs = abscisse(ps.azimut), ys = ordonnee(ps.hauteur);
+  const xl = abscisse(pl.azimut), yl = ordonnee(pl.hauteur);
+  const { soleil: soleilVu, lune: luneVue } =
+    astresVus(ps, pl, Astres.phase(maintenant).eclairee);
 
   /* L'astre pâlit et se dilue sous une couche mince : le voile est porté par le
      panneau, la toile de l'astre n'a rien à en savoir. */
+  const voiler = corps => (corps && voile > 0
+    ? `<div class="ci-voile" style="--voile:${voile.toFixed(2)}">${corps}</div>` : corps);
+
+  // La Lune d'abord, le Soleil devant : c'est lui qui l'emporte s'ils se frôlent.
+  const astres = [];
+  if (luneVue) {
+    astres.push({ x: xl, y: yl, sous: pl.hauteur < Astres.SEUIL.lune,
+      corps: visible ? voiler(corpsLune(c, Astres.phase(maintenant), pl, maintenant, g)) : "" });
+  }
+  if (soleilVu) {
+    astres.push({ x: xs, y: ys, sous: ps.hauteur < Astres.SEUIL.soleil,
+      corps: visible ? voiler(corpsSoleil(c)) : "" });
+  }
+
+  /* La lueur qui traverse la couche vient du Soleil quand il est levé, de la
+     Lune sinon : c'est lui qui éclaire les nuages, elle ne les éclaire qu'en
+     son absence. */
+  const astre = soleilVu
+    ? { sorte: "soleil", x: xs / 100, y: ys / 100 }
+    : { sorte: "lune", x: xl / 100, y: yl / 100 };
   const toile = `<canvas class="ci-temps" id="ciTemps" aria-hidden="true" `
     + Temps.attributs(p, c, vent, astre) + `></canvas>`;
-  return panneauCiel(c, x, y, sous,
-    corps && voile > 0 ? `<div class="ci-voile" style="--voile:${voile.toFixed(2)}">${corps}</div>`
-      : corps, toile);
+  return panneauCiel(c, astres, toile);
 }
 
 /* La trajectoire du jour : la hauteur du Soleil de minuit à minuit. Le trait

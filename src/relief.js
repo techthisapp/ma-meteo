@@ -175,8 +175,9 @@ const RAD = Math.PI / 180;
 
 /* `angleI` est l'angle de phase en degrés, zéro à la pleine Lune et cent
    quatre-vingts à la nouvelle. `angle` est l'inclinaison du limbe éclairé,
-   comptée depuis le zénith. */
-function eclairer(angleI, angle, eclairee) {
+   comptée depuis le zénith. `clarte` dit la lumière du ciel autour d'elle, de
+   la nuit noire au plein jour. */
+function eclairer(angleI, angle, eclairee, clarte = 0) {
   const src = carte().getContext("2d").getImageData(0, 0, COTE, COTE);
   const out = new ImageData(COTE, COTE);
   const c = COTE / 2;
@@ -214,7 +215,13 @@ function eclairer(angleI, angle, eclairee) {
       out.data[k] = Math.min(255, src.data[k] * e);
       out.data[k + 1] = Math.min(255, src.data[k + 1] * e);
       out.data[k + 2] = Math.min(255, src.data[k + 2] * e * froid);
-      out.data[k + 3] = a;
+      /* Sur un ciel clair, la Lune ne garde que ce qui est plus lumineux que le
+         ciel. Sa part sombre s'efface au lieu de pâlir : la nuit on voit un
+         disque entier dont une part est cendrée, de jour on ne voit que le
+         croissant, et le reste est du ciel. Une pâleur portée sur tout le
+         disque laissait au contraire un rond gris posé sur le bleu. */
+      const garde = Math.max(0, Math.min(1, (e - 0.12) / 0.38));
+      out.data[k + 3] = clarte > 0.02 ? a * (1 - clarte + clarte * garde) : a;
     }
   }
 
@@ -231,12 +238,14 @@ function eclairer(angleI, angle, eclairee) {
 const DISQUES = new Map();
 const MAX_DISQUES = 24;
 
-function disque(angleI, angle, eclairee) {
+function disque(angleI, angle, eclairee, clarte = 0) {
   const pi = Math.round(angleI / 2) * 2;
   const pa = Math.round(angle / (5 * RAD)) * 5 * RAD;
-  const cle = `${pi}:${pa.toFixed(3)}`;
+  // La clarté du ciel entre dans la clé : elle change ce que le disque montre.
+  const cl = Math.round(Math.max(0, Math.min(1, clarte)) * 5) / 5;
+  const cle = `${pi}:${pa.toFixed(3)}:${cl}`;
   if (DISQUES.has(cle)) return DISQUES.get(cle);
-  const t = eclairer(pi, pa, eclairee);
+  const t = eclairer(pi, pa, eclairee, cl);
   if (DISQUES.size >= MAX_DISQUES) DISQUES.delete(DISQUES.keys().next().value);
   DISQUES.set(cle, t);
   return t;
@@ -284,7 +293,7 @@ export function dessiner(cv, t) {
   }
 
   // 2. Le disque peint.
-  x.drawImage(disque(angleI, angle, eclairee), c - R, c - R, R * 2, R * 2);
+  x.drawImage(disque(angleI, angle, eclairee, clarte), c - R, c - R, R * 2, R * 2);
 
   // 3. Basse sur l'horizon, l'atmosphère la rougit, comme le Soleil.
   if (chaud > 0.02) {
@@ -296,11 +305,18 @@ export function dessiner(cv, t) {
     x.restore();
   }
 
-  // 4. De jour, le ciel la mange : elle pâlit, comme la Lune de l'après-midi.
+  /* 4. De jour, le ciel la mange. En deux temps, comme dans le vrai ciel : le
+        disque a déjà perdu sa part sombre, effacée à la source, et ce qui
+        reste s'efface un peu : la Lune du jour est à peine plus claire que le
+        ciel.
+
+        Une gomme uniforme sur tout le disque laissait au contraire un rond gris
+        posé sur le bleu, et un voile ajouté par-dessus rendait au disque
+        l'opacité que l'effacement venait de lui retirer. */
   if (clarte > 0.02) {
     x.save();
     x.globalCompositeOperation = "destination-out";
-    x.globalAlpha = clarte * 0.42;
+    x.globalAlpha = clarte * 0.22;
     x.beginPath(); x.arc(c, c, R, 0, Math.PI * 2); x.fill();
     x.restore();
   }

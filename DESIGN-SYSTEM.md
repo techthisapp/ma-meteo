@@ -375,6 +375,22 @@ Deux groupes, `ic-a` pour la masse et `ic-b` pour l'accent, colorés par
 `icoTemps`. Six teintes seulement, peu saturées. `ico` rend les mêmes dessins en
 monochrome pour tous les autres emplois.
 
+### Panneau de ciel
+
+Un astre s'y place par son azimut et sa hauteur, jamais par l'heure. L'heure est
+une horloge, non un ciel : elle ne dit rien de la place de la Lune, et elle pose
+le Soleil de neuf heures au milieu du panneau alors qu'il est à l'est.
+
+Le panneau porte tous les astres visibles, non le plus important. Le Soleil et la
+Lune sont levés ensemble une bonne partie du mois, et n'en montrer qu'un donne un
+ciel faux. Deux réserves : un astre noyé dans la lueur d'un autre n'est pas
+dessiné, et deux disques ne se recouvrent pas.
+
+Un astre est peint tel qu'il se voit, non tel qu'il est. De jour la Lune ne garde
+que ce qui est plus lumineux que le ciel, sa part sombre effacée au calcul de
+l'éclairage : une pâleur uniforme sur tout le disque laisse un rond gris posé sur
+le bleu.
+
 ### Vignette d'astre
 
 Un disque de vingt-deux points, posé devant le nom de ce qu'il montre. Il sert

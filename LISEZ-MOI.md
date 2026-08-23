@@ -475,8 +475,28 @@ de midi resterait noir en thème sombre, ce qui n'aurait pas de sens. Le sol se
 déduit du bas du ciel par assombrissement, les étoiles ne paraissent qu'une fois
 le Soleil sous l'horizon.
 
-Le disque est à sa place calculée : l'abscisse suit l'avancement du jour,
-l'ordonnée la hauteur.
+Les disques sont à leur place calculée : l'abscisse suit l'azimut, l'ordonnée
+la hauteur. Le Soleil suivait l'heure, ce qui le posait au milieu du panneau à
+neuf heures du matin alors qu'il est à l'est-nord-est. Surtout, deux astres dans
+un même ciel doivent partager la même règle : l'heure ne dit rien de la place de
+la Lune, qui se lève cinquante minutes plus tard chaque jour. L'arc couvert va
+de l'est-nord-est à l'ouest-nord-ouest, ce qui contient les levers et les
+couchers aux latitudes françaises en toute saison.
+
+Le ciel de l'accueil porte les deux astres quand ils sont levés tous les deux,
+ce qui arrive une bonne partie du mois : la Lune se voit en plein jour, pâle,
+dès qu'elle s'écarte du Soleil. N'en montrer qu'un donnait un ciel faux la
+moitié des après-midi.
+
+Deux réserves de jour, chacune sa raison. Un croissant trop mince est une Lune
+trop proche du Soleil pour être vue, un huitième éclairé valant environ quarante
+degrés d'écart. Et deux disques ne se recouvrent pas, leurs rayons faisant
+ensemble près d'un tiers de la largeur du panneau. De nuit la Lune reste
+dessinée même couchée, faute de quoi le panneau serait vide.
+
+La lueur qui traverse une couche de nuages vient du Soleil quand il est levé, de
+la Lune sinon : c'est lui qui éclaire les nuages, elle ne les éclaire qu'en son
+absence.
 
 ### La boule de feu
 
@@ -584,6 +604,15 @@ part cendrée vers le noir et garde le modelé de la part éclairée.
 hauteur du Soleil : une Lune levée en plein jour se voit sur un ciel bleu, pâle
 et peu contrastée, comme dans le ciel réel. Les étoiles ne paraissent qu'une
 fois le Soleil assez bas.
+
+De jour, la Lune ne garde que ce qui est plus lumineux que le ciel. Sa part
+sombre est effacée à la source, dans le calcul de l'éclairage, l'opacité de
+chaque point suivant sa propre lumière : la nuit on voit un disque entier dont
+une part est cendrée, de jour on ne voit que le croissant, et le reste est du
+ciel. Une pâleur uniforme portée sur tout le disque laissait au contraire un
+rond gris posé sur le bleu, et un voile ajouté par-dessus lui rendait l'opacité
+que l'effacement venait de lui retirer. La clarté du ciel entre donc dans la clé
+de la réserve de disques.
 
 **La Lune se place par son azimut**, non par l'heure. Elle se lève et se couche
 à ses propres heures, qui reculent d'environ cinquante minutes par jour :
@@ -760,7 +789,7 @@ src/
   postes.js         fichier départemental et geojson des postes, non branché
   reserve.js        les deux vues débranchées
 essais/
-  controle.mjs      trois cent vingt-deux contrôles en navigateur
+  controle.mjs      trois cent trente contrôles en navigateur
   vue-ecran.mjs     captures d'un écran, thème clair et sombre
   meteo.json        données figées au 18 août 2026, 9 h
 ```
@@ -786,7 +815,7 @@ destination et l'instant à figer, `OUVRIRVOIE` la voie du ruban à déplier et
 Le lanceur sert le dossier, fige l'horloge au 18 août 2026 à 9 h, détourne les
 trois appels Open-Meteo vers `meteo.json`, sert une vigilance orange de
 convention, et coupe les sources data.gouv pour éprouver le repli. Deux cent
-trois cent vingt-deux contrôles, dont l'absence de répétition entre
+trois cent trente contrôles, dont l'absence de répétition entre
 les alertes et les conseils, les sept voies du ruban, l'agrandissement d'une
 voie, les treize colonnes de la liste, les vingt-quatre lignes de la fenêtre, la
 nature du renvoi de vigilance, et dix-sept contrôles de conformité au design
@@ -857,6 +886,13 @@ de l'inclinaison du limbe, et la présence des deux courbes de trajectoire.
 
 Le ciel de l'accueil ajoute la toile du temps : elle couvre le panneau, elle se
 peint après l'astre et au-dessus de lui, elle porte des pixels et elle bouge.
+Huit contrôles gardent le ciel à deux astres : le Soleil seul quand la Lune est
+couchée, les deux ensemble quand ils sont levés, la Lune seule la nuit, la même
+place pour le Soleil sur l'accueil et sur son écran, l'écart gardé entre les
+deux disques, la part sombre de la Lune effacée de jour et entière la nuit. La
+règle de choix est éprouvée sur six cas, dont une Lune neuve en plein jour et
+deux astres qui se frôlent, que la charge d'essai ne contient pas.
+
 Onze contrôles éprouvent le passage de la prévision au dessin, code par code :
 un ciel clair sans couche ni précipitation, des éclaircies à cumulus sans
 couche, un ciel couvert à couche fermée, une averse gardant ses cumulus sous une
