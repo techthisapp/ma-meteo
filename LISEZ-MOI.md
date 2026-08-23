@@ -260,6 +260,12 @@ donne pas ; les colonnes s'alignent par leurs largeurs fixes, comme avant.
 Elle est la même sur les sept voies du ruban, et trois dispositifs y portent le
 sens.
 
+**Le ciel ouvre la pile.** C'est le dessin qui se lit en un coup d'œil, il n'a
+rien à faire en quatrième position derrière une voie qui affiche « aucune ». Sa
+bande de symboles est permanente, repliée comme dépliée, et l'axe des heures la
+suit : un symbole de pluie en tête de page qui ne dit pas son heure obligeait à
+descendre chercher l'axe au pied de la pile.
+
 **L'échelle vit dans une gouttière à droite**, hors du dessin. Posée dedans,
 elle traversait les courbes : « 20 km/h » coupait la ligne du vent, « 15° 10°
 5° » se collaient à celle de la température. Deux chiffres à moins de sept
@@ -313,6 +319,19 @@ ultraviolet, et une nuit couleur de soleil ne se lit plus. Le lavis couvre les
 sept voies : présent sur quatre d'entre elles et absent des trois autres, il se
 lisait comme un rectangle posé au hasard. Sur la voie du ciel il se réduit à un
 bandeau de cinq points, où il ne s'ajoute pas à la densité.
+
+**La hauteur dépliée est propre à la voie.** Le facteur commun de deux et demi
+vaut pour une courbe, qui gagne du relief, il ne donne rien à une bande de
+densité, qui reste plate qu'elle fasse quarante ou cent dix points. Le ciel
+déplié tient donc dans les quatre-vingt-six points communs, non dans cent dix.
+
+**Une voie peut changer d'encodage en s'ouvrant**, quand le repli en trahit la
+forme. Le ciel se dit en densité replié, faute de place, et en aire sous ses
+bandes nommées déplié : une teinte n'a pas d'échelle contre laquelle se lire, sa
+bascule se voyait comme un saut de gris entre deux lames, et le pourcentage
+flottait sans repère. Le pourcentage brut reste d'ailleurs le plus faible des
+renseignements de cette voie, quatre-vingt-cinq et quatre-vingt-quinze donnant le
+même ciel : ce sont la bande nommée et l'heure de bascule qui se lisent.
 
 **Chaque voie se résume d'un fait, non d'une notice.** « Protection recommandée
 de 11 h à 16 h » se lit, « indice ultraviolet heure par heure, au-dessus de sept
@@ -741,7 +760,7 @@ src/
   postes.js         fichier départemental et geojson des postes, non branché
   reserve.js        les deux vues débranchées
 essais/
-  controle.mjs      trois cent dix-sept contrôles en navigateur
+  controle.mjs      trois cent vingt-deux contrôles en navigateur
   vue-ecran.mjs     captures d'un écran, thème clair et sombre
   meteo.json        données figées au 18 août 2026, 9 h
 ```
@@ -767,7 +786,7 @@ destination et l'instant à figer, `OUVRIRVOIE` la voie du ruban à déplier et
 Le lanceur sert le dossier, fige l'horloge au 18 août 2026 à 9 h, détourne les
 trois appels Open-Meteo vers `meteo.json`, sert une vigilance orange de
 convention, et coupe les sources data.gouv pour éprouver le repli. Deux cent
-trois cent dix-sept contrôles, dont l'absence de répétition entre
+trois cent vingt-deux contrôles, dont l'absence de répétition entre
 les alertes et les conseils, les sept voies du ruban, l'agrandissement d'une
 voie, les treize colonnes de la liste, les vingt-quatre lignes de la fenêtre, la
 nature du renvoi de vigilance, et dix-sept contrôles de conformité au design
@@ -853,6 +872,11 @@ flèches de direction du vent, la rampe sur la température en largeur et en
 hauteur, la couleur des barres ultraviolettes, la nuit sur les sept voies et à
 l'encre du texte, le résumé qui porte un fait, l'axe répété sous une voie
 dépliée, et les deux bandes qui ne se recouvrent pas.
+
+Cinq portent sur la voie du ciel, qui ouvre la pile : elle est la première,
+sa bande de symboles paraît repliée avec une bande de hauteur qui lui est
+réservée, l'axe des heures la suit, et dépliée elle quitte la densité pour l'aire
+sous ses bandes nommées, dans la hauteur commune d'une voie.
 
 Quatre s'ajoutent sur ce que le tracé recouvre. Un nom de bande doit occuper une
 place nette dès qu'il en existe une : le contrôle balaye la largeur de la voie,

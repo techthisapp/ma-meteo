@@ -220,6 +220,19 @@ elles se recouvrent, et sur la courbe elles la coupent. Une valeur qui ne dit
 rien ne s'écrit pas, et ne laisse pas d'élément vide derrière elle : une file de
 zéros sur un ciel dégagé se lit comme du bruit.
 
+Une bande de symboles qui porte le sujet principal d'une pile de tracés reste
+permanente, et l'axe des heures la suit. Un symbole en tête de page qui ne dit
+pas son heure oblige à descendre chercher l'axe au pied de la pile.
+
+La hauteur dépliée est propre au tracé. Un facteur commun vaut pour une courbe,
+qui gagne du relief, il ne donne rien à une bande de densité, qui reste plate
+qu'elle fasse quarante ou cent dix points.
+
+Un tracé peut changer d'encodage en s'ouvrant, quand le repli en trahit la forme.
+Une densité en teinte n'a pas d'échelle contre laquelle se lire et sa bascule se
+voit comme un saut de gris : dépliée, la même grandeur se dit en aire sous ses
+bandes nommées.
+
 Un symbole posé dans un tracé porte sa taille en attributs. En feuille de style,
 elle est ignorée sur un SVG imbriqué dans un SVG et le dessin se déploie sur la
 hauteur entière de son parent.

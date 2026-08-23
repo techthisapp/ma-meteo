@@ -518,14 +518,37 @@ const voies = await pg.locator(".mg-v .mg-n").allInnerTexts();
 ok("sept voies", voies.length === 7, voies.join(", "));
 const nomsVoies = voies.map(v => v.replace(/[+−\n]/g, "").trim().toLowerCase()).join(",");
 ok("les voies sont les bonnes",
-  nomsVoies === "température,pluie,vent,ciel,indice uv,humidité,pression", nomsVoies);
+  nomsVoies === "ciel,température,pluie,vent,indice uv,humidité,pression", nomsVoies);
 ok("chaque voie porte une lecture à droite", (await pg.locator(".mg-r").count()) === 7);
-const uv = (await pg.locator(".mg-v").nth(4).innerText());
+const uv = (await pg.locator('.mg-v[data-cle="uv"]').innerText());
 ok("l'indice UV porte son maximum et le mot qui le qualifie",
   /7[,.\d]*\s*au plus, (faible|modéré|élevé|très élevé|extrême)/.test(uv), uv.split("\n")[0]);
 ok("l'axe des heures est posé", await pg.locator(".mg-a text").count() >= 3);
+
+/* Le ciel ouvre la pile, et sa bande de symboles ne se mérite pas : c'est le
+   dessin qu'on lit en un coup d'œil, il paraît replié comme déplié. L'axe le
+   suit, sans quoi un symbole de pluie en tête de page ne dirait pas son heure. */
+ok("le ciel ouvre la pile",
+  await pg.locator(".mg-v").first().getAttribute("data-cle") === "nua",
+  await pg.locator(".mg-v").first().getAttribute("data-cle"));
+ok("les symboles du ciel paraissent voie repliée", await pg.evaluate(() => {
+  const v = document.querySelector('.mg-v[data-cle="nua"]');
+  if (v.classList.contains("mg-grand")) return "voie dépliée";
+  const ic = [...v.querySelectorAll("svg.mg-ic")];
+  if (ic.length < 6) return `${ic.length} symboles`;
+  /* La bande leur est réservée : sans réserve de hauteur, les symboles se
+     dessinent quand même, mais par-dessus les lames de densité. */
+  const lames = [...v.querySelectorAll('rect[shape-rendering="crispEdges"]')];
+  if (!lames.length) return "aucune lame de densité";
+  const bas = Math.max(...ic.map(e => e.getBoundingClientRect().bottom));
+  const haut = Math.min(...lames.map(e => e.getBoundingClientRect().top));
+  return haut >= bas - 1 ? "" : `chevauchement de ${(bas - haut).toFixed(1)} points`;
+}) === "", String(await pg.locator('.mg-v[data-cle="nua"] svg.mg-ic').count()));
+ok("l'axe des heures suit la bande du ciel",
+  await pg.locator('.mg-v[data-cle="nua"] .mg-a text').count() >= 3,
+  String(await pg.locator('.mg-v[data-cle="nua"] .mg-a text').count()));
 ok("aucun montant de lecture visible au repos", await pg.locator(".mg-cur:visible").count() === 0);
-const chVent = (await pg.locator(".mg-v").nth(2).locator("text.mg-g").allTextContents())
+const chVent = (await pg.locator('.mg-v[data-cle="v"]').locator("text.mg-g").allTextContents())
   .map(x => String(x ?? "").replace(/\s|km\/h/g, "")).filter(Boolean);
 ok("le seuil du vent ne se superpose pas à la graduation",
   new Set(chVent).size === chVent.length, chVent.join(" | "));
@@ -673,19 +696,29 @@ ok("chaque voie résume un fait, non une notice", await pg.evaluate(() =>
   (await pg.locator(".mg-l").first().innerText()).slice(0, 60));
 
 console.log("\n--- Agrandissement d'une voie ---");
-const hAvant = await pg.locator(".mg-v").first().locator("svg.mg-s").boundingBox();
+const hAvant = await pg.locator('.mg-v[data-cle="t"] svg.mg-s').boundingBox();
 await pg.locator('.mg-b[data-voie="t"]').click();
 await pg.waitForTimeout(320);
-const hApres = await pg.locator(".mg-v").first().locator("svg.mg-s").boundingBox();
+const hApres = await pg.locator('.mg-v[data-cle="t"] svg.mg-s').boundingBox();
 ok("la voie touchée s'agrandit", hApres.height > hAvant.height * 2, `${hAvant.height.toFixed(0)} puis ${hApres.height.toFixed(0)}`);
-ok("les autres voies gardent leur taille",
-  Math.abs((await pg.locator(".mg-v").nth(2).locator("svg.mg-s").boundingBox()).height
-    - (await pg.locator(".mg-v").nth(5).locator("svg.mg-s").boundingBox()).height * (86/48)) < 14);
+ok("les autres voies gardent leur taille", await (async () => {
+  const v = (await pg.locator('.mg-v[data-cle="v"] svg.mg-s').boundingBox()).height;
+  const hum = (await pg.locator('.mg-v[data-cle="hum"] svg.mg-s').boundingBox()).height;
+  // Le dessin est rendu à la largeur de la carte : c'est le rapport qui tient,
+  // non la valeur absolue en points de la boîte de vue.
+  return Math.abs(v / hum - 86 / 52) < 0.08 ? "" : `vent ${v.toFixed(0)}, humidité ${hum.toFixed(0)}`;
+})() === "", await (async () => {
+  const v = (await pg.locator('.mg-v[data-cle="v"] svg.mg-s').boundingBox()).height;
+  const hum = (await pg.locator('.mg-v[data-cle="hum"] svg.mg-s').boundingBox()).height;
+  return `vent ${v.toFixed(0)}, humidité ${hum.toFixed(0)}`;
+})());
 ok("la légende paraît avec l'agrandissement", await pg.locator(".mg-l:visible").count() === 1);
 /* La pile fait cinq cents points et l'axe est tout en bas : une voie dépliée
-   au milieu n'aurait plus de repère de temps. */
+   au milieu n'aurait plus de repère de temps. Trois axes en tout, celui du ciel
+   en tête, celui de la voie dépliée, celui du pied de pile. */
 ok("l'axe des heures se répète sous la voie dépliée",
-  await pg.locator(".mg-a").count() === 2,
+  await pg.locator('.mg-v[data-cle="t"] .mg-a').count() === 1
+  && await pg.locator(".mg-a").count() === 3,
   String(await pg.locator(".mg-a").count()));
 /* Les symboles et les valeurs occupent deux bandes distinctes : écrits au même
    niveau, les flèches du vent et les chiffres du vent se recouvraient. */
@@ -735,6 +768,29 @@ ok("les symboles du ciel tiennent dans leur bande", await pg.evaluate(() => {
   const b = e && e.getBoundingClientRect();
   return b ? `${b.width.toFixed(0)} sur ${b.height.toFixed(0)}` : "aucun";
 }));
+/* Dépliée, la voie du ciel quitte la densité pour l'aire sous ses bandes
+   nommées : une teinte n'a pas d'échelle contre laquelle se lire. Et elle tient
+   dans la hauteur commune, l'agrandissement d'une bande plate ne donnant rien. */
+ok("le ciel déplié prend la grammaire du tracé", await pg.evaluate(() => {
+  const v = document.querySelector('.mg-v[data-cle="nua"]');
+  const svg = v.querySelector("svg.mg-s");
+  if (!svg.querySelector("polyline")) return "aucune courbe";
+  if (!svg.querySelector('path[fill="currentColor"]')) return "aucune aire";
+  const noms = [...svg.querySelectorAll("text.mg-bn")].map(e => e.textContent);
+  if (!noms.includes("Couvert") || !noms.includes("Éclaircies")) return `bandes ${noms.join("/")}`;
+  const lames = [...svg.querySelectorAll('rect[shape-rendering="crispEdges"]')];
+  return lames.length ? `${lames.length} lames de densité subsistent` : "";
+}) === "", await pg.evaluate(() => [...document.querySelectorAll(
+  '.mg-v[data-cle="nua"] text.mg-bn')].map(e => e.textContent).join("/") || "aucune bande"));
+ok("le ciel déplié tient dans la hauteur commune", await (async () => {
+  const nua = (await pg.locator('.mg-v[data-cle="nua"] svg.mg-s').boundingBox()).height;
+  const hum = (await pg.locator('.mg-v[data-cle="hum"] svg.mg-s').boundingBox()).height;
+  return Math.abs(nua / hum - 86 / 52) < 0.08 ? "" : `rapport ${(nua / hum).toFixed(2)}`;
+})() === "", await (async () => {
+  const nua = (await pg.locator('.mg-v[data-cle="nua"] svg.mg-s').boundingBox()).height;
+  const hum = (await pg.locator('.mg-v[data-cle="hum"] svg.mg-s').boundingBox()).height;
+  return `rapport ${(nua / hum).toFixed(2)}, attendu ${(86 / 52).toFixed(2)}`;
+})());
 await pg.locator('.mg-b[data-voie="nua"]').click();
 await pg.waitForTimeout(320);
 

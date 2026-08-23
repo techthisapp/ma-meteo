@@ -5,10 +5,16 @@
    rosée, le vent avec ses rafales. Superposer la pluie en millimètres et le vent
    en kilomètres par heure aurait mis deux échelles sous une seule graduation.
 
+   Le ciel ouvre la pile. C'est le dessin qui se lit en un coup d'œil, et sa
+   bande de symboles est donc permanente, repliée comme dépliée. L'axe des heures
+   la suit, sans quoi un symbole de pluie en tête de page ne dirait pas à quelle
+   heure il tombe.
+
    Sept voies tiennent dans un écran de téléphone au prix d'une hauteur qui
-   n'excède pas quatre-vingt-six points. Une voie touchée s'agrandit alors seule,
-   d'un facteur deux et demi : sa courbe reprend du relief, et le dessin porte ce
-   qu'il ne pouvait pas montrer replié. Les autres voies gardent leur taille.
+   n'excède pas quatre-vingt-six points. Une voie touchée s'agrandit alors seule :
+   sa courbe reprend du relief, et le dessin porte ce qu'il ne pouvait pas montrer
+   replié. Les autres voies gardent leur taille. La hauteur dépliée est propre à
+   la voie, le facteur commun de deux et demi ne valant que pour une courbe.
 
    ---------- La grammaire du tracé ----------
 
@@ -26,7 +32,13 @@
    direction du vent en flèches, le ciel en dessins, la tendance de la pression
    en flèches. Elle ne paraît que si la voie est assez haute pour la porter,
    soixante points, ce qui vaut toujours pour le vent et seulement une fois
-   dépliées pour les voies courtes.
+   dépliées pour les voies courtes. Le ciel fait exception, la sienne est
+   permanente.
+
+   Une voie dépliée peut changer d'encodage quand le repli en trahissait la
+   forme. Le ciel se dit en densité replié, faute de place, et en aire sous ses
+   bandes nommées déplié : la teinte n'a pas d'échelle contre laquelle se lire,
+   et une bascule s'y voyait comme un saut de gris entre deux lames.
 
    La couleur, enfin, n'est une donnée que sur deux voies, la température et
    l'indice ultraviolet, dont l'échelle se lit d'un coup d'œil. Ailleurs elle
@@ -277,13 +289,17 @@ export function dessiner(s) {
       `<text class="mg-c" x="${u(X(k) + 2)}" y="9">${esc(lib)}</text>`).join("")
     + `</svg>`;
 
+  /* La hauteur dépliée est propre à la voie. L'agrandissement vaut pour une
+     courbe, qui gagne du relief, il ne donne rien à une bande de densité, qui
+     reste plate qu'elle fasse quarante ou cent dix points. */
   const grand = c => voieOuverte === c;
-  const H = (c, base) => (grand(c) ? Math.round(base * ZOOM) : base);
+  const H = (c, base, ouvert) =>
+    (grand(c) ? (ouvert || Math.round(base * ZOOM)) : base);
 
   const voies = [];
   let n = 0;
 
-  const poser = (nom, droite, haut, dedans, resume, cle) => {
+  const poser = (nom, droite, haut, dedans, resume, cle, axe) => {
     prises = [];
     const val = `<span class="mg-r" data-plage="${esc(droite)}">${esc(droite)}</span>`;
     if (!haut) { voies.push(`<div class="mg-v"><p class="mg-t">${esc(nom)}${val}</p></div>`); return; }
@@ -296,7 +312,7 @@ export function dessiner(s) {
       + `<button type="button" class="mg-t mg-b" data-voie="${esc(cle)}" aria-expanded="${g}"`
       + (resume ? ` aria-controls="${id}"` : "") + ">"
       + `<span class="mg-n">${esc(nom)}<i aria-hidden="true">${g ? "−" : "+"}</i></span>`
-      + `${val}</button>${dessin}${g ? axeSvg() : ""}${bas}</div>`);
+      + `${val}</button>${dessin}${g || axe ? axeSvg() : ""}${bas}</div>`);
   };
 
   /* Les phrases de résumé. Un fait tiré de la série, non une notice : « Écran
@@ -317,7 +333,65 @@ export function dessiner(s) {
     return `${dit(large)}, et par moments ailleurs`;
   };
 
-  // ---- 1. Température, ressenti et point de rosée ----
+  // ---- 1. Couverture du ciel ----
+  {
+    const cle = "nua";
+    const g = grand(cle);
+    /* La bande de symboles est ici permanente : le dessin du ciel est ce qui se
+       lit en un coup d'œil, il n'attend pas qu'on déplie la voie. Dépliée, la
+       voie tient dans la hauteur commune : agrandie de deux fois et demie, elle
+       n'offrait qu'une bande de densité plus haute, donc rien de plus. */
+    const h = H(cle, 41, H_VOIE);
+    const hs = H_SYM, hv = g ? H_VAL : 0, hb = hs + hv;
+    let d = "";
+    if (!g) {
+      /* Repliée, la couverture se dit en densité, une lame par heure. Les
+         rectangles se joignent exactement : une largeur arrondie au dixième
+         laissait un liseré plus sombre entre deux heures, qui se lisait comme
+         une graduation. */
+      s.nua.forEach((v, k) => {
+        const x0 = X(k), x1 = X(k + 1);
+        d += `<rect x="${x0.toFixed(3)}" y="${hb}" width="${(x1 - x0).toFixed(3)}" `
+          + `height="${u(h - hb)}" fill="currentColor" opacity="${(0.06 + (v / 100) * 0.4).toFixed(3)}" `
+          + `shape-rendering="crispEdges"/>`;
+      });
+      /* Le lavis de nuit se réduit ici à un bandeau de cinq points. Étendu à
+         toute la hauteur, il s'ajouterait à la densité et fausserait la
+         lecture : la colonne de nuit continue, la valeur reste juste. */
+      d += fond(hb, h, 5);
+    } else {
+      /* Dépliée, la voie prend la grammaire des autres : une aire de zéro à
+         cent pour cent sous ses bandes nommées. La densité disait la valeur par
+         une teinte, sans échelle contre laquelle la lire, et sa bascule se
+         voyait comme un saut de gris entre deux lames. */
+      const y0 = hb + 4, y1 = h - 3;
+      d = fond(hb, h);
+      const [snTr, snNo] = seuils("nua", y0, y1, 0, 100, v => `${v}`, [["aire", s.nua]]);
+      d += snTr;
+      d += `<path d="${aire(s.nua, y0, y1, 0, 100)}" fill="currentColor" opacity=".16"/>`;
+      d += `<polyline points="${pts(s.nua, y0, y1, 0, 100)}" fill="none" stroke="currentColor" `
+        + `stroke-width="1.7" stroke-linejoin="round"/>`;
+      d += snNo;
+      /* Un ciel dégagé n'a pas de chiffre : une file de zéros se lisait comme du
+         bruit, et le symbole du soleil dit déjà tout. */
+      d += valeurs(s.nua, v => (v >= 5 ? Math.round(v) : ""), hs + 9);
+    }
+    d += bande(g, k => icoTemps(icoCiel(s.code[k], s.clair[k]), "mg-ic", 14));
+    /* Le premier basculement du ciel : c'est lui qu'on cherche en ouvrant la
+       voie, non la moyenne de la fenêtre. */
+    const seuil = 60;
+    let bascule = -1;
+    for (let k = 1; k < s.n; k++) {
+      if ((s.nua[k - 1] < seuil) !== (s.nua[k] < seuil)) { bascule = k; break; }
+    }
+    poser("Ciel", `${bornes(s.nua)} %, ${motDe("nua", Math.max(...s.nua))} au plus`, h, d,
+      bascule < 0
+        ? `Ciel ${motDe("nua", s.nua[0])} sur toute la fenêtre.`
+        : `Ciel ${motDe("nua", s.nua[0])} jusqu'à ${HJ(bascule)}, `
+          + `${motDe("nua", s.nua[bascule])} ensuite.`, cle, true);
+  }
+
+  // ---- 2. Température, ressenti et point de rosée ----
   {
     const cle = "t";
     const g = grand(cle);
@@ -365,7 +439,7 @@ export function dessiner(s) {
       + `vers ${HJ(kx)}. Trait fin le ressenti, pointillé le point de rosée.`, cle);
   }
 
-  // ---- 2. Pluie ----
+  // ---- 3. Pluie ----
   {
     const cle = "mm";
     const g = grand(cle);
@@ -407,7 +481,7 @@ export function dessiner(s) {
     }
   }
 
-  // ---- 3. Vent et rafales ----
+  // ---- 4. Vent et rafales ----
   {
     const cle = "v";
     const g = grand(cle);
@@ -442,44 +516,6 @@ export function dessiner(s) {
           + `Vent ${dCardinal(s.dir[0])} à l'heure en cours.`
         : `Vent ${dCardinal(s.dir[0])} à l'heure en cours, rafales jusqu'à ${rafMax} km/h `
           + `vers ${HJ(kr)}. Les flèches montrent où va le vent.`, cle);
-  }
-
-  // ---- 4. Couverture du ciel ----
-  {
-    const cle = "nua";
-    const g = grand(cle);
-    const h = H(cle, 44);
-    const hs = h >= MIN_BANDE ? H_SYM : 0, hv = g ? H_VAL : 0, hb = hs + hv;
-    let d = "";
-    /* Les rectangles se joignent exactement. Une largeur arrondie au dixième
-       laissait un liseré plus sombre entre deux heures, qui se lisait comme une
-       graduation. */
-    s.nua.forEach((v, k) => {
-      const x0 = X(k), x1 = X(k + 1);
-      d += `<rect x="${x0.toFixed(3)}" y="${hb}" width="${(x1 - x0).toFixed(3)}" `
-        + `height="${u(h - hb)}" fill="currentColor" opacity="${(0.06 + (v / 100) * 0.4).toFixed(3)}" `
-        + `shape-rendering="crispEdges"/>`;
-    });
-    /* Le lavis de nuit se réduit ici à un bandeau de cinq points. Étendu à toute
-       la hauteur, il s'ajouterait à la densité et fausserait la lecture : la
-       colonne de nuit continue, la valeur reste juste. */
-    d += fond(hb, h, 5);
-    if (hs) d += bande(g, k => icoTemps(icoCiel(s.code[k], s.clair[k]), "mg-ic", 14));
-    /* Un ciel dégagé n'a pas de chiffre : une file de zéros se lisait comme du
-       bruit, et le symbole du soleil dit déjà tout. */
-    if (g) d += valeurs(s.nua, v => (v >= 5 ? Math.round(v) : ""), hs + 9);
-    /* Le premier basculement du ciel : c'est lui qu'on cherche en ouvrant la
-       voie, non la moyenne de la fenêtre. */
-    const seuil = 60;
-    let bascule = -1;
-    for (let k = 1; k < s.n; k++) {
-      if ((s.nua[k - 1] < seuil) !== (s.nua[k] < seuil)) { bascule = k; break; }
-    }
-    poser("Ciel", `${bornes(s.nua)} %, ${motDe("nua", Math.max(...s.nua))} au plus`, h, d,
-      bascule < 0
-        ? `Ciel ${motDe("nua", s.nua[0])} sur toute la fenêtre.`
-        : `Ciel ${motDe("nua", s.nua[0])} jusqu'à ${HJ(bascule)}, `
-          + `${motDe("nua", s.nua[bascule])} ensuite.`, cle);
   }
 
   // ---- 5. Indice ultraviolet ----
