@@ -691,8 +691,9 @@ Le chemin du navigateur peut être imposé par la variable `CHROMIUM` lorsque la
 révision installée par Playwright ne correspond pas à celle du poste.
 
 `node essais/vue-ecran.mjs` rend un écran dans les deux thèmes, en haut et en
-bas de page, sous `essais/captures`. Les variables `ECRAN` et `QUAND` portent
-la destination et l'instant à figer.
+bas de page, sous `essais/captures`. Les variables `ECRAN` et `QUAND` portent la
+destination et l'instant à figer, `OUVRIRVOIE` la voie du ruban à déplier et
+`OUVRIR` le rang de la journée à ouvrir dans la semaine.
 
 Le lanceur sert le dossier, fige l'horloge au 18 août 2026 à 9 h, détourne les
 trois appels Open-Meteo vers `meteo.json`, sert une vigilance orange de

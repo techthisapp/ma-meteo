@@ -73,6 +73,10 @@ for (const theme of ["light", "dark"]) {
   await pg.waitForTimeout(700);
 
   const cle = process.env.ECRAN || "soleil";
+  if (process.env.OUVRIRVOIE) {
+    await pg.locator(`[data-voie="${process.env.OUVRIRVOIE}"]`).click();
+    await pg.waitForTimeout(500);
+  }
   if (process.env.OUVRIR) {
     await pg.locator(".sem-r").nth(Number(process.env.OUVRIR)).click();
     await pg.waitForTimeout(500);
