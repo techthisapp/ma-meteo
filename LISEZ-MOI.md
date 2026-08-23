@@ -255,6 +255,75 @@ La table de la semaine est devenue une liste de boutons. Une cible de liste veut
 son `aria-expanded`, son clavier et son focus, ce qu'une cellule de table ne
 donne pas ; les colonnes s'alignent par leurs largeurs fixes, comme avant.
 
+## La grammaire du tracé
+
+Elle est la même sur les sept voies du ruban, et trois dispositifs y portent le
+sens.
+
+**L'échelle vit dans une gouttière à droite**, hors du dessin. Posée dedans,
+elle traversait les courbes : « 20 km/h » coupait la ligne du vent, « 15° 10°
+5° » se collaient à celle de la température. Deux chiffres à moins de sept
+points l'un de l'autre s'y chevauchaient et se lisaient « 2,8 m2,5 » : le second
+est écarté.
+
+**Les seuils nommés s'écrivent à gauche, sur leur ligne, dans le tracé.**
+« Élevé » dit ce que vaut sept d'indice ultraviolet mieux qu'une légende en bas
+de carte, et il le dit à l'endroit où on regarde. Là où une échelle nommée
+existe, elle tient lieu de graduation : cinq chiffres de plus dans la gouttière
+ne diraient rien que « modéré » ne dise déjà.
+
+| Voie | Seuils nommés |
+|---|---|
+| Vent | Calme, Léger à 12, Modéré à 30, Fort à 50, Violent à 75 km/h |
+| Indice UV | Faible, Modéré à 3, Élevé à 6, Très élevé à 8, Extrême à 11 |
+| Humidité | Air sec, Confortable à 40, Humide à 70, Saturé à 90 % |
+| Pluie | Légère, Modérée à 2,5, Forte à 7,5 mm par heure |
+| Ciel | Dégagé, Éclaircies à 25, Couvert à 60 % |
+
+Le même mot sert deux fois : écrit dans le tracé sur sa ligne, et accolé au
+chiffre de tête pour dire ce que ce chiffre vaut. « 7,3 au plus, élevé » plutôt
+que « max 7,3 ».
+
+**Une bande au-dessus du tracé porte une seconde grandeur en symboles** : la
+direction du vent en flèches, le ciel en dessins, la tendance de la pression en
+flèches. Elle ne paraît que si la voie est assez haute pour la porter, soixante
+points, ce qui vaut toujours pour le vent et seulement une fois dépliées pour les
+voies courtes. Les valeurs chiffrées occupent une seconde bande, sous elle :
+écrites au même niveau, les flèches du vent et les chiffres du vent se
+recouvraient. Sur la courbe, elles la coupaient.
+
+**La couleur n'est une donnée que sur deux voies**, la température et l'indice
+ultraviolet, dont l'échelle se lit d'un coup d'œil. Ailleurs elle ferait du
+bruit : la forme, les symboles et les seuils nommés suffisent. La rampe de
+température se pose deux fois : en hauteur elle remplit la colonne du
+thermomètre, froide en bas et chaude en haut, et l'aire y puise sa teinte à la
+hauteur de chaque point ; en largeur elle colore la courbe elle-même, heure par
+heure.
+
+**La rafale est l'enveloppe, le vent est le corps.** La rafale court au-dessus,
+en trait nu ; le vent moyen porte son aire jusqu'à zéro. Le pointillé disait la
+même chose une troisième fois : la position et le remplissage suffisent.
+
+**Un point marque chaque extrême**, sans chiffre : le chiffre est en tête, il ne
+se redit pas.
+
+**La nuit et les montants gardent l'encre du texte**, non la couleur de la voie :
+lavés à la couleur, ils viraient au bleu sur la pluie et au jaune sur l'indice
+ultraviolet, et une nuit couleur de soleil ne se lit plus. Le lavis couvre les
+sept voies : présent sur quatre d'entre elles et absent des trois autres, il se
+lisait comme un rectangle posé au hasard. Sur la voie du ciel il se réduit à un
+bandeau de cinq points, où il ne s'ajoute pas à la densité.
+
+**Chaque voie se résume d'un fait, non d'une notice.** « Protection recommandée
+de 11 h à 16 h » se lit, « indice ultraviolet heure par heure, au-dessus de sept
+l'exposition demande une protection » se saute. Plusieurs plages disjointes ne
+se disent pas comme une seule : on dit la plus longue, et qu'il y en a d'autres.
+
+**L'axe des heures se répète sous une voie dépliée.** La pile fait cinq cents
+points et l'axe est tout en bas : une voie du milieu n'aurait plus de repère de
+temps. Ses libellés se posent à l'abscisse exacte de leur montant, non répartis
+sur la largeur.
+
 ## Lecture au doigt
 
 La lecture d'une courbe et le défilement de la page partagent la même surface.
@@ -672,7 +741,7 @@ src/
   postes.js         fichier départemental et geojson des postes, non branché
   reserve.js        les deux vues débranchées
 essais/
-  controle.mjs      deux cent quatre-vingt-dix-neuf contrôles en navigateur
+  controle.mjs      trois cent dix contrôles en navigateur
   vue-ecran.mjs     captures d'un écran, thème clair et sombre
   meteo.json        données figées au 18 août 2026, 9 h
 ```
@@ -698,7 +767,7 @@ destination et l'instant à figer, `OUVRIRVOIE` la voie du ruban à déplier et
 Le lanceur sert le dossier, fige l'horloge au 18 août 2026 à 9 h, détourne les
 trois appels Open-Meteo vers `meteo.json`, sert une vigilance orange de
 convention, et coupe les sources data.gouv pour éprouver le repli. Deux cent
-quatre-vingt-dix-neuf contrôles, dont l'absence de répétition entre
+trois cent dix contrôles, dont l'absence de répétition entre
 les alertes et les conseils, les sept voies du ruban, l'agrandissement d'une
 voie, les treize colonnes de la liste, les vingt-quatre lignes de la fenêtre, la
 nature du renvoi de vigilance, et dix-sept contrôles de conformité au design
@@ -777,6 +846,13 @@ distingué d'une averse, la couverture déduite du code quand la source ne la
 porte pas, le fait que l'astre disparaît sous une couche fermée, et qu'il n'y reste aucune
 masse isolée. Un contexte entièrement couvert mesure la position du bord de la
 couche colonne par colonne et refuse toute cassure au raccord.
+
+Douze contrôles gardent la grammaire du tracé : l'échelle dans la gouttière,
+deux chiffres qui ne se superposent pas, les seuils nommés dans le tracé, les
+flèches de direction du vent, la rampe sur la température en largeur et en
+hauteur, la couleur des barres ultraviolettes, la nuit sur les sept voies et à
+l'encre du texte, le résumé qui porte un fait, l'axe répété sous une voie
+dépliée, et les deux bandes qui ne se recouvrent pas.
 
 Deux familles de contrôles gardent la mise en page. La première mesure, sur les
 cinq écrans, qu'aucun bloc ne sort de la fenêtre. La seconde rejoue les cinq

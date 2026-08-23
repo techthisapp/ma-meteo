@@ -190,6 +190,34 @@ porte pas de chevron.
 Un seul volet ouvert à la fois. Plusieurs ouverts font de la liste une page à
 défiler, ce que la rangée fermée évitait justement.
 
+### Tracé de série
+
+Trois dispositifs portent le sens, et la couleur n'en est qu'un.
+
+L'échelle vit dans une gouttière hors du tracé, toujours à droite. Posée dedans,
+elle traverse les courbes. Deux chiffres à moins de sept points l'un de l'autre
+se chevauchent : le second est écarté.
+
+Les seuils d'une échelle nommée s'écrivent à gauche, sur leur ligne, dans le
+tracé, et tiennent lieu de graduation. Le nom se répète en tête, accolé au
+chiffre, pour dire ce que ce chiffre vaut. Les noms se posent après les tracés :
+posés avant, les barres et les aires les recouvrent.
+
+Une bande au-dessus du tracé porte une seconde grandeur en symboles. Les valeurs
+chiffrées occupent une seconde bande, sous elle, jamais la même : au même niveau
+elles se recouvrent, et sur la courbe elles la coupent.
+
+La couleur n'est une donnée que là où l'échelle se lit d'un coup d'œil. Ailleurs
+la forme, les symboles et les seuils nommés suffisent, et une couleur de plus
+ferait du bruit. Le fond du tracé, lui, garde l'encre du texte : à la couleur de
+la voie, une nuit vire au jaune sur un tracé jaune.
+
+De deux séries d'une même voie, l'une est le corps et porte son aire, l'autre
+est l'enveloppe et reste nue. Un pointillé par-dessus dirait la même chose une
+troisième fois.
+
+Un point marque un extrême, sans chiffre : le chiffre est en tête.
+
 ### Tableau de profil
 
 `.mt`, pour une même série de mesures relevée sur plusieurs tranches de temps.

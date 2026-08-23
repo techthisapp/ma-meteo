@@ -521,24 +521,127 @@ ok("les voies sont les bonnes",
   nomsVoies === "température,pluie,vent,ciel,indice uv,humidité,pression", nomsVoies);
 ok("chaque voie porte une lecture à droite", (await pg.locator(".mg-r").count()) === 7);
 const uv = (await pg.locator(".mg-v").nth(4).innerText());
-ok("l'indice UV porte son maximum", /max\s*7/.test(uv), uv.split("\n")[0]);
-ok("l'axe des heures est posé", await pg.locator(".mg-axe span").count() >= 3);
+ok("l'indice UV porte son maximum et le mot qui le qualifie",
+  /7[,.\d]*\s*au plus, (faible|modéré|élevé|très élevé|extrême)/.test(uv), uv.split("\n")[0]);
+ok("l'axe des heures est posé", await pg.locator(".mg-a text").count() >= 3);
 ok("aucun montant de lecture visible au repos", await pg.locator(".mg-cur:visible").count() === 0);
 const chVent = (await pg.locator(".mg-v").nth(2).locator("text.mg-g").allTextContents())
   .map(x => String(x ?? "").replace(/\s|km\/h/g, "")).filter(Boolean);
 ok("le seuil du vent ne se superpose pas à la graduation",
   new Set(chVent).size === chVent.length, chVent.join(" | "));
 
+/* ---- La grammaire du tracé ---- */
+
+/* L'échelle vit dans la gouttière de droite, hors du tracé. Posée dedans, elle
+   traversait les courbes : « 20 km/h » coupait la ligne du vent. */
+ok("l'échelle se tient dans la gouttière", await pg.evaluate(() => {
+  const t = [...document.querySelectorAll(".mg-s text.mg-g")];
+  return t.length > 0 && t.every(e => Number(e.getAttribute("x")) >= 324);
+}), String(await pg.locator(".mg-s text.mg-g").count()));
+
+/* Deux chiffres d'échelle au même point se lisaient « 2,8 m2,5 ». */
+ok("deux chiffres d'échelle ne se superposent pas", await pg.evaluate(() => {
+  for (const v of document.querySelectorAll(".mg-v")) {
+    const y = [...v.querySelectorAll("text.mg-g")].map(e => Number(e.getAttribute("y")));
+    for (let a = 0; a < y.length; a++) {
+      for (let b = a + 1; b < y.length; b++) if (Math.abs(y[a] - y[b]) < 7) return false;
+    }
+  }
+  return true;
+}));
+
+/* Les seuils nommés disent ce que vaut la valeur là où on la regarde. */
+ok("les échelles nommées portent leurs seuils dans le tracé", await pg.evaluate(() => {
+  const attendu = { v: ["Léger", "Modéré", "Fort"], uv: ["Modéré", "Élevé"],
+    hum: ["Humide", "Saturé"], mm: ["Modérée"] };
+  for (const [cle, mots] of Object.entries(attendu)) {
+    const v = document.querySelector(`.mg-v[data-cle="${cle}"]`);
+    if (!v) return `voie ${cle} absente`;
+    const vus = [...v.querySelectorAll("text.mg-bn")].map(e => e.textContent);
+    for (const m of mots) if (!vus.includes(m)) return `${cle} sans ${m} (${vus.join("/")})`;
+  }
+  return "";
+}) === "", await pg.evaluate(() =>
+  [...document.querySelectorAll("text.mg-bn")].map(e => e.textContent).join("/")));
+
+// Le vent porte ses flèches de direction, repliée comme dépliée.
+ok("le vent porte ses flèches de direction",
+  await pg.locator('.mg-v[data-cle="v"] .mg-fl').count() >= 6,
+  String(await pg.locator('.mg-v[data-cle="v"] .mg-fl').count()));
+
+// La rampe colore la courbe de température, en largeur comme en hauteur.
+ok("la rampe colore la température", await pg.evaluate(() => {
+  const v = document.querySelector('.mg-v[data-cle="t"]');
+  const lignes = [...v.querySelectorAll("polyline")];
+  const rampee = lignes.some(e => /url\(#mgTx\)/.test(e.getAttribute("stroke") || ""));
+  const aire = v.querySelector('path[fill^="url(#mgTy"]');
+  return rampee && !!aire && v.querySelectorAll("linearGradient stop").length > 20;
+}));
+
+// Les barres de l'indice ultraviolet prennent la couleur de leur niveau.
+ok("les barres UV prennent la couleur de leur niveau", await pg.evaluate(() => {
+  const b = [...document.querySelectorAll('.mg-v[data-cle="uv"] rect[fill^="hsl"]')];
+  if (b.length < 6) return false;
+  const teinte = e => Number((e.getAttribute("fill").match(/hsl\((\d+)/) || [])[1]);
+  const h = b.map(teinte).filter(Number.isFinite);
+  // Une teinte basse est chaude, une teinte haute est froide : l'indice le plus
+  // fort doit être le plus chaud, donc la teinte la plus basse.
+  return new Set(h).size >= 3 && Math.min(...h) < Math.max(...h) - 20;
+}));
+
+/* La nuit prend l'encre du texte, non la couleur de la voie : lavée à la
+   couleur, elle virait au jaune sur l'indice ultraviolet. */
+ok("la nuit traverse les sept voies", await pg.evaluate(() =>
+  [...document.querySelectorAll(".mg-v[data-cle]")]
+    .every(v => v.querySelector("rect.mg-nuit"))));
+ok("la nuit garde l'encre du texte, non la couleur de la voie", await pg.evaluate(() => {
+  const r = document.querySelector('.mg-v[data-cle="uv"] rect.mg-nuit');
+  const s = document.querySelector('.mg-v[data-cle="uv"] .mg-s');
+  return getComputedStyle(r).fill !== getComputedStyle(s).color;
+}));
+
+/* La phrase de résumé est un fait tiré de la série, non une notice : elle porte
+   une heure ou un chiffre. */
+ok("chaque voie résume un fait, non une notice", await pg.evaluate(() =>
+  [...document.querySelectorAll(".mg-l")].every(e => /\d/.test(e.textContent))),
+  (await pg.locator(".mg-l").first().innerText()).slice(0, 60));
+
 console.log("\n--- Agrandissement d'une voie ---");
-const hAvant = await pg.locator(".mg-v").first().locator("svg").boundingBox();
+const hAvant = await pg.locator(".mg-v").first().locator("svg.mg-s").boundingBox();
 await pg.locator('.mg-b[data-voie="t"]').click();
 await pg.waitForTimeout(320);
-const hApres = await pg.locator(".mg-v").first().locator("svg").boundingBox();
+const hApres = await pg.locator(".mg-v").first().locator("svg.mg-s").boundingBox();
 ok("la voie touchée s'agrandit", hApres.height > hAvant.height * 2, `${hAvant.height.toFixed(0)} puis ${hApres.height.toFixed(0)}`);
 ok("les autres voies gardent leur taille",
-  Math.abs((await pg.locator(".mg-v").nth(2).locator("svg").boundingBox()).height
-    - (await pg.locator(".mg-v").nth(5).locator("svg").boundingBox()).height * (86/48)) < 14);
+  Math.abs((await pg.locator(".mg-v").nth(2).locator("svg.mg-s").boundingBox()).height
+    - (await pg.locator(".mg-v").nth(5).locator("svg.mg-s").boundingBox()).height * (86/48)) < 14);
 ok("la légende paraît avec l'agrandissement", await pg.locator(".mg-l:visible").count() === 1);
+/* La pile fait cinq cents points et l'axe est tout en bas : une voie dépliée
+   au milieu n'aurait plus de repère de temps. */
+ok("l'axe des heures se répète sous la voie dépliée",
+  await pg.locator(".mg-a").count() === 2,
+  String(await pg.locator(".mg-a").count()));
+/* Les symboles et les valeurs occupent deux bandes distinctes : écrits au même
+   niveau, les flèches du vent et les chiffres du vent se recouvraient. */
+await pg.locator('.mg-b[data-voie="v"]').click();
+await pg.waitForTimeout(320);
+ok("les symboles et les valeurs ne partagent pas leur bande", await pg.evaluate(() => {
+  const v = document.querySelector('.mg-v[data-cle="v"]');
+  const fl = [...v.querySelectorAll(".mg-fl")];
+  const va = [...v.querySelectorAll("text.mg-p")];
+  if (!fl.length || !va.length) return "bande vide";
+  const bas = Math.max(...fl.map(e => e.getBoundingClientRect().bottom));
+  const haut = Math.min(...va.map(e => e.getBoundingClientRect().top));
+  return haut >= bas - 1 ? "" : `chevauchement de ${(bas - haut).toFixed(1)} points`;
+}) === "", await pg.evaluate(() => {
+  const v = document.querySelector('.mg-v[data-cle="v"]');
+  const fl = [...v.querySelectorAll(".mg-fl")], va = [...v.querySelectorAll("text.mg-p")];
+  if (!fl.length || !va.length) return "bande vide";
+  return `${Math.max(...fl.map(e => e.getBoundingClientRect().bottom)).toFixed(0)} puis `
+    + `${Math.min(...va.map(e => e.getBoundingClientRect().top)).toFixed(0)}`;
+}));
+await pg.locator('.mg-b[data-voie="v"]').click();
+await pg.waitForTimeout(320);
 
 console.log("\n--- Les deux écritures ---");
 /* Le sélecteur se tient sur la ligne du titre : c'est ce qui remonte le ruban

@@ -3,7 +3,7 @@
 
 import { nombreFr, hhmm, jourCourt, jourLong, esc, departementDe, heureJour } from "./horloge.js";
 import * as P from "./previsions.js";
-import { ico, icoTemps, icoCiel, tempsDe } from "./icones.js";
+import { ico, icoTemps, icoCiel, tempsDe, couleurT } from "./icones.js";
 import * as Ruban from "./ruban.js";
 import { liste, moments, TRANCHES } from "./ecritures.js";
 import * as Reglages from "./reglages.js";
@@ -98,22 +98,6 @@ export function vueTemps(ctx, rendre) {
 
 /* ---------- La table de la semaine ---------- */
 
-/* Teinte d'une température, du bleu froid au rouge chaud. Saturation et clarté
-   restent constantes pour que la rampe se tienne sur les deux thèmes. La
-   couleur double le chiffre, elle ne le remplace jamais. */
-const ARRETS = [[-5, 214], [4, 196], [11, 158], [18, 52], [25, 30], [33, 8]];
-const couleurT = t => {
-  if (t === null || !Number.isFinite(t)) return "var(--etiquette-3)";
-  let h = ARRETS[ARRETS.length - 1][1];
-  if (t <= ARRETS[0][0]) h = ARRETS[0][1];
-  else {
-    for (let k = 0; k < ARRETS.length - 1; k++) {
-      const [t0, h0] = ARRETS[k], [t1, h1] = ARRETS[k + 1];
-      if (t >= t0 && t <= t1) { h = h0 + ((t - t0) / (t1 - t0)) * (h1 - h0); break; }
-    }
-  }
-  return `hsl(${h.toFixed(0)} 54% 47%)`;
-};
 
 export function vueSemaine() {
   const c = P.chargeCourante();

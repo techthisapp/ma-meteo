@@ -103,3 +103,46 @@ export const icoTemps = (n, cls = "bd-ic") =>
   `<svg class="${esc(cls)} ict ict-${esc(n)}" viewBox="0 0 24 24" aria-hidden="true" `
   + `fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">`
   + `${D[n] || ""}</svg>`;
+
+/* ---------- Les rampes de couleur ----------
+
+   Une couleur ne sert que si elle dit quelque chose. Deux grandeurs seulement
+   portent une échelle que tout le monde lit d'un coup d'œil, la température et
+   l'indice ultraviolet : elles ont leur rampe. Les autres restent à l'encre du
+   texte, et se distinguent par leur forme, leurs symboles et leurs seuils
+   nommés.
+
+   La couleur double la valeur, elle ne la remplace jamais : le chiffre et le
+   mot sont toujours écrits à côté. */
+
+/* Teinte d'une température, du bleu froid au rouge chaud. Saturation et clarté
+   restent constantes pour que la rampe se tienne sur les deux thèmes. */
+const ARRETS_T = [[-5, 214], [4, 196], [11, 158], [18, 52], [25, 30], [33, 8]];
+
+const rampe = (arrets, v) => {
+  if (v === null || !Number.isFinite(v)) return null;
+  let h = arrets[arrets.length - 1][1];
+  if (v <= arrets[0][0]) h = arrets[0][1];
+  else {
+    for (let k = 0; k < arrets.length - 1; k++) {
+      const [a0, h0] = arrets[k], [a1, h1] = arrets[k + 1];
+      if (v >= a0 && v <= a1) { h = h0 + ((v - a0) / (a1 - a0)) * (h1 - h0); break; }
+    }
+  }
+  return h;
+};
+
+export const couleurT = t => {
+  const h = rampe(ARRETS_T, t);
+  return h === null ? "var(--etiquette-3)" : `hsl(${h.toFixed(0)} 54% 47%)`;
+};
+
+/* L'indice ultraviolet suit l'échelle de l'Organisation mondiale de la Santé,
+   du vert au rouge. Elle s'arrête au violet à onze ; la métropole n'y monte
+   pas, la rampe s'arrête donc au rouge. */
+const ARRETS_UV = [[0, 132], [3, 54], [6, 32], [8, 14], [11, 0]];
+
+export const couleurUV = v => {
+  const h = rampe(ARRETS_UV, v);
+  return h === null ? "var(--etiquette-3)" : `hsl(${h.toFixed(0)} 62% 46%)`;
+};
