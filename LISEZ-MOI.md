@@ -74,15 +74,26 @@ qui dit « rien à signaler » finit par ne plus se lire, et le jour où il dit
 autre chose, personne ne le voit.
 
 Le panneau donne le niveau maximal en toutes lettres, la conduite à tenir, le
-département nommé, la validité du bulletin, puis chaque phénomène signalé avec
-son niveau et sa fenêtre. Le plus grave passe devant, et à gravité égale le plus
+département nommé, la borne de validité, puis chaque phénomène signalé avec son
+niveau et sa fenêtre. Le plus grave passe devant, et à gravité égale le plus
 proche. L'appui ouvre le détail, qui reprend les phénomènes et renvoie sur la
 page du département de Météo-France. Les conséquences possibles et les conseils
 de comportement restent chez Météo-France, qui fait foi : les recopier ici les
 figerait.
 
-La couleur du niveau ne porte jamais seule l'information : le titre et chaque
-ligne l'écrivent en toutes lettres.
+Il porte son titre lui-même, sans titre de section au-dessus. Une carte qui dit
+déjà « Vigilance jaune » n'avait pas à être annoncée par une ligne qui disait la
+même chose, et ces trente points en tête d'écran suffisaient à repousser les
+mesures du jour sous la barre d'onglets. Le panneau tient dans cent cinquante
+points, deux phénomènes compris, et un contrôle garde cette enveloppe.
+
+Le niveau tient la ligne forte, la conduite ouvre la ligne effacée. Le rouge
+fait exception : sa conduite officielle est « Vigilance absolue », et les deux
+lignes écrivaient alors le mot deux fois. C'est elle qui tient la ligne forte
+dans ce cas, le niveau passant en dessous sous la forme « Niveau rouge ».
+
+La couleur du niveau ne porte jamais seule l'information : la tête du panneau et
+chaque ligne l'écrivent en toutes lettres.
 
 ### La source
 
@@ -846,7 +857,7 @@ src/
   postes.js         fichier départemental et geojson des postes, non branché
   reserve.js        les deux vues débranchées
 essais/
-  controle.mjs      trois cent quarante-six contrôles en navigateur
+  controle.mjs      trois cent cinquante-deux contrôles en navigateur
   vue-ecran.mjs     captures d'un écran, thème clair et sombre
   meteo.json        données figées au 18 août 2026, 9 h
 ```
@@ -872,7 +883,7 @@ destination et l'instant à figer, `OUVRIRVOIE` la voie du ruban à déplier et
 Le lanceur sert le dossier, fige l'horloge au 18 août 2026 à 9 h, détourne les
 trois appels Open-Meteo vers `meteo.json`, sert une vigilance orange de
 convention, et coupe les sources data.gouv pour éprouver le repli. Deux cent
-trois cent quarante-six contrôles, dont l'absence de répétition entre
+trois cent cinquante-deux contrôles, dont l'absence de répétition entre
 les alertes et les conseils, les sept voies du ruban, l'agrandissement d'une
 voie, les treize colonnes de la liste, les vingt-quatre lignes de la fenêtre, la
 nature du renvoi de vigilance, et dix-sept contrôles de conformité au design

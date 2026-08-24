@@ -171,14 +171,30 @@ function panneauVigilance() {
     ? `de ${heureJour(a.debut)} à ${heureJour(a.fin)}`
     : `jusqu'à ${heureJour(a.fin)}`);
 
+  /* Le niveau tient la ligne forte, la conduite ouvre la ligne effacée. Le rouge
+     fait exception : sa conduite officielle est « Vigilance absolue », et les
+     deux lignes écrivaient alors le mot deux fois. C'est elle qui tient la ligne
+     forte dans ce cas, le niveau passant en dessous. Il reste écrit en toutes
+     lettres, il a seulement changé de ligne.
+
+     « Bulletin valable jusqu'à » est de l'administration. La carte dit une
+     vigilance, la borne ne peut porter que sur elle. */
+  const double = /vigilance/i.test(n.conduite);
+  const fort = double ? n.conduite : `Vigilance ${n.nom}`;
+  const suite = double ? `Niveau ${n.nom}` : n.conduite;
+
+  /* Le panneau porte son titre lui-même. Un titre de section au-dessus d'une
+     carte qui dit déjà « soyez attentif » annonçait deux fois la même chose et
+     coûtait trente points en tête d'écran, ce qui suffisait à repousser le bloc
+     du jour hors de la première vue. Le niveau reste écrit en toutes lettres,
+     il a seulement changé de ligne. */
   return `<div class="section vg vg-${esc(n.nom)}">`
-    + `<h2>Vigilance ${esc(n.nom)}</h2>`
     + `<button type="button" class="carte vg-c" data-feuille="vigilance" `
     + `aria-label="Vigilance ${esc(n.nom)}, ${esc(n.conduite)}, voir le détail">`
     + `<span class="vg-tete">${ico("alerte", "vg-ic")}`
-    + `<span class="vg-txt"><b>${esc(n.conduite)}</b>`
-    + `<em>${esc(v.nom || `Département ${v.dep}`)}`
-    + (v.validite ? `, bulletin valable jusqu'à ${esc(heureJour(v.validite))}` : "")
+    + `<span class="vg-txt"><b>${esc(fort)}</b>`
+    + `<em>${esc(suite)}, ${esc(v.nom || `Département ${v.dep}`)}`
+    + (v.validite ? `, jusqu'à ${esc(heureJour(v.validite))}` : "")
     + `</em></span>${chevron}</span>`
     + `<span class="vg-l">` + v.alertes.map(a =>
       `<span class="vg-a n-${a.niveau}">${ico(a.symbole, "vg-as")}`

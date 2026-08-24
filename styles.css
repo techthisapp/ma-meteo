@@ -929,9 +929,11 @@ button.rangee:active{background:var(--surface-2)}
   padding:0 var(--espace-base);
   box-shadow:inset 3px 0 0 var(--vg);
 }
+/* La carte entière est la cible : sa tête n'a pas à réserver la hauteur d'une
+   touche, et son rembourrage se resserre d'autant. */
 .vg-tete{
   display:flex;align-items:center;gap:var(--espace-md);
-  padding:var(--espace-base) 0;min-height:var(--touche);
+  padding:var(--espace-md) 0;
 }
 .vg-ic{width:26px;height:26px;flex:0 0 auto;color:var(--vg)}
 .vg-txt{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 auto}
@@ -941,7 +943,7 @@ button.rangee:active{background:var(--surface-2)}
 .vg-l{display:flex;flex-direction:column;box-shadow:inset 0 1px 0 var(--filet-clair)}
 .vg-a{
   display:flex;align-items:center;gap:var(--espace-md);
-  padding:var(--espace-md) 0;font-size:var(--texte-sous);line-height:1.4;
+  padding:var(--espace-sm) 0;font-size:var(--texte-sous);line-height:1.4;
 }
 .vg-a + .vg-a{box-shadow:inset 0 1px 0 var(--filet-clair)}
 .vg-as{width:22px;height:22px;flex:0 0 auto;color:var(--etiquette-2)}

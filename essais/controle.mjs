@@ -1396,8 +1396,47 @@ ok("il vient avant tout le reste du corps", await pg.evaluate(() => {
   const c = document.querySelector("#ecran .ecran-corps");
   return c && c.firstElementChild && c.firstElementChild.classList.contains("vg");
 }));
+/* Le panneau porte son titre lui-même : un titre de section au-dessus d'une
+   carte qui dit déjà « soyez attentif » annonçait deux fois la même chose et
+   repoussait le bloc du jour hors de la première vue. */
 ok("il écrit le niveau en toutes lettres, non par la seule couleur",
-  /Vigilance orange/i.test(await txt("#ecran .vg h2")), await txt("#ecran .vg h2"));
+  /Vigilance orange/i.test(await txt("#ecran .vg-txt b")), await txt("#ecran .vg-txt b"));
+ok("le mot vigilance ne s'écrit qu'une fois dans la tête",
+  ((await txt("#ecran .vg-txt")).toLowerCase().match(/vigilance/g) || []).length === 1,
+  await txt("#ecran .vg-txt"));
+ok("le panneau ne porte pas de titre de section au-dessus de lui",
+  await pg.locator("#ecran .vg h2").count() === 0);
+
+/* Le panneau prend la tête de l'écran : ce qui le suit doit rester visible sans
+   défiler. C'est le bloc du jour et ses quatre mesures, non ses faits, qui doit
+   tenir au-dessus de la barre d'onglets.
+
+   Le panneau tient donc dans une enveloppe, deux phénomènes compris. C'est elle
+   qui garde le budget : la mesure du dégagement sous les mesures ne dit que
+   l'état d'un écran de huit cent quarante-quatre points, et ne verrait pas un
+   panneau qui reprendrait vingt points. */
+ok("le panneau de vigilance tient dans son enveloppe", await pg.evaluate(() => {
+  const v = document.querySelector("#ecran .vg");
+  const n = document.querySelectorAll("#ecran .vg-a").length;
+  const h = v.getBoundingClientRect().height;
+  return h <= 150 ? "" : `${h.toFixed(0)} points pour ${n} phénomènes`;
+}) === "", await pg.evaluate(() =>
+  `${document.querySelector("#ecran .vg").getBoundingClientRect().height.toFixed(0)} points`));
+
+ok("les mesures du jour tiennent dans la première vue malgré la vigilance",
+  await pg.evaluate(() => {
+    const m = document.querySelector("#ecran .bd-mesures");
+    const o = document.getElementById("onglets");
+    if (!m || !o) return "élément manquant";
+    const reste = o.getBoundingClientRect().top - m.getBoundingClientRect().bottom;
+    return reste >= 0 ? "" : `${reste.toFixed(0)} points sous les mesures`;
+  }) === "", await pg.evaluate(() => {
+    const m = document.querySelector("#ecran .bd-mesures");
+    const o = document.getElementById("onglets");
+    return m && o
+      ? `${(o.getBoundingClientRect().top - m.getBoundingClientRect().bottom).toFixed(0)} points`
+      : "élément manquant";
+  }));
 ok("il porte la conduite à tenir",
   /vigilant/i.test(await txt("#ecran .vg-txt")), await txt("#ecran .vg-txt"));
 /* Le numéro de département ne se lit pas : « Côte-d'Or » dit ce que « 21 » cache. */
@@ -2210,6 +2249,49 @@ ok("la couche se répète sans couture verticale",
   !couture.erreur && couture.max < 5,
   couture.erreur || `saut maximal ${couture.max?.toFixed(2)} points | ${couture.pires}`);
 await ctxCouvert.close();
+
+/* Une vigilance rouge. La conduite officielle du rouge porte déjà le mot,
+   « Vigilance absolue » : jointe au niveau sur une même ligne, la tête écrivait
+   « Vigilance rouge, vigilance absolue ». */
+const ctxRouge = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+await ctxRouge.addInitScript(amorce(FAIN));
+await ctxRouge.route(/api\.open-meteo\.com/, route => {
+  const u = route.request().url();
+  const d = JSON.parse(JSON.stringify(METEO));
+  if (u.includes("current=")) {
+    route.fulfill({ status: 200, contentType: "application/json", body: "[]" }); return;
+  }
+  if (u.includes("hourly=")) {
+    route.fulfill({ status: 200, contentType: "application/json",
+      body: JSON.stringify({ hourly: d.hourly }) }); return;
+  }
+  delete d.hourly;
+  route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
+});
+await ctxRouge.route(/api-adresse\.data\.gouv\.fr|object\.files\.data\.gouv\.fr/, r => r.abort());
+await ctxRouge.route(/webservice\.meteofrance\.com/, r => {
+  const h = n => Math.floor(
+    Date.parse(`2026-08-18T${String(n).padStart(2, "0")}:00:00+02:00`) / 1000);
+  r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+    domain_id: "21", update_time: h(6), end_validity_time: h(23),
+    timelaps: [{ phenomenon_id: "3",
+      timelaps_items: [{ begin_time: h(9), end_time: h(20), color_id: 4 }] }],
+  })});
+});
+const pgRouge = await ctxRouge.newPage();
+await pgRouge.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await pgRouge.waitForTimeout(1500);
+const teteRouge = await pgRouge.locator("#ecran .vg-txt").innerText();
+ok("le mot vigilance ne s'écrit qu'une fois, même au rouge",
+  (teteRouge.toLowerCase().match(/vigilance/g) || []).length === 1,
+  teteRouge.replace(/\n/g, " "));
+ok("le rouge écrit son niveau et sa conduite",
+  /rouge/i.test(teteRouge) && /Vigilance absolue/.test(teteRouge),
+  teteRouge.replace(/\n/g, " "));
+await ctxRouge.close();
 
 /* Un temps sec et dégagé. Deux défauts n'y paraissent que là : une voie sans
    tracé gardait sous son titre la réserve de hauteur d'une touche, ce qui
