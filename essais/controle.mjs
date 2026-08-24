@@ -609,7 +609,7 @@ await pg.mouse.up();
 await pg.waitForTimeout(250);
 ok("le relâchement retire la lecture", await lu() === 0);
 ok("le relâchement d'une lecture ne fait pas glisser la fenêtre",
-  (await fenLue()).startsWith("09 h à"), await fenLue());
+  (await fenLue()).startsWith("05 h à"), await fenLue());
 
 // Déplacement à quatre-vingts degrés sans appui maintenu : la page défile.
 await pg.mouse.move(cx, cy);
@@ -964,8 +964,32 @@ console.log("\n--- L'horizon glissant ---");
 ok("la barre de commande porte ses deux sauts et son libellé",
   await pg.locator(".mg-nav [data-glisse]").count() === 2
   && await pg.locator(".mg-nav .mg-fen").count() === 1);
-ok("le libellé dit la fenêtre lue", (await txt(".mg-fenl")) === "09 h à demain 09 h",
+ok("le libellé dit la fenêtre lue", (await txt(".mg-fenl")) === "05 h à demain 05 h",
   await txt(".mg-fenl"));
+
+/* Calée sur maintenant, la fenêtre ne commence pas à l'heure en cours mais un
+   sixième avant. Les heures qui viennent de passer sont le premier repère qu'on
+   cherche, et le repère de l'heure en cours a besoin de tomber dans le cadre
+   pour se voir : collé au bord gauche, il se lisait comme un filet de cadre. */
+ok("la fenêtre calée garde le passé récent derrière elle", await pg.evaluate(() => {
+  const svg = document.querySelector('.mg-v[data-cle="t"] svg.mg-s');
+  const l = svg.querySelector(".mg-ici");
+  if (!l) return "aucun repère dans le cadre";
+  const r = svg.querySelector("defs clipPath rect");
+  const f = (Number(l.getAttribute("x1")) - Number(r.getAttribute("x")))
+    / Number(r.getAttribute("width"));
+  return Math.abs(f - 1 / 6) < 0.02 ? "" : `repère au ${(f * 100).toFixed(0)} centième`;
+}) === "");
+/* Le repère porte une gaine à la couleur de la carte : sans elle il se perdait
+   dans les aires pleines et les lavis de nuit qu'il traverse. */
+ok("le repère est gainé et l'axe le nomme d'une pastille", await pg.evaluate(() => {
+  const v = document.querySelector('.mg-v[data-cle="t"]');
+  if (v.querySelectorAll(".mg-ici-g").length !== 1) return "aucune gaine";
+  const g = getComputedStyle(v.querySelector(".mg-ici-g")).strokeWidth;
+  const t = getComputedStyle(v.querySelector(".mg-ici")).strokeWidth;
+  if (parseFloat(g) <= parseFloat(t)) return `gaine ${g} contre trait ${t}`;
+  return document.querySelector(".mg-a .mg-ici-p") ? "" : "aucune pastille sur l'axe";
+}) === "");
 ok("la fenêtre porte vingt-quatre heures", await pg.evaluate(`(() => {
   const a = document.querySelector(".mg-a");
   const c = ${CADRE}(a);
@@ -1079,7 +1103,7 @@ ok("les noms de seuil et les chiffres restent hors du groupe mobile",
 await pg.locator('.mg-fen[data-maintenant]').click();
 await pg.waitForTimeout(420);
 ok("le libellé ramène la fenêtre à maintenant",
-  (await txt(".mg-fenl")) === "09 h à demain 09 h", await txt(".mg-fenl"));
+  (await txt(".mg-fenl")) === "05 h à demain 05 h", await txt(".mg-fenl"));
 ok("revenue à maintenant, la fenêtre n'a plus où ramener",
   await pg.locator('.mg-fen[data-maintenant]').count() === 0);
 
@@ -1099,8 +1123,8 @@ ok("le glissement déporte les sept voies ensemble", await pg.evaluate(() => {
 await pg.mouse.up();
 await pg.waitForTimeout(500);
 ok("le glissement horizontal avance la fenêtre",
-  (await txt(".mg-fenl")).startsWith("16 h à demain 16 h")
-  || (await txt(".mg-fenl")).startsWith("17 h à demain 17 h"), await txt(".mg-fenl"));
+  (await txt(".mg-fenl")).startsWith("12 h à demain 12 h")
+  || (await txt(".mg-fenl")).startsWith("13 h à demain 13 h"), await txt(".mg-fenl"));
 ok("le glissement calé, le déport est repris par le dessin", await pg.evaluate(() =>
   [...document.querySelectorAll(".mg-v g.mg-mob")]
     .every(e => !(e.getAttribute("transform") || "").startsWith("translate("))));
@@ -1121,11 +1145,11 @@ ok("le ruban prend la largeur en paysage", await pg.evaluate(() => {
 }) === "", await pg.evaluate(() =>
   document.querySelector("#ecran .carte").getBoundingClientRect().width.toFixed(0)));
 ok("en paysage la fenêtre porte quarante-huit heures",
-  (await txt(".mg-fenl")) === "09 h à après-demain 09 h", await txt(".mg-fenl"));
+  (await txt(".mg-fenl")) === "01 h à après-demain 01 h", await txt(".mg-fenl"));
 await pg.setViewportSize({ width: 390, height: 844 });
 await pg.waitForTimeout(600);
 ok("de retour en portrait, la fenêtre reprend vingt-quatre heures",
-  (await txt(".mg-fenl")) === "09 h à demain 09 h", await txt(".mg-fenl"));
+  (await txt(".mg-fenl")) === "05 h à demain 05 h", await txt(".mg-fenl"));
 
 console.log("\n--- Les deux écritures ---");
 /* Le sélecteur se tient sur la ligne du titre : c'est ce qui remonte le ruban

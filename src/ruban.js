@@ -85,8 +85,19 @@ export const glisser = h => {
   if (!serie) return;
   const f = fenetre();
   decalage = Math.max(0, Math.min(serie.n - f, decalage + h));
-  ancre = decalage === serie.ici;
+  ancre = decalage === pose(serie);
 };
+
+/* Où commence la fenêtre calée sur maintenant. Non pas à l'heure en cours mais
+   un sixième de fenêtre avant, quatre heures en portrait et huit en paysage.
+
+   Les heures qui viennent de passer sont le premier repère qu'on cherche : « il
+   fait plus chaud ou moins chaud qu'il y a deux heures » ne se lit pas sur une
+   courbe qui commence à l'instant. Et le repère de l'heure en cours doit tomber
+   dans le cadre pour se voir, alors que collé au bord gauche il se lisait comme
+   un filet de cadre et restait caché. En début de journée la butée de minuit
+   rend ce recul plus court, la série ne commençant pas avant. */
+const pose = s => Math.max(0, s.ici - Math.round(fenetre() / 6));
 
 /* Vingt-quatre heures sur la largeur en portrait, quarante-huit dès que la
    largeur le permet. La règle est une densité minimale : mesurée, la zone de
@@ -145,7 +156,7 @@ const ecartJours = (a, b) =>
 export function dessiner(s) {
   serie = s;
   const FEN = fenetre();
-  if (ancre) decalage = s.ici;
+  if (ancre) decalage = pose(s);
   decalage = Math.max(0, Math.min(Math.max(0, s.n - FEN), decalage));
   const dec = decalage;
 
@@ -173,6 +184,11 @@ export function dessiner(s) {
     if (s.heure[k] % 6 !== 0) continue;
     montants.push([k, s.heure[k] === 0 ? jourCourt(s.jour[k]) : heureTxt(s.heure[k])]);
   }
+  /* Le libellé que la pastille de l'heure en cours recouvrirait est écarté :
+     l'axe porte une graduation toutes les six heures, il en perd une sans
+     dommage, et deux marques à la même abscisse ne se lisent ni l'une ni
+     l'autre. */
+  const surIci = k => Math.abs(k - s.ici) < 1.6;
 
   /* La nuit est lavée sur les sept voies, sans exception. Présente sur quatre
      d'entre elles et absente des trois autres, elle se lisait comme un
@@ -208,9 +224,16 @@ export function dessiner(s) {
      fenêtre commence à cette heure : le repère tombe alors sur le bord gauche du
      cadre, où il se lit comme un filet de cadre et ne dit plus rien. Il ne
      paraît donc qu'une fois la fenêtre déplacée. */
-  const repere = (y0, y1) => (s.ici === dec || s.ici < kA || s.ici > kB ? ""
-    : `<line class="mg-ici" x1="${u(X(s.ici))}" y1="${u(y0)}" `
-      + `x2="${u(X(s.ici))}" y2="${u(y1)}"/>`);
+  const repere = (y0, y1) => {
+    if (s.ici <= dec || s.ici < kA || s.ici > kB) return "";
+    const x = u(X(s.ici));
+    /* Deux traits pour un seul repère. Il traverse sept voies, des lavis de
+       nuit, des aires pleines et des barres : une gaine à la couleur de la carte
+       le détache de tout ce qu'il croise, comme le liseré des noms de seuil.
+       Pointillé et à demi transparent, il se perdait dans le tracé. */
+    return `<line class="mg-ici-g" x1="${x}" y1="${u(y0)}" x2="${x}" y2="${u(y1)}"/>`
+      + `<line class="mg-ici" x1="${x}" y1="${u(y0)}" x2="${x}" y2="${u(y1)}"/>`;
+  };
 
   const pts = (vals, y0, y1, mn, mx) => {
     const o = [];
@@ -406,11 +429,18 @@ export function dessiner(s) {
      dessin, sans quoi les heures écrites ne diraient plus celles tracées. */
   const axeSvg = () => {
     const [id, defs] = cadre(H_AXE);
+    const marque = s.ici > dec && s.ici >= kA && s.ici <= kB
+      ? `<circle class="mg-ici-p" cx="${u(X(s.ici))}" cy="5.5" r="2.8"/>` : "";
     return `<svg class="mg-a" viewBox="0 0 ${L} ${H_AXE}" aria-hidden="true">${defs}`
       + `<g class="mg-mob" clip-path="url(#${id})">`
-      + montants.map(([k, lib]) =>
+      /* Un libellé à cheval sur le bord gauche est tranché par la découpe et se
+         lit alors « h » pour « 18 h ». Il est écarté : celui d'à côté suit six
+         heures plus loin, l'axe n'y perd rien. Ceux qui tombent entièrement hors
+         du cadre sont gardés, c'est la réserve que le glissement découvre. */
+      + montants.filter(([k, lib]) => !(marque && surIci(k))
+        && !(X(k) + 2 < M && X(k) + 2 + lib.length * 5.6 > M)).map(([k, lib]) =>
         `<text class="mg-c" x="${u(X(k) + 2)}" y="9">${esc(lib)}</text>`).join("")
-      + `</g></svg>`;
+      + marque + `</g></svg>`;
   };
 
   /* La hauteur dépliée est propre à la voie. L'agrandissement vaut pour une

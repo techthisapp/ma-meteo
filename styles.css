@@ -795,9 +795,13 @@ button.rangee:active{background:var(--surface-2)}
 /* Le voile du passé, à la couleur de la carte : les heures écoulées restent
    tracées, elles reculent d'un plan. */
 .mg-passe{fill:var(--surface);opacity:.55}
-/* Le repère de l'heure en cours. Pointillé pour ne pas se confondre avec le
-   montant de lecture, qui est plein et suit le doigt. */
-.mg-ici{stroke:var(--accent);stroke-width:1.2;opacity:.5;stroke-dasharray:3 2}
+/* Le repère de l'heure en cours. Il traverse sept voies, des lavis de nuit, des
+   aires pleines et des barres : une gaine à la couleur de la carte le détache de
+   tout ce qu'il croise, comme le liseré des noms de seuil. Pointillé et à demi
+   transparent, il se perdait dans le tracé. La pastille de l'axe le nomme. */
+.mg-ici-g{stroke:var(--surface);stroke-width:3.6;opacity:.9}
+.mg-ici{stroke:var(--accent);stroke-width:1.6}
+.mg-ici-p{fill:var(--accent)}
 .mg-cur{stroke:var(--accent);stroke-width:1;opacity:.65}
 /* L'attribut `hidden` ne masque pas un élément SVG : la règle de l'agent
    utilisateur ne vise que l'espace de noms HTML. */
