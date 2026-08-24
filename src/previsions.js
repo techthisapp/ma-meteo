@@ -282,19 +282,30 @@ export function serieHoraire(depart = 0, duree = 24, minimum = 8) {
     return out.map(v => (v === null ? 0 : v));
   };
 
+  /* La lame de secours vient d'AROME, qui ne porte que sur trois jours. Au delà
+     de sa portée elle n'existe pas, et la compter pour zéro ferait dire aux deux
+     modèles qu'ils se contredisent alors qu'un seul parle. La série de secours
+     s'arrête donc là où AROME s'arrête. */
   const mmS = (() => {
     const b = charge.horaireSecours;
     if (!Array.isArray(b?.precipitation) || !Array.isArray(b?.time)) return null;
     const r = new Map(b.time.map((t, k) => [t, k]));
-    return h.time.slice(i, i + n).map(t => {
+    const out = [];
+    for (const t of h.time.slice(i, i + n)) {
       const k = r.get(t);
-      const v = k === undefined ? null : b.precipitation[k];
-      return v === null || v === undefined ? 0 : v;
-    });
+      if (k === undefined) break;
+      const v = b.precipitation[k];
+      out.push(v === null || v === undefined ? 0 : v);
+    }
+    return out.length ? out : null;
   })();
 
   return {
     n,
+    /* L'indice de l'heure en cours dans la fenêtre. Négatif quand la fenêtre
+       commence après elle, ce qui n'arrive pas aujourd'hui mais dirait la
+       vérité si cela arrivait. Le ruban s'en sert pour poser son repère. */
+    ici: iHeure() - i,
     heure: h.time.slice(i, i + n).map(t => Number(t.slice(11, 13))),
     jour: h.time.slice(i, i + n).map(t => t.slice(0, 10)),
     t: p("temperature_2m"), res: p("apparent_temperature"), ros: p("dew_point_2m"),
@@ -305,6 +316,16 @@ export function serieHoraire(depart = 0, duree = 24, minimum = 8) {
     uv: p("uv_index"), clair: p("is_day"),
     mmS,
   };
+}
+
+/* L'horizon entier, de minuit du jour en cours jusqu'où porte la charge. C'est
+   la série du ruban, dont la fenêtre glisse dessus : le passé de la journée y
+   figure, et les sept jours annoncés aussi. La table des moments, elle, garde
+   ses vingt-quatre heures à venir. */
+export function serieHorizon() {
+  const i = iHeure();
+  if (i < 0 || !charge?.hourly) return null;
+  return serieHoraire(-i, charge.hourly.time.length, 8);
 }
 
 /* Deux modèles chargés, un seul qui annonce la pluie : la prévision est alors

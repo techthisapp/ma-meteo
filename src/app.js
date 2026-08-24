@@ -411,6 +411,7 @@ function ecranVue(nom) {
     /* Le plein cadre porte son propre titre, dans le ciel : la coque ne pose
        pas le sien par-dessus. */
     pleinCadre: f.pleinCadre === true,
+    large: f.large === true,
     cote: f.cote || "",
     /* La commune est dans la barre de tête : la répéter sous chaque titre
        d'écran occupait une ligne pour une information déjà présente. */
@@ -460,6 +461,7 @@ function rendre() {
   $("navPos").hidden = !enPos;
   $("navLieu").hidden = false;
   ecran.classList.toggle("plein-cadre", f.pleinCadre === true);
+  ecran.classList.toggle("ecran-large", f.large === true);
   ecran.innerHTML = (f.pleinCadre ? "" : titreEcran(f.titre, f.sous, f.cote)) + f.corps;
   if (typeof f.brancher === "function") f.brancher(ecran);
   if (y) window.scrollTo({ top: y, behavior: "instant" });
@@ -526,6 +528,18 @@ function majPose() {
 }
 window.addEventListener("scroll", majPose, { passive: true });
 window.addEventListener("resize", majPose);
+
+/* La fenêtre du ruban vaut vingt-quatre heures en portrait et quarante-huit dès
+   que la largeur le permet : basculer l'appareil change donc le dessin, non la
+   seule mise en page. Le rendu se refait au passage du seuil, pas à chaque
+   pixel de redimensionnement. */
+let largeAvant = Ruban.fenetre();
+window.addEventListener("resize", () => {
+  const f = Ruban.fenetre();
+  if (f === largeAvant) return;
+  largeAvant = f;
+  if (onglet === "temps") rendre();
+});
 
 /* La hauteur réelle de la barre d'onglets dépend de la taille du texte : elle se
    mesure plutôt que de se supposer, sinon le pied de page passe dessous. */

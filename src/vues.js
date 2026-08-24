@@ -60,8 +60,11 @@ const valeur = (...parties) => `<span class="rangee-val">`
 /* ---------- L'écran du temps ---------- */
 
 export function vueTemps(ctx, rendre) {
-  const s = P.serieHoraire();
   const g = Reglages.lire();
+  /* Deux portées pour deux écritures. La table lit les vingt-quatre heures à
+     venir, qui sont ce qu'on lui demande. Le ruban lit l'horizon entier, de
+     minuit du jour en cours au bout de la charge, et sa fenêtre glisse dessus. */
+  const s = g.ecriture === "liste" ? P.serieHoraire() : P.serieHorizon();
   if (!s) {
     return {
       titre: "Le temps",
@@ -71,6 +74,7 @@ export function vueTemps(ctx, rendre) {
   }
 
   const e = g.ecriture;
+  const ici = Math.max(0, Math.min(s.n - 1, s.ici));
   const corps = e === "liste" ? liste(s) : Ruban.dessiner(s);
   /* Le sélecteur se tient sur la ligne du titre, en petit : le ruban et la
      table commencent ainsi en haut de la page. */
@@ -84,9 +88,13 @@ export function vueTemps(ctx, rendre) {
      chercher le détail heure par heure. */
   return {
     titre: "Le temps",
+    // Le ruban prend toute la largeur : c'est un graphique, sa densité fait sa
+    // lisibilité. La table, elle, reste dans la largeur de lecture.
+    large: e === "ruban",
     /* Le degré s'écrit sans décimale, ici comme partout : « 9,4° » sous un
-       bandeau qui dit « 9° » ferait deux chiffres pour une même mesure. */
-    sousEcran: `${Math.round(s.t[0])}° et ${tempsDe(s.code[0])[1].toLowerCase()}`,
+       bandeau qui dit « 9° » ferait deux chiffres pour une même mesure. Le
+       bandeau dit l'heure en cours, laquelle n'ouvre pas la série du ruban. */
+    sousEcran: `${Math.round(s.t[ici])}° et ${tempsDe(s.code[ici])[1].toLowerCase()}`,
     cote: seg,
     corps: `<div class="carte">${corps}</div>`,
     brancher(bloc) {

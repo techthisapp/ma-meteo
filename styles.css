@@ -704,6 +704,32 @@ button.rangee:active{background:var(--surface-2)}
 
 /* ---------- 9. Ruban ---------- */
 
+/* La barre de commande du ruban : deux sauts d'une journée et le libellé de la
+   fenêtre lue, qui ramène à l'heure en cours dès qu'on s'en est éloigné. */
+.mg-nav{
+  display:flex;align-items:center;gap:var(--espace-xs);
+  padding-bottom:var(--espace-sm);
+  box-shadow:inset 0 -1px 0 var(--filet-clair);
+}
+.mg-sa{
+  flex:0 0 auto;width:var(--touche);height:var(--touche);
+  display:inline-flex;align-items:center;justify-content:center;
+  border-radius:var(--rayon-plein);color:var(--accent);
+}
+.mg-sa svg{width:20px;height:20px}
+.mg-sa:active{background:var(--surface-2)}
+.mg-fen{
+  flex:1 1 auto;min-width:0;min-height:var(--touche);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:1px;border-radius:var(--rayon-sm);text-align:center;
+  font-size:var(--texte-note);font-weight:var(--graisse-semibold);color:var(--etiquette);
+}
+.mg-fen i{
+  font-style:normal;font-size:var(--texte-legende);
+  font-weight:var(--graisse-regular);color:var(--accent);
+}
+.mg-loin:active{background:var(--surface-2)}
+
 .mg{display:flex;flex-direction:column}
 .mg-v{padding:var(--espace-sm) 0}
 .mg-v + .mg-v{box-shadow:inset 0 1px 0 var(--filet-clair)}
@@ -726,7 +752,10 @@ button.rangee:active{background:var(--surface-2)}
 .mg-r{margin-left:auto;font-weight:var(--graisse-medium);font-size:var(--texte-note);color:var(--etiquette-2)}
 /* Le défilement vertical reste au navigateur, la lecture prend l'horizontale. */
 .mg-s{display:block;width:100%;height:auto;overflow:visible;touch-action:pan-y}
-.mg-l{font-size:var(--texte-legende);line-height:1.45;color:var(--etiquette-3);padding:var(--espace-xs) 0 2px}
+.mg-l{
+  font-size:var(--texte-legende);line-height:1.45;color:var(--etiquette-3);
+  padding:var(--espace-xs) 0 2px;max-width:74ch;
+}
 .mg-grand > .mg-t{color:var(--etiquette)}
 .mg-grand .mg-n i{background:var(--accent-doux);color:var(--accent)}
 
@@ -763,6 +792,12 @@ button.rangee:active{background:var(--surface-2)}
 .mg-nuit{fill:var(--etiquette);opacity:.05}
 .mg-mont{stroke:var(--etiquette);opacity:.1}
 .mg-minuit{opacity:.22;stroke-dasharray:2 3}
+/* Le voile du passé, à la couleur de la carte : les heures écoulées restent
+   tracées, elles reculent d'un plan. */
+.mg-passe{fill:var(--surface);opacity:.55}
+/* Le repère de l'heure en cours. Pointillé pour ne pas se confondre avec le
+   montant de lecture, qui est plein et suit le doigt. */
+.mg-ici{stroke:var(--accent);stroke-width:1.2;opacity:.5;stroke-dasharray:3 2}
 .mg-cur{stroke:var(--accent);stroke-width:1;opacity:.65}
 /* L'attribut `hidden` ne masque pas un élément SVG : la règle de l'agent
    utilisateur ne vise que l'espace de noms HTML. */
@@ -981,6 +1016,13 @@ button.rangee:active{background:var(--surface-2)}
   padding:0 0 calc(var(--onglets-mesure) + var(--espace-2xl));
   gap:0;
 }
+/* Un écran de graphique n'est pas bridé à la largeur de lecture. Le ruban vit
+   de sa densité de points par heure : quatre cent trente points de large en
+   paysage au lieu de six cent vingt-huit, ce sont vingt-quatre heures affichées
+   au lieu de quarante-huit. La retenue vaut pour le texte, elle est portée par
+   les blocs de texte eux-mêmes. */
+.ecran-large{max-width:none}
+
 .plein{position:relative}
 .ecran-corps{
   display:flex;flex-direction:column;gap:var(--espace-xl);

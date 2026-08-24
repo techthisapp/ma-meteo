@@ -582,24 +582,42 @@ ok("le grand chiffre mène à la température",
 console.log("\n--- Lecture au doigt et défilement ---");
 const boite = await pg.locator('.mg-v[data-cle="t"] .mg-s').boundingBox();
 const cx = boite.x + boite.width * 0.5, cy = boite.y + boite.height * 0.5;
+const lu = () => pg.locator('.mg-v[data-cle="t"] .mg-cur:not([hidden])').count();
+const fenLue = () => txt(".mg-fenl");
 
-// Déplacement à trente degrés : la lecture doit tenir.
+/* Trois issues pour un même appui. L'appui bref ne fait rien : la lecture et le
+   glissement se disputaient le même geste, et la lecture partait au moindre
+   effleurement de la courbe. */
 await pg.mouse.move(cx, cy);
 await pg.mouse.down();
-for (let k = 1; k <= 6; k++) await pg.mouse.move(cx + k * 12, cy + k * 7);
-ok("un déplacement oblique lit encore la courbe",
-  await pg.locator('.mg-v[data-cle="t"] .mg-cur:not([hidden])').count() === 1);
+await pg.waitForTimeout(90);
+ok("un appui bref ne lit pas la courbe", await lu() === 0);
 await pg.mouse.up();
 await pg.waitForTimeout(200);
 
-// Déplacement à quatre-vingts degrés : la page défile, la lecture se retire.
+// L'appui maintenu ouvre la lecture, qui suit ensuite le doigt où qu'il aille.
+await pg.mouse.move(cx, cy);
+await pg.mouse.down();
+await pg.waitForTimeout(420);
+ok("un appui maintenu ouvre la lecture", await lu() === 1);
+for (let k = 1; k <= 6; k++) await pg.mouse.move(cx + k * 12, cy + k * 7);
+ok("la lecture ouverte suit le doigt en oblique", await lu() === 1);
+const lecture = await txt('.mg-v[data-cle="t"] .mg-r');
+ok("la lecture porte une heure et un degré",
+  /^(demain |après-demain |[a-zéû]{3}\.? )?\d{2} h, -?\d+°$/.test(lecture), lecture);
+await pg.mouse.up();
+await pg.waitForTimeout(250);
+ok("le relâchement retire la lecture", await lu() === 0);
+ok("le relâchement d'une lecture ne fait pas glisser la fenêtre",
+  (await fenLue()).startsWith("09 h à"), await fenLue());
+
+// Déplacement à quatre-vingts degrés sans appui maintenu : la page défile.
 await pg.mouse.move(cx, cy);
 await pg.mouse.down();
 for (let k = 1; k <= 6; k++) await pg.mouse.move(cx + k * 2, cy + k * 12);
-ok("un déplacement vertical rend la main au défilement",
-  await pg.locator('.mg-v[data-cle="t"] .mg-cur:not([hidden])').count() === 0);
+ok("un déplacement vertical rend la main au défilement", await lu() === 0);
 await pg.mouse.up();
-await pg.waitForTimeout(200);
+await pg.waitForTimeout(250);
 ok("le défilement vertical reste au navigateur", await pg.evaluate(() =>
   getComputedStyle(document.querySelector(".mg-s")).touchAction === "pan-y"));
 
@@ -717,15 +735,22 @@ const noms = await pg.evaluate(() => {
         toits.push(ecran(Number(c[1]), Number(c[2])));
       }
     }
+    /* Le rectangle d'une découpe n'est pas de l'encre, et le voile du passé non
+       plus : il éloigne ce qui est dessous, il ne le cache pas. Ni l'un ni
+       l'autre ne doit interdire une place au mot. */
     const barres = [...svg.querySelectorAll("rect")]
-      .filter(r => !r.classList.contains("mg-nuit"))
+      .filter(r => !r.classList.contains("mg-nuit") && !r.classList.contains("mg-passe")
+        && !r.closest("defs"))
       .map(r => r.getBoundingClientRect());
     /* Le tracé s'étend d'un bout à l'autre des filets de seuil : ce sont eux qui
        donnent la zone de dessin, sans avoir à refaire le calcul des marges. */
     const filets = [...svg.querySelectorAll("line")].filter(l =>
       Math.abs(Number(l.getAttribute("y1")) - Number(l.getAttribute("y2"))) < 0.01);
     if (!filets.length) continue;
-    const zone = filets[0].getBoundingClientRect();
+    /* Les filets courent sur toute la bande dessinée, laquelle déborde le cadre
+       de part et d'autre : la zone où poser un mot est l'intersection des deux. */
+    const f0 = filets[0].getBoundingClientRect(), cad = svg.getBoundingClientRect();
+    const zone = { left: Math.max(f0.left, cad.left), right: Math.min(f0.right, cad.right) };
     const pris = (g, dr, haut, bas) =>
       traits.some(p => p.x > g && p.x < dr && p.y > haut && p.y < bas)
       || toits.some(p => p.x > g && p.x < dr && p.y < bas)
@@ -855,22 +880,56 @@ ok("les symboles du ciel portent leur taille en attributs", await pg.evaluate(()
   const ic = [...document.querySelectorAll('.mg-v[data-cle="nua"] svg.mg-ic')];
   if (ic.length < 6) return `seulement ${ic.length} symboles`;
   const nus = ic.filter(e => !e.getAttribute("width") || !e.getAttribute("height"));
-  return nus.length ? `${nus.length} symboles sans taille` : "";
+  if (nus.length) return `${nus.length} symboles sans taille`;
+  /* Quatorze points, la hauteur de la bande. La mesure à l'écran ne suffit pas
+     à le dire : le dessin d'un symbole n'occupe que sept dixièmes de sa boîte,
+     et un symbole de trente points passait sous le seuil des vingt-deux. */
+  const gros = ic.filter(e => e.getAttribute("width") !== "14" || e.getAttribute("height") !== "14");
+  return gros.length ? `${gros.length} symboles hors des quatorze points` : "";
 }) === "", String(await pg.locator('.mg-v[data-cle="nua"] svg.mg-ic').count()));
-ok("les symboles du ciel tiennent dans leur bande", await pg.evaluate(() => {
+/* Le dessin court au delà du cadre, d'une fenêtre de part et d'autre : c'est
+   cette réserve que le glissement découvre. Les symboles qui y tombent sont
+   légitimes, la découpe les retient. Ceux qui tombent dans le cadre, eux,
+   doivent tenir dans leur bande. */
+/* La zone de dessin est celle que la découpe laisse voir : le cadre du SVG
+   comprend la gouttière et un peu d'air, où un symbole de la réserve peut
+   légitimement tomber. */
+const CADRE = `(svg => {
+  const m = svg.getScreenCTM();
+  const r = svg.querySelector("defs clipPath rect");
+  if (!r) return null;
+  const g = m.a * Number(r.getAttribute("x")) + m.e;
+  return { gauche: g, droite: g + m.a * Number(r.getAttribute("width")),
+           haut: svg.getBoundingClientRect().top, ech: m.a };
+})`;
+ok("les symboles du ciel tiennent dans leur bande", await pg.evaluate(`(() => {
   const voie = document.querySelector('.mg-v[data-cle="nua"]');
-  const cadre = voie.querySelector("svg.mg-s").getBoundingClientRect();
+  const c = ${CADRE}(voie.querySelector("svg.mg-s"));
+  if (!c) return "aucune découpe";
+  let dedans = 0;
   for (const e of voie.querySelectorAll("svg.mg-ic")) {
     const b = e.getBoundingClientRect();
-    if (b.height > 22 || b.width > 22) return `symbole de ${b.width.toFixed(0)} sur ${b.height.toFixed(0)}`;
-    if (b.bottom > cadre.top + 40 || b.right > cadre.right + 1) return "symbole hors de la bande";
+    if (b.height > 22 || b.width > 22) return "symbole de " + b.width.toFixed(0) + " sur " + b.height.toFixed(0);
+    const cx = (b.left + b.right) / 2;
+    if (cx < c.gauche || cx > c.droite) {
+      if (!e.closest("g.mg-mob[clip-path]")) return "symbole hors cadre et hors découpe";
+      continue;
+    }
+    dedans++;
+    if (b.bottom > c.haut + 40 * c.ech) return "symbole hors de la bande";
+    if (b.left < c.gauche - 1 || b.right > c.droite + 1) return "symbole à cheval sur le bord";
   }
-  return "";
-}) === "", await pg.evaluate(() => {
-  const e = document.querySelector('.mg-v[data-cle="nua"] svg.mg-ic');
-  const b = e && e.getBoundingClientRect();
-  return b ? `${b.width.toFixed(0)} sur ${b.height.toFixed(0)}` : "aucun";
-}));
+  return dedans >= 6 ? "" : "seulement " + dedans + " symboles dans le cadre";
+})()`) === "", await pg.evaluate(`(() => {
+  const voie = document.querySelector('.mg-v[data-cle="nua"]');
+  const c = ${CADRE}(voie.querySelector("svg.mg-s"));
+  const ic = [...voie.querySelectorAll("svg.mg-ic")];
+  const d = ic.filter(e => {
+    const b = e.getBoundingClientRect(), cx = (b.left + b.right) / 2;
+    return c && cx >= c.gauche && cx <= c.droite;
+  });
+  return d.length + " dans le cadre sur " + ic.length;
+})()`));
 /* Dépliée, la voie du ciel quitte la densité pour l'aire sous ses bandes
    nommées : une teinte n'a pas d'échelle contre laquelle se lire. Et elle tient
    dans la hauteur commune, l'agrandissement d'une bande plate ne donnant rien. */
@@ -896,6 +955,177 @@ ok("le ciel déplié tient dans la hauteur commune", await (async () => {
 })());
 await pg.locator('.mg-b[data-voie="nua"]').click();
 await pg.waitForTimeout(320);
+
+console.log("\n--- L'horizon glissant ---");
+
+/* La fenêtre porte vingt-quatre heures sur la largeur en portrait, et le dessin
+   court au delà, d'une fenêtre de part et d'autre : c'est la réserve que le
+   glissement découvre sans avoir à tout redessiner. */
+ok("la barre de commande porte ses deux sauts et son libellé",
+  await pg.locator(".mg-nav [data-glisse]").count() === 2
+  && await pg.locator(".mg-nav .mg-fen").count() === 1);
+ok("le libellé dit la fenêtre lue", (await txt(".mg-fenl")) === "09 h à demain 09 h",
+  await txt(".mg-fenl"));
+ok("la fenêtre porte vingt-quatre heures", await pg.evaluate(`(() => {
+  const a = document.querySelector(".mg-a");
+  const c = ${CADRE}(a);
+  const t = [...a.querySelectorAll("text")].filter(e => {
+    const x = e.getBoundingClientRect().left;
+    return x >= c.gauche - 1 && x <= c.droite;
+  }).map(e => e.textContent);
+  // Un montant toutes les six heures : quatre ou cinq dans vingt-quatre heures.
+  return t.length >= 4 && t.length <= 5 ? "" : t.length + " montants : " + t.join("/");
+})()`) === "", await pg.evaluate(`(() => {
+  const a = document.querySelector(".mg-a");
+  const c = ${CADRE}(a);
+  return [...a.querySelectorAll("text")].filter(e => {
+    const x = e.getBoundingClientRect().left;
+    return x >= c.gauche - 1 && x <= c.droite;
+  }).map(e => e.textContent).join("/");
+})()`));
+ok("le dessin déborde le cadre et la découpe le retient", await pg.evaluate(() => {
+  const svg = document.querySelector('.mg-v[data-cle="t"] svg.mg-s');
+  const mob = svg.querySelector("g.mg-mob[clip-path]");
+  if (!mob) return "aucun groupe découpé";
+  const pl = svg.querySelector("polyline");
+  const b = pl.getBBox(), r = svg.querySelector("defs clipPath rect");
+  const large = Number(r.getAttribute("width"));
+  return b.width > large * 2 ? "" : `tracé de ${b.width.toFixed(0)} pour un cadre de ${large}`;
+}) === "");
+
+/* Le passé de la journée est tracé, en retrait, et l'heure en cours porte son
+   repère : la série commence à minuit, non à l'heure qu'il est. */
+await pg.locator('.mg-nav [data-glisse="-24"]').click();
+await pg.waitForTimeout(420);
+ok("le saut arrière remonte au début de l'horizon",
+  (await txt(".mg-fenl")) === "00 h à demain 00 h", await txt(".mg-fenl"));
+ok("le saut arrière ne va pas au delà de minuit du jour",
+  await pg.locator('.mg-nav [data-glisse="-24"]').isDisabled());
+ok("le passé est tracé et mis en retrait",
+  await pg.locator('.mg-v[data-cle="t"] .mg-passe').count() === 1);
+ok("l'heure en cours porte son repère",
+  await pg.locator('.mg-v[data-cle="t"] .mg-ici').count() === 1);
+ok("le repère tombe à la neuvième heure de la fenêtre", await pg.evaluate(() => {
+  const svg = document.querySelector('.mg-v[data-cle="t"] svg.mg-s');
+  const l = svg.querySelector(".mg-ici"), r = svg.querySelector("defs clipPath rect");
+  const g = Number(r.getAttribute("x")), w = Number(r.getAttribute("width"));
+  const f = (Number(l.getAttribute("x1")) - g) / w;
+  return Math.abs(f - 9 / 24) < 0.02 ? "" : `repère à ${(f * 24).toFixed(1)} h`;
+}) === "");
+ok("le libellé propose de revenir à maintenant",
+  await pg.locator('.mg-fen[data-maintenant]').count() === 1);
+
+/* L'échelle est commune à tout l'horizon : recalée à chaque glissement, la
+   courbe se serait déformée sous le doigt et deux journées n'auraient plus été
+   comparables. */
+const echelleDe = () => pg.evaluate(() =>
+  [...document.querySelectorAll('.mg-v[data-cle="t"] text.mg-g')]
+    .map(e => e.textContent).join("/"));
+const ech0 = await echelleDe();
+await pg.locator('.mg-nav [data-glisse="24"]').click();
+await pg.waitForTimeout(420);
+await pg.locator('.mg-nav [data-glisse="24"]').click();
+await pg.waitForTimeout(420);
+ok("le saut avant avance de deux journées",
+  (await txt(".mg-fenl")) === "après-demain 00 h à ven 00 h", await txt(".mg-fenl"));
+ok("l'échelle ne bouge pas quand la fenêtre glisse",
+  (await echelleDe()) === ech0, `${ech0} puis ${await echelleDe()}`);
+ok("au delà d'après-demain, le jour se nomme",
+  /\b(lun|mar|mer|jeu|ven|sam|dim) 00 h$/.test(await txt(".mg-fenl")), await txt(".mg-fenl"));
+ok("le passé n'est plus voilé hors de sa journée",
+  await pg.locator('.mg-v[data-cle="t"] .mg-passe').count() === 0);
+ok("la lecture de droite parle de la fenêtre, non de l'horizon", await pg.evaluate(() => {
+  const r = document.querySelector('.mg-v[data-cle="t"] .mg-r').textContent;
+  const m = r.match(/^(-?\d+) à (-?\d+)°$/);
+  if (!m) return r;
+  // La fenêtre d'après-demain ne peut pas porter les bornes des sept jours.
+  return Number(m[2]) - Number(m[1]) <= 20 ? "" : `amplitude ${m[2] - m[1]}`;
+}) === "", await txt('.mg-v[data-cle="t"] .mg-r'));
+
+/* L'horizon du ruban est celui de la charge, sept jours, non les vingt-quatre
+   heures de la table : c'est ce qui donne sa course au glissement. */
+let sauts = 0;
+while (!(await pg.locator('.mg-nav [data-glisse="24"]').isDisabled()) && sauts < 12) {
+  await pg.locator('.mg-nav [data-glisse="24"]').click();
+  await pg.waitForTimeout(240);
+  sauts++;
+}
+ok("le glissement court sur six journées depuis le début de l'horizon",
+  sauts === 4, `${sauts} sauts depuis après-demain`);
+ok("l'horizon s'arrête au dernier jour de la charge",
+  (await txt(".mg-fenl")) === "lun 00 h à mar 00 h", await txt(".mg-fenl"));
+ok("au bout de l'horizon, le saut avant s'éteint",
+  await pg.locator('.mg-nav [data-glisse="24"]').isDisabled());
+await pg.locator('.mg-fen[data-maintenant]').click();
+await pg.waitForTimeout(420);
+await pg.locator('.mg-nav [data-glisse="-24"]').click();
+await pg.waitForTimeout(420);
+await pg.locator('.mg-nav [data-glisse="24"]').click();
+await pg.waitForTimeout(420);
+await pg.locator('.mg-nav [data-glisse="24"]').click();
+await pg.waitForTimeout(420);
+
+/* L'écriture d'échelle ne glisse pas avec le dessin : elle nomme une hauteur,
+   laquelle ne dépend pas de l'heure regardée. */
+ok("les noms de seuil et les chiffres restent hors du groupe mobile",
+  await pg.evaluate(() => {
+    const svg = document.querySelector('.mg-v[data-cle="v"] svg.mg-s');
+    const dedans = [...svg.querySelectorAll("text.mg-bn, text.mg-g")]
+      .filter(e => e.closest("g.mg-mob"));
+    return dedans.length ? `${dedans.length} écritures dans le groupe mobile` : "";
+  }) === "");
+
+// Le libellé ramène à l'heure en cours d'un seul appui.
+await pg.locator('.mg-fen[data-maintenant]').click();
+await pg.waitForTimeout(420);
+ok("le libellé ramène la fenêtre à maintenant",
+  (await txt(".mg-fenl")) === "09 h à demain 09 h", await txt(".mg-fenl"));
+ok("revenue à maintenant, la fenêtre n'a plus où ramener",
+  await pg.locator('.mg-fen[data-maintenant]').count() === 0);
+
+// Un glissement horizontal franc déplace la fenêtre, à l'heure entière.
+const bt = await pg.locator('.mg-v[data-cle="t"] .mg-s').boundingBox();
+await pg.mouse.move(bt.x + bt.width * 0.7, bt.y + bt.height * 0.5);
+await pg.mouse.down();
+for (let k = 1; k <= 8; k++) {
+  await pg.mouse.move(bt.x + bt.width * 0.7 - k * 12, bt.y + bt.height * 0.5 + k);
+}
+ok("le glissement déporte les sept voies ensemble", await pg.evaluate(() => {
+  const t = [...document.querySelectorAll(".mg-v g.mg-mob")]
+    .map(e => e.getAttribute("transform") || "");
+  const pose = t.filter(v => v.startsWith("translate("));
+  return pose.length === t.length && new Set(pose).size === 1 ? "" : pose.join(" | ");
+}) === "");
+await pg.mouse.up();
+await pg.waitForTimeout(500);
+ok("le glissement horizontal avance la fenêtre",
+  (await txt(".mg-fenl")).startsWith("16 h à demain 16 h")
+  || (await txt(".mg-fenl")).startsWith("17 h à demain 17 h"), await txt(".mg-fenl"));
+ok("le glissement calé, le déport est repris par le dessin", await pg.evaluate(() =>
+  [...document.querySelectorAll(".mg-v g.mg-mob")]
+    .every(e => !(e.getAttribute("transform") || "").startsWith("translate("))));
+await pg.locator('.mg-fen[data-maintenant]').click();
+await pg.waitForTimeout(420);
+
+/* En paysage, la fenêtre double : la densité de points par heure le permet, et
+   le ruban n'est pas bridé à la largeur de lecture, sa lisibilité tenant à cette
+   densité. */
+await pg.setViewportSize({ width: 844, height: 390 });
+await pg.waitForTimeout(600);
+ok("l'écran du ruban n'est pas bridé", await pg.evaluate(() =>
+  document.querySelector("#ecran").classList.contains("ecran-large")
+  && getComputedStyle(document.querySelector("#ecran")).maxWidth === "none"));
+ok("le ruban prend la largeur en paysage", await pg.evaluate(() => {
+  const w = document.querySelector("#ecran .carte").getBoundingClientRect().width;
+  return w > 700 ? "" : `carte de ${w.toFixed(0)} points`;
+}) === "", await pg.evaluate(() =>
+  document.querySelector("#ecran .carte").getBoundingClientRect().width.toFixed(0)));
+ok("en paysage la fenêtre porte quarante-huit heures",
+  (await txt(".mg-fenl")) === "09 h à après-demain 09 h", await txt(".mg-fenl"));
+await pg.setViewportSize({ width: 390, height: 844 });
+await pg.waitForTimeout(600);
+ok("de retour en portrait, la fenêtre reprend vingt-quatre heures",
+  (await txt(".mg-fenl")) === "09 h à demain 09 h", await txt(".mg-fenl"));
 
 console.log("\n--- Les deux écritures ---");
 /* Le sélecteur se tient sur la ligne du titre : c'est ce qui remonte le ruban

@@ -44,7 +44,7 @@
    l'indice ultraviolet, dont l'échelle se lit d'un coup d'œil. Ailleurs elle
    ferait du bruit : la forme, les symboles et les seuils nommés suffisent. */
 
-import { nombreFr, jourCourt, heureTxt, esc } from "./horloge.js";
+import { nombreFr, jourCourt, heureTxt, esc, cleJour } from "./horloge.js";
 import { plagesDe, dCardinal, CARD_ABR, iCard } from "./previsions.js";
 import { icoCiel, icoTemps, couleurT, couleurUV } from "./icones.js";
 
@@ -65,6 +65,12 @@ let voieOuverte = null;
 let serie = null;
 let heureLue = -1;
 
+/* La fenêtre glisse sur l'horizon. `decalage` est son premier indice dans la
+   série, `ancre` dit qu'elle suit l'heure en cours : tant qu'on n'a pas fait
+   glisser, une charge plus récente ramène la fenêtre sur maintenant. */
+let decalage = 0;
+let ancre = true;
+
 export const ouvrir = c => { voieOuverte = voieOuverte === c ? null : c; };
 // Ouverture franche, sans bascule : l'accueil désigne une voie, il ne la ferme pas.
 export const poserVoie = c => { voieOuverte = c; };
@@ -72,6 +78,40 @@ export const voieCourante = () => voieOuverte;
 export const serieCourante = () => serie;
 export const heureCourante = () => heureLue;
 export const poserHeure = k => { heureLue = k; };
+export const decalageCourant = () => decalage;
+export const ancree = () => ancre;
+export const auMaintenant = () => { ancre = true; };
+export const glisser = h => {
+  if (!serie) return;
+  const f = fenetre();
+  decalage = Math.max(0, Math.min(serie.n - f, decalage + h));
+  ancre = decalage === serie.ici;
+};
+
+/* Vingt-quatre heures sur la largeur en portrait, quarante-huit dès que la
+   largeur le permet. La règle est une densité minimale : mesurée, la zone de
+   tracé fait 283 points en portrait, soit 11,8 par heure sur vingt-quatre, et
+   628 points en paysage sans bridage, soit 13,1 par heure sur quarante-huit.
+   Soixante-douze heures tomberaient à 8,7, où la bande de symboles se touche et
+   les valeurs ne tiennent plus. */
+export const fenetre = () =>
+  (typeof window !== "undefined" && window.innerWidth >= 700 ? 48 : 24);
+
+/* La fenêtre visible, tranchée dans l'horizon. Tout ce qui s'écrit en parle : la
+   lecture de droite, la phrase de résumé, les extrêmes marqués. Le dessin, lui,
+   court sur l'horizon entier.
+
+   La lame de secours n'est reprise que si elle couvre la fenêtre entière :
+   tronquée, elle ferait croire à un désaccord entre modèles là où un seul
+   parle. */
+const CHAMPS = ["heure", "jour", "t", "res", "ros", "hum", "mm", "pb", "code",
+  "nua", "pres", "v", "raf", "dir", "uv", "clair"];
+const trancher = (s, a, b) => {
+  const out = { n: b - a, dec: a };
+  for (const c of CHAMPS) if (Array.isArray(s[c])) out[c] = s[c].slice(a, b);
+  if (Array.isArray(s.mmS) && s.mmS.length >= b) out.mmS = s.mmS.slice(a, b);
+  return out;
+};
 
 const u = v => v.toFixed(1);
 const bornes = (t, unite = "") =>
@@ -95,26 +135,43 @@ const motDe = (cle, v) => {
   return m.toLowerCase();
 };
 
+/* Le nom d'un jour, compté depuis celui de l'heure en cours. L'horizon porte
+   sept jours : « demain 14 h » sur une fenêtre calée sur jeudi désignerait
+   mercredi, ce qui est faux. Au delà d'après-demain le jour se nomme. */
+const MOTS_JOUR = ["", "demain ", "après-demain "];
+const ecartJours = (a, b) =>
+  Math.round((Date.parse(`${b}T12:00:00`) - Date.parse(`${a}T12:00:00`)) / 86400000);
+
 export function dessiner(s) {
   serie = s;
-  const X = k => M + (k / s.n) * P;
-  const LA = P / s.n;
+  const FEN = fenetre();
+  if (ancre) decalage = s.ici;
+  decalage = Math.max(0, Math.min(Math.max(0, s.n - FEN), decalage));
+  const dec = decalage;
 
-  /* Les montants et les libellés de l'axe sont décidés ensemble : un montant
-     sans libellé laisserait une graduation muette. Le premier libellé est
-     l'heure en cours ; les suivants tombent sur les six heures, et l'un d'eux
-     est écarté s'il vient se coller au premier. */
-  const CHASSE = 6;
-  const ICI = heureTxt(s.heure[0]);
-  const finIci = M + ICI.length * CHASSE + 7;
+  /* L'abscisse est celle de la fenêtre : l'heure `dec` tombe sur la marge
+     gauche, l'heure `dec + FEN` sur la gouttière. Les heures d'avant et d'après
+     sont dessinées quand même, hors du cadre, et la découpe les cache : le
+     glissement n'a alors qu'une translation à appliquer, sans redessiner. */
+  const X = k => M + ((k - dec) / FEN) * P;
+  const LA = P / FEN;
+
+  /* La bande dessinée : une fenêtre de part et d'autre de la fenêtre visible.
+     Un doigt ne parcourt pas plus d'une largeur d'écran avant de relâcher, et
+     le dessin se refait au calage. Dessiner l'horizon entier ferait sept fois
+     cent soixante-huit heures de décorations pour douze visibles. */
+  const kA = Math.max(0, dec - FEN);
+  const kB = Math.min(s.n - 1, dec + 2 * FEN);
+
+  // La fenêtre visible, pour tout ce qui s'écrit.
+  const w = trancher(s, dec, Math.min(s.n, dec + FEN));
+
+  /* Les montants et les libellés de l'axe. Ils tombent sur les six heures, et
+     minuit porte le nom du jour plutôt qu'un « 00 h » qui ne dit pas lequel. */
   const montants = [];
-  for (let k = 1; k < s.n; k++) {
+  for (let k = kA; k <= kB; k++) {
     if (s.heure[k] % 6 !== 0) continue;
-    const lib = s.heure[k] === 0 ? jourCourt(s.jour[k]) : heureTxt(s.heure[k]);
-    // Le libellé commence au montant, il ne le chevauche pas : c'est son bord
-    // gauche qui doit rester à droite du premier libellé.
-    if (X(k) + 2 < finIci) continue;
-    montants.push([k, lib]);
+    montants.push([k, s.heure[k] === 0 ? jourCourt(s.jour[k]) : heureTxt(s.heure[k])]);
   }
 
   /* La nuit est lavée sur les sept voies, sans exception. Présente sur quatre
@@ -128,6 +185,7 @@ export function dessiner(s) {
     const hl = hLavis === undefined ? y1 - y0 : hLavis;
     let o = "";
     for (const [a, b] of plagesDe(s.n, k => !s.clair[k])) {
+      if (b < kA || a > kB) continue;
       o += `<rect class="mg-nuit" x="${u(X(a))}" y="${u(y0)}" `
         + `width="${u(X(b + 1) - X(a))}" height="${u(hl)}"/>`;
     }
@@ -139,13 +197,43 @@ export function dessiner(s) {
     return o;
   };
 
-  const pts = (vals, y0, y1, mn, mx) => vals.map((v, k) =>
-    `${u(X(k + 0.5))},${u(y1 - ((v - mn) / ((mx - mn) || 1)) * (y1 - y0))}`).join(" ");
+  /* Le passé de la journée est tracé, mais en retrait : la série commence à
+     minuit, et « il a fait combien ce matin » se lit sans rien demander de plus.
+     Un voile à la couleur de la carte l'éloigne sans le cacher. */
+  const passe = (y0, y1) => (s.ici <= 0 || s.ici <= kA ? ""
+    : `<rect class="mg-passe" x="${u(X(kA))}" y="${u(y0)}" `
+      + `width="${u(X(Math.min(s.ici, kB + 1)) - X(kA))}" height="${u(y1 - y0)}"/>`);
+
+  /* Le repère de l'heure en cours, sur les sept voies. Calée sur maintenant, la
+     fenêtre commence à cette heure : le repère tombe alors sur le bord gauche du
+     cadre, où il se lit comme un filet de cadre et ne dit plus rien. Il ne
+     paraît donc qu'une fois la fenêtre déplacée. */
+  const repere = (y0, y1) => (s.ici === dec || s.ici < kA || s.ici > kB ? ""
+    : `<line class="mg-ici" x1="${u(X(s.ici))}" y1="${u(y0)}" `
+      + `x2="${u(X(s.ici))}" y2="${u(y1)}"/>`);
+
+  const pts = (vals, y0, y1, mn, mx) => {
+    const o = [];
+    for (let k = kA; k <= kB; k++) {
+      o.push(`${u(X(k + 0.5))},${u(y1 - ((vals[k] - mn) / ((mx - mn) || 1)) * (y1 - y0))}`);
+    }
+    return o.join(" ");
+  };
 
   const aire = (vals, y0, y1, mn, mx) =>
-    `M${u(X(0.5))},${u(y1)} L${pts(vals, y0, y1, mn, mx).replace(/ /g, " L")} L${u(X(s.n - 0.5))},${u(y1)} Z`;
+    `M${u(X(kA + 0.5))},${u(y1)} L${pts(vals, y0, y1, mn, mx).replace(/ /g, " L")} `
+    + `L${u(X(kB + 0.5))},${u(y1)} Z`;
 
   const yDe = (v, y0, y1, mn, mx) => y1 - ((v - mn) / ((mx - mn) || 1)) * (y1 - y0);
+
+  /* Deux couches par voie. Le dessin glisse, l'écriture d'échelle ne glisse
+     pas : un « Élevé » ou un « 20 km/h » emporté par le doigt sortirait du
+     cadre alors qu'il nomme une hauteur, laquelle ne dépend pas de l'heure
+     regardée. Les deux helpers ci-dessous versent donc dans une couche fixe,
+     posée par `poser` au-dessus du groupe mobile, et ne rendent rien à
+     l'appelant. L'ordre d'empilement des voies est ainsi conservé sans qu'aucun
+     corps de voie ait à le savoir. */
+  let fixe = "";
 
   /* Le chiffre de l'échelle, dans la gouttière : rien ne passe derrière lui.
      Deux chiffres à moins de sept points l'un de l'autre se chevauchaient et se
@@ -155,12 +243,15 @@ export function dessiner(s) {
   const chiffre = (y, txt) => {
     if (prises.some(p => Math.abs(p - y) < 7)) return "";
     prises.push(y);
-    return `<text class="mg-g" x="${L - 4}" y="${u(y)}" text-anchor="end">${esc(txt)}</text>`;
+    fixe += `<text class="mg-g" x="${L - 4}" y="${u(y)}" text-anchor="end">${esc(txt)}</text>`;
+    return "";
   };
 
   // Le nom d'un seuil, dans le tracé, sur sa ligne.
-  const nomSeuil = (x, y, txt) =>
-    `<text class="mg-bn" x="${u(x)}" y="${u(y - 2.5)}">${esc(txt)}</text>`;
+  const nomSeuil = (x, y, txt) => {
+    fixe += `<text class="mg-bn" x="${u(x)}" y="${u(y - 2.5)}">${esc(txt)}</text>`;
+    return "";
+  };
 
   /* Le mot se pose là où l'encre ne passe pas. La largeur est balayée de gauche
      à droite ; on retient la place que le tracé recouvre le moins, puis, à
@@ -182,7 +273,9 @@ export function dessiner(s) {
     const pasX = Math.max(4, (xMax - xMin) / 24);
     for (let x = xMin; x <= xMax + 0.01; x += pasX) {
       let couvre = 0, loin = 1e9;
-      for (let k = 0; k < s.n; k++) {
+      // L'encre à éviter est celle qu'on voit : le tracé de la fenêtre, non
+      // celui de l'horizon entier, dont la plus grande part est hors du cadre.
+      for (let k = dec; k < Math.min(s.n, dec + FEN); k++) {
         const xk = X(k + 0.5);
         if (xk < x - 4 || xk > x + larg + 4) continue;
         for (const [genre, ys] of encres) {
@@ -198,44 +291,54 @@ export function dessiner(s) {
     return nomSeuil(mieux.x, y, txt);
   };
 
+  /* Les filets horizontaux vivent dans le groupe mobile, pour rester sous les
+     courbes de leur voie. Ils courent donc sur toute la bande dessinée, et non
+     sur la seule largeur du cadre : bornés au cadre, le glissement en découvrait
+     le bout et le filet s'arrêtait au milieu du tracé. */
+  const XA = X(kA), XB = X(kB + 1);
+
   /* Les seuils nommés d'une échelle, avec leur filet. Seuls ceux qui tombent
      dans la fenêtre paraissent, et le premier, qui vaut zéro, n'a pas de filet :
      il serait le plancher du tracé. */
   const seuils = (cle, y0, y1, mn, mx, chiffrer, encres) => {
     const ec = (encres || []).map(([genre, vals]) =>
       [genre, vals.map(v => yDe(v, y0, y1, mn, mx))]);
-    let traits = "", noms = "";
+    let traits = "";
     for (const [borne, nom] of ECHELLES[cle]) {
       if (borne <= mn || borne >= mx) continue;
       const y = yDe(borne, y0, y1, mn, mx);
-      traits += `<line x1="${M}" y1="${u(y)}" x2="${L - GOUT}" y2="${u(y)}" `
+      traits += `<line x1="${u(XA)}" y1="${u(y)}" x2="${u(XB)}" y2="${u(y)}" `
         + `stroke="currentColor" opacity=".16" stroke-dasharray="2 3"/>`;
-      noms += placerNom(y, nom, ec);
-      if (chiffrer) noms += chiffre(y + 3, chiffrer(borne));
+      placerNom(y, nom, ec);
+      if (chiffrer) chiffre(y + 3, chiffrer(borne));
     }
-    return [traits, noms];
+    return traits;
   };
 
   /* Une graduation horizontale au pas donné, sur les seules valeurs couvertes.
      `sauf` écarte les valeurs que porte déjà un seuil nommé. */
   const graduation = (y0, y1, mn, mx, pas, ecrire, sauf = []) => {
-    let traits = "", chiffres = "";
+    let traits = "";
     for (let d = Math.ceil(mn / pas) * pas; d < mx; d += pas) {
       if (sauf.some(x => Math.abs(d - x) < 0.001)) continue;
       const yd = yDe(d, y0, y1, mn, mx);
-      traits += `<line x1="${M}" y1="${u(yd)}" x2="${L - GOUT}" y2="${u(yd)}" `
+      traits += `<line x1="${u(XA)}" y1="${u(yd)}" x2="${u(XB)}" y2="${u(yd)}" `
         + `stroke="currentColor" opacity=".08"/>`;
-      chiffres += chiffre(yd + 3, ecrire(d));
+      chiffre(yd + 3, ecrire(d));
     }
-    return [traits, chiffres];
+    return traits;
   };
 
   /* La bande de symboles, au-dessus du tracé. Un dessin toutes les trois heures
      repliée, toutes les deux dépliée : plus serré, les symboles se touchent. */
+  /* Le rang des symboles est calé sur l'horizon, non sur la fenêtre : compté
+     depuis le bord gauche, un pas de trois heures aurait fait sauter tous les
+     symboles d'un cran à chaque heure de glissement. */
   const bande = (large, faire) => {
     const pas = large ? 2 : 3;
     let o = "";
-    for (let k = 1; k < s.n; k += pas) {
+    for (let k = Math.max(1, kA); k <= kB; k++) {
+      if (k % pas !== 1 % pas) continue;
       const t = faire(k);
       if (!t) continue;
       o += `<g transform="translate(${u(X(k + 0.5) - 7)},1)">${t}</g>`;
@@ -264,13 +367,15 @@ export function dessiner(s) {
   const marque = (k, y) =>
     `<circle class="mg-x" cx="${u(X(k + 0.5))}" cy="${u(y)}" r="2.6"/>`;
 
+  /* Chaque valeur est centrée sur son heure, sans exception aux deux bords : la
+     découpe du cadre s'en charge. Ancrées au bord, elles se recollaient au
+     montant dès que le doigt les y amenait, puis repartaient au relâchement. */
   const etiq = (k, y, txt, cls) => {
     // Une valeur vide ne laisse pas d'élément derrière elle : un texte creux
     // reste un nœud dans le dessin, et la voie du ciel en portait une file.
     if (txt === "" || txt === null || txt === undefined) return "";
-    const anc = k < 2 ? "start" : k > s.n - 3 ? "end" : "middle";
-    const x = k < 2 ? M + 1 : k > s.n - 3 ? L - GOUT - 1 : X(k + 0.5);
-    return `<text class="${cls}" x="${u(x)}" y="${u(y)}" text-anchor="${anc}">${esc(txt)}</text>`;
+    return `<text class="${cls}" x="${u(X(k + 0.5))}" y="${u(y)}" `
+      + `text-anchor="middle">${esc(txt)}</text>`;
   };
 
   /* Les valeurs heure par heure. Elles vivent dans la bande, au-dessus du
@@ -278,16 +383,35 @@ export function dessiner(s) {
      coupaient, et sur les barres elles se chevauchaient. */
   const valeurs = (vals, ecrire, y) => {
     let o = "";
-    for (let k = 1; k < s.n; k += 2) o += etiq(k, y, ecrire(vals[k]), "mg-p");
+    for (let k = Math.max(1, kA); k <= kB; k++) {
+      if (k % 2 !== 1) continue;
+      o += etiq(k, y, ecrire(vals[k]), "mg-p");
+    }
     return o;
   };
 
-  // L'axe des heures, aux abscisses exactes des montants.
-  const axeSvg = () => `<svg class="mg-a" viewBox="0 0 ${L} ${H_AXE}" aria-hidden="true">`
-    + `<text class="mg-c" x="${M}" y="9">${esc(ICI)}</text>`
-    + montants.map(([k, lib]) =>
-      `<text class="mg-c" x="${u(X(k) + 2)}" y="9">${esc(lib)}</text>`).join("")
-    + `</svg>`;
+  /* La découpe du cadre. Chaque dessin porte la sienne plutôt que d'en partager
+     une seule : une référence d'un fragment SVG à un autre tient dans le même
+     document HTML, mais rien n'y oblige les moteurs, et le ruban a déjà payé une
+     divergence de ce genre. Le rectangle déborde en hauteur, la découpe n'ayant
+     à mordre que sur les côtés. */
+  let nCadre = 0;
+  const cadre = haut => {
+    const id = `mgc${++nCadre}`;
+    return [id, `<defs><clipPath id="${id}">`
+      + `<rect x="${M}" y="-4" width="${P}" height="${u(haut + 8)}"/></clipPath></defs>`];
+  };
+
+  /* L'axe des heures, aux abscisses exactes des montants. Il glisse avec le
+     dessin, sans quoi les heures écrites ne diraient plus celles tracées. */
+  const axeSvg = () => {
+    const [id, defs] = cadre(H_AXE);
+    return `<svg class="mg-a" viewBox="0 0 ${L} ${H_AXE}" aria-hidden="true">${defs}`
+      + `<g class="mg-mob" clip-path="url(#${id})">`
+      + montants.map(([k, lib]) =>
+        `<text class="mg-c" x="${u(X(k) + 2)}" y="9">${esc(lib)}</text>`).join("")
+      + `</g></svg>`;
+  };
 
   /* La hauteur dépliée est propre à la voie. L'agrandissement vaut pour une
      courbe, qui gagne du relief, il ne donne rien à une bande de densité, qui
@@ -300,11 +424,18 @@ export function dessiner(s) {
   let n = 0;
 
   const poser = (nom, droite, haut, dedans, resume, cle, axe) => {
-    prises = [];
+    const dedansFixe = fixe;
+    prises = []; fixe = "";
     const val = `<span class="mg-r" data-plage="${esc(droite)}">${esc(droite)}</span>`;
     if (!haut) { voies.push(`<div class="mg-v"><p class="mg-t">${esc(nom)}${val}</p></div>`); return; }
     const g = grand(cle);
-    const dessin = `<svg class="mg-s" viewBox="0 0 ${L} ${haut}" aria-hidden="true">${dedans}`
+    const [id0, defs] = cadre(haut);
+    /* Le voile du passé et le repère de l'heure closent le groupe mobile : ils
+       glissent avec le dessin et couvrent tout ce qui y a été posé. L'écriture
+       d'échelle, elle, vient après, hors du groupe, et reste lisible. */
+    const dessin = `<svg class="mg-s" viewBox="0 0 ${L} ${haut}" aria-hidden="true">${defs}`
+      + `<g class="mg-mob" clip-path="url(#${id0})">${dedans}`
+      + `${passe(0, haut)}${repere(0, haut)}</g>${dedansFixe}`
       + `<line class="mg-cur" x1="0" y1="0" x2="0" y2="${haut}" hidden/></svg>`;
     const id = `mgl${++n}`;
     const bas = resume ? `<p class="mg-l" id="${id}"${g ? "" : " hidden"}>${esc(resume)}</p>` : "";
@@ -318,9 +449,22 @@ export function dessiner(s) {
   /* Les phrases de résumé. Un fait tiré de la série, non une notice : « Écran
      solaire de 11 h à 16 h » se lit, « indice ultraviolet heure par heure » se
      saute. */
-  const HJ = k => (s.jour[k] !== s.jour[0] ? `demain ${heureTxt(s.heure[k])}` : heureTxt(s.heure[k]));
-  const iMax = t => t.indexOf(Math.max(...t));
-  const iMin = t => t.indexOf(Math.min(...t));
+  /* Le jour se nomme depuis aujourd'hui, l'horizon en portant sept. La série
+     commence à minuit du jour en cours : son premier indice donne la date de
+     référence. */
+  const HJ = k => {
+    const e = ecartJours(s.jour[0], s.jour[k]);
+    const h = heureTxt(s.heure[k]);
+    if (e <= 0) return h;
+    return e < MOTS_JOUR.length ? MOTS_JOUR[e] + h : `${jourCourt(s.jour[k])} ${h}`;
+  };
+  /* Les extrêmes se cherchent dans la fenêtre visible et se disent en indice
+     d'horizon : le maximum de jeudi n'a rien à faire dans la phrase d'une
+     fenêtre calée sur mardi. */
+  const iMax = t => dec + t.indexOf(Math.max(...t));
+  const iMin = t => dec + t.indexOf(Math.min(...t));
+  // Les plages de la fenêtre, ramenées aux indices de l'horizon.
+  const plagesW = pred => plagesDe(w.n, pred).map(([a, b]) => [a + dec, b + dec]);
   /* Plusieurs plages disjointes ne se disent pas comme une seule : « de 09 h à
      demain 08 h » pour deux épisodes séparés par douze heures de calme est
      faux. On dit alors la plus longue, et qu'il y en a d'autres. */
@@ -349,12 +493,13 @@ export function dessiner(s) {
          rectangles se joignent exactement : une largeur arrondie au dixième
          laissait un liseré plus sombre entre deux heures, qui se lisait comme
          une graduation. */
-      s.nua.forEach((v, k) => {
+      for (let k = kA; k <= kB; k++) {
         const x0 = X(k), x1 = X(k + 1);
         d += `<rect x="${x0.toFixed(3)}" y="${hb}" width="${(x1 - x0).toFixed(3)}" `
-          + `height="${u(h - hb)}" fill="currentColor" opacity="${(0.06 + (v / 100) * 0.4).toFixed(3)}" `
+          + `height="${u(h - hb)}" fill="currentColor" `
+          + `opacity="${(0.06 + (s.nua[k] / 100) * 0.4).toFixed(3)}" `
           + `shape-rendering="crispEdges"/>`;
-      });
+      }
       /* Le lavis de nuit se réduit ici à un bandeau de cinq points. Étendu à
          toute la hauteur, il s'ajouterait à la densité et fausserait la
          lecture : la colonne de nuit continue, la valeur reste juste. */
@@ -366,28 +511,26 @@ export function dessiner(s) {
          voyait comme un saut de gris entre deux lames. */
       const y0 = hb + 4, y1 = h - 3;
       d = fond(hb, h);
-      const [snTr, snNo] = seuils("nua", y0, y1, 0, 100, v => `${v}`, [["aire", s.nua]]);
-      d += snTr;
+      d += seuils("nua", y0, y1, 0, 100, v => `${v}`, [["aire", s.nua]]);
       d += `<path d="${aire(s.nua, y0, y1, 0, 100)}" fill="currentColor" opacity=".16"/>`;
       d += `<polyline points="${pts(s.nua, y0, y1, 0, 100)}" fill="none" stroke="currentColor" `
         + `stroke-width="1.7" stroke-linejoin="round"/>`;
-      d += snNo;
       /* Un ciel dégagé n'a pas de chiffre : une file de zéros se lisait comme du
          bruit, et le symbole du soleil dit déjà tout. */
       d += valeurs(s.nua, v => (v >= 5 ? Math.round(v) : ""), hs + 9);
     }
     d += bande(g, k => icoTemps(icoCiel(s.code[k], s.clair[k]), "mg-ic", 14));
-    /* Le premier basculement du ciel : c'est lui qu'on cherche en ouvrant la
-       voie, non la moyenne de la fenêtre. */
+    /* Le premier basculement du ciel dans la fenêtre : c'est lui qu'on cherche
+       en ouvrant la voie, non la moyenne de la fenêtre. */
     const seuil = 60;
     let bascule = -1;
-    for (let k = 1; k < s.n; k++) {
-      if ((s.nua[k - 1] < seuil) !== (s.nua[k] < seuil)) { bascule = k; break; }
+    for (let k = 1; k < w.n; k++) {
+      if ((w.nua[k - 1] < seuil) !== (w.nua[k] < seuil)) { bascule = dec + k; break; }
     }
-    poser("Ciel", `${bornes(s.nua)} %, ${motDe("nua", Math.max(...s.nua))} au plus`, h, d,
+    poser("Ciel", `${bornes(w.nua)} %, ${motDe("nua", Math.max(...w.nua))} au plus`, h, d,
       bascule < 0
-        ? `Ciel ${motDe("nua", s.nua[0])} sur toute la fenêtre.`
-        : `Ciel ${motDe("nua", s.nua[0])} jusqu'à ${HJ(bascule)}, `
+        ? `Ciel ${motDe("nua", w.nua[0])} sur toute la fenêtre.`
+        : `Ciel ${motDe("nua", w.nua[0])} jusqu'à ${HJ(bascule)}, `
           + `${motDe("nua", s.nua[bascule])} ensuite.`, cle, true);
   }
 
@@ -399,11 +542,15 @@ export function dessiner(s) {
     const hs = 0, hv = g ? H_VAL : 0, hb = hs + hv;
     const marge = (h - hb - (g ? H_TEMP * ZOOM : H_TEMP)) / 2;
     const y0 = hb + marge, y1 = h - marge;
+    /* L'échelle est commune à tout l'horizon, non propre à la fenêtre : recalée
+       à chaque glissement, la courbe se serait déformée sous le doigt et deux
+       journées n'auraient plus été comparables. Elle est donc prise sur les sept
+       jours, une fois pour toutes. */
     const tous = [...s.t, ...s.res, ...s.ros];
     let mn = Math.min(...tous), mx = Math.max(...tous);
     if (mx - mn < 4) { const c = (mn + mx) / 2; mn = c - 2; mx = c + 2; }
     const pas = mx - mn > 24 ? 10 : mx - mn > 10 ? 5 : 2;
-    const [tr, ch] = graduation(y0, y1, mn, mx, pas, d => `${Math.round(d)}°`);
+    const tr = graduation(y0, y1, mn, mx, pas, d => `${Math.round(d)}°`);
 
     /* La rampe se pose deux fois. En hauteur elle remplit la colonne du
        thermomètre, froide en bas, chaude en haut, et l'aire y puise sa teinte à
@@ -414,13 +561,16 @@ export function dessiner(s) {
       const v = mx - f * (mx - mn);
       return `<stop offset="${f}" stop-color="${couleurT(v)}"/>`;
     }).join("");
-    const arretsX = s.t.map((v, k) =>
-      `<stop offset="${(k / (s.n - 1)).toFixed(4)}" stop-color="${couleurT(v)}"/>`).join("");
+    const arretsX = [];
+    for (let k = kA; k <= kB; k++) {
+      arretsX.push(`<stop offset="${((k - kA) / Math.max(1, kB - kA)).toFixed(4)}" `
+        + `stop-color="${couleurT(s.t[k])}"/>`);
+    }
     const defs = `<defs>`
       + `<linearGradient id="mgTy" x1="0" y1="${u(y0)}" x2="0" y2="${u(y1)}" `
       + `gradientUnits="userSpaceOnUse">${arretsY}</linearGradient>`
-      + `<linearGradient id="mgTx" x1="${u(X(0.5))}" y1="0" x2="${u(X(s.n - 0.5))}" y2="0" `
-      + `gradientUnits="userSpaceOnUse">${arretsX}</linearGradient></defs>`;
+      + `<linearGradient id="mgTx" x1="${u(X(kA + 0.5))}" y1="0" x2="${u(X(kB + 0.5))}" y2="0" `
+      + `gradientUnits="userSpaceOnUse">${arretsX.join("")}</linearGradient></defs>`;
 
     let d = defs + fond(hb, h) + tr;
     d += `<path d="${aire(s.t, y0, y1, mn, mx)}" fill="url(#mgTy)" opacity=".28"/>`;
@@ -430,11 +580,10 @@ export function dessiner(s) {
       + `stroke-width="1" opacity=".42"/>`;
     d += `<polyline points="${pts(s.t, y0, y1, mn, mx)}" fill="none" stroke="url(#mgTx)" `
       + `stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
-    const kx = iMax(s.t), kn = iMin(s.t);
+    const kx = iMax(w.t), kn = iMin(w.t);
     d += marque(kx, yDe(s.t[kx], y0, y1, mn, mx)) + marque(kn, yDe(s.t[kn], y0, y1, mn, mx));
     if (g) d += valeurs(s.t, v => `${Math.round(v)}°`, hs + 9);
-    d += ch;
-    poser("Température", `${bornes(s.t)}°`, h, d,
+    poser("Température", `${bornes(w.t)}°`, h, d,
       `Minimum ${Math.round(s.t[kn])}° vers ${HJ(kn)}, maximum ${Math.round(s.t[kx])}° `
       + `vers ${HJ(kx)}. Trait fin le ressenti, pointillé le point de rosée.`, cle);
   }
@@ -443,10 +592,13 @@ export function dessiner(s) {
   {
     const cle = "mm";
     const g = grand(cle);
-    const tot = s.mm.reduce((a, b) => a + b, 0);
-    const h = tot >= 0.1 ? H(cle, 48) : 0;
-    const rx = Math.round(Math.max(...s.pb));
-    const pointe = Math.max(...s.mm);
+    const tot = w.mm.reduce((a, b) => a + b, 0);
+    /* La voie paraît dès qu'il pleut quelque part sur l'horizon, non seulement
+       dans la fenêtre : elle disparaîtrait sous le doigt à la première journée
+       sèche, et la pile des voies sauterait d'un cran à chaque glissement. */
+    const h = Math.max(...s.mm) >= 0.05 ? H(cle, 48) : 0;
+    const rx = Math.round(Math.max(...w.pb));
+    const pointe = Math.max(...w.mm);
     const droite = tot >= 0.1
       ? `${nombreFr(tot)} mm, ${motDe("mm", pointe)}`
       : rx >= 5 ? `risque ${rx} %` : "aucune";
@@ -454,30 +606,31 @@ export function dessiner(s) {
     else {
       const hs = 0, hv = g ? H_VAL : 0, hb = hs + hv;
       const y0 = hb + 3, y1 = h - 3;
-      const mx = Math.max(1, pointe * 1.15);
+      // Échelle commune à l'horizon, comme pour la température.
+      const mx = Math.max(1, Math.max(...s.mm) * 1.15);
       let d = fond(hb, h);
       /* Les bandes nommées tiennent lieu de graduation : une lame horaire en
          millimètres n'est pas un nombre qu'on porte en tête, « modérée » l'est. */
-      const [smTr, smNo] = seuils("mm", y0, y1, 0, mx, null, [["aire", s.mm]]);
-      d += smTr;
+      d += seuils("mm", y0, y1, 0, mx, null, [["aire", s.mm]]);
       /* Le risque passe derrière les barres, en aire très faible : deux
          questions sur une voie, combien et quelle chance. En pointillé par
          dessus, il traçait un trapèze qu'on prenait pour une seconde lame. */
-      if (rx >= 5) {
+      if (Math.max(...s.pb) >= 5) {
         d += `<path d="${aire(s.pb, y0, y1, 0, 100)}" fill="currentColor" opacity=".12"/>`;
       }
-      s.mm.forEach((v, k) => {
-        if (v < 0.05) return;
-        const hh = Math.max(1.5, (v / mx) * (y1 - y0));
+      for (let k = kA; k <= kB; k++) {
+        if (s.mm[k] < 0.05) continue;
+        const hh = Math.max(1.5, (s.mm[k] / mx) * (y1 - y0));
         d += `<rect x="${u(X(k) + LA * 0.16)}" y="${u(y1 - hh)}" width="${u(LA * 0.68)}" `
           + `height="${u(hh)}" rx="1" fill="currentColor" opacity=".6"/>`;
-      });
-      d += smNo;
+      }
       if (g) d += valeurs(s.mm, v => (v >= 0.1 ? nombreFr(v) : ""), hs + 9);
-      const quand = dire(plagesDe(s.n, k => s.mm[k] >= 0.1));
-      poser("Pluie", droite, h, d,
-        `${nombreFr(tot)} mm attendus, ${quand}. Risque maximal ${rx} %. `
-        + `L'aire pâle derrière les barres porte le risque, de zéro à cent pour cent.`, cle);
+      const quand = dire(plagesW(k => w.mm[k] >= 0.1));
+      poser("Pluie", droite, h, d, tot < 0.1
+        ? `Aucune pluie sur la fenêtre. Risque maximal ${rx} %. `
+          + `L'aire pâle derrière les barres porte le risque, de zéro à cent pour cent.`
+        : `${nombreFr(tot)} mm attendus, ${quand}. Risque maximal ${rx} %. `
+          + `L'aire pâle derrière les barres porte le risque, de zéro à cent pour cent.`, cle);
     }
   }
 
@@ -493,8 +646,7 @@ export function dessiner(s) {
     // Les bandes nommées tiennent lieu de graduation : cinq chiffres de plus
     // dans la gouttière ne diraient rien que « modéré » ne dise déjà.
     // C'est la rafale qui recouvre, elle passe au-dessus du vent.
-    const [svTr, svNo] = seuils("v", y0, y1, 0, mx, v => `${v}`, [["aire", s.v], ["trait", s.raf]]);
-    d += svTr;
+    d += seuils("v", y0, y1, 0, mx, v => `${v}`, [["aire", s.v], ["trait", s.raf]]);
     /* La rafale est l'enveloppe, le vent est le corps. Le pointillé disait la
        même chose une troisième fois : la position, au-dessus, et le
        remplissage, plein contre nu, suffisent à les distinguer. */
@@ -503,18 +655,17 @@ export function dessiner(s) {
       + `stroke-width="1.3" opacity=".55" stroke-linejoin="round"/>`;
     d += `<polyline points="${pts(s.v, y0, y1, 0, mx)}" fill="none" stroke="currentColor" `
       + `stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/>`;
-    const kr = iMax(s.raf);
+    const kr = iMax(w.raf);
     d += marque(kr, yDe(s.raf[kr], y0, y1, 0, mx));
-    d += svNo;
     if (hs) d += bande(g, k => flecheVent(s.dir[k]));
     if (g) d += valeurs(s.v, v => Math.round(v), hs + 9);
-    const rafMax = Math.round(Math.max(...s.raf));
-    const fortes = plagesDe(s.n, k => s.raf[k] >= 40);
-    poser("Vent", `${bornes(s.v)} km/h, ${motDe("v", Math.max(...s.v))}`, h, d,
+    const rafMax = Math.round(Math.max(...w.raf));
+    const fortes = plagesW(k => w.raf[k] >= 40);
+    poser("Vent", `${bornes(w.v)} km/h, ${motDe("v", Math.max(...w.v))}`, h, d,
       fortes.length
         ? `Rafales au-dessus de quarante ${dire(fortes)}, jusqu'à ${rafMax} km/h. `
-          + `Vent ${dCardinal(s.dir[0])} à l'heure en cours.`
-        : `Vent ${dCardinal(s.dir[0])} à l'heure en cours, rafales jusqu'à ${rafMax} km/h `
+          + `Vent ${dCardinal(w.dir[0])} en début de fenêtre.`
+        : `Vent ${dCardinal(w.dir[0])} en début de fenêtre, rafales jusqu'à ${rafMax} km/h `
           + `vers ${HJ(kr)}. Les flèches montrent où va le vent.`, cle);
   }
 
@@ -522,28 +673,27 @@ export function dessiner(s) {
   {
     const cle = "uv";
     const g = grand(cle);
-    const mxUV = Math.max(...s.uv);
-    const h = mxUV >= 0.5 ? H(cle, 48) : 0;
+    const mxUV = Math.max(...w.uv);
+    const h = Math.max(...s.uv) >= 0.5 ? H(cle, 48) : 0;
     if (!h) { poser("Indice UV", "nul", 0); }
     else {
       const hs = 0, hv = g ? H_VAL : 0, hb = hs + hv;
       const y0 = hb + 3, y1 = h - 3;
-      const mx = Math.max(3, Math.ceil(mxUV));
+      const mx = Math.max(3, Math.ceil(Math.max(...s.uv)));
       let d = fond(hb, h);
-      const [suTr, suNo] = seuils("uv", y0, y1, 0, mx, v => `${v}`, [["aire", s.uv]]);
-      d += suTr;
-      s.uv.forEach((v, k) => {
-        if (v < 0.1) return;
-        const hh = Math.max(1.2, (v / mx) * (y1 - y0));
+      d += seuils("uv", y0, y1, 0, mx, v => `${v}`, [["aire", s.uv]]);
+      for (let k = kA; k <= kB; k++) {
+        if (s.uv[k] < 0.1) continue;
+        const hh = Math.max(1.2, (s.uv[k] / mx) * (y1 - y0));
         d += `<rect x="${u(X(k) + LA * 0.16)}" y="${u(y1 - hh)}" width="${u(LA * 0.68)}" `
-          + `height="${u(hh)}" rx="1" fill="${couleurUV(v)}"/>`;
-      });
-      d += suNo;
-      const ku = iMax(s.uv);
+          + `height="${u(hh)}" rx="1" fill="${couleurUV(s.uv[k])}"/>`;
+      }
+      const ku = iMax(w.uv);
       d += marque(ku, yDe(s.uv[ku], y0, y1, 0, mx));
       if (g) d += valeurs(s.uv, v => (v >= 0.5 ? nombreFr(v) : ""), hs + 9);
-      const forts = plagesDe(s.n, k => s.uv[k] >= 3);
-      poser("Indice UV", `${nombreFr(mxUV)} au plus, ${motDe("uv", mxUV)}`, h, d,
+      const forts = plagesW(k => w.uv[k] >= 3);
+      poser("Indice UV",
+        mxUV >= 0.5 ? `${nombreFr(mxUV)} au plus, ${motDe("uv", mxUV)}` : "nul", h, d,
         forts.length
           ? `Protection recommandée ${dire(forts)}, indice ${nombreFr(mxUV)} vers ${HJ(ku)}.`
           : `Indice faible sur toute la fenêtre, ${nombreFr(mxUV)} au plus vers ${HJ(ku)}.`, cle);
@@ -562,17 +712,15 @@ export function dessiner(s) {
        dessinait sinon une ligne plate au sommet de sa voie. */
     const mn = Math.min(60, Math.floor(Math.min(...s.hum) / 10) * 10);
     let d = fond(hb, h);
-    const [shTr, shNo] = seuils("hum", y0, y1, mn, 100, v => `${v}`, [["aire", s.hum]]);
-    d += shTr;
+    d += seuils("hum", y0, y1, mn, 100, v => `${v}`, [["aire", s.hum]]);
     d += `<path d="${aire(s.hum, y0, y1, mn, 100)}" fill="currentColor" opacity=".14"/>`;
     d += `<polyline points="${pts(s.hum, y0, y1, mn, 100)}" fill="none" stroke="currentColor" `
       + `stroke-width="1.7" stroke-linejoin="round"/>`;
-    d += shNo;
-    const kh = iMax(s.hum);
+    const kh = iMax(w.hum);
     d += marque(kh, yDe(s.hum[kh], y0, y1, mn, 100));
     if (g) d += valeurs(s.hum, v => Math.round(v), hs + 9);
-    const satures = plagesDe(s.n, k => s.hum[k] >= 90);
-    poser("Humidité", `${bornes(s.hum)} %, ${motDe("hum", Math.max(...s.hum))} au plus`, h, d,
+    const satures = plagesW(k => w.hum[k] >= 90);
+    poser("Humidité", `${bornes(w.hum)} %, ${motDe("hum", Math.max(...w.hum))} au plus`, h, d,
       satures.length
         ? `Air saturé ${dire(satures)} : le feuillage reste mouillé.`
         : `Maximum ${Math.round(s.hum[kh])} % vers ${HJ(kh)}, sans saturation.`, cle);
@@ -593,10 +741,10 @@ export function dessiner(s) {
     d += `<path d="${aire(s.pres, y0, y1, mn, mx)}" fill="currentColor" opacity=".10"/>`;
     d += `<polyline points="${pts(s.pres, y0, y1, mn, mx)}" fill="none" stroke="currentColor" `
       + `stroke-width="1.7" stroke-linejoin="round"/>`;
-    const kx = iMax(s.pres), kn = iMin(s.pres);
+    const kx = iMax(w.pres), kn = iMin(w.pres);
     d += marque(kx, yDe(s.pres[kx], y0, y1, mn, mx)) + marque(kn, yDe(s.pres[kn], y0, y1, mn, mx));
-    d += chiffre(y0 + 4, `${Math.round(mx)}`);
-    d += chiffre(y1, `${Math.round(mn)}`);
+    chiffre(y0 + 4, `${Math.round(mx)}`);
+    chiffre(y1, `${Math.round(mn)}`);
     /* La tendance heure par heure, en flèches : c'est le sens du mouvement
        qu'on demande à une pression, non sa valeur absolue. */
     if (hs) {
@@ -606,19 +754,57 @@ export function dessiner(s) {
     /* « Stable » se disait sur la seule différence entre le premier et le dernier
        point, ce qui manquait un creux au milieu. La tendance regarde l'écart le
        plus large de la fenêtre. */
-    const ecart = Math.max(...s.pres) - Math.min(...s.pres);
-    const sens = s.pres[s.n - 1] - s.pres[0];
+    const ecart = Math.max(...w.pres) - Math.min(...w.pres);
+    const sens = w.pres[w.n - 1] - w.pres[0];
     const tend = ecart < 2 ? "stable"
       : Math.abs(sens) < 1.5 ? "variable"
       : sens > 0 ? "en hausse" : "en baisse";
-    poser("Pression", `${Math.round(s.pres[0])} hPa, ${tend}`, h, d,
+    poser("Pression", `${Math.round(w.pres[0])} hPa, ${tend}`, h, d,
       tend === "stable"
-        ? `Stable autour de ${Math.round(s.pres[0])} hPa : pas de changement annoncé.`
+        ? `Stable autour de ${Math.round(w.pres[0])} hPa : pas de changement annoncé.`
         : `${Math.round(ecart)} hPa d'écart sur la fenêtre, creux vers ${HJ(kn)}. `
           + `Une baisse marquée annonce une dégradation.`, cle);
   }
 
-  return `<div class="mg">${voies.join("")}</div>${axeSvg()}`;
+  /* La barre de commande, en tête du ruban. Deux flèches font le saut d'une
+     journée, le doigt fait le reste. Le libellé au centre dit la fenêtre lue et
+     ramène à l'heure en cours d'un appui : parti à cinq jours, on n'a pas à
+     refaire cinq glissements pour revenir. Calé sur maintenant, il n'a nulle
+     part où ramener et ne se laisse plus presser. */
+  /* La borne haute du libellé tombe une heure après le dernier point de la
+     fenêtre. Au bout de l'horizon cette heure n'a plus d'indice dans la série :
+     elle se calcule, sans quoi la dernière fenêtre s'annonçait « lun 00 h à lun
+     23 h » là où elle porte bien une journée pleine. */
+  const kFin = Math.min(s.n - 1, dec + FEN - 1);
+  const dFin = new Date(`${s.jour[kFin]}T00:00:00`);
+  dFin.setHours(s.heure[kFin] + 1);
+  const jFin = cleJour(dFin);
+  const eFin = ecartJours(s.jour[0], jFin);
+  const motFin = eFin <= 0 ? ""
+    : eFin < MOTS_JOUR.length ? MOTS_JOUR[eFin] : `${jourCourt(jFin)} `;
+  const lib = `${HJ(dec)} à ${motFin}${heureTxt(dFin.getHours())}`;
+  const chev = droite => `<svg viewBox="0 0 24 24" aria-hidden="true">`
+    + `<path d="${droite ? "M9 5l7 7-7 7" : "M15 5l-7 7 7 7"}" fill="none" `
+    + `stroke="currentColor" stroke-width="2.2" stroke-linecap="round" `
+    + `stroke-linejoin="round"/></svg>`;
+  const saut = (h, droite, dit) => {
+    const mort = h < 0 ? dec <= 0 : dec >= s.n - FEN;
+    return `<button type="button" class="mg-sa" data-glisse="${h}" `
+      + `aria-label="${esc(dit)}"${mort ? " disabled" : ""}>${chev(droite)}</button>`;
+  };
+  /* Calé sur maintenant, le libellé n'est pas un bouton désactivé mais un
+     simple texte : l'état désactivé se porte à trente-huit pour cent d'opacité,
+     et la fenêtre lue serait devenue illisible au repos, c'est-à-dire presque
+     toujours. La hauteur de touche est réservée dans les deux cas, la barre ne
+     change donc pas de taille quand la seconde ligne paraît. */
+  const centre = ancre
+    ? `<span class="mg-fen"><span class="mg-fenl">${esc(lib)}</span></span>`
+    : `<button type="button" class="mg-fen mg-loin" data-maintenant="1">`
+      + `<span class="mg-fenl">${esc(lib)}</span><i>Revenir à maintenant</i></button>`;
+  const nav = `<div class="mg-nav">${saut(-24, false, "Vingt-quatre heures plus tôt")}`
+    + `${centre}${saut(24, true, "Vingt-quatre heures plus tard")}</div>`;
+
+  return `${nav}<div class="mg">${voies.join("")}</div>${axeSvg()}`;
 }
 
 /* Lecture au doigt. Le montant est posé dès le dessin, replié : le faire naître
@@ -626,10 +812,16 @@ export function dessiner(s) {
 export function brancher(bloc, surVoie) {
   const s = serie;
   if (!s) return;
+  const FEN = fenetre();
+  const dec = decalage;
+  const LA = P / FEN;
+  const X = k => M + ((k - dec) / FEN) * P;
 
   const lire = k => {
     heureLue = k;
-    const prefixe = s.jour[k] !== s.jour[0] ? "demain " : "";
+    const e = ecartJours(s.jour[0], s.jour[k]);
+    const prefixe = e <= 0 ? ""
+      : e < MOTS_JOUR.length ? MOTS_JOUR[e] : `${jourCourt(s.jour[k])} `;
     const lit = {
       t: `${prefixe}${heureTxt(s.heure[k])}, ${Math.round(s.t[k])}°`,
       mm: s.mm[k] >= 0.1
@@ -649,7 +841,7 @@ export function brancher(bloc, surVoie) {
       const cur = v.querySelector(".mg-cur");
       if (cur) {
         const svg = cur.closest("svg");
-        const x = M + ((k + 0.5) / s.n) * P;
+        const x = X(k + 0.5);
         cur.setAttribute("x1", x); cur.setAttribute("x2", x);
         /* `hidden` est une propriété de HTMLElement, non de SVGElement :
            l'affecter sur une ligne SVG posait une propriété sans effet et
@@ -672,59 +864,106 @@ export function brancher(bloc, surVoie) {
   };
 
   const kDe = ev => {
-    const svg = ev.currentTarget;
-    const b = svg.getBoundingClientRect();
-    const px = (ev.touches ? ev.touches[0].clientX : ev.clientX) - b.left;
-    const rel = (px / b.width) * L;
-    return Math.max(0, Math.min(s.n - 1, Math.floor(((rel - M) / P) * s.n)));
+    const b = ev.currentTarget.getBoundingClientRect();
+    const rel = ((ev.clientX - b.left) / b.width) * L;
+    return Math.max(0, Math.min(s.n - 1, dec + Math.floor(((rel - M) / P) * FEN)));
   };
 
-  /* Lecture au doigt, et défilement de la page, sur la même surface.
+  /* Le glissement porte sur tout le ruban, non sur la seule voie touchée : les
+     sept voies partagent un axe, en décaler une seule le romprait. Chaque voie
+     ne translate donc pas pour son compte, c'est le groupe mobile de chacune qui
+     reçoit le même déport. Le dessin se refait au relâchement, à l'heure
+     entière : pendant le geste, une translation suffit. */
+  const mobiles = [...bloc.querySelectorAll(".mg-mob")];
+  const deporter = px => {
+    for (const m of mobiles) {
+      m.setAttribute("transform", px ? `translate(${px.toFixed(2)},0)` : "");
+    }
+  };
 
-     Le geste n'est pas tranché à l'appui : il l'est au premier déplacement franc,
-     et une fois tranché il ne se remet pas en cause. La lecture accepte donc un
-     déplacement oblique jusqu'à quarante degrés de l'horizontale, ce qu'un doigt
-     fait naturellement en suivant une courbe. Au delà, la page défile et la
-     lecture se retire.
+  /* Trois issues pour un même appui, tranchées sans jamais se reprendre.
+
+     Le déplacement franc décide en premier : à l'horizontale le ruban glisse, à
+     la verticale la page défile et l'appui est oublié. Sans déplacement, un
+     quart de seconde d'appui maintenu ouvre la lecture, qui suit ensuite le
+     doigt où qu'il aille. Un appui bref ne fait donc rien, et c'est voulu : la
+     lecture et le glissement se disputaient le même geste, l'un finissait
+     toujours par déclencher l'autre.
 
      `touch-action: pan-y` laisse le navigateur mener le défilement vertical, ce
-     qui reste plus fluide que de le simuler. */
+     qui reste plus fluide que de le simuler, et nous réserve l'horizontale. */
   const TANGENTE = Math.tan(40 * Math.PI / 180);
   const SEUIL = 8;
+  const TENUE = 250;
 
   for (const svg of bloc.querySelectorAll(".mg-s")) {
-    let x0 = 0, y0 = 0, mode = null;
+    let x0 = 0, y0 = 0, mode = null, minuteur = 0, kAppui = 0;
 
     svg.addEventListener("pointerdown", ev => {
       x0 = ev.clientX; y0 = ev.clientY; mode = null;
-      lire(kDe(ev));
+      kAppui = kDe(ev);
+      clearTimeout(minuteur);
+      minuteur = setTimeout(() => {
+        if (mode !== null) return;
+        mode = "lit";
+        try { svg.setPointerCapture(ev.pointerId); } catch { /* souris déjà prise */ }
+        lire(kAppui);
+      }, TENUE);
     });
 
     svg.addEventListener("pointermove", ev => {
       if (!ev.buttons) return;
       const dx = ev.clientX - x0, dy = ev.clientY - y0;
       if (mode === null) {
-        if (Math.hypot(dx, dy) < SEUIL) { lire(kDe(ev)); return; }
-        mode = Math.abs(dy) <= Math.abs(dx) * TANGENTE ? "lit" : "defile";
-        if (mode === "defile") { relacher(); return; }
-        try { svg.setPointerCapture(ev.pointerId); } catch { /* souris déjà capturée */ }
+        if (Math.hypot(dx, dy) < SEUIL) return;
+        clearTimeout(minuteur);
+        mode = Math.abs(dy) <= Math.abs(dx) * TANGENTE ? "glisse" : "defile";
+        if (mode === "defile") return;
+        try { svg.setPointerCapture(ev.pointerId); } catch { /* souris déjà prise */ }
+        relacher();
       }
-      if (mode !== "lit") return;
+      if (mode === "lit") { ev.preventDefault(); lire(kDe(ev)); return; }
+      if (mode !== "glisse") return;
       ev.preventDefault();
-      lire(kDe(ev));
+      // Le déport se compte en unités du dessin, non en pixels d'écran.
+      deporter((dx / svg.getBoundingClientRect().width) * L);
     });
 
-    const fin = () => { mode = null; relacher(); };
+    const fin = ev => {
+      clearTimeout(minuteur);
+      const g = mode === "glisse";
+      const dx = ev && ev.clientX !== undefined ? ev.clientX - x0 : 0;
+      mode = null;
+      relacher();
+      if (!g) return;
+      const px = (dx / svg.getBoundingClientRect().width) * L;
+      const h = Math.round(-px / LA);
+      deporter(0);
+      if (!h) return;
+      glisser(h);
+      surVoie();
+    };
     svg.addEventListener("pointerup", fin);
     svg.addEventListener("pointercancel", fin);
 
     /* La prise du pointeur fait sortir le curseur de l'élément aux yeux du
        navigateur, qui émet aussitôt un `pointerleave`. Le traiter comme une fin
        de geste coupait la lecture au premier déplacement. */
-    svg.addEventListener("pointerleave", () => { if (mode !== "lit") fin(); });
+    svg.addEventListener("pointerleave", ev => {
+      if (mode === null) { clearTimeout(minuteur); return; }
+      if (mode !== "lit" && mode !== "glisse") fin(ev);
+    });
   }
 
   for (const b of bloc.querySelectorAll(".mg-b")) {
     b.addEventListener("click", () => { ouvrir(b.dataset.voie); surVoie(); });
+  }
+
+  for (const b of bloc.querySelectorAll("[data-glisse]")) {
+    b.addEventListener("click", () => { glisser(Number(b.dataset.glisse)); surVoie(); });
+  }
+
+  for (const b of bloc.querySelectorAll("[data-maintenant]")) {
+    b.addEventListener("click", () => { auMaintenant(); surVoie(); });
   }
 }
