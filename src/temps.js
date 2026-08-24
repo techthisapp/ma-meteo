@@ -20,6 +20,13 @@ const borne = (v, a, b) => Math.max(a, Math.min(b, v));
 const NOIR = [14, 18, 26];
 const NUIT_CLAIR = [66, 77, 100];
 const NUIT_SOMBRE = [29, 34, 48];
+const BLANC_CIEL = [238, 242, 248];
+
+const luma = v => 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+const griser = (v, k) => {
+  const l = Math.round(luma(v));
+  return melangeRVB(v, [l, l, l], k);
+};
 
 /* ---------- De la prévision aux grandeurs du dessin ---------- */
 
@@ -74,6 +81,43 @@ export function depuis(code, nua, mm) {
 export const SEUIL_VOILE = 0.8;
 export const voileDe = p => Math.min(0.96, p.nappe * 0.92 + p.brouillard * 0.78);
 
+/* Le plomb du ciel vient de l'eau que la couche porte, non de sa fermeture.
+   Les deux étaient confondus : une couche fermée poussait à quatre-vingt-douze
+   pour cent vers le noir, et un couvert sec de plein jour devenait un mur
+   d'ardoise. Un plafond fermé sans pluie est au contraire une grande source
+   diffuse, très claire. Ce qui l'assombrit, c'est la lame d'eau, l'orage, et
+   accessoirement l'épaisseur de la couche. */
+export const plombDe = p => Math.min(1,
+  p.nappe * 0.20 + (p.genre === "pluie" ? 0.34 : p.genre ? 0.20 : 0)
+  + p.lame * 0.055 + (p.orage ? 0.22 : 0)) * (1 - 0.85 * p.brouillard);
+
+/* La descente du plafond. Le bord festonné n'a de sens que tant que la couche
+   se déchire : on ne passe sous un plafond que par ses trous. Fermé, il remplit
+   le champ, et la bande de ciel nu qu'il laissait sous lui faisait lire le
+   panneau comme une mer grise vue d'avion. Le bord glisse donc hors du cadre à
+   mesure que la couverture se ferme. */
+export const fermetureDe = p => borne((p.nappe - 0.45) / 0.55, 0, 1);
+
+/* Les rayons des deux disques, en points, tels que les peignent `feu.js` et
+   `relief.js` sur leur toile de trois cents. La lueur qui traverse la couche
+   s'en sert pour donner au disque deviné la taille du vrai. */
+export const RAYON_ASTRE = { soleil: 57, lune: 46.5 };
+
+/* La clarté du ciel peint, au bas du panneau, de zéro à un. Le titre est écrit
+   en blanc dessus : les voiles de lisibilité doivent donc savoir sur quoi ils
+   tombent. Un plafond de plein jour est clair, et les voiles calibrés pour un
+   ciel bleu n'y suffisaient plus, le nom du jour passant à deux virgule quatre
+   de contraste. */
+export function clarteDe(ciel, p) {
+  /* Sans plafond, rien à compenser : le ciel nu et sa brume d'horizon étaient
+     déjà la surface sur laquelle les voiles ont été réglés. C'est la couche qui
+     change la donne, et seulement elle. */
+  const part = borne((p.nappe - 0.35) / 0.35, 0, 1);
+  if (!part) return 0;
+  const c = couleurs(ciel, Math.max(p.cumulus, p.nappe), plombDe(p));
+  return borne(part * luma(melangeRVB(c.clair, c.sombre, 0.28)) / 255, 0, 1);
+}
+
 /* Écrit les grandeurs sur la toile. La toile porte tout ce qu'il faut pour se
    peindre : la boucle n'a pas d'état à retenir entre deux rendus d'écran. */
 export function attributs(p, ciel, vent, astre) {
@@ -126,6 +170,18 @@ function couleurs(ciel, couv, sombreur) {
   let clair = melangeRVB(ciel.basRVB, blanc, Math.max(0, 0.88 - 0.28 * couv));
   let sombre = melangeRVB(ciel.hautRVB, blanc, Math.max(0, 0.16 - 0.10 * couv));
 
+  /* Une couche fermée ne porte pas de couleur, elle diffuse. Le bleu du zénith
+     la traversait presque intact et faisait, de jour, une teinte d'ardoise là où
+     un ciel couvert est un gris neutre et lumineux. Elle se désature donc et se
+     relève à mesure qu'elle se ferme. De nuit rien de tel : c'est le
+     renversement ci-dessous qui l'éclaire. */
+  const jour = 1 - n;
+  if (couv > 0.45 && jour > 0.01) {
+    const k = Math.min(1, (couv - 0.45) / 0.45) * jour;
+    clair = melangeRVB(griser(clair, 0.58 * k), BLANC_CIEL, 0.30 * k);
+    sombre = melangeRVB(griser(sombre, 0.72 * k), BLANC_CIEL, 0.16 * k);
+  }
+
   /* De nuit le nuage ne prend plus sa couleur du ciel : il reste plus clair que
      lui, éclairé par en dessous. Sans ce renversement, une nuit couverte ne
      serait qu'un rectangle noir. */
@@ -162,7 +218,7 @@ export function fond(ciel, p) {
   const couv = Math.max(p.cumulus, p.nappe);
   /* Le plomb est de moitié : sur une bande de soixante points il n'y a ni base
      claire ni horizon pour le compenser, et un ciel de pluie y virait au noir. */
-  const sombreur = Math.min(1, p.nappe * 0.92 + p.lame / 28) * (1 - 0.85 * p.brouillard) * 0.5;
+  const sombreur = plombDe(p) * 0.5;
   const c = couleurs(ciel, couv, sombreur);
   const k = p.nappe;
   const rvb = v => `rgb(${v[0]},${v[1]},${v[2]})`;
@@ -267,7 +323,7 @@ function ajuster(formes, L, H, marge) {
 const MOTIFS = new Map();
 const MARGE = 16;
 
-function motifs(cle, c) {
+function motifs(cle, c, fer) {
   if (MOTIFS.has(cle)) return MOTIFS.get(cle);
   let graine = 20260821;
   const alea = () => (graine = (graine * 1664525 + 1013904223) >>> 0) / 4294967296;
@@ -378,11 +434,25 @@ function motifs(cle, c) {
     lobes.push([u, rx, ry, (alea() - 0.35) * rx * 0.45]);
   }
 
-  /* Quelques taches larges et molles dans le corps de la couche. Un plafond
-     n'est pas une teinte plate : il est marbré, sans arêtes. */
-  const taches = [];
-  for (let b = 0; b < 6; b++) {
-    taches.push([alea(), NH * (0.16 + alea() * 0.24), NH * (0.20 + alea() * 0.30)]);
+  /* Des trainées dans le corps de la couche, longues, molles, claires et
+     sombres. Un plafond vu du sol n'est pas une teinte plate : il est marbré
+     dans le sens du vent, sans arêtes. Six taches rondes à dix pour cent
+     d'opacité, sur un motif de sept cent vingt points ramené au panneau,
+     disparaissaient purement et simplement. */
+  /* Deux échelles, parce qu'un plafond en a deux : de longues ondes qui font sa
+     structure, et un grain plus fin par-dessus qui l'empêche de se lire comme du
+     métal poli. Une seule échelle, si contrastée soit-elle, ne donne qu'un
+     dégradé sale. */
+  const trainees = [];
+  for (let b = 0; b < 32; b++) {
+    const rx = NH * (0.13 + alea() * 0.20);
+    trainees.push([alea(), rx, rx * (0.16 + alea() * 0.22),
+      NH * (0.02 + alea() * 0.62), alea() < 0.45, 0.30, 0.13]);
+  }
+  for (let b = 0; b < 96; b++) {
+    const rx = NH * (0.035 + alea() * 0.045);
+    trainees.push([alea(), rx, rx * (0.26 + alea() * 0.34),
+      NH * (0.02 + alea() * 0.64), alea() < 0.5, 0.20, 0.08]);
   }
 
   const nappe = masse(NL, NH, q => {
@@ -404,14 +474,14 @@ function motifs(cle, c) {
        couche, qui autrement se lirait comme un simple bandeau. Le modelé suit
        leur forme aplatie, et reste léger : ils sont deux fois plus nombreux
        qu'avant et se superposent. */
-    const ombre = (cx, cy, rx, ry, a0, a1) => {
+    const tache = (cx, cy, rx, ry, coul, a0, a1) => {
       x.save();
       x.translate(cx, cy);
-      x.scale(1, Math.max(0.14, ry / rx));
+      x.scale(1, Math.max(0.10, ry / rx));
       const g = x.createRadialGradient(0, 0, 0, 0, 0, rx * 1.15);
-      g.addColorStop(0, rgba(c.sombre, a0));
-      g.addColorStop(0.55, rgba(c.sombre, a1));
-      g.addColorStop(1, rgba(c.sombre, 0));
+      g.addColorStop(0, rgba(coul, a0));
+      g.addColorStop(0.55, rgba(coul, a1));
+      g.addColorStop(1, rgba(coul, 0));
       x.fillStyle = g;
       x.fillRect(-rx * 1.2, -rx * 1.2, rx * 2.4, rx * 2.4);
       x.restore();
@@ -421,16 +491,18 @@ function motifs(cle, c) {
       for (const t of [-1, 0, 1]) {
         const bx = (u + t) * NL, by = base(u) - ry * 0.55 + dy;
         if (bx < -rx * 2 || bx > NL + rx * 2) continue;
-        ombre(bx, by + ry * 0.5, rx, ry, 0.26, 0.13);
+        tache(bx, by + ry * 0.5, rx, ry, c.sombre, 0.26, 0.13);
       }
     }
 
-    // Le marbré du plafond, très large et très faible.
-    for (const [u, rx, ry] of taches) {
+    /* Le marbré du plafond. Les trainées claires comptent autant que les
+       sombres : c'est leur alternance qui fait lire une couche, une suite
+       d'ombres seules ne faisant qu'un dégradé sale. */
+    for (const [u, rx, ry, ty, claire, a0, a1] of trainees) {
       for (const t of [-1, 0, 1]) {
         const bx = (u + t) * NL;
         if (bx < -rx * 2 || bx > NL + rx * 2) continue;
-        ombre(bx, NH * (0.30 + u * 0.28), rx, ry, 0.10, 0.05);
+        tache(bx, ty, rx, ry, claire ? c.clair : c.sombre, a0, a1);
       }
     }
 
@@ -452,8 +524,12 @@ function motifs(cle, c) {
     x.fillStyle = f;
     x.fillRect(0, NH * 0.60, NL, NH * 0.33);
     x.restore();
+    /* Le dégradé du ventre couvre la hauteur qu'on voit d'elle, non la hauteur
+       du motif. Fermée, la couche est agrandie et son bord passe sous le cadre :
+       le panneau ne montrait plus que le premier tiers de la rampe, et cette
+       tranche étroite se lisait comme un aplat. */
   }, 9, melangeRVB(c.clair, c.sombre, 0.86), melangeRVB(c.clair, c.sombre, 0.28),
-    0, NH * 0.78, ND);
+    0, NH * (0.78 - 0.21 * fer), ND);
 
   const out = { cumulus, nappe };
   if (MOTIFS.size > 6) MOTIFS.delete(MOTIFS.keys().next().value);
@@ -494,13 +570,14 @@ export function dessiner(cv, t) {
   const d = lire(cv);
   const ciel = d.ciel;
   const couv = Math.max(d.cumulus, d.nappe);
-  /* Le plomb vient de la couche et de la lame d'eau. Le brouillard l'annule :
-     une brume est laiteuse, elle éclaire au lieu d'assombrir. */
-  const sombreur = Math.min(1, d.nappe * 0.92 + d.lame / 28) * (1 - 0.85 * d.brouillard);
+  /* Le plomb vient de l'eau, non de la fermeture. Le brouillard l'annule : une
+     brume est laiteuse, elle éclaire au lieu d'assombrir. */
+  const sombreur = plombDe(d);
   const c = couleurs(ciel, couv, sombreur);
+  const fer = fermetureDe(d);
   const cle = `${Math.round(couv * 8)}:${Math.round(sombreur * 8)}:`
-    + `${Math.round(ciel.nuit * 6)}:${Math.round(ciel.chaud * 6)}`;
-  const m = motifs(cle, c);
+    + `${Math.round(ciel.nuit * 6)}:${Math.round(ciel.chaud * 6)}:${Math.round(fer * 4)}`;
+  const m = motifs(cle, c, Math.round(fer * 4) / 4);
 
   /* Le vent donne la dérive : cent kilomètres par heure traversent le ciel en
      une vingtaine de secondes, ce qui se voit sans agiter. */
@@ -538,35 +615,68 @@ export function dessiner(cv, t) {
      lambeaux bas courent sous la couche, c'est ce qui la situe en hauteur. */
   if (d.nappe > 0) {
     const np = m.nappe;
-    const haut = H * 0.98;
+    /* Le bord de la couche descend hors du cadre à mesure qu'elle se ferme, et
+       le motif grandit d'autant : ce qu'on voit alors n'est plus une couche
+       posée dans le ciel mais son ventre, sombre au zénith et clair vers
+       l'horizon, ce qu'est un plafond vu du sol. Le marbré y gagne la taille
+       qui lui manquait. */
+    const bord = H * (0.66 + 0.62 * fer);
+    const yy = -H * 0.05;
+    // Le motif porte sa ligne de base aux soixante-douze centièmes de sa hauteur.
+    const haut = (bord - yy) / 0.72;
     const larg = haut * (np.width / np.height);
-    const yy = -H * 0.06;
     const dx = ((t * derive * 0.34) % larg) - larg;
     x.save();
     x.globalAlpha = d.nappe;
-    for (let i = 0; i < 3; i++) x.drawImage(np, dx + larg * i, yy, larg, haut);
+    for (let i = 0; i < Math.ceil(L / larg) + 2; i++) {
+      x.drawImage(np, dx + larg * i, yy, larg, haut);
+    }
     x.restore();
   }
 
-  /* La lumière de l'astre traversant la couche. Sous une couche fermée on ne
-     voit plus le Soleil, on voit l'endroit où il est. */
+  /* La lumière de l'astre traversant la couche. Sous un plafond fermé on ne voit
+     plus le disque, mais on voit parfaitement où il est : la couche s'y éclaire
+     en une tache large, avec un cœur plus vif, et le disque lui-même se devine
+     tant que la couche reste mince. Une seule nappe de lumière étalée sur tout
+     le panneau, à douze pour cent d'opacité, ne se voyait pas du tout. */
   const voile = voileDe(d);
-  if (d.astre && voile > 0.2) {
+  if (d.astre && voile > 0.12) {
     const ax = d.astre.x * L, ay = d.astre.y * H;
     const nuit = d.astre.sorte === "lune";
-    const r = Math.max(L, H) * (0.42 + 0.34 * voile);
+    const R = RAYON_ASTRE[nuit ? "lune" : "soleil"];
     const teinte = nuit
-      ? [206, 220, 244]
-      : melangeRVB([255, 250, 232], [255, 214, 158], ciel.chaud);
-    const force = (nuit ? 0.13 : 0.22) * voile * (1 - 0.42 * sombreur);
-    const g = x.createRadialGradient(ax, ay, 0, ax, ay, r);
-    g.addColorStop(0, rgba(teinte, force));
-    g.addColorStop(0.42, rgba(teinte, force * 0.40));
-    g.addColorStop(1, rgba(teinte, 0));
+      ? [214, 226, 246]
+      : melangeRVB([255, 250, 230], [255, 208, 150], ciel.chaud);
+    /* Le plomb éteint la lumière : sous un ciel de pluie battante, le Soleil ne
+       perce plus, et c'est bien ce qu'on observe. */
+    const passe = voile * (1 - 0.72 * sombreur) * (nuit ? 0.58 : 1);
+    const pose = (r, a0, a1) => {
+      const g = x.createRadialGradient(ax, ay, 0, ax, ay, r);
+      g.addColorStop(0, rgba(teinte, a0));
+      g.addColorStop(0.38, rgba(teinte, a1));
+      g.addColorStop(1, rgba(teinte, 0));
+      x.fillStyle = g;
+      x.fillRect(0, 0, L, H);
+    };
     x.save();
     x.globalCompositeOperation = "lighter";
-    x.fillStyle = g;
-    x.fillRect(0, 0, L, H);
+    pose(Math.hypot(L, H) * 0.78, 0.060 * passe, 0.026 * passe);
+    pose(R * 4.4, 0.100 * passe, 0.038 * passe);
+    /* Le disque qu'on devine. Il ne paraît qu'au delà du seuil où la vue cesse
+       de dessiner l'astre : en deçà, le vrai disque est là et il y en aurait
+       deux. Il en reprend le rayon, et son bord reste très mou : un disque net
+       au travers d'un plafond se lirait comme un trou. */
+    if (voile >= SEUIL_VOILE) {
+      const epais = Math.min(1, (voile - SEUIL_VOILE) / 0.15);
+      const a = 0.155 * passe * (1 - 0.45 * epais);
+      const g = x.createRadialGradient(ax, ay, 0, ax, ay, R * 1.75);
+      g.addColorStop(0, rgba(teinte, a));
+      g.addColorStop(0.46, rgba(teinte, a * 0.84));
+      g.addColorStop(0.70, rgba(teinte, a * 0.28));
+      g.addColorStop(1, rgba(teinte, 0));
+      x.fillStyle = g;
+      x.fillRect(0, 0, L, H);
+    }
     x.restore();
   }
 

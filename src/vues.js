@@ -390,10 +390,14 @@ const PANNEAU = 306 / 390;
 /* Le panneau, commun aux trois bandeaux. Il ne sait rien des astres qu'il
    porte : chacun lui passe sa place et sa toile. Il en prend un, deux, ou
    aucun, le dernier de la liste étant devant. */
-function panneauCiel(c, astres, temps = "") {
+/* `clarte` dit sur quoi le titre s'écrit : zéro pour un ciel de nuit, près d'un
+   pour un plafond de plein jour. Les voiles de lisibilité et l'ombre du titre
+   s'y règlent. */
+function panneauCiel(c, astres, temps = "", clarte = 0) {
   return `<div class="ci" style="`
     + `--ci-haut:${c.haut};--ci-bas:${c.bas};--ci-sol-haut:${c.solHaut};--ci-sol:${c.sol};`
-    + `--ci-nuit:${c.nuit.toFixed(2)};--ci-jour:${c.jour.toFixed(2)}">`
+    + `--ci-nuit:${c.nuit.toFixed(2)};--ci-jour:${c.jour.toFixed(2)};`
+    + `--ci-clarte:${clarte.toFixed(3)}">`
     + `<div class="ci-etoiles" aria-hidden="true">${ETOILES}</div>`
     + astres.filter(a => a.corps).map(a =>
       `<div class="ci-astre${a.sous ? " sous" : ""}" `
@@ -523,7 +527,7 @@ export function bandeauAccueil(g, maintenant, p, vent) {
     : { sorte: "lune", x: xl / 100, y: yl / 100 };
   const toile = `<canvas class="ci-temps" id="ciTemps" aria-hidden="true" `
     + Temps.attributs(p, c, vent, astre) + `></canvas>`;
-  return panneauCiel(c, astres, toile);
+  return panneauCiel(c, astres, toile, Temps.clarteDe(c, p));
 }
 
 /* La trajectoire du jour : la hauteur du Soleil de minuit à minuit. Le trait

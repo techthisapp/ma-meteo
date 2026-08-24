@@ -1058,13 +1058,23 @@ button.rangee:active{background:var(--surface-2)}
 
 /* Voiles de lisibilité : le texte blanc doit tenir sur un ciel de midi comme
    sur un ciel de minuit. */
+/* Voiles de lisibilité : le texte blanc doit tenir sur un ciel de midi comme
+   sur un ciel de minuit, et désormais aussi sur un plafond de plein jour, qui
+   est la surface la plus claire des trois. Ils se règlent donc sur `--ci-clarte`,
+   la clarté du ciel réellement peint : calibrés une fois pour toutes sur un ciel
+   bleu, ils laissaient le nom du jour à deux virgule quatre de contraste sous un
+   ciel couvert. */
 .ci-voile-haut{
   position:absolute;left:0;right:0;top:0;height:34%;z-index:1;
-  background:linear-gradient(180deg,rgba(4,8,16,.42),rgba(4,8,16,0));
+  background:linear-gradient(180deg,
+    rgba(4,8,16,calc(.42 + .16 * var(--ci-clarte,0))),rgba(4,8,16,0));
 }
 .ci-voile-bas{
-  position:absolute;left:0;right:0;bottom:0;height:48%;z-index:1;
-  background:linear-gradient(0deg,rgba(4,8,16,.56) 0%,rgba(4,8,16,.26) 44%,rgba(4,8,16,0) 100%);
+  position:absolute;left:0;right:0;bottom:0;height:52%;z-index:1;
+  background:linear-gradient(0deg,
+    rgba(4,8,16,calc(.56 + .22 * var(--ci-clarte,0))) 0%,
+    rgba(4,8,16,calc(.26 + .34 * var(--ci-clarte,0))) 46%,
+    rgba(4,8,16,0) 100%);
 }
 
 /* L'astre : boîte de dimension nulle posée à la place calculée du Soleil, la
@@ -1080,10 +1090,13 @@ button.rangee:active{background:var(--surface-2)}
 /* Sous une couche mince l'astre pâlit et se dilue. Au-delà du seuil, la vue ne
    le dessine plus du tout : un disque pâle resterait suspendu au travers du
    plafond. */
+/* Le disque perd aussi sa couleur, non seulement sa netteté : un Soleil de
+   pleine matière simplement flouté virait à la tache irisée, orange au centre et
+   verte au bord. À travers une couche, la lumière se blanchit. */
 .ci-voile{
   position:absolute;left:0;top:0;width:0;height:0;
   opacity:calc(1 - var(--voile,0));
-  filter:blur(calc(var(--voile,0) * 7px));
+  filter:blur(calc(var(--voile,0) * 7px)) saturate(calc(1 - var(--voile,0) * 0.8));
 }
 .ci-feu{
   position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
@@ -1098,7 +1111,11 @@ button.rangee:active{background:var(--surface-2)}
 /* Titre d'écran porté par le ciel. */
 .plein-titre{
   position:absolute;left:var(--marge);right:var(--marge);bottom:var(--espace-lg);z-index:2;
-  color:#FFFFFF;text-shadow:0 1px 16px rgba(0,0,0,.55);
+  color:#FFFFFF;
+  /* Deux ombres : la large assied le titre sur le ciel, la serrée détache le
+     trait des lettres sur un fond clair, là où la large se dilue. */
+  text-shadow:0 1px 16px rgba(0,0,0,calc(.55 + .25 * var(--ci-clarte,0))),
+    0 0 4px rgba(0,0,0,calc(.42 * var(--ci-clarte,0)));
   animation:monte var(--duree-complexe) var(--ressort) both;
 }
 .plein-titre > i{

@@ -2443,41 +2443,156 @@ await ctxCouvert.route(/api-adresse\.data\.gouv\.fr|object\.files\.data\.gouv\.f
 const pgCouvert = await ctxCouvert.newPage();
 await pgCouvert.goto("http://localhost:8137/", { waitUntil: "networkidle" });
 await pgCouvert.waitForTimeout(1600);
-/* Le bord bas de la couche, colonne par colonne. Un raccord se voit là et
-   nulle part ailleurs : la teinte moyenne d'une colonne le noie, la position du
-   bord le montre. */
+/* Le raccord du motif, mesuré en ligne. Fermée, la couche n'a plus de bord dans
+   le cadre : c'est donc dans son corps qu'il faut chercher la couture, et une
+   couture est une rupture verticale de clarté, non une pente. Le marbré, lui,
+   est doux partout. */
 const couture = await pgCouvert.evaluate(() => {
   const cv = document.getElementById("ciTemps");
   if (!cv) return { erreur: "aucune toile" };
-  const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
-  const L = cv.width;
-  const col = [];
-  /* Le bord se mesure au sous-pixel : à l'unité près, la seule quantification
-     donne déjà un point d'écart d'une colonne à l'autre et noie ce qu'on
-     cherche. */
-  for (let x = 0; x < L; x++) {
-    let bord = -1;
-    for (let y = 1; y < cv.height; y++) {
-      const a0 = d[((y - 1) * L + x) * 4 + 3], a1 = d[(y * L + x) * 4 + 3];
-      if (a0 >= 200 && a1 < 200) { bord = y - 1 + (a0 - 200) / Math.max(1, a0 - a1); break; }
+  const L = cv.width, H = cv.height;
+  const d = cv.getContext("2d").getImageData(0, 0, L, H).data;
+  const cl = (px, py) => {
+    const k = (py * L + px) * 4;
+    return (0.2126 * d[k] + 0.7152 * d[k + 1] + 0.0722 * d[k + 2]) * (d[k + 3] / 255);
+  };
+  /* Une couture est verticale : elle tombe sur la même abscisse à toutes les
+     hauteurs. Le marbré, lui, se disperse. On somme donc la rupture par colonne
+     sur cinq lignes, ce qui additionne une couture et moyenne le reste. */
+  const par = new Array(L).fill(0);
+  const lignes = [0.18, 0.34, 0.50, 0.66, 0.82];
+  for (const f of lignes) {
+    const y = Math.round(H * f);
+    for (let x = 6; x < L - 6; x++) {
+      /* L'écart au milieu de deux voisins écartés de cinq points : une pente,
+         si raide soit-elle, y vaut zéro ; une cassure y vaut la moitié du saut. */
+      par[x] += Math.abs(cl(x, y) - (cl(x - 5, y) + cl(x + 5, y)) / 2) / lignes.length;
     }
-    col.push(bord);
   }
-  if (col.some(v => v <= 0)) return { erreur: "aucun bord trouvé" };
-  if (new Set(col.map(v => Math.round(v))).size < 4) return { erreur: "bord plat" };
-  /* L'écart au milieu de ses voisins, non le pas d'une colonne à l'autre. Une
-     pente régulière, si raide soit-elle, y vaut zéro ; une cassure y vaut la
-     moitié de son saut. C'est une cassure qu'on cherche, non une pente. */
-  const saut = [];
-  for (let x = 4; x < L - 4; x++) {
-    saut.push([x, Math.abs(col[x] - (col[x - 4] + col[x + 4]) / 2)]);
+  /* Le raccord se voit aussi dans l'opacité : floutée après découpe, chaque
+     tuile se dilue sur ses deux bords et le creux se retrouve au collage.
+     Fermée, la couche est pleine d'un bord à l'autre du cadre ; un creux d'un
+     dixième y est déjà une couture. */
+  let creux = 255;
+  for (const f of lignes) {
+    const y = Math.round(H * f);
+    for (let x = 0; x < L; x++) creux = Math.min(creux, d[(y * L + x) * 4 + 3]);
   }
-  saut.sort((a, b) => b[1] - a[1]);
-  return { max: saut[0][1], pires: saut.slice(0, 6).map(([x, v]) => `${x}:${v.toFixed(2)}`).join(" ") };
+  const rang = par.map((v, x) => [x, v]).sort((a, b) => b[1] - a[1]);
+  const tries = par.slice(6, L - 6).sort((a, b) => a - b);
+  const median = tries[Math.floor(tries.length / 2)] || 0.01;
+  /* C'est le rapport qui parle, non la valeur : le marbré donne à toutes les
+     colonnes une rupture du même ordre, une couture en fait sortir une seule. La
+     mesure reste juste si le marbré change de force. */
+  return { max: rang[0][1], rapport: rang[0][1] / Math.max(0.05, median), creux,
+    pires: rang.slice(0, 5).map(([x, v]) => `${x}:${v.toFixed(2)}`).join(" ") };
 });
 ok("la couche se répète sans couture verticale",
-  !couture.erreur && couture.max < 5,
-  couture.erreur || `saut maximal ${couture.max?.toFixed(2)} points | ${couture.pires}`);
+  !couture.erreur && couture.rapport < 3 && couture.creux >= 250,
+  couture.erreur || `pointe ${couture.rapport?.toFixed(1)} fois la médiane, `
+  + `opacité minimale ${couture.creux} | ${couture.pires}`);
+
+/* Fermée, la couche remplit le champ. Son bord festonné laissait sous lui une
+   bande de ciel nu, qui avec la brume d'horizon faisait lire le panneau comme
+   une mer grise vue d'avion. On ne passe sous un plafond que par ses trous. */
+ok("sous une couche fermée le plafond descend hors du cadre", await pgCouvert.evaluate(() => {
+  const cv = document.getElementById("ciTemps");
+  if (!cv) return "aucune toile";
+  const L = cv.width, H = cv.height;
+  const d = cv.getContext("2d").getImageData(0, H - 3, L, 1).data;
+  let nus = 0;
+  for (let k = 0; k < L; k++) if (d[k * 4 + 3] < 220) nus++;
+  return nus ? `${nus} colonnes sur ${L} laissent voir le ciel au bas du panneau` : "";
+}) === "", await pgCouvert.evaluate(() => {
+  const cv = document.getElementById("ciTemps");
+  const d = cv.getContext("2d").getImageData(0, cv.height - 3, cv.width, 1).data;
+  let mn = 255;
+  for (let k = 0; k < cv.width; k++) mn = Math.min(mn, d[k * 4 + 3]);
+  return `opacité minimale ${mn} au bas du panneau`;
+}));
+
+/* Un plafond de plein jour est une grande source diffuse : il est clair et
+   presque neutre. Le code confondait couche fermée et plomb, poussait à
+   quatre-vingt-douze pour cent vers le noir, et un couvert sec devenait un mur
+   d'ardoise bleutée. */
+const plafond = await pgCouvert.evaluate(() => {
+  const cv = document.getElementById("ciTemps");
+  const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+  let r = 0, v = 0, b = 0, n = 0;
+  for (let k = 0; k < d.length; k += 4 * 37) { r += d[k]; v += d[k + 1]; b += d[k + 2]; n++; }
+  r /= n; v /= n; b /= n;
+  return { clarte: (0.2126 * r + 0.7152 * v + 0.0722 * b) / 255, teinte: (b - r) / 255 };
+});
+ok("un couvert sec de plein jour est clair et neutre",
+  plafond.clarte > 0.48 && plafond.teinte < 0.075,
+  `clarté ${(plafond.clarte * 100).toFixed(0)} %, bleu moins rouge `
+  + `${(plafond.teinte * 100).toFixed(1)} points`);
+
+/* Le Soleil derrière la couche. On ne voit plus son disque, mais on voit
+   parfaitement où il est : la lueur d'avant, étalée à douze pour cent d'opacité
+   sur deux cent quatre-vingt-cinq points de rayon, ne se voyait pas du tout. */
+const perce = await pgCouvert.evaluate(() => {
+  const cv = document.getElementById("ciTemps");
+  const L = cv.width, H = cv.height;
+  const d = cv.getContext("2d").getImageData(0, 0, L, H).data;
+  const cl = (px, py) => {
+    const k = (py * L + px) * 4;
+    return 0.2126 * d[k] + 0.7152 * d[k + 1] + 0.0722 * d[k + 2];
+  };
+  const ax = Math.round(Number(cv.dataset.ax) * L), ay = Math.round(Number(cv.dataset.ay) * H);
+  if (ax < 0 || ax >= L || ay < 0 || ay >= H) return { erreur: "astre hors du panneau" };
+  // Une tache de vingt points autour de l'astre, contre la même au loin, à hauteur égale.
+  const moyenne = (px, py) => {
+    let s = 0, n = 0;
+    for (let i = -10; i <= 10; i += 2) for (let j = -10; j <= 10; j += 2) {
+      const qx = px + i, qy = py + j;
+      if (qx < 0 || qx >= L || qy < 0 || qy >= H) continue;
+      s += cl(qx, qy); n++;
+    }
+    return n ? s / n : 0;
+  };
+  return { ecart: moyenne(ax, ay) - moyenne(ax < L / 2 ? L - 14 : 14, ay) };
+});
+ok("le Soleil se devine derrière la couche fermée",
+  !perce.erreur && perce.ecart > 14,
+  perce.erreur || `écart de ${perce.ecart?.toFixed(1)} niveaux sur 255`);
+
+/* Le titre est écrit en blanc sur le ciel. Un plafond de plein jour est la
+   surface la plus claire des trois ciels, et les voiles de lisibilité, réglés
+   une fois pour toutes sur un ciel bleu, y laissaient le nom du jour à deux
+   virgule quatre de contraste. Ils suivent maintenant la clarté de la couche.
+
+   La mesure porte sur l'image composée, voiles compris, non sur la seule toile :
+   la capture repasse par le navigateur, qui sait décoder un PNG. */
+const cliche = (await pgCouvert.locator(".ci").screenshot()).toString("base64");
+const lisible = await pgCouvert.evaluate(async b64 => {
+  const img = new Image();
+  img.src = "data:image/png;base64," + b64;
+  await img.decode();
+  const c = document.createElement("canvas");
+  c.width = img.width; c.height = img.height;
+  const x = c.getContext("2d");
+  x.drawImage(img, 0, 0);
+  const W = c.width, H = c.height;
+  const d = x.getImageData(0, 0, W, H).data;
+  const lin = v => (v / 255 <= 0.03928 ? v / 255 / 12.92 : (((v / 255) + 0.055) / 1.055) ** 2.4);
+  const lum = k => 0.2126 * lin(d[k]) + 0.7152 * lin(d[k + 1]) + 0.0722 * lin(d[k + 2]);
+  /* Le quart droit du bandeau, à hauteur du titre : le texte n'y va pas, et
+     c'est le pixel le plus clair qui donne le pire contraste. */
+  let pire = 99;
+  for (const f of [0.68, 0.76, 0.84, 0.92]) {
+    const y = Math.round(H * f);
+    let haut = 0;
+    for (let px = Math.round(W * 0.78); px < W * 0.97; px += 2) {
+      haut = Math.max(haut, lum((y * W + px) * 4));
+    }
+    pire = Math.min(pire, 1.05 / (haut + 0.05));
+  }
+  return pire;
+}, cliche);
+ok("le titre reste lisible sur un plafond de plein jour",
+  lisible >= 3.2, `contraste ${lisible.toFixed(2)} pour un blanc sur le ciel`);
+
 await ctxCouvert.close();
 
 /* Une vigilance rouge. La conduite officielle du rouge porte déjà le mot,
