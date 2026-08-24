@@ -2405,6 +2405,87 @@ const profilLune = pg => pg.evaluate(() => {
   return { mn, mx, clarte: Number(cv.dataset.clarte) };
 });
 
+/* La cohérence entre écrans : la même grandeur affichée à deux endroits porte
+   le même chiffre. Chaque paire lit deux rendus, jamais les modules. */
+await pageA("2026-08-18T09:00:00+02:00", null, async pg => {
+  const acc = await pg.evaluate(() => ({
+    deg: document.querySelector(".bd-deg")?.textContent.trim(),
+    bornes: document.querySelector(".bd-bornes")?.textContent.trim(),
+    pluie: [...document.querySelectorAll(".bd-m")].map(e =>
+      [e.querySelector("i").textContent.trim(), e.querySelector("b").textContent.trim()])
+      .find(([n]) => n === "Pluie")?.[1],
+    demain: [...document.querySelectorAll('.section[data-bloc="suite"] .cj-l')]
+      .map(e => e.textContent).find(x => /^Pluie demain/.test(x)) || "",
+  }));
+  await pg.locator('[data-onglet="temps"]').click();
+  await pg.waitForTimeout(500);
+  const sous = await pg.locator(".titre-ecran p").innerText();
+  await pg.locator('[data-onglet="semaine"]').click();
+  await pg.waitForTimeout(500);
+  const sem = await pg.evaluate(() => [...document.querySelectorAll(".sem-r")].slice(0, 2)
+    .map(e => ({
+      eau: (e.querySelector(".c em") || {}).textContent?.trim() || "",
+      min: e.querySelector(".sem-min")?.textContent.trim(),
+      max: e.querySelector(".sem-max")?.textContent.trim(),
+    })));
+  ok("les bornes du bandeau sont celles de la semaine",
+    acc.bornes.includes(`${sem[0].min} à ${sem[0].max}`),
+    `« ${acc.bornes} » contre « ${sem[0].min} à ${sem[0].max} »`);
+  ok("la tuile de pluie dit ce que dit la semaine",
+    acc.pluie === sem[0].eau, `« ${acc.pluie} » contre « ${sem[0].eau} »`);
+  ok("la pluie de demain est la même sur l'accueil et la semaine",
+    acc.demain.includes(sem[1].eau), `« ${acc.demain} » contre « ${sem[1].eau} »`);
+  ok("le sous-titre du temps porte le chiffre du bandeau",
+    sous.startsWith(`${acc.deg.replace("°", "")}°`), `« ${sous} » contre « ${acc.deg} »`);
+});
+
+/* Le degré s'écrit sans décimale, partout. `nombreFr` en garde une sous dix :
+   le sous-titre disait « 9,4° » sous un bandeau qui dit « 9° », et la liste
+   mêlait « 9,4° » et « 10° » dans une même colonne. */
+await pageA("2026-08-18T09:00:00+02:00", d => {
+  d.hourly.time.forEach((x, k) => {
+    if (x.startsWith("2026-08-18")) {
+      d.hourly.temperature_2m[k] -= 7.6;
+      d.hourly.apparent_temperature[k] -= 7.6;
+      d.hourly.dew_point_2m[k] -= 7.6;
+    }
+  });
+}, async pg => {
+  await pg.locator('[data-onglet="temps"]').click();
+  await pg.waitForTimeout(500);
+  const sous = await pg.locator(".titre-ecran p").innerText();
+  ok("le sous-titre du temps s'écrit sans décimale",
+    /^\d+° et /.test(sous), sous);
+  await pg.locator('[data-ecriture="liste"]').click();
+  await pg.waitForTimeout(500);
+  ok("les températures de la liste s'écrivent sans décimale", await pg.evaluate(() => {
+    const fautes = [];
+    for (const tr of document.querySelectorAll(".hh tbody tr")) {
+      for (const td of [...tr.children].slice(2, 5)) {
+        if (/\d,\d°/.test(td.textContent)) fautes.push(td.textContent.trim());
+      }
+    }
+    return fautes.length ? fautes.slice(0, 4).join(" ") : "";
+  }) === "", await pg.evaluate(() =>
+    document.querySelector(".hh tbody tr")?.textContent.trim().slice(0, 40)));
+});
+
+/* Le gel s'annonce au degré rond, et le mot s'accorde. */
+await pageA("2026-08-18T09:00:00+02:00", d => {
+  d.hourly.time.forEach((x, k) => {
+    if (x.startsWith("2026-08-18")) {
+      d.hourly.temperature_2m[k] -= 16.6;
+      d.hourly.apparent_temperature[k] -= 16.6;
+    }
+  });
+}, async pg => {
+  const gel = (await pg.locator("#ecran .cj-l").allInnerTexts())
+    .find(x => /^Gel probable/.test(x)) || "";
+  ok("le gel s'annonce au degré rond, le mot accordé",
+    /jusqu'à -?\d+ degré(s)?\./.test(gel) && !/\d,\d degré/.test(gel),
+    gel || "aucune ligne de gel");
+});
+
 /* La section des faits marquants s'arrête à après-demain. Les règles horaires
    couvrent le jour et le lendemain, les alertes le surlendemain, et rien
    au-delà : « 32° mercredi » annoncé un dimanche est de l'almanach, non un fait

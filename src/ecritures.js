@@ -17,9 +17,12 @@ import { icoCiel, icoTemps } from "./icones.js";
 
 const COLONNES = [
   ["Ciel", s => `<span class="ic">${icoTemps(icoCiel(s.code, s.clair), "ic")}</span>`],
-  ["Temp.", s => `${nombreFr(s.t)}°`],
-  ["Ress.", s => `${nombreFr(s.res)}°`],
-  ["Rosée", s => `${nombreFr(s.ros)}°`],
+  /* Les températures s'arrondissent au degré. `nombreFr` garde une décimale
+     sous dix : la colonne mêlait « 9,4° » et « 10° », deux formats pour une
+     même grandeur à deux lignes d'écart. */
+  ["Temp.", s => `${Math.round(s.t)}°`],
+  ["Ress.", s => `${Math.round(s.res)}°`],
+  ["Rosée", s => `${Math.round(s.ros)}°`],
   ["Pluie", s => (s.mm >= 0.1 ? `${nombreFr(s.mm)}` : "—")],
   ["Risque", s => (s.pb >= 5 ? `${Math.round(s.pb)} %` : "—")],
   ["Hum.", s => `${Math.round(s.hum)} %`],

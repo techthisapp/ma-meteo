@@ -409,10 +409,14 @@ reste insécable, le point cardinal se reporte à la ligne suivante.
 
 ## Écriture des grandeurs
 
-Le degré s'écrit sans unité, « 25° », partout : dans le bandeau, dans les
-alertes et dans les rangées. L'indice UV s'écrit sans décimale, « 7 » et non
-« 7,3 » : une décimale sur un indice entier donne une fausse impression de
-mesure fine.
+Le degré s'écrit sans unité et sans décimale, « 25° », partout : dans le
+bandeau, dans les alertes, dans les rangées et dans la liste heure par heure.
+L'écriture des nombres garde une décimale sous dix, ce qui convient aux
+millimètres mais pas aux degrés : le sous-titre du temps disait « 9,4° » sous un
+bandeau qui dit « 9° », et une même colonne de la liste mêlait « 9,4° » et
+« 10° ». L'indice UV s'écrit sans décimale sur l'accueil, « 7 » et non « 7,3 » ;
+il garde sa décimale dans le ruban et la liste, la précision croissant avec la
+profondeur de l'écran.
 
 Les quatre mesures portent sur la journée civile entière, non sur l'heure en
 cours. À dix heures du soir, « indice UV 0 » et « vent 11 km/h » ne disaient rien
@@ -842,7 +846,7 @@ src/
   postes.js         fichier départemental et geojson des postes, non branché
   reserve.js        les deux vues débranchées
 essais/
-  controle.mjs      trois cent trente-neuf contrôles en navigateur
+  controle.mjs      trois cent quarante-six contrôles en navigateur
   vue-ecran.mjs     captures d'un écran, thème clair et sombre
   meteo.json        données figées au 18 août 2026, 9 h
 ```
@@ -868,7 +872,7 @@ destination et l'instant à figer, `OUVRIRVOIE` la voie du ruban à déplier et
 Le lanceur sert le dossier, fige l'horloge au 18 août 2026 à 9 h, détourne les
 trois appels Open-Meteo vers `meteo.json`, sert une vigilance orange de
 convention, et coupe les sources data.gouv pour éprouver le repli. Deux cent
-trois cent trente-neuf contrôles, dont l'absence de répétition entre
+trois cent quarante-six contrôles, dont l'absence de répétition entre
 les alertes et les conseils, les sept voies du ruban, l'agrandissement d'une
 voie, les treize colonnes de la liste, les vingt-quatre lignes de la fenêtre, la
 nature du renvoi de vigilance, et dix-sept contrôles de conformité au design
@@ -939,6 +943,15 @@ de l'inclinaison du limbe, et la présence des deux courbes de trajectoire.
 
 Le ciel de l'accueil ajoute la toile du temps : elle couvre le panneau, elle se
 peint après l'astre et au-dessus de lui, elle porte des pixels et elle bouge.
+Sept contrôles gardent la cohérence entre écrans, chaque paire lue sur deux
+rendus : les bornes du bandeau sont celles de la rangée Auj. de la semaine, la
+tuile de pluie dit ce que dit cette rangée, la pluie de demain porte les mêmes
+millimètres sur l'accueil et sur la semaine, le sous-titre du temps porte le
+chiffre du bandeau, il s'écrit sans décimale, les températures de la liste
+aussi, et le gel s'annonce au degré rond avec le mot accordé. Les trois derniers
+tournent sur une charge décalée de sept degrés et six dixièmes, la charge
+d'essai ne portant presque pas de décimales là où la vraie source en est pleine.
+
 Quatre contrôles gardent la découpe en blocs : l'accueil se lit en trois blocs
 de temps dans l'ordre, chaque bloc s'en tient à sa fenêtre, le titre du dernier
 nomme les journées qu'il porte, et aucun bloc ne dépasse trois lignes.

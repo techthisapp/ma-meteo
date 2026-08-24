@@ -84,7 +84,9 @@ export function vueTemps(ctx, rendre) {
      chercher le détail heure par heure. */
   return {
     titre: "Le temps",
-    sousEcran: `${nombreFr(s.t[0])}° et ${tempsDe(s.code[0])[1].toLowerCase()}`,
+    /* Le degré s'écrit sans décimale, ici comme partout : « 9,4° » sous un
+       bandeau qui dit « 9° » ferait deux chiffres pour une même mesure. */
+    sousEcran: `${Math.round(s.t[0])}° et ${tempsDe(s.code[0])[1].toLowerCase()}`,
     cote: seg,
     corps: `<div class="carte">${corps}</div>`,
     brancher(bloc) {

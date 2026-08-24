@@ -150,12 +150,14 @@ export function conseils(s, g) {
       `Brouillard attendu ${plage(br[0][0], br[br.length - 1][1])}.`);
   }
 
-  // 5. Le gel.
+  // 5. Le gel. Le minimum s'arrondit au degré, comme partout, et le mot
+  //    s'accorde : « jusqu'à 1 degré », « jusqu'à -3 degrés ».
   const gel = plagesDe(s.n, k => s.t[k] <= SEUILS.gel);
   if (gel.length) {
+    const bas = Math.round(Math.min(...s.t));
     dire("alerte", 6, gel[gel.length - 1][1],
       `Gel probable ${plage(gel[0][0], gel[gel.length - 1][1])}, `
-      + `jusqu'à ${nombreFr(Math.min(...s.t))} degrés.`);
+      + `jusqu'à ${bas} degré${Math.abs(bas) >= 2 ? "s" : ""}.`);
   }
 
   // 6. Le vent. La règle regarde la rafale, non la seule moyenne.

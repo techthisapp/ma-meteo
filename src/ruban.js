@@ -631,7 +631,7 @@ export function brancher(bloc, surVoie) {
     heureLue = k;
     const prefixe = s.jour[k] !== s.jour[0] ? "demain " : "";
     const lit = {
-      t: `${prefixe}${heureTxt(s.heure[k])}, ${nombreFr(s.t[k])}°`,
+      t: `${prefixe}${heureTxt(s.heure[k])}, ${Math.round(s.t[k])}°`,
       mm: s.mm[k] >= 0.1
         ? `${prefixe}${heureTxt(s.heure[k])}, ${nombreFr(s.mm[k])} mm`
         : `${prefixe}${heureTxt(s.heure[k])}, ${Math.round(s.pb[k])} %`,
