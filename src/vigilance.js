@@ -112,14 +112,67 @@ const PAGES = {
 export const lienDe = dep => (PAGES[dep] ? `${CARTE}/${PAGES[dep][1]}` : CARTE);
 export const nomDe = dep => (PAGES[dep] ? PAGES[dep][0] : null);
 
-/* Un quart d'heure de garde. La vigilance est révisée deux fois par jour en
-   temps ordinaire, davantage quand la situation bouge : relire plus souvent
-   n'apprendrait rien et pèserait sur la source. */
-const GARDE = 15 * 60 * 1000;
+/* La garde se cale sur la publication, non sur une durée fixe.
+
+   Le bulletin est publié deux fois par jour, à 06 h et à 16 h en heure locale,
+   et révisé entre ces bornes quand la situation bouge. Un quart d'heure de
+   garde ne savait rien de ce rythme : il relisait quarante fois dans une
+   journée qui ne bougeait pas, et servait encore le bulletin de la veille un
+   quart d'heure après la publication du matin.
+
+   Une charge vaut donc jusqu'à la prochaine borne, ou jusqu'à sa fin de
+   validité, la plus proche des deux. Et une charge dont la révision précède la
+   dernière borne franchie a déjà été remplacée à la source : elle ne vaut que
+   le plancher, le temps d'éviter une relecture en boucle quand la publication
+   tarde de quelques minutes sur son heure. */
+const HEURES_PUB = [6, 16];
+const PLANCHER = 5 * 60 * 1000;
+const GARDE_MUET = 15 * 60 * 1000;
 const gardes = new Map();
 
+/* Une borne de publication, en heure locale : `setHours` la pose sur le fuseau
+   de l'appareil, changement d'heure compris. */
+const posee = (t, h, j) => {
+  const d = new Date(t);
+  d.setDate(d.getDate() + j);
+  d.setHours(h, 0, 0, 0);
+  return d.getTime();
+};
+export function bornePrecedente(t) {
+  for (let j = 0; j > -2; j--) {
+    for (let i = HEURES_PUB.length - 1; i >= 0; i--) {
+      const b = posee(t, HEURES_PUB[i], j);
+      if (b <= t) return b;
+    }
+  }
+  return t;
+}
+export function borneSuivante(t) {
+  for (let j = 0; j < 2; j++) {
+    for (const h of HEURES_PUB) {
+      const b = posee(t, h, j);
+      if (b > t) return b;
+    }
+  }
+  return t;
+}
+
+// Jusqu'à quand une charge se sert.
+export function jusqua(d, t) {
+  if (!d) return t + GARDE_MUET;
+  const fin = d.end_validity_time ? d.end_validity_time * 1000 : Infinity;
+  const maj = d.update_time ? d.update_time * 1000 : 0;
+  if (maj < bornePrecedente(t)) return Math.min(t + PLANCHER, fin);
+  return Math.min(borneSuivante(t), fin);
+}
+
 /* Deux items contigus de même couleur ne font qu'une plage : la source les
-   découpe sur ses propres bornes, qui ne sont pas celles du phénomène. */
+   découpe sur ses propres bornes, qui ne sont pas celles du phénomène.
+
+   Les items du jour et ceux du lendemain sont passés ensemble, dans cet ordre :
+   leurs plages se touchent exactement à minuit, et la fusion les recolle
+   d'elle-même. Passés séparément, un même phénomène de même couleur des deux
+   côtés de minuit écrivait deux lignes. */
 function plages(items) {
   const out = [];
   for (const it of items) {
@@ -133,51 +186,95 @@ function plages(items) {
   return out;
 }
 
-/* Rend la vigilance en vigueur pour un département, ou `null` : département
-   inconnu, service muet, réponse illisible, ou rien à signaler. Le vert n'est
-   pas une vigilance et ne remonte pas. */
+/* Une échéance du service, gardée pour elle-même. Sans `echeance`, la réponse
+   porte le jour en cours ; avec `J1`, le lendemain, dans la même forme. */
+async function charger(dep, echeance) {
+  const cle = `${dep}|${echeance || "J0"}`;
+  const garde = gardes.get(cle);
+  if (garde && Date.now() < garde.exp) return garde.d;
+
+  let d = null;
+  try {
+    const r = await fetch(`${SERVICE}?domain=${encodeURIComponent(dep)}`
+      + (echeance ? `&echeance=${echeance}` : "") + `&token=${JETON}`);
+    if (r.ok) d = await r.json();
+  } catch { d = null; }
+  if (!d || !Array.isArray(d.timelaps)) d = null;
+  const t = Date.now();
+  gardes.set(cle, { t, d, exp: jusqua(d, t) });
+  return d;
+}
+
+const horodate = v => (v ? new Date(v * 1000) : null);
+// Le maximum des plages qui coupent un intervalle, zéro s'il n'y en a aucune.
+const surIntervalle = (p, a, b) => (a === null || b === null || b <= a ? []
+  : p.filter(x => x.fin > a && x.debut < b));
+
+/* Rend la vigilance d'un département, ou `null` : département inconnu, service
+   muet, réponse illisible, ou rien à signaler ni aujourd'hui ni demain.
+
+   Deux échéances sont lues. Celle du jour porte ce qui est en vigueur, celle du
+   lendemain ce qui est annoncé. La seconde ne conditionne pas la première : si
+   elle manque ou échoue, la lecture rend le jour en cours seul. Le cas le plus
+   utile est celui d'un département vert aujourd'hui et orange demain, où le
+   panneau ne paraissait pas du tout alors que c'est le moment où l'information
+   sert. Le vert n'est pas une vigilance et ne remonte pas. */
 export async function lire(dep) {
   if (!dep) return null;
-  const garde = gardes.get(dep);
-  if (garde && Date.now() - garde.t < GARDE) return garde.v;
+  const [j0, j1] = await Promise.all([charger(dep, null), charger(dep, "J1")]);
+  if (!j0) return null;
 
-  let d;
-  try {
-    const r = await fetch(`${SERVICE}?domain=${encodeURIComponent(dep)}&token=${JETON}`);
-    if (!r.ok) return null;
-    d = await r.json();
-  } catch { return null; }
-  if (!d || !Array.isArray(d.timelaps)) return null;
+  const maintenant = new Date();
+  const finJour = horodate(j0.end_validity_time);
+  const finLendemain = horodate(j1 && j1.end_validity_time);
+
+  /* Les phénomènes de l'échéance du lendemain, par identifiant : la source ne
+     garantit ni le même ordre ni le même nombre d'une échéance à l'autre. */
+  const demain = new Map();
+  for (const t of (j1 ? j1.timelaps : [])) demain.set(Number(t.phenomenon_id), t.timelaps_items);
 
   const alertes = [];
-  for (const t of d.timelaps) {
+  const annonces = [];
+  for (const t of j0.timelaps) {
     const id = Number(t.phenomenon_id);
     if (!PHENOMENES[id]) continue;
-    const p = plages(t.timelaps_items || []);
+    /* Un phénomène peut rendre un `timelaps_items` vide : la lecture ne doit pas
+       tomber dessus. */
+    const p = plages([...(t.timelaps_items || []), ...(demain.get(id) || [])]);
     if (!p.length) continue;
-    alertes.push({
-      id, nom: PHENOMENES[id][0], symbole: PHENOMENES[id][1],
-      niveau: Math.max(...p.map(x => x.niveau)),
-      debut: p[0].debut,
-      fin: p[p.length - 1].fin,
-    });
+
+    const enCours = surIntervalle(p, maintenant, finJour);
+    const nJour = enCours.length ? Math.max(...enCours.map(x => x.niveau)) : 0;
+    const suite = surIntervalle(p, finJour, finLendemain);
+    const nLendemain = suite.length ? Math.max(...suite.map(x => x.niveau)) : 0;
+
+    const base = { id, nom: PHENOMENES[id][0], symbole: PHENOMENES[id][1] };
+    if (nJour >= 2) {
+      alertes.push({ ...base, niveau: nJour,
+        debut: enCours[0].debut, fin: enCours[enCours.length - 1].fin });
+    }
+    /* Une aggravation seulement : redire demain ce qui est déjà en vigueur au
+       même niveau n'apprend rien. */
+    if (nLendemain >= 2 && nLendemain > nJour) annonces.push({ ...base, niveau: nLendemain });
   }
-  if (!alertes.length) { gardes.set(dep, { t: Date.now(), v: null }); return null; }
+  if (!alertes.length && !annonces.length) return null;
 
   // Le plus grave d'abord, et à gravité égale le plus proche.
   alertes.sort((a, b) => b.niveau - a.niveau || a.debut - b.debut);
+  annonces.sort((a, b) => b.niveau - a.niveau || a.id - b.id);
 
+  const majs = [horodate(j0.update_time), horodate(j1 && j1.update_time)].filter(Boolean);
   const v = {
-    dep, nom: nomDe(dep),
-    niveau: Math.max(...alertes.map(a => a.niveau)),
-    alertes,
-    maj: d.update_time ? new Date(d.update_time * 1000) : null,
-    validite: d.end_validity_time ? new Date(d.end_validity_time * 1000) : null,
-    lien: lienDe(dep),
+    dep, nom: nomDe(dep), lien: lienDe(dep),
+    maj: majs.length ? new Date(Math.max(...majs.map(x => x.getTime()))) : null,
+    alertes, annonces,
   };
-  gardes.set(dep, { t: Date.now(), v });
+  if (alertes.length) v.niveau = Math.max(...alertes.map(a => a.niveau));
+  if (annonces.length) v.niveauLendemain = Math.max(...annonces.map(a => a.niveau));
   return v;
 }
 
-// Vide la garde : le changement de commune ne doit pas servir l'ancien bulletin.
-export function oublier() { gardes.clear(); }
+/* La garde porte le département dans sa clé : un changement de commune lit le
+   bulletin du nouveau département et sert celui de l'ancien s'il y revient. Un
+   `oublier()` vidait tout à chaque chargement d'écran, ce qui redemandait le
+   même bulletin à la source sans rien en apprendre. */

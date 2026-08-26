@@ -262,8 +262,8 @@ export function vueVigilance(ctx) {
     + `<span>Ouvrir la vigilance${Vig.nomDe(dep) ? ` de ${esc(Vig.nomDe(dep))}` : ""} sur Météo-France</span>`
     + `${externe}</a>`;
 
-  /* Sans vigilance en vigueur, la feuille reste atteignable par l'historique :
-     elle le dit alors, plutôt que de montrer un cadre vide. */
+  /* Sans vigilance en vigueur ni annonce, la feuille reste atteignable par
+     l'historique : elle le dit alors, plutôt que de montrer un cadre vide. */
   if (!v) {
     return {
       titre: "Vigilance",
@@ -275,26 +275,42 @@ export function vueVigilance(ctx) {
     };
   }
 
-  const n = Vig.NIVEAUX[v.niveau];
-  const lignes = v.alertes.map(a => {
+  /* La feuille suit le panneau : la couleur et la conduite viennent de ce qui
+     est en vigueur, et de l'annonce quand rien ne l'est. */
+  const enCours = v.niveau !== undefined;
+  const n = Vig.NIVEAUX[enCours ? v.niveau : v.niveauLendemain];
+  const rangee = (a, quand) => {
     const na = Vig.NIVEAUX[a.niveau];
     return `<div class="rangee vg-r n-${a.niveau}">${ico(a.symbole, "")}`
       + `<span class="rangee-txt"><b>${esc(a.nom)}</b>`
-      + `<span>${esc(heureJour(a.debut))} à ${esc(heureJour(a.fin))}</span></span>`
+      + `<span>${esc(quand)}</span></span>`
       + `<span class="rangee-val"><b>${esc(na.nom)}</b></span></div>`;
-  }).join("");
+  };
+  const lignes = v.alertes.map(a =>
+    rangee(a, `${heureJour(a.debut)} à ${heureJour(a.fin)}`)).join("");
+  const lignesDemain = v.annonces.map(a => rangee(a, "Demain")).join("");
+
+  /* La borne écrite sous la conduite est la fin du phénomène qui va le plus
+     loin. « Bulletin valable jusqu'à » est de l'administration, et la carte dit
+     une vigilance : la borne ne peut porter que sur elle. */
+  const bout = enCours
+    ? new Date(Math.max(...v.alertes.map(a => a.fin.getTime()))) : null;
 
   return {
     titre: "Vigilance",
-    sous: `${n.nom.charAt(0).toUpperCase()}${n.nom.slice(1)} sur ${v.nom || `le département ${dep}`}`,
+    sous: `${n.nom.charAt(0).toUpperCase()}${n.nom.slice(1)}`
+      + `${enCours ? "" : " demain"} sur ${v.nom || `le département ${dep}`}`,
     corps: `<div class="carte vg-f vg-${esc(n.nom)}">`
       + `<div class="vg-tete">${ico("alerte", "vg-ic")}`
       + `<span class="vg-txt"><b>${esc(n.conduite)}</b>`
-      + (v.validite ? `<em>Bulletin valable jusqu'à ${esc(heureJour(v.validite))}</em>` : "")
+      + (bout ? `<em>Jusqu'à ${esc(heureJour(bout))}</em>` : "")
       + `</span></div>${bouton}</div>`
 
-      + `<div class="section"><h2>Phénomènes signalés</h2>`
-      + `<div class="carte groupe-plat">${lignes}</div></div>`
+      + (lignes ? `<div class="section"><h2>Phénomènes signalés</h2>`
+        + `<div class="carte groupe-plat">${lignes}</div></div>` : "")
+
+      + (lignesDemain ? `<div class="section"><h2>Annoncé pour demain</h2>`
+        + `<div class="carte groupe-plat">${lignesDemain}</div></div>` : "")
 
       + `<div class="carte"><div class="carte-tete"><h3>Source</h3></div>`
       + `<p class="prose-2">Bulletin de Météo-France, lu sur le service qui alimente son `

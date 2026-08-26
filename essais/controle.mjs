@@ -76,6 +76,12 @@ await ctx.addInitScript(amorce(FAIN));
    la recherche de commune rend Grenoble sauf sur « Zzzz », qui ne rend rien et
    éprouve l'erreur sous le champ. Les mêmes routes servent aux contextes qui
    éprouvent le suivi de position. */
+/* Chaque appel au service de vigilance, pour compter ce que coûte à la source
+   un écran qui se recharge. Les contextes qui suivent le premier ne s'ouvrent
+   qu'après la section Vigilance : le relevé y est encore celui du seul contexte
+   principal. */
+const appelsVig = [];
+
 const brancherRoutes = async c => {
   await c.route(/api\.open-meteo\.com/, route => {
     const u = route.request().url();
@@ -99,19 +105,33 @@ const brancherRoutes = async c => {
   await c.route(/object\.files\.data\.gouv\.fr|www\.data\.gouv\.fr/, r => r.abort());
   /* La vigilance : orange sur les orages jusqu'à 20 h, jaune sur le vent de 14 h
      à 18 h, vert ailleurs. Le département 99 sert le tout vert, pour éprouver
-     l'absence de panneau. */
+     l'absence de panneau.
+
+     La route branche sur le paramètre `echeance` : sans lui la réponse porte le
+     jour en cours, avec `J1` le lendemain. L'échéance du lendemain est ici tout
+     au vert, le contexte ordinaire éprouvant ce qui est en vigueur ; trois
+     contextes dédiés éprouvent l'annonce. */
   await c.route(/webservice\.meteofrance\.com/, r => {
-    const dep = new URL(r.request().url()).searchParams.get("domain");
+    const u = new URL(r.request().url());
+    const dep = u.searchParams.get("domain");
+    appelsVig.push(`${dep}|${u.searchParams.get("echeance") || "J0"}`);
     /* Les heures se posent en heure de Paris, celle du navigateur d'essai : les
        construire dans le fuseau du conteneur les décalerait de deux heures. */
-    const h = n => Math.floor(
-      Date.parse(`2026-08-18T${String(n).padStart(2, "0")}:00:00+02:00`) / 1000);
-    const vert = id => ({ phenomenon_id: String(id),
-      timelaps_items: [{ begin_time: h(0), end_time: h(23), color_id: 1 }] });
+    const h = (n, j = 18) => Math.floor(
+      Date.parse(`2026-08-${j}T${String(n).padStart(2, "0")}:00:00+02:00`) / 1000);
+    const vert = (id, j = 18) => ({ phenomenon_id: String(id),
+      timelaps_items: [{ begin_time: h(0, j), end_time: h(23, j), color_id: 1 }] });
+    if (u.searchParams.get("echeance") === "J1") {
+      r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+        domain_id: dep, update_time: h(6), end_validity_time: h(0, 20),
+        timelaps: [1, 2, 3, 4, 5, 6].map(id => vert(id, 19)),
+      })});
+      return;
+    }
     const corps = dep === "99"
-      ? { domain_id: dep, update_time: h(6), end_validity_time: h(23),
-          timelaps: [1, 2, 3, 4, 5, 6].map(vert) }
-      : { domain_id: dep, update_time: h(6), end_validity_time: h(23),
+      ? { domain_id: dep, update_time: h(6), end_validity_time: h(0, 19),
+          timelaps: [1, 2, 3, 4, 5, 6].map(id => vert(id)) }
+      : { domain_id: dep, update_time: h(6), end_validity_time: h(0, 19),
           timelaps: [
             { phenomenon_id: "3", timelaps_items: [
               { begin_time: h(6), end_time: h(20), color_id: 3 },
@@ -1661,21 +1681,39 @@ ok("le mot vigilance ne s'écrit qu'une fois dans la tête",
 ok("le panneau ne porte pas de titre de section au-dessus de lui",
   await pg.locator("#ecran .vg h2").count() === 0);
 
+/* Quel bulletin le panneau porte se lisait dans la feuille seulement. Un
+   panneau ouvert le matin ne se distinguait pas d'un panneau de la veille. La
+   publication se faisant à 06 h et à 16 h, l'heure ronde suffit à dire lequel
+   des deux est en main ; la minute exacte de la révision reste dans la
+   feuille. */
+ok("la tête dit quel bulletin elle porte",
+  /bulletin de 06 h/.test(await txt("#ecran .vg-txt")), await txt("#ecran .vg-txt"));
+ok("les faits d'horloge tiennent leur propre ligne sous la conduite",
+  /^jusqu'à 20 h, bulletin de 06 h$/.test((await txt("#ecran .vg-q")).trim()),
+  await txt("#ecran .vg-q"));
+
 /* Le panneau prend la tête de l'écran : ce qui le suit doit rester visible sans
    défiler. C'est le bloc du jour et ses quatre mesures, non ses faits, qui doit
    tenir au-dessus de la barre d'onglets.
 
-   Le panneau tient donc dans une enveloppe, deux phénomènes compris. C'est elle
-   qui garde le budget : la mesure du dégagement sous les mesures ne dit que
-   l'état d'un écran de huit cent quarante-quatre points, et ne verrait pas un
-   panneau qui reprendrait vingt points. */
-ok("le panneau de vigilance tient dans son enveloppe", await pg.evaluate(() => {
-  const v = document.querySelector("#ecran .vg");
-  const n = document.querySelectorAll("#ecran .vg-a").length;
-  const h = v.getBoundingClientRect().height;
-  return h <= 150 ? "" : `${h.toFixed(0)} points pour ${n} phénomènes`;
-}) === "", await pg.evaluate(() =>
-  `${document.querySelector("#ecran .vg").getBoundingClientRect().height.toFixed(0)} points`));
+   Une enveloppe de cent cinquante points a longtemps gardé ce budget. Elle a
+   cédé quand la tête a pris sa ligne d'horloge, « jusqu'à 20 h, bulletin de
+   06 h » : le panneau mesure alors cent soixante et un points et le bloc du
+   jour garde cinquante-six points de dégagement. Le nombre gardait une
+   conséquence, c'est elle qu'on mesure désormais, avec un plafond large pour
+   arrêter un emballement que l'écran de huit cent quarante-quatre points ne
+   verrait pas. */
+ok("le panneau de vigilance ne repousse pas les mesures du jour hors de la vue",
+  await pg.evaluate(() => {
+    const m = document.querySelector("#ecran .bd-mesures");
+    const o = document.getElementById("onglets");
+    if (!m || !o) return "élément manquant";
+    const reste = o.getBoundingClientRect().top - m.getBoundingClientRect().bottom;
+    const h = document.querySelector("#ecran .vg").getBoundingClientRect().height;
+    if (h > 180) return `panneau de ${h.toFixed(0)} points`;
+    return reste >= 0 ? "" : `${reste.toFixed(0)} points sous les mesures`;
+  }) === "", await pg.evaluate(() =>
+    `${document.querySelector("#ecran .vg").getBoundingClientRect().height.toFixed(0)} points`));
 
 ok("les mesures du jour tiennent dans la première vue malgré la vigilance",
   await pg.evaluate(() => {
@@ -1693,10 +1731,50 @@ ok("les mesures du jour tiennent dans la première vue malgré la vigilance",
   }));
 ok("il porte la conduite à tenir",
   /vigilant/i.test(await txt("#ecran .vg-txt")), await txt("#ecran .vg-txt"));
+/* La borne de la tête est la fin du phénomène qui va le plus loin, non la fin de
+   validité du bulletin. Les orages tiennent jusqu'à 20 h, le bulletin jusqu'à
+   minuit : écrire « jusqu'à demain 00 h » au-dessus d'une ligne qui dit
+   « jusqu'à 20 h » se contredit, et « bulletin valable jusqu'à » est de
+   l'administration. */
+ok("la borne de la tête est celle du phénomène, non celle du bulletin",
+  /jusqu'à 20 h/.test(await txt("#ecran .vg-txt"))
+  && !/00 h/.test(await txt("#ecran .vg-txt")), await txt("#ecran .vg-txt"));
 /* Le numéro de département ne se lit pas : « Côte-d'Or » dit ce que « 21 » cache. */
 ok("il nomme le département plutôt que de le numéroter",
   /Côte-d'Or/.test(await txt("#ecran .vg-txt"))
   && !/Département 21/.test(await txt("#ecran .vg-txt")), await txt("#ecran .vg-txt"));
+
+/* La garde du bulletin se cale sur la publication, à 06 h et à 16 h en heure
+   locale, non sur une durée fixe. Un quart d'heure relisait quarante fois dans
+   une journée qui ne bougeait pas, et servait encore le bulletin de la veille
+   un quart d'heure après la publication du matin.
+
+   Les cinq cas se lisent sur la fonction elle-même : le rendu ne saurait les
+   montrer, l'horloge des contextes étant figée. */
+const gardeV = await pg.evaluate(async () => {
+  const V = await import("/src/vigilance.js");
+  const t = (j, h, m = 0) => new Date(2026, 7, j, h, m, 0, 0).getTime();
+  const bul = (maj, fin) => ({ update_time: maj / 1000, end_validity_time: fin / 1000 });
+  return {
+    matin: V.jusqua(bul(t(18, 6, 4), t(19, 0)), t(18, 9)) === t(18, 16),
+    soir: V.jusqua(bul(t(18, 16, 4), t(20, 0)), t(18, 17)) === t(19, 6),
+    validite: V.jusqua(bul(t(18, 6, 4), t(18, 12)), t(18, 9)) === t(18, 12),
+    remplace: V.jusqua(bul(t(18, 5, 50), t(19, 0)), t(18, 9)) === t(18, 9) + 5 * 60000,
+    muet: V.jusqua(null, t(18, 9)) === t(18, 9) + 15 * 60000,
+  };
+});
+ok("une charge lue le matin est gardée jusqu'à la publication de 16 h", gardeV.matin);
+ok("une charge lue le soir est gardée jusqu'à celle de 06 h", gardeV.soir);
+ok("une fin de validité plus proche que la borne ferme la garde plus tôt", gardeV.validite);
+ok("un bulletin révisé avant la dernière borne franchie ne tient que le plancher",
+  gardeV.remplace);
+ok("un service muet garde son quart d'heure", gardeV.muet);
+/* Un chargement d'écran ne demande chaque échéance qu'une fois. La garde est
+   posée par échéance : sans elle, ou avec deux lectures déclenchées au
+   démarrage, la source recevrait le double. */
+ok("un chargement ne demande chaque échéance qu'une fois",
+  appelsVig.length === 2 && appelsVig.includes("21|J0") && appelsVig.includes("21|J1"),
+  appelsVig.join(" "));
 
 /* Chaque phénomène signalé se décrit : son nom, son niveau écrit, sa fenêtre.
    Le vert n'est pas une vigilance et ne doit pas remonter. */
@@ -2661,6 +2739,225 @@ ok("le rouge écrit son niveau et sa conduite",
   /rouge/i.test(teteRouge) && /Vigilance absolue/.test(teteRouge),
   teteRouge.replace(/\n/g, " "));
 await ctxRouge.close();
+
+/* L'échéance du lendemain. Le panneau ne lisait que le jour en cours : une
+   aggravation annoncée pour demain n'apparaissait nulle part, et un département
+   vert aujourd'hui et orange demain ne faisait paraître aucun panneau, alors
+   que c'est justement le moment où l'information sert.
+
+   Trois contextes, sur le modèle du contexte rouge. Les bulletins y sont bâtis
+   sur les mêmes heures, en heure de Paris, l'horloge étant figée au 18 août 9 h.
+   Le lendemain est donc le 19. */
+const HV = (n, j = 18) => Math.floor(
+  Date.parse(`2026-08-${j}T${String(n).padStart(2, "0")}:00:00+02:00`) / 1000);
+const vertV = (id, j) => ({ phenomenon_id: String(id),
+  timelaps_items: [{ begin_time: HV(0, j), end_time: HV(23, j), color_id: 1 }] });
+
+const ctxVigilance = async servir => {
+  const c = await nav.newContext({
+    viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+    locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+  });
+  await c.addInitScript(amorce(FAIN));
+  await c.route(/api\.open-meteo\.com/, route => {
+    const u = route.request().url();
+    const d = JSON.parse(JSON.stringify(METEO));
+    if (u.includes("current=")) {
+      route.fulfill({ status: 200, contentType: "application/json", body: "[]" }); return;
+    }
+    if (u.includes("hourly=")) {
+      route.fulfill({ status: 200, contentType: "application/json",
+        body: JSON.stringify({ hourly: d.hourly }) }); return;
+    }
+    delete d.hourly;
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
+  });
+  await c.route(/api-adresse\.data\.gouv\.fr|object\.files\.data\.gouv\.fr/, r => r.abort());
+  await c.route(/webservice\.meteofrance\.com/, r =>
+    servir(r, new URL(r.request().url()).searchParams.get("echeance") === "J1"));
+  const pg = await c.newPage();
+  await pg.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+  await pg.waitForTimeout(1500);
+  return { c, pg };
+};
+const rendre = (r, corps) => r.fulfill({ status: 200,
+  contentType: "application/json", body: JSON.stringify(corps) });
+
+/* Premier contexte : département vert aujourd'hui, orange canicule demain.
+   C'est le cas que l'application taisait entièrement. */
+const echA = await ctxVigilance((r, j1) => rendre(r, j1
+  ? { domain_id: "21", update_time: HV(6), end_validity_time: HV(0, 20),
+      timelaps: [vertV(1, 19), vertV(3, 19),
+        { phenomenon_id: "6", timelaps_items: [
+          { begin_time: HV(0, 19), end_time: HV(12, 19), color_id: 1 },
+          { begin_time: HV(12, 19), end_time: HV(0, 20), color_id: 3 }] }] }
+  : { domain_id: "21", update_time: HV(6), end_validity_time: HV(0, 19),
+      timelaps: [1, 3, 6].map(id => vertV(id, 18)) }));
+/* Le texte d'un élément qui peut manquer : sans panneau, la lecture directe
+   attendrait trente secondes avant de rendre la main, et la faute rétablie se
+   dirait par un dépassement de délai plutôt que par un contrôle en échec. */
+const vu = async (p, sel) =>
+  ((await p.locator(sel).count()) ? p.locator(sel).first().innerText() : "");
+
+const panneauA = await echA.pg.locator("#ecran .vg").count() === 1;
+ok("un département vert aujourd'hui et orange demain fait paraître le panneau", panneauA);
+ok("le panneau prend alors la couleur du lendemain",
+  await echA.pg.locator("#ecran .vg.vg-orange").count() === 1);
+const teteA = await vu(echA.pg, "#ecran .vg-txt");
+ok("sa tête porte le mot demain et non une alerte en cours",
+  /Vigilance orange demain/i.test(teteA) && !/jusqu'à/.test(teteA),
+  teteA.replace(/\n/g, " ") || "aucune tête");
+const listeA = await echA.pg.locator("#ecran .vg-a").allInnerTexts();
+ok("le phénomène annoncé prend la place de la liste, avec le mot demain",
+  listeA.length === 1 && /Canicule/.test(listeA[0]) && /demain/i.test(listeA[0]),
+  listeA.join(" | ") || "aucune ligne");
+if (panneauA) {
+  await echA.pg.locator("#ecran .vg-c").click();
+  await echA.pg.waitForTimeout(500);
+}
+const feuilleA = await vu(echA.pg, "#feuille-corps");
+ok("la feuille ne dit plus qu'aucune vigilance n'est en vigueur",
+  panneauA && !/Aucune vigilance/i.test(feuilleA));
+ok("la feuille porte la section annoncée pour demain",
+  /Annoncé pour demain/i.test(feuilleA));
+await echA.c.close();
+
+/* Deuxième contexte, le cas réel du 2A le 26 août 2026 : canicule jaune de midi
+   à minuit, jaune jusqu'à midi demain, orange ensuite. Un vent jaune des deux
+   côtés sert à éprouver que seule une aggravation s'annonce.
+
+   Deux phénomènes creux s'y ajoutent, sous les deux formes que la source rend :
+   les crues portent un relevé vide côté lendemain et pas de relevé du tout côté
+   jour, la neige l'inverse. C'est la seconde forme qui casse, la première se
+   déverse sans bruit. */
+let toursB = 0;
+const echB = await ctxVigilance((r, j1) => rendre(r, ++toursB && j1
+  ? { domain_id: "21", update_time: HV(6), end_validity_time: HV(0, 20),
+      timelaps: [
+        { phenomenon_id: "6", timelaps_items: [
+          { begin_time: HV(0, 19), end_time: HV(12, 19), color_id: 2 },
+          { begin_time: HV(12, 19), end_time: HV(0, 20), color_id: 3 }] },
+        { phenomenon_id: "1", timelaps_items: [
+          { begin_time: HV(0, 19), end_time: HV(23, 19), color_id: 2 }] },
+        { phenomenon_id: "4", timelaps_items: [] },
+        { phenomenon_id: "5" },
+      ] }
+  : { domain_id: "21", update_time: HV(6), end_validity_time: HV(0, 19),
+      timelaps: [
+        { phenomenon_id: "6", timelaps_items: [
+          { begin_time: HV(0), end_time: HV(12), color_id: 1 },
+          { begin_time: HV(12), end_time: HV(0, 19), color_id: 2 }] },
+        { phenomenon_id: "1", timelaps_items: [
+          { begin_time: HV(0), end_time: HV(0, 19), color_id: 2 }] },
+        { phenomenon_id: "4" },
+        vertV(5, 18),
+      ] }));
+const listeB = await echB.pg.locator("#ecran .vg-a:not(.vg-d)").allInnerTexts();
+ok("un phénomène au relevé vide ou absent ne fait pas tomber la lecture",
+  await echB.pg.locator("#ecran .vg").count() === 1 && listeB.length === 2,
+  listeB.join(" | "));
+const canic = listeB.find(t => /Canicule/.test(t)) || "";
+ok("un même phénomène de même couleur des deux côtés de minuit n'écrit qu'une ligne",
+  listeB.filter(t => /Canicule/.test(t)).length === 1, listeB.join(" | "));
+ok("sa borne dépasse minuit", /de 12 h à demain 12 h/.test(canic), canic);
+const annonceB = await echB.pg.locator("#ecran .vg-d").allInnerTexts();
+ok("l'aggravation du jaune vers l'orange écrit sa ligne d'annonce",
+  annonceB.length === 1 && annonceB[0].trim() === "Demain, vigilance orange canicule",
+  annonceB.join(" | "));
+/* La ligne d'annonce est une phrase, non une plage horaire : elle se lit depuis
+   la gauche, en retrait de la liste. Calée à droite comme les plages, elle
+   passait pour la fenêtre du phénomène au-dessus d'elle. */
+ok("la ligne d'annonce se lit depuis la gauche, en retrait",
+  await echB.pg.evaluate(() => {
+    const i = document.querySelector("#ecran .vg-d i");
+    const sym = document.querySelector("#ecran .vg-a:not(.vg-d) .vg-as");
+    const nom = document.querySelector("#ecran .vg-a:not(.vg-d) b");
+    if (!i || !sym || !nom) return "élément manquant";
+    const d = i.getBoundingClientRect().left - sym.getBoundingClientRect().left;
+    if (d <= 2) return `retrait de ${d.toFixed(0)} points seulement`;
+    const max = nom.getBoundingClientRect().left - sym.getBoundingClientRect().left;
+    return d <= max ? "" : `phrase commencée à ${d.toFixed(0)} points, après le nom`;
+  }) === "", await echB.pg.evaluate(() => {
+    const i = document.querySelector("#ecran .vg-d i");
+    const sym = document.querySelector("#ecran .vg-a:not(.vg-d) .vg-as");
+    return `${(i.getBoundingClientRect().left - sym.getBoundingClientRect().left).toFixed(0)} points`;
+  }));
+/* Le panneau le plus chargé que l'application produise : tête sur trois lignes,
+   deux phénomènes, une ligne d'annonce. Mesuré, cent quatre-vingt-dix points,
+   et vingt-sept points de dégagement sous le bloc du jour. C'est ce dégagement
+   qui est gardé, avec un plafond large pour arrêter un emballement que l'écran
+   de huit cent quarante-quatre points ne verrait pas. */
+ok("les mesures du jour tiennent encore sous un panneau qui annonce",
+  await echB.pg.evaluate(() => {
+    const m = document.querySelector("#ecran .bd-mesures");
+    const o = document.getElementById("onglets");
+    if (!m || !o) return "élément manquant";
+    const reste = o.getBoundingClientRect().top - m.getBoundingClientRect().bottom;
+    const h = document.querySelector("#ecran .vg").getBoundingClientRect().height;
+    if (h > 200) return `panneau de ${h.toFixed(0)} points`;
+    return reste >= 0 ? "" : `${reste.toFixed(0)} points sous les mesures`;
+  }) === "", await echB.pg.evaluate(() => {
+    const m = document.querySelector("#ecran .bd-mesures");
+    const o = document.getElementById("onglets");
+    const h = document.querySelector("#ecran .vg").getBoundingClientRect().height;
+    return `panneau ${h.toFixed(0)}, reste `
+      + `${(o.getBoundingClientRect().top - m.getBoundingClientRect().bottom).toFixed(0)}`;
+  }));
+/* Sous une garde qui tient, le retour au premier plan ne coûte rien à la
+   source : c'est la condition pour que le relevé de la garde échue puisse être
+   posé sans relire le bulletin à chaque va-et-vient. */
+const avantB = toursB;
+await echB.pg.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+await echB.pg.waitForTimeout(500);
+ok("un retour au premier plan sous garde tenue ne relit pas le bulletin",
+  toursB === avantB, `${avantB} appels puis ${toursB}`);
+await echB.c.close();
+
+/* Troisième contexte : l'échéance du jour répond, celle du lendemain se tait.
+   La lecture doit rendre le jour en cours seul, sans ligne creuse. */
+const echC = await ctxVigilance((r, j1) => {
+  if (j1) { r.abort(); return; }
+  rendre(r, { domain_id: "21", update_time: HV(6), end_validity_time: HV(0, 19),
+    timelaps: [
+      { phenomenon_id: "3", timelaps_items: [
+        { begin_time: HV(6), end_time: HV(20), color_id: 3 }] },
+      vertV(1, 18), vertV(6, 18),
+    ] });
+});
+ok("une échéance du lendemain muette laisse le jour en cours entier",
+  await echC.pg.locator("#ecran .vg").count() === 1
+  && (await echC.pg.locator("#ecran .vg-a").allInnerTexts()).length === 1);
+ok("elle ne produit aucune ligne d'annonce ni élément vide",
+  await echC.pg.locator("#ecran .vg-d").count() === 0);
+await echC.c.close();
+
+/* Quatrième contexte : l'application laissée ouverte au-delà de la validité du
+   bulletin. Les deux premières réponses portent celui de la veille, déjà
+   expiré : rien n'est en vigueur et aucun panneau ne paraît. Les suivantes
+   portent celui du jour, orange. Le retour au premier plan doit franchir cet
+   écart, la garde étant échue. */
+let toursD = 0;
+const echD = await ctxVigilance((r, j1) => {
+  if (toursD++ < 2) {
+    rendre(r, { domain_id: "21", update_time: HV(6, 17), end_validity_time: HV(0, 18),
+      timelaps: [{ phenomenon_id: "3", timelaps_items: [
+        { begin_time: HV(6, 17), end_time: HV(0, 18), color_id: 3 }] }] });
+    return;
+  }
+  rendre(r, j1
+    ? { domain_id: "21", update_time: HV(6), end_validity_time: HV(0, 20),
+        timelaps: [vertV(3, 19)] }
+    : { domain_id: "21", update_time: HV(6), end_validity_time: HV(0, 19),
+        timelaps: [{ phenomenon_id: "3", timelaps_items: [
+          { begin_time: HV(6), end_time: HV(20), color_id: 3 }] }] });
+});
+ok("un bulletin dont la validité est passée ne fait paraître aucun panneau",
+  await echD.pg.locator("#ecran .vg").count() === 0);
+await echD.pg.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+await echD.pg.waitForTimeout(800);
+ok("le retour au premier plan relit le bulletin dont la garde est échue",
+  await echD.pg.locator("#ecran .vg.vg-orange").count() === 1, `${toursD} appels`);
+await echD.c.close();
 
 /* Un temps sec et dégagé. Deux défauts n'y paraissent que là : une voie sans
    tracé gardait sous son titre la réserve de hauteur d'une touche, ce qui

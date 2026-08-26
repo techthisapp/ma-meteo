@@ -9,7 +9,7 @@
    couches, navigation par barre d'onglets, contenu posé sur le fond, feuilles
    pour les actions temporaires. */
 
-import { nombreFr, esc, departementDe, heureJour } from "./horloge.js";
+import { nombreFr, esc, departementDe, heureJour, enumerer } from "./horloge.js";
 import * as P from "./previsions.js";
 import * as Reglages from "./reglages.js";
 import { ico, icoTemps, icoCiel, tempsDe } from "./icones.js";
@@ -158,10 +158,29 @@ const etatErreur = () =>
    température. Sans vigilance, rien du tout, pas même une rangée d'accès. Un
    bandeau permanent qui dit « rien à signaler » finit par ne plus se lire, et
    le jour où il dit autre chose, personne ne le voit. */
+/* La phrase d'annonce du lendemain, groupée par niveau, le plus grave devant :
+   « Demain, vigilance orange canicule et orages ». Plusieurs phénomènes de même
+   niveau se joignent dans la même phrase plutôt que d'en ouvrir chacun une. */
+export function phraseAnnonce(annonces) {
+  if (!annonces || !annonces.length) return "";
+  const par = new Map();
+  for (const a of annonces) {
+    if (!par.has(a.niveau)) par.set(a.niveau, []);
+    par.get(a.niveau).push(a.nom.toLowerCase());
+  }
+  const parts = [...par.keys()].sort((x, y) => y - x).map(k =>
+    `vigilance ${Vig.NIVEAUX[k].nom} ${enumerer(par.get(k))}`);
+  return `Demain, ${parts.join(", ")}`;
+}
+
 function panneauVigilance() {
   const v = vigilance;
   if (!v) return "";
-  const n = Vig.NIVEAUX[v.niveau];
+  /* La couleur du panneau suit ce qui est en vigueur. Quand rien ne l'est, elle
+     suit l'annonce : un département vert aujourd'hui et orange demain doit
+     paraître, et paraître en orange. */
+  const enCours = v.niveau !== undefined;
+  const n = Vig.NIVEAUX[enCours ? v.niveau : v.niveauLendemain];
 
   /* La fenêtre de chaque phénomène se dit en clair. Une plage déjà commencée se
      dit par sa fin, c'est la seule chose qui reste à savoir. Une borne qui
@@ -177,11 +196,36 @@ function panneauVigilance() {
      forte dans ce cas, le niveau passant en dessous. Il reste écrit en toutes
      lettres, il a seulement changé de ligne.
 
-     « Bulletin valable jusqu'à » est de l'administration. La carte dit une
-     vigilance, la borne ne peut porter que sur elle. */
+     Sans rien en vigueur, la ligne forte porte le mot demain : le panneau ne
+     doit pas se lire comme une alerte en cours. */
   const double = /vigilance/i.test(n.conduite);
-  const fort = double ? n.conduite : `Vigilance ${n.nom}`;
-  const suite = double ? `Niveau ${n.nom}` : n.conduite;
+  const fort = !enCours ? `Vigilance ${n.nom} demain`
+    : double ? n.conduite : `Vigilance ${n.nom}`;
+  const suite = !enCours ? n.conduite : double ? `Niveau ${n.nom}` : n.conduite;
+
+  /* La borne écrite dans la tête est la fin du phénomène qui va le plus loin,
+     non la fin de validité du bulletin. « Bulletin valable jusqu'à » est de
+     l'administration, et écrire « jusqu'à demain 00 h » au-dessus d'une ligne
+     qui dit « jusqu'à demain 12 h » se contredit. */
+  const bout = enCours
+    ? new Date(Math.max(...v.alertes.map(a => a.fin.getTime())))
+    : null;
+
+  const ligne = phraseAnnonce(v.annonces);
+
+  /* Quel bulletin le panneau porte. La publication se fait à 06 h et à 16 h, et
+     la révision tombe quelques minutes après : l'heure ronde dit lequel des
+     deux est en main, la minute exacte reste dans la feuille. Sans elle, un
+     panneau ouvert le matin ne se distinguait pas d'un panneau de la veille. */
+  const bulletin = v.maj
+    ? `bulletin de ${heureJour(new Date(new Date(v.maj).setMinutes(0, 0, 0)))}` : "";
+
+  /* Les faits d'horloge tiennent leur propre ligne, sous la conduite. Écrits à
+     la suite du département, ils faisaient une phrase de quatre membres qui
+     repassait à la ligne d'elle-même, au même prix en hauteur et sans le
+     découpage qui la rend lisible. */
+  const horloge = [bout ? `jusqu'à ${heureJour(bout)}` : "", bulletin]
+    .filter(Boolean).join(", ");
 
   /* Le panneau porte son titre lui-même. Un titre de section au-dessus d'une
      carte qui dit déjà « soyez attentif » annonçait deux fois la même chose et
@@ -190,16 +234,24 @@ function panneauVigilance() {
      il a seulement changé de ligne. */
   return `<div class="section vg vg-${esc(n.nom)}">`
     + `<button type="button" class="carte vg-c" data-feuille="vigilance" `
-    + `aria-label="Vigilance ${esc(n.nom)}, ${esc(n.conduite)}, voir le détail">`
+    + `aria-label="${esc(fort)}, ${esc(n.conduite)}, voir le détail">`
     + `<span class="vg-tete">${ico("alerte", "vg-ic")}`
     + `<span class="vg-txt"><b>${esc(fort)}</b>`
-    + `<em>${esc(suite)}, ${esc(v.nom || `Département ${v.dep}`)}`
-    + (v.validite ? `, jusqu'à ${esc(heureJour(v.validite))}` : "")
-    + `</em></span>${chevron}</span>`
-    + `<span class="vg-l">` + v.alertes.map(a =>
+    + `<em>${esc(suite)}, ${esc(v.nom || `Département ${v.dep}`)}</em>`
+    + (horloge ? `<em class="vg-q">${esc(horloge)}</em>` : "")
+    + `</span>${chevron}</span>`
+    /* En vigueur, les phénomènes portent leur plage ; sans rien en vigueur, ce
+       sont les phénomènes annoncés qui prennent la place de la liste, chacun
+       portant le mot demain à la place de sa plage horaire. */
+    + `<span class="vg-l">` + (enCours ? v.alertes : v.annonces).map(a =>
       `<span class="vg-a n-${a.niveau}">${ico(a.symbole, "vg-as")}`
-      + `<b>${esc(a.nom)}</b><i>${esc(Vig.NIVEAUX[a.niveau].nom)}, ${esc(quand(a))}</i></span>`)
-      .join("")
+      + `<b>${esc(a.nom)}</b><i>${esc(Vig.NIVEAUX[a.niveau].nom)}, `
+      + `${esc(enCours ? quand(a) : "demain")}</i></span>`).join("")
+    /* La ligne d'annonce ne se pose que sous une liste en vigueur : sans rien en
+       vigueur elle redirait la liste juste au-dessus. Vide, elle ne laisse aucun
+       élément derrière elle. */
+    + (enCours && ligne
+      ? `<span class="vg-a vg-d n-${v.niveauLendemain}"><i>${esc(ligne)}</i></span>` : "")
     + `</span></button></div>`;
 }
 
@@ -731,7 +783,11 @@ async function lireVigilance() {
 async function charger() {
   const g = Reglages.lire();
   const mien = ++generation;
-  Vig.oublier();
+  /* La garde de la vigilance porte le département dans sa clé : un changement de
+     commune sert le même bulletin quand il reste dans le même département, et
+     en lit un autre sinon. L'oubli systématique qui se faisait ici relisait le
+     bulletin à chaque chargement et défaisait la garde calée sur la
+     publication. */
   vigilance = null;
   ctx.vigilance = null;
   if (!Reglages.situe()) { charge = "vide"; rendre(); return; }
@@ -811,6 +867,16 @@ brancherGlissement();
 P.surRetourAuPremierPlan(async () => {
   if (await suivrePosition({ force: true })) return;
   charger();
+});
+
+/* La vigilance suit son propre rythme, celui des publications de 06 h et 16 h,
+   et non celui de l'heure ronde. Le retour au premier plan la relit : rouvrir
+   l'application à 16 h 10 doit rendre le bulletin de 16 h, même si la prévision
+   de l'heure en cours est encore bonne. La garde décide seule s'il faut
+   toucher au réseau, et un retour sous garde tenue ne coûte rien. */
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden || charge !== "pret") return;
+  lireVigilance();
 });
 
 if ("serviceWorker" in navigator) {
