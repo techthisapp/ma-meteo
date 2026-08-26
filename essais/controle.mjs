@@ -41,6 +41,43 @@ const ctx = await nav.newContext({
 // Horloge figée au 18 août 2026, 9 h, heure de Paris.
 const FIGE = new Date("2026-08-18T09:00:00+02:00").getTime();
 
+/* La charge d'ensemble, bâtie sur la charge d'essai. Quarante membres écartés
+   régulièrement autour de la valeur servie, d'une demi-largeur qui s'ouvre avec
+   l'échéance : c'est la forme du vrai, où la dispersion vaut un demi-degré à
+   l'heure en cours et plusieurs degrés à sept jours.
+
+   Elle ne porte pas les journées écoulées, la source d'ensemble n'en rendant
+   pas : le tracé doit savoir s'arrêter là où elle s'arrête.
+
+   La demi-largeur est écrite ici pour que les contrôles puissent la prédire :
+   à l'heure `L` après maintenant, elle vaut `0,5 + L / 20`, plafonnée à six. */
+const MEMBRES = 40;
+const demiLargeur = L => Math.min(6, 0.5 + Math.max(0, L) / 20);
+const ensembleDe = () => {
+  const h = METEO.hourly;
+  const i0 = h.time.indexOf("2026-08-18T00:00");
+  const t0 = new Date(FIGE).getTime();
+  const out = { time: h.time.slice(i0) };
+  const col = (nom, base, echelle) => {
+    out[nom] = out.time.map((t, k) => Math.round(base[i0 + k] * 10) / 10);
+    for (let m = 1; m < MEMBRES; m++) {
+      /* Les membres s'écartent en éventail, pairs au-dessus, impairs en
+         dessous, du centre vers les bords. Le membre le plus extrême porte la
+         demi-largeur entière. */
+      const f = (m % 2 ? -1 : 1) * Math.ceil(m / 2) / Math.floor(MEMBRES / 2);
+      out[`${nom}_member${String(m).padStart(2, "0")}`] = out.time.map((t, k) => {
+        const L = (Date.parse(`${t}:00`) - t0) / 3600000;
+        const v = base[i0 + k] + f * demiLargeur(L) * echelle;
+        return Math.round(Math.max(nom === "precipitation" ? 0 : -60, v) * 10) / 10;
+      });
+    }
+  };
+  col("temperature_2m", h.temperature_2m, 1);
+  col("precipitation", h.precipitation, 0.2);
+  return { hourly: out };
+};
+const ENSEMBLE = ensembleDe();
+
 const FAIN = {
   commune: "Fain-lès-Moutiers", codePostal: "21500", lat: 47.5, lon: 4.3,
   ecriture: "ruban", poste: null,
@@ -82,7 +119,12 @@ await ctx.addInitScript(amorce(FAIN));
    principal. */
 const appelsVig = [];
 
+const appelsEns = [];
+
 const brancherRoutes = async c => {
+  /* L'ensemble se sert avant la prévision : son domaine porte le même nom à un
+     préfixe près, et la route de la prévision le happerait. Playwright essaie la
+     dernière route posée en premier, celle-ci vient donc après. */
   await c.route(/api\.open-meteo\.com/, route => {
     const u = route.request().url();
     const d = JSON.parse(JSON.stringify(METEO));
@@ -154,6 +196,11 @@ const brancherRoutes = async c => {
     }] };
     r.fulfill({ status: 200, contentType: "application/json",
       body: JSON.stringify(/zzzz/i.test(q) ? vide : grenoble) });
+  });
+  await c.route(/ensemble-api\.open-meteo\.com/, r => {
+    appelsEns.push(r.request().url());
+    r.fulfill({ status: 200, contentType: "application/json",
+      body: JSON.stringify(ENSEMBLE) });
   });
 };
 
@@ -2252,6 +2299,36 @@ await pg.evaluate(() => {
 });
 await onglet("accueil");
 
+console.log("\n--- La coque hors ligne ---");
+
+/* L'agent de service met en cache une liste de fichiers écrite à la main. Un
+   module nouveau qui n'y figure pas ne se voit pas : l'application marche tant
+   qu'il y a du réseau, et tombe hors ligne, où rien ne dit pourquoi. La liste
+   se compare donc à ce que l'application importe réellement, en suivant les
+   `import` depuis son point d'entrée. */
+{
+  const lu = f => fs.readFileSync(path.join(ICI, "..", f), "utf8");
+  const coque = new Set([...lu("sw.js").matchAll(/"\.\/([^"]+)"/g)].map(m => m[1]));
+  const vus = new Set();
+  const suivre = f => {
+    if (vus.has(f)) return;
+    vus.add(f);
+    for (const m of lu(f).matchAll(/from\s+"\.\/([^"]+\.js)"/g)) {
+      suivre(`src/${m[1]}`);
+    }
+  };
+  suivre("src/app.js");
+  const manquants = [...vus].filter(f => !coque.has(f));
+  ok("la coque hors ligne porte tous les modules importés",
+    manquants.length === 0, manquants.join(", ") || `${vus.size} modules`);
+  /* L'inverse vaut aussi : un module retiré de l'application et laissé dans la
+     liste ferait échouer l'installation entière de l'agent de service, `addAll`
+     étant tout ou rien. */
+  const morts = [...coque].filter(f => f.startsWith("src/") && !vus.has(f));
+  ok("elle ne porte aucun module que l'application n'importe plus",
+    morts.length === 0, morts.join(", "));
+}
+
 console.log("\n--- Design system ---");
 const petites = await pg.evaluate(() => {
   const cibles = [...document.querySelectorAll(
@@ -2551,7 +2628,9 @@ await ctxCourt.route(/webservice\.meteofrance\.com/, r => r.abort());
 const pgCourt = await ctxCourt.newPage();
 const urls = [];
 pgCourt.on("request", r => {
-  if (r.url().includes("api.open-meteo.com")) urls.push(r.url());
+  // L'adresse d'ensemble porte le même domaine à un préfixe près : elle est
+  // écartée d'ici, le contrat éprouvé étant celui de la prévision servie.
+  if (r.url().startsWith("https://api.open-meteo.com")) urls.push(r.url());
 });
 await pgCourt.goto("http://localhost:8137/", { waitUntil: "networkidle" });
 await pgCourt.waitForTimeout(1400);
@@ -3538,6 +3617,215 @@ ok("la première lecture montre une ossature, non un voile plein écran",
   await pgLent.locator(".ossature").count() >= 3
   && await pgLent.locator(".etat-vide .tourne").count() === 0);
 await ctxLent.close();
+
+console.log("\n--- Les scénarios ---");
+
+/* La marge d'une prévision. La source rend quarante scénarios sous un autre
+   point d'entrée : leur dispersion est la marge, et elle s'élargit avec
+   l'échéance. La charge d'essai la reproduit, d'une demi-largeur qui vaut
+   `0,5 + L / 20` à l'heure `L` après maintenant, plafonnée à six. */
+const ctxSc = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+await ctxSc.addInitScript(amorce(FAIN));
+await brancherRoutes(ctxSc);
+const pgSc = await ctxSc.newPage();
+const appelsScPage = [];
+pgSc.on("request", r => {
+  if (r.url().startsWith("https://ensemble-api.open-meteo.com")) appelsScPage.push(r.url());
+});
+await pgSc.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await pgSc.waitForTimeout(1800);
+
+/* La requête. Un modèle, sept jours, deux grandeurs, et la seule commune
+   affichée : l'aperçu des lieux suivis n'en demande pas, la charge d'ensemble
+   étant cinq fois celle d'une prévision.
+
+   Trois heures de garde. L'ensemble tourne toutes les trois heures et sa
+   dispersion bouge lentement : la relire à chaque heure comme la prévision
+   déterministe coûterait quatre fois la bande passante pour la même marge. Une
+   seconde ouverture ne redemande donc rien. */
+ok("les scénarios sont demandés une seule fois, pour la commune affichée",
+  appelsScPage.length === 1, `${appelsScPage.length} requêtes`);
+const uSc = appelsScPage[0] || "";
+await pgSc.reload({ waitUntil: "networkidle" });
+await pgSc.waitForTimeout(1500);
+ok("une seconde ouverture sous garde ne les redemande pas",
+  appelsScPage.length === 1, `${appelsScPage.length} requêtes après rechargement`);
+ok("la requête porte le modèle, la portée et les deux grandeurs",
+  uSc.includes("models=icon_seamless") && uSc.includes("forecast_days=7")
+  && uSc.includes("temperature_2m") && uSc.includes("precipitation"), uSc);
+
+/* La charge brute pèse soixante-quinze kilooctets pour quarante membres. Elle
+   n'est ni gardée ni transportée telle quelle : cinq nombres par heure suffisent
+   à tout ce qui s'affiche, et c'est eux que la réserve locale porte. */
+ok("la charge gardée est réduite à ses quantiles, non aux membres",
+  await pgSc.evaluate(() => {
+    const c = JSON.parse(localStorage.getItem("mameteo.ensemble.v1") || "null");
+    if (!c?.d) return "aucune charge gardée";
+    const cols = Object.keys(c.d);
+    const membres = cols.filter(x => /member/.test(x));
+    if (membres.length) return `${membres.length} colonnes de membres gardées`;
+    const attendu = ["time", "membres", "mini", "bas", "med", "haut", "maxi", "pluie"];
+    const surplus = cols.filter(x => !attendu.includes(x));
+    return surplus.length ? `colonnes en trop : ${surplus.join(", ")}` : "";
+  }) === "", await pgSc.evaluate(() =>
+    Object.keys(JSON.parse(localStorage.getItem("mameteo.ensemble.v1") || "{}").d || {}).join(", ")));
+ok("elle tient sous dix kilooctets", await pgSc.evaluate(() =>
+  (localStorage.getItem("mameteo.ensemble.v1") || "").length) < 10240,
+  `${await pgSc.evaluate(() => (localStorage.getItem("mameteo.ensemble.v1") || "").length)} octets`);
+
+/* Les quantiles encadrent toujours la médiane, et l'étendue encadre les
+   quartiles. Un tri à l'envers, ou un quantile pris sur une série non triée,
+   se verrait ici et nulle part ailleurs. */
+ok("la fourchette encadre toujours la médiane", await pgSc.evaluate(async () => {
+  const E = await import("/src/ensemble.js");
+  const c = E.chargeCourante();
+  if (!c) return "aucun ensemble";
+  for (let i = 0; i < c.time.length; i++) {
+    if (c.med[i] === null) continue;
+    if (!(c.mini[i] <= c.bas[i] && c.bas[i] <= c.med[i]
+      && c.med[i] <= c.haut[i] && c.haut[i] <= c.maxi[i])) {
+      return `${c.time[i]} : ${c.mini[i]}/${c.bas[i]}/${c.med[i]}/${c.haut[i]}/${c.maxi[i]}`;
+    }
+  }
+  return "";
+}) === "");
+ok("la dispersion s'élargit avec l'échéance", await pgSc.evaluate(async () => {
+  const E = await import("/src/ensemble.js");
+  const c = E.chargeCourante();
+  const e = t => {
+    const i = c.time.indexOf(t);
+    return i < 0 ? null : Math.round((c.maxi[i] - c.mini[i]) * 10) / 10;
+  };
+  const proche = e("2026-08-18T12:00"), loin = e("2026-08-22T12:00");
+  if (proche === null || loin === null) return "heure absente";
+  return loin > proche * 2 ? "" : `${proche} près, ${loin} loin`;
+}) === "", await pgSc.evaluate(async () => {
+  const E = await import("/src/ensemble.js");
+  const c = E.chargeCourante();
+  const e = t => { const i = c.time.indexOf(t); return (c.maxi[i] - c.mini[i]).toFixed(1); };
+  return `${e("2026-08-18T12:00")} puis ${e("2026-08-22T12:00")}`;
+}));
+
+/* L'enveloppe, peinte dans le groupe mobile de la voie de température, sous les
+   courbes et au-dessus du lavis de nuit. Elle suit donc le glissement sans
+   travail supplémentaire. */
+await pgSc.locator('[data-onglet="temps"]').click();
+await pgSc.waitForTimeout(700);
+ok("l'enveloppe est peinte dans la voie de température",
+  await pgSc.locator('.mg-v[data-cle="t"] .mg-sc-q path').count() >= 1
+  && await pgSc.locator('.mg-v[data-cle="t"] .mg-sc-e path').count() >= 1);
+ok("elle glisse avec le dessin", await pgSc.evaluate(() =>
+  !!document.querySelector('.mg-v[data-cle="t"] .mg-sc-q')?.closest("g.mg-mob")));
+ok("elle passe sous les courbes et au-dessus du lavis de nuit",
+  await pgSc.evaluate(() => {
+    const g = document.querySelector('.mg-v[data-cle="t"] svg.mg-s g.mg-mob');
+    if (!g) return "aucun groupe mobile";
+    const rang = e => [...g.children].indexOf(e.closest("g.mg-mob > *") || e);
+    const kids = [...g.querySelectorAll("*")];
+    const iNuit = kids.findIndex(e => e.classList.contains("mg-nuit"));
+    const iEnv = kids.findIndex(e => e.classList.contains("mg-sc-e"));
+    const iCourbe = kids.findIndex(e => e.tagName === "polyline");
+    if (iNuit < 0 || iEnv < 0 || iCourbe < 0) return "élément manquant";
+    return iNuit < iEnv && iEnv < iCourbe ? ""
+      : `nuit ${iNuit}, enveloppe ${iEnv}, courbe ${iCourbe}`;
+  }) === "");
+/* Deux bandes grises sous une courbe ne se lisent pas seules : elles passent
+   pour un effet de dessin. La phrase de la voie dit ce qu'elles portent, et
+   nomme l'écart le plus large de la fenêtre, non celui de l'heure en cours qui
+   vaut un demi-degré. */
+await pgSc.locator('.mg-b[data-voie="t"]').click();
+await pgSc.waitForTimeout(500);
+const phraseSc = await pgSc.locator('.mg-v[data-cle="t"] .mg-l').innerText();
+ok("la voie dit ce que l'ombre porte",
+  /L'ombre porte les 40 scénarios de la source, écartés de \d+ degrés? au plus large vers/
+    .test(phraseSc), phraseSc);
+ok("l'écart nommé est celui de la fenêtre", await pgSc.evaluate(() => {
+  const t = document.querySelector('.mg-v[data-cle="t"] .mg-l').textContent;
+  const m = t.match(/écartés de (\d+) degrés? au plus large vers ([^.]+)\./);
+  if (!m) return "phrase absente";
+  // Fenêtre de 05 h à demain 05 h : l'écart le plus large tombe à sa fin.
+  return Number(m[1]) >= 1 && Number(m[1]) <= 4 && /demain/.test(m[2])
+    ? "" : `${m[1]} degrés vers ${m[2]}`;
+}) === "", phraseSc);
+
+/* Une source d'ensemble muette ne prive de rien : la prévision déterministe est
+   déjà à l'écran, et l'enveloppe ne paraît simplement pas. */
+const ctxMuet = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+await ctxMuet.addInitScript(amorce(FAIN));
+await brancherRoutes(ctxMuet);
+await ctxMuet.route(/ensemble-api\.open-meteo\.com/, r => r.abort());
+const pgMuet = await ctxMuet.newPage();
+await pgMuet.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await pgMuet.waitForTimeout(1500);
+await pgMuet.locator('[data-onglet="temps"]').click();
+await pgMuet.waitForTimeout(700);
+ok("sans scénarios, la voie de température se dessine quand même",
+  await pgMuet.locator('.mg-v[data-cle="t"] polyline').count() >= 3
+  && await pgMuet.locator('.mg-v[data-cle="t"] .mg-sc-q').count() === 0);
+ok("et sa phrase ne parle pas d'une ombre absente",
+  !/ombre/.test(await pgMuet.locator('.mg-v[data-cle="t"] .mg-l').innerText()),
+  await pgMuet.locator('.mg-v[data-cle="t"] .mg-l').innerText());
+await ctxMuet.close();
+
+/* Le journal de justesse. Rien ne s'affiche : deux mois de couples entre ce qui
+   était annoncé et ce qui a été relevé permettront de dire, au jalon 6, à quelle
+   distance la prévision tombe. La donnée ne se rattrape pas après coup, d'où
+   cette amorce livrée avant tout ce qui l'exploitera. */
+const jr = await pgSc.evaluate(() =>
+  JSON.parse(localStorage.getItem("mameteo.justesse.v1") || "null"));
+ok("le journal de justesse est écrit", !!jr && Array.isArray(jr.lignes) && jr.lignes.length > 0,
+  jr ? `${jr.lignes.length} lignes` : "aucun journal");
+ok("chaque ligne porte son lieu, son heure visée, son échéance et sa valeur",
+  (jr?.lignes || []).every(l => typeof l.l === "string" && /^\d{4}-\d\d-\d\dT\d\d$/.test(l.c)
+    && typeof l.e === "number" && typeof l.t === "number" && typeof l.le === "string"),
+  JSON.stringify((jr?.lignes || [])[0] || {}));
+/* Les heures visées sont les extrêmes de la journée : une prévision se juge sur
+   eux, non sur une heure quelconque. */
+ok("il ne vise que les heures extrêmes des journées",
+  (jr?.lignes || []).every(l => ["06", "15"].includes(l.c.slice(11, 13))),
+  [...new Set((jr?.lignes || []).map(l => l.c.slice(11, 13)))].join(", "));
+ok("une même heure visée n'est notée qu'une fois par échéance",
+  (() => {
+    const vus = new Set();
+    for (const l of jr?.lignes || []) {
+      const k = `${l.l}|${l.c}|${l.e}`;
+      if (vus.has(k)) return `doublon sur ${k}`;
+      vus.add(k);
+    }
+    return "";
+  })() === "");
+/* Les heures visées déjà passées portent leur relevé : la charge horaire garde
+   deux journées écoulées, au delà l'heure aurait disparu de la source et la
+   comparaison n'aurait plus de terme. */
+ok("une heure visée passée porte son relevé", await pgSc.evaluate(async () => {
+  const J = await import("/src/justesse.js");
+  const P = await import("/src/previsions.js");
+  const j = J.lire();
+  const avant = j.lignes.length;
+  // Une ligne d'hier, notée à six heures d'échéance, que le relevé doit remplir.
+  j.lignes.push({ l: "47.500,4.300", c: "2026-08-17T15", e: 6, t: 20, mm: 0, pb: 0,
+    le: "2026-08-17T09" });
+  localStorage.setItem("mameteo.justesse.v1", JSON.stringify(j));
+  const r = J.noter(P.chargeCourante(), "47.500,4.300");
+  const apres = J.lire().lignes.find(l => l.c === "2026-08-17T15" && l.e === 6);
+  return apres && apres.r !== undefined && r.releves >= 1
+    ? "" : `relevé ${JSON.stringify(apres)} après ${avant} lignes`;
+}) === "");
+ok("une seconde notation dans la même heure n'ajoute rien",
+  await pgSc.evaluate(async () => {
+    const J = await import("/src/justesse.js");
+    const P = await import("/src/previsions.js");
+    const avant = J.lire().lignes.length;
+    J.noter(P.chargeCourante(), "47.500,4.300");
+    return J.lire().lignes.length - avant;
+  }) === 0);
+await ctxSc.close();
 
 console.log("\n--- Mouvement réduit ---");
 const ctx2 = await nav.newContext({

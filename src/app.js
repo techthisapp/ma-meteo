@@ -23,6 +23,8 @@ import { vueTemps, vueSemaine, vueVigilance, vueSoleil, vueLune, vueCommunes, vu
 import { moments } from "./ecritures.js";
 import * as Vig from "./vigilance.js";
 import * as Astres from "./astres.js";
+import * as Justesse from "./justesse.js";
+import * as Ensemble from "./ensemble.js";
 
 const $ = id => document.getElementById(id);
 
@@ -803,6 +805,23 @@ async function charger() {
   if (vueCourante) rendreFeuille();
   nommerPosition();
   lireVigilance();
+  lireEnsemble(g);
+  /* Le journal de justesse note ce qui vient d'être servi. Il n'affiche rien et
+     ne conditionne rien : il est appelé après le rendu, une charge en échec ne
+     lui donnant du reste rien à noter. */
+  if (r) Justesse.noter(r, Justesse.lieuDe(g.lat, g.lon));
+}
+
+/* Les scénarios se lisent après la prévision et sans la retarder : ils ajoutent
+   une marge à ce qui est déjà à l'écran, et une source d'ensemble muette ne doit
+   pas priver l'application de son temps qu'il fait. La requête ne part que pour
+   la commune affichée. */
+async function lireEnsemble(g) {
+  const mien = generation;
+  const d = await Ensemble.charger({ lat: g.lat, lon: g.lon });
+  if (mien !== generation || !d) return;
+  rendre();
+  if (vueCourante) rendreFeuille();
 }
 
 /* Le relevé peut avoir abouti alors que l'interface adresse était muette : la

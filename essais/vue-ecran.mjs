@@ -65,6 +65,32 @@ for (const theme of ["light", "dark"]) {
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
   });
   await ctx.route(/data\.gouv\.fr|webservice\.meteofrance\.com/, r => r.abort());
+  /* Les scénarios, bâtis sur la charge d'essai : quarante membres écartés d'une
+     demi-largeur qui s'ouvre avec l'échéance. La route vient après celle de la
+     prévision, dont l'expression happerait ce domaine, Playwright essayant la
+     dernière posée en premier. */
+  await ctx.route(/ensemble-api\.open-meteo\.com/, r => {
+    const h = METEO.hourly;
+    const i0 = h.time.findIndex(t => t >= new Date(FIGE).toISOString().slice(0, 10));
+    const out = { time: h.time.slice(Math.max(0, i0)) };
+    const demi = L => Math.min(6, 0.5 + Math.max(0, L) / 20);
+    const col = (nom, base, ech) => {
+      const d0 = Math.max(0, i0);
+      out[nom] = out.time.map((t, k) => base[d0 + k]);
+      for (let m = 1; m < 40; m++) {
+        const f = (m % 2 ? -1 : 1) * Math.ceil(m / 2) / 20;
+        out[`${nom}_member${String(m).padStart(2, "0")}`] = out.time.map((t, k) => {
+          const L = (Date.parse(`${t}:00`) - FIGE) / 3600000;
+          return Math.round(Math.max(nom === "precipitation" ? 0 : -60,
+            base[d0 + k] + f * demi(L) * ech) * 10) / 10;
+        });
+      }
+    };
+    col("temperature_2m", h.temperature_2m, 1);
+    col("precipitation", h.precipitation, 0.2);
+    r.fulfill({ status: 200, contentType: "application/json",
+      body: JSON.stringify({ hourly: out }) });
+  });
 
   const pg = await ctx.newPage();
   await pg.goto("http://localhost:8141/", { waitUntil: "networkidle" });

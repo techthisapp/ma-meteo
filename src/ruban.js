@@ -47,6 +47,7 @@
 import { nombreFr, jourCourt, heureTxt, esc, cleJour } from "./horloge.js";
 import { plagesDe, dCardinal, CARD_ABR, iCard } from "./previsions.js";
 import { icoCiel, icoTemps, couleurT, couleurUV } from "./icones.js";
+import { alignerSur } from "./ensemble.js";
 
 const L = 358, M = 5, GOUT = 34;
 const P = L - M - GOUT;
@@ -166,6 +167,10 @@ const nomJour = (s, jour) => {
 
 export function dessiner(s) {
   serie = s;
+  /* Les scénarios, alignés sur la série une fois pour toutes : la voie de
+     température s'en sert, et la phrase de résumé aussi. Ils manquent tant que
+     la requête d'ensemble n'a pas abouti, et le ruban se dessine sans eux. */
+  const ens = alignerSur(s);
   const FEN = fenetre();
   if (ancre) decalage = pose(s);
   decalage = Math.max(0, Math.min(Math.max(0, s.n - FEN), decalage));
@@ -259,6 +264,40 @@ export function dessiner(s) {
     + `L${u(X(kB + 0.5))},${u(y1)} Z`;
 
   const yDe = (v, y0, y1, mn, mx) => y1 - ((v - mn) / ((mx - mn) || 1)) * (y1 - y0);
+
+  /* Une bande entre deux séries, pour l'enveloppe des scénarios. Elle se dessine
+     par tronçons : l'ensemble ne porte pas les journées écoulées et s'arrête où
+     il s'arrête, et coudre ses bords manquants à zéro aurait tiré la bande au
+     bas de la voie. Un tronçon d'un seul point ne se peint pas, une bande sans
+     largeur n'étant rien.
+
+     L'étendue des quarante scénarios déborde l'échelle, laquelle est prise sur
+     la prévision servie : l'élargir aurait aplati la courbe d'un quart pour
+     loger une bande qui n'est pas une valeur à lire mais une marge à voir. Ce
+     qui déborde sort du cadre et la découpe le retient, ce qui est la bonne
+     lecture : au delà de l'échelle, on ne sait plus. */
+  const enveloppe = (haut, bas, y0, y1, mn, mx) => {
+    const Y = v => yDe(v, y0, y1, mn, mx);
+    let o = "";
+    let k = kA;
+    while (k <= kB) {
+      if (haut[k] === null || haut[k] === undefined
+        || bas[k] === null || bas[k] === undefined) { k++; continue; }
+      let j = k;
+      while (j + 1 <= kB && haut[j + 1] !== null && haut[j + 1] !== undefined
+        && bas[j + 1] !== null && bas[j + 1] !== undefined) j++;
+      if (j > k) {
+        const av = [], ar = [];
+        for (let i = k; i <= j; i++) {
+          av.push(`${u(X(i + 0.5))},${u(Y(haut[i]))}`);
+          ar.unshift(`${u(X(i + 0.5))},${u(Y(bas[i]))}`);
+        }
+        o += `<path d="M${av.join(" L")} L${ar.join(" L")} Z"/>`;
+      }
+      k = j + 1;
+    }
+    return o;
+  };
 
   /* Deux couches par voie. Le dessin glisse, l'écriture d'échelle ne glisse
      pas : un « Élevé » ou un « 20 km/h » emporté par le doigt sortirait du
@@ -581,7 +620,15 @@ export function dessiner(s) {
        à chaque glissement, la courbe se serait déformée sous le doigt et deux
        journées n'auraient plus été comparables. Elle est donc prise sur les sept
        jours, une fois pour toutes. */
+    /* Les quartiles entrent dans l'échelle, l'étendue non. Les premiers serrent
+       la courbe et ne la déplacent guère ; la seconde l'aurait aplatie d'un
+       quart pour loger une bande qui n'est pas une valeur à lire. */
     const tous = [...s.t, ...s.res, ...s.ros];
+    if (ens) {
+      for (const c of ["bas", "haut"]) {
+        for (const v of ens[c]) if (v !== null && v !== undefined) tous.push(v);
+      }
+    }
     let mn = Math.min(...tous), mx = Math.max(...tous);
     if (mx - mn < 4) { const c = (mn + mx) / 2; mn = c - 2; mx = c + 2; }
     const pas = mx - mn > 24 ? 10 : mx - mn > 10 ? 5 : 2;
@@ -608,6 +655,15 @@ export function dessiner(s) {
       + `gradientUnits="userSpaceOnUse">${arretsX.join("")}</linearGradient></defs>`;
 
     let d = defs + fond(hb, h) + tr;
+    /* L'enveloppe des scénarios, sous les courbes et au-dessus du lavis de nuit.
+       Deux bandes : l'étendue des quarante membres, puis la moitié centrale.
+       La première dit ce qui est possible, la seconde ce qui est probable, et
+       leur superposition fait un dégradé sans qu'aucune n'ait à en porter un.
+       Elles s'élargissent avec l'échéance, ce qui est tout le propos. */
+    if (ens) {
+      d += `<g class="mg-sc-e">${enveloppe(ens.maxi, ens.mini, y0, y1, mn, mx)}</g>`;
+      d += `<g class="mg-sc-q">${enveloppe(ens.haut, ens.bas, y0, y1, mn, mx)}</g>`;
+    }
     d += `<path d="${aire(s.t, y0, y1, mn, mx)}" fill="url(#mgTy)" opacity=".28"/>`;
     d += `<polyline points="${pts(s.ros, y0, y1, mn, mx)}" fill="none" stroke="currentColor" `
       + `stroke-width="1" opacity=".3" stroke-dasharray="3 2"/>`;
@@ -618,9 +674,27 @@ export function dessiner(s) {
     const kx = iMax(w.t), kn = iMin(w.t);
     d += marque(kx, yDe(s.t[kx], y0, y1, mn, mx)) + marque(kn, yDe(s.t[kn], y0, y1, mn, mx));
     if (g) d += valeurs(s.t, v => `${Math.round(v)}°`, hs + 9);
+    /* La phrase dit ce que l'ombre porte. Sans elle, deux bandes grises sous une
+       courbe ne se lisent pas : elles passent pour un effet de dessin. Le
+       chiffre nommé est l'écart le plus large de la fenêtre, non celui de
+       l'heure en cours, qui vaut un demi-degré et ne dirait rien. */
+    let mot = "";
+    if (ens) {
+      let kw = -1, large = 0;
+      for (let k = dec; k < Math.min(s.n, dec + FEN); k++) {
+        if (ens.mini[k] === null || ens.maxi[k] === null) continue;
+        const e = ens.maxi[k] - ens.mini[k];
+        if (e > large) { large = e; kw = k; }
+      }
+      if (kw >= 0) {
+        mot = ` L'ombre porte les ${ens.membres || 40} scénarios de la source, `
+          + `écartés de ${Math.round(large)} degré${Math.round(large) >= 2 ? "s" : ""} `
+          + `au plus large vers ${HJ(kw)}.`;
+      }
+    }
     poser("Température", `${bornes(w.t)}°`, h, d,
       `Minimum ${Math.round(s.t[kn])}° vers ${HJ(kn)}, maximum ${Math.round(s.t[kx])}° `
-      + `vers ${HJ(kx)}. Trait fin le ressenti, pointillé le point de rosée.`, cle);
+      + `vers ${HJ(kx)}. Trait fin le ressenti, pointillé le point de rosée.${mot}`, cle);
   }
 
   // ---- 3. Pluie ----
