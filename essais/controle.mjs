@@ -74,6 +74,8 @@ const ensembleDe = () => {
   };
   col("temperature_2m", h.temperature_2m, 1);
   col("precipitation", h.precipitation, 0.2);
+  col("wind_speed_10m", h.wind_speed_10m, 2);
+  col("wind_gusts_10m", h.wind_gusts_10m, 3);
   return { hourly: out };
 };
 const ENSEMBLE = ensembleDe();
@@ -3653,61 +3655,102 @@ await pgSc.reload({ waitUntil: "networkidle" });
 await pgSc.waitForTimeout(1500);
 ok("une seconde ouverture sous garde ne les redemande pas",
   appelsScPage.length === 1, `${appelsScPage.length} requêtes après rechargement`);
-ok("la requête porte le modèle, la portée et les deux grandeurs",
+/* La liste des grandeurs est comparée en entier, non par inclusion : une
+   grandeur demandée pour rien coûterait quarante kilooctets de charge brute à
+   chaque lecture, et l'indice ultraviolet, dont la source rend des colonnes
+   vides, se serait glissé là sans que rien ne le dise. */
+ok("la requête porte le modèle, la portée et les grandeurs exactes",
   uSc.includes("models=icon_seamless") && uSc.includes("forecast_days=7")
-  && uSc.includes("temperature_2m") && uSc.includes("precipitation"), uSc);
+  && decodeURIComponent(new URL(uSc || "https://x/").searchParams.get("hourly") || "")
+    === "temperature_2m,wind_speed_10m,wind_gusts_10m,precipitation", uSc);
 
-/* La charge brute pèse soixante-quinze kilooctets pour quarante membres. Elle
-   n'est ni gardée ni transportée telle quelle : cinq nombres par heure suffisent
-   à tout ce qui s'affiche, et c'est eux que la réserve locale porte. */
+/* La charge brute pèse cent trente-neuf kilooctets pour quarante membres et
+   quatre grandeurs. Elle n'est ni gardée ni transportée telle quelle : cinq
+   nombres par heure et par grandeur suffisent à tout ce qui s'affiche, et c'est
+   eux que la réserve locale porte. */
 ok("la charge gardée est réduite à ses quantiles, non aux membres",
   await pgSc.evaluate(() => {
     const c = JSON.parse(localStorage.getItem("mameteo.ensemble.v1") || "null");
     if (!c?.d) return "aucune charge gardée";
-    const cols = Object.keys(c.d);
+    const cols = [];
+    const plat = (o, prefixe) => {
+      for (const k of Object.keys(o)) {
+        const v = o[k];
+        if (v && !Array.isArray(v) && typeof v === "object") plat(v, `${prefixe}${k}.`);
+        else cols.push(prefixe + k);
+      }
+    };
+    plat(c.d, "");
     const membres = cols.filter(x => /member/.test(x));
     if (membres.length) return `${membres.length} colonnes de membres gardées`;
-    const attendu = ["time", "membres", "mini", "bas", "med", "haut", "maxi", "pluie"];
-    const surplus = cols.filter(x => !attendu.includes(x));
+    const bornes = ["mini", "bas", "med", "haut", "maxi"];
+    const surplus = cols.filter(x => !["time", "membres", "pluie"].includes(x)
+      && !bornes.includes(x.split(".").pop()));
     return surplus.length ? `colonnes en trop : ${surplus.join(", ")}` : "";
+  }) === "", await pgSc.evaluate(() => {
+    const d = JSON.parse(localStorage.getItem("mameteo.ensemble.v1") || "{}").d || {};
+    return `${Object.keys(d).join(", ")} | q : ${Object.keys(d.q || {}).join(", ")}`;
+  }));
+/* Le plafond suit le nombre de grandeurs encadrées : six kilooctets chacune,
+   plus quatre pour les heures et le comptage de pluie. Mesuré, trois grandeurs
+   tiennent en seize kilooctets. Une grandeur ajoutée sans que la réduction
+   suive se verrait ici. */
+ok("elle reste proportionnée au nombre de grandeurs encadrées",
+  await pgSc.evaluate(async () => {
+    const E = await import("/src/ensemble.js");
+    const n = Object.keys(E.chargeCourante()?.q || {}).length;
+    const o = (localStorage.getItem("mameteo.ensemble.v1") || "").length;
+    return n && o <= 6 * 1024 * n + 4096 ? "" : `${o} octets pour ${n} grandeurs`;
   }) === "", await pgSc.evaluate(() =>
-    Object.keys(JSON.parse(localStorage.getItem("mameteo.ensemble.v1") || "{}").d || {}).join(", ")));
-ok("elle tient sous dix kilooctets", await pgSc.evaluate(() =>
-  (localStorage.getItem("mameteo.ensemble.v1") || "").length) < 10240,
-  `${await pgSc.evaluate(() => (localStorage.getItem("mameteo.ensemble.v1") || "").length)} octets`);
+    `${(localStorage.getItem("mameteo.ensemble.v1") || "").length} octets`));
 
 /* Les quantiles encadrent toujours la médiane, et l'étendue encadre les
    quartiles. Un tri à l'envers, ou un quantile pris sur une série non triée,
    se verrait ici et nulle part ailleurs. */
-ok("la fourchette encadre toujours la médiane", await pgSc.evaluate(async () => {
-  const E = await import("/src/ensemble.js");
-  const c = E.chargeCourante();
-  if (!c) return "aucun ensemble";
-  for (let i = 0; i < c.time.length; i++) {
-    if (c.med[i] === null) continue;
-    if (!(c.mini[i] <= c.bas[i] && c.bas[i] <= c.med[i]
-      && c.med[i] <= c.haut[i] && c.haut[i] <= c.maxi[i])) {
-      return `${c.time[i]} : ${c.mini[i]}/${c.bas[i]}/${c.med[i]}/${c.haut[i]}/${c.maxi[i]}`;
+ok("la fourchette encadre toujours la médiane, sur chaque grandeur",
+  await pgSc.evaluate(async () => {
+    const E = await import("/src/ensemble.js");
+    const c = E.chargeCourante();
+    if (!c) return "aucun ensemble";
+    for (const [cle, q] of Object.entries(c.q)) {
+      for (let i = 0; i < c.time.length; i++) {
+        if (q.med[i] === null) continue;
+        if (!(q.mini[i] <= q.bas[i] && q.bas[i] <= q.med[i]
+          && q.med[i] <= q.haut[i] && q.haut[i] <= q.maxi[i])) {
+          return `${cle} à ${c.time[i]} : `
+            + `${q.mini[i]}/${q.bas[i]}/${q.med[i]}/${q.haut[i]}/${q.maxi[i]}`;
+        }
+      }
     }
-  }
-  return "";
-}) === "");
-ok("la dispersion s'élargit avec l'échéance", await pgSc.evaluate(async () => {
-  const E = await import("/src/ensemble.js");
-  const c = E.chargeCourante();
-  const e = t => {
-    const i = c.time.indexOf(t);
-    return i < 0 ? null : Math.round((c.maxi[i] - c.mini[i]) * 10) / 10;
-  };
-  const proche = e("2026-08-18T12:00"), loin = e("2026-08-22T12:00");
-  if (proche === null || loin === null) return "heure absente";
-  return loin > proche * 2 ? "" : `${proche} près, ${loin} loin`;
-}) === "", await pgSc.evaluate(async () => {
-  const E = await import("/src/ensemble.js");
-  const c = E.chargeCourante();
-  const e = t => { const i = c.time.indexOf(t); return (c.maxi[i] - c.mini[i]).toFixed(1); };
-  return `${e("2026-08-18T12:00")} puis ${e("2026-08-22T12:00")}`;
-}));
+    return "";
+  }) === "");
+/* Les grandeurs encadrées sont celles dont la dispersion parle : la température
+   et le vent, moyen et en rafales. La pluie ne s'encadre pas, elle se compte, et
+   l'indice ultraviolet n'a aucun scénario du côté de la source. */
+ok("trois grandeurs sont encadrées, et ce sont les bonnes",
+  await pgSc.evaluate(async () => {
+    const E = await import("/src/ensemble.js");
+    return Object.keys(E.chargeCourante()?.q || {}).sort().join(",");
+  }) === "raf,t,v",
+  await pgSc.evaluate(async () => {
+    const E = await import("/src/ensemble.js");
+    return Object.keys(E.chargeCourante()?.q || {}).join(",");
+  }));
+ok("la dispersion s'élargit avec l'échéance, sur chaque grandeur",
+  await pgSc.evaluate(async () => {
+    const E = await import("/src/ensemble.js");
+    const c = E.chargeCourante();
+    const e = (cle, t) => {
+      const i = c.time.indexOf(t);
+      return i < 0 ? null : Math.round((c.q[cle].maxi[i] - c.q[cle].mini[i]) * 10) / 10;
+    };
+    for (const cle of Object.keys(c.q)) {
+      const proche = e(cle, "2026-08-18T12:00"), loin = e(cle, "2026-08-22T12:00");
+      if (proche === null || loin === null) return `${cle} : heure absente`;
+      if (!(loin > proche * 2)) return `${cle} : ${proche} près, ${loin} loin`;
+    }
+    return "";
+  }) === "");
 
 /* L'enveloppe, peinte dans le groupe mobile de la voie de température, sous les
    courbes et au-dessus du lavis de nuit. Elle suit donc le glissement sans
@@ -3750,6 +3793,55 @@ ok("l'écart nommé est celui de la fenêtre", await pgSc.evaluate(() => {
   return Number(m[1]) >= 1 && Number(m[1]) <= 4 && /demain/.test(m[2])
     ? "" : `${m[1]} degrés vers ${m[2]}`;
 }) === "", phraseSc);
+
+/* La voie du vent porte la sienne, posée sur la rafale et non sur le vent
+   moyen : c'est la rafale qui décide, c'est elle que la règle des faits
+   marquants regarde et que le maximum de la voie marque, et le vent moyen est
+   déjà tracé en aire pleine sous laquelle une bande n'aurait pas paru. */
+await pgSc.locator('.mg-b[data-voie="v"]').click();
+await pgSc.waitForTimeout(500);
+ok("la voie du vent porte son enveloppe",
+  await pgSc.locator('.mg-v[data-cle="v"] .mg-sc-q path').count() >= 1
+  && await pgSc.locator('.mg-v[data-cle="v"] .mg-sc-e path').count() >= 1);
+ok("elle est posée sur la rafale, non sur le vent moyen",
+  await pgSc.evaluate(() => {
+    const svg = document.querySelector('.mg-v[data-cle="v"] svg.mg-s');
+    const q = svg.querySelector(".mg-sc-q path");
+    const traits = [...svg.querySelectorAll("polyline")];
+    if (!q || traits.length < 2) return "élément manquant";
+    /* Les deux tracés se distinguent par leur hauteur moyenne : la rafale
+       recouvre le vent moyen, son centre est donc plus haut dans la voie. */
+    const centre = e => e.getBBox().y + e.getBBox().height / 2;
+    const cs = traits.map(centre).sort((a, b) => a - b);
+    const raf = cs[0], moy = cs[cs.length - 1];
+    const c = centre(q);
+    return Math.abs(c - raf) < Math.abs(c - moy) ? ""
+      : `bande centrée à ${c.toFixed(0)}, rafale à ${raf.toFixed(0)}, vent à ${moy.toFixed(0)}`;
+  }) === "");
+const phraseV = await pgSc.locator('.mg-v[data-cle="v"] .mg-l').innerText();
+ok("la voie du vent dit ce que son ombre porte",
+  /L'ombre porte les 40 scénarios de la source, écartés de \d+ km\/h au plus large vers/
+    .test(phraseV), phraseV);
+/* La pluie ne s'encadre pas : ses scénarios sont presque tous à zéro et
+   quelques-uns à quelques dixièmes, une bande de zéro à un demi-millimètre est
+   muette là où le comptage parle. Sa part est réduite et gardée, elle n'est pas
+   peinte en bande. */
+ok("la voie de la pluie ne porte pas d'enveloppe",
+  await pgSc.locator('.mg-v[data-cle="mm"] .mg-sc-q').count() === 0
+  && await pgSc.locator('.mg-v[data-cle="mm"] .mg-sc-e').count() === 0);
+ok("l'indice ultraviolet non plus, la source n'en rendant aucun scénario",
+  await pgSc.locator('.mg-v[data-cle="uv"] .mg-sc-q').count() === 0
+  && await pgSc.evaluate(async () => {
+    const E = await import("/src/ensemble.js");
+    return !("uv" in (E.chargeCourante()?.q || {}));
+  }));
+ok("la part des scénarios mouillés est gardée, prête pour le comptage",
+  await pgSc.evaluate(async () => {
+    const E = await import("/src/ensemble.js");
+    const p = E.chargeCourante()?.pluie;
+    return Array.isArray(p) && p.every(x => x === null || (x >= 0 && x <= 100))
+      && p.some(x => x !== null);
+  }));
 
 /* Une source d'ensemble muette ne prive de rien : la prévision déterministe est
    déjà à l'écran, et l'enveloppe ne paraît simplement pas. */

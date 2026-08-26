@@ -21,9 +21,31 @@ import { cleHeure } from "./horloge.js";
 
 const SERVICE = "https://ensemble-api.open-meteo.com/v1/ensemble";
 const MODELE = "icon_seamless";
-const GRANDEURS = ["temperature_2m", "precipitation"];
 const JOURS = 7;
 const CACHE = "mameteo.ensemble.v1";
+
+/* Les grandeurs encadrées, sous la clé de la voie qui les porte. Toutes ne s'y
+   prêtent pas, et la source a été interrogée avant de choisir.
+
+   La rafale et le vent moyen ont la dispersion la plus parlante après la
+   température : seize kilomètres par heure d'étendue sur la rafale à trente-six
+   heures d'échéance, contre cinq degrés sur la température.
+
+   L'indice ultraviolet n'a pas de scénarios du tout, la source rendant ses
+   colonnes vides : il se calcule de la position du Soleil et de la couverture
+   nuageuse, il n'a pas de dispersion propre. La couverture nuageuse en a une de
+   soixante-dix points sur une échelle de cent, où la bande remplirait la voie.
+   Le point de rosée partage la voie de la température et redirait la même
+   chose. Et la pluie ne s'encadre pas : ses scénarios sont presque tous à zéro
+   et quelques-uns à quelques dixièmes, une bande de zéro à un demi-millimètre
+   est muette là où le comptage des scénarios mouillés parle. */
+const GRANDEURS = {
+  t: "temperature_2m",
+  v: "wind_speed_10m",
+  raf: "wind_gusts_10m",
+};
+const PLUIE = "precipitation";
+const DEMANDEES = [...Object.values(GRANDEURS), PLUIE];
 
 /* Trois heures de garde. L'ensemble d'ICON tourne toutes les trois heures et sa
    dispersion bouge lentement : la relire à chaque heure comme la prévision
@@ -49,44 +71,55 @@ const quantile = (tri, p) => tri[Math.min(tri.length - 1, Math.floor(p * tri.len
    médiane. La bande interquartile porte la moitié des scénarios, l'étendue les
    porte tous : la première dit ce qui est probable, la seconde ce qui est
    possible. */
+export const BORNES = ["mini", "bas", "med", "haut", "maxi"];
+
 function reduire(h) {
   if (!Array.isArray(h?.time)) return null;
   const membres = c => Object.keys(h)
     .filter(x => x === c || x.startsWith(`${c}_member`))
     .map(x => h[x]).filter(Array.isArray);
 
-  const tm = membres("temperature_2m");
-  const pm = membres("precipitation");
-  if (tm.length < 3) return null;
+  const series = {};
+  for (const [cle, nom] of Object.entries(GRANDEURS)) series[cle] = membres(nom);
+  const pm = membres(PLUIE);
+  /* Une grandeur que la source ne peuple pas ne remonte pas : l'indice
+     ultraviolet rend ses colonnes vides, et une voie sans scénarios doit se
+     dessiner sans eux plutôt que sur des bandes plates. */
+  const tenues = Object.entries(series).filter(([, s]) => s.length >= 3);
+  if (!tenues.length) return null;
 
   const n = h.time.length;
-  const out = {
-    time: h.time.slice(), membres: tm.length,
-    mini: [], bas: [], med: [], haut: [], maxi: [], pluie: [],
-  };
-  for (let i = 0; i < n; i++) {
-    const v = [];
-    for (const s of tm) {
-      const x = s[i];
-      if (x !== null && x !== undefined) v.push(x);
-    }
-    if (!v.length) {
-      out.mini.push(null); out.bas.push(null); out.med.push(null);
-      out.haut.push(null); out.maxi.push(null); out.pluie.push(null);
-      continue;
-    }
-    v.sort((a, b) => a - b);
-    const r = x => Math.round(x * 10) / 10;
-    out.mini.push(r(v[0]));
-    out.bas.push(r(quantile(v, 0.25)));
-    out.med.push(r(quantile(v, 0.5)));
-    out.haut.push(r(quantile(v, 0.75)));
-    out.maxi.push(r(v[v.length - 1]));
+  const out = { time: h.time.slice(), membres: tenues[0][1].length, q: {}, pluie: [] };
+  for (const [cle] of tenues) {
+    out.q[cle] = {};
+    for (const b of BORNES) out.q[cle][b] = [];
+  }
+  const r = x => Math.round(x * 10) / 10;
 
-    /* La part des scénarios qui font tomber quelque chose à cette heure. Elle ne
-       sert pas encore, le comptage des scénarios venant avec le lot suivant,
-       mais elle est réduite ici : garder les quarante séries de pluie pour la
-       calculer plus tard reviendrait à garder la charge brute. */
+  for (let i = 0; i < n; i++) {
+    for (const [cle, ser] of tenues) {
+      const v = [];
+      for (const s of ser) {
+        const x = s[i];
+        if (x !== null && x !== undefined) v.push(x);
+      }
+      const q = out.q[cle];
+      if (!v.length) {
+        for (const b of BORNES) q[b].push(null);
+        continue;
+      }
+      v.sort((a, b) => a - b);
+      q.mini.push(r(v[0]));
+      q.bas.push(r(quantile(v, 0.25)));
+      q.med.push(r(quantile(v, 0.5)));
+      q.haut.push(r(quantile(v, 0.75)));
+      q.maxi.push(r(v[v.length - 1]));
+    }
+
+    /* La part des scénarios qui font tomber quelque chose à cette heure. La
+       pluie ne s'encadre pas : ses scénarios sont presque tous à zéro, et une
+       bande de zéro à un demi-millimètre serait muette là où le comptage
+       parle. */
     let mouilles = 0, comptes = 0;
     for (const s of pm) {
       const x = s[i];
@@ -104,7 +137,7 @@ function reduire(h) {
    ne paraît simplement pas. */
 export async function charger({ lat, lon }) {
   if (lat === null || lat === undefined) { charge = null; cleChargee = null; return null; }
-  const cle = `${lat},${lon}|${MODELE}|${JOURS}j`;
+  const cle = `${lat},${lon}|${MODELE}|${JOURS}j|${DEMANDEES.join("+")}`;
   /* Les scénarios de la commune précédente ne valent pas pour la nouvelle : ils
      sont oubliés avant la requête, sans quoi l'enveloppe d'un lieu se serait
      peinte sous la courbe d'un autre le temps d'un aller-retour. */
@@ -119,7 +152,7 @@ export async function charger({ lat, lon }) {
   let d = null;
   try {
     const r = await fetch(`${SERVICE}?latitude=${lat}&longitude=${lon}`
-      + `&timezone=Europe%2FParis&hourly=${GRANDEURS.join(",")}`
+      + `&timezone=Europe%2FParis&hourly=${DEMANDEES.join(",")}`
       + `&models=${MODELE}&forecast_days=${JOURS}`);
     if (r.ok) d = reduire((await r.json()).hourly);
   } catch { d = null; }
@@ -141,31 +174,23 @@ export async function charger({ lat, lon }) {
 export function alignerSur(serie) {
   if (!charge || !Array.isArray(serie?.jour) || !serie.n) return null;
   const rang = new Map(charge.time.map((t, i) => [t, i]));
-  const out = { mini: [], bas: [], med: [], haut: [], maxi: [], pluie: [],
-    membres: charge.membres, n: 0 };
+  const out = { q: {}, pluie: [], membres: charge.membres, n: 0 };
+  for (const cle of Object.keys(charge.q)) {
+    out.q[cle] = {};
+    for (const b of BORNES) out.q[cle][b] = [];
+  }
   for (let k = 0; k < serie.n; k++) {
     const h = String(serie.heure[k]).padStart(2, "0");
     const i = rang.get(`${serie.jour[k]}T${h}:00`);
-    for (const c of ["mini", "bas", "med", "haut", "maxi", "pluie"]) {
-      out[c].push(i === undefined ? null : charge[c][i]);
+    for (const cle of Object.keys(out.q)) {
+      for (const b of BORNES) {
+        out.q[cle][b].push(i === undefined ? null : charge.q[cle][b][i]);
+      }
     }
+    out.pluie.push(i === undefined ? null : charge.pluie[i]);
     if (i !== undefined) out.n++;
   }
   return out.n ? out : null;
-}
-
-/* La dispersion d'une heure, en degrés, ou `null`. C'est l'étendue des
-   scénarios : ce que l'écran écrira si elle vaut la peine d'être dite. */
-export function dispersion(quand = new Date()) {
-  if (!charge) return null;
-  const i = charge.time.indexOf(cleHeure(quand));
-  if (i < 0 || charge.mini[i] === null) return null;
-  return {
-    mini: charge.mini[i], bas: charge.bas[i], med: charge.med[i],
-    haut: charge.haut[i], maxi: charge.maxi[i],
-    etendue: Math.round((charge.maxi[i] - charge.mini[i]) * 10) / 10,
-    membres: charge.membres,
-  };
 }
 
 export function oublier() {

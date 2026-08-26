@@ -265,6 +265,25 @@ export function dessiner(s) {
 
   const yDe = (v, y0, y1, mn, mx) => y1 - ((v - mn) / ((mx - mn) || 1)) * (y1 - y0);
 
+  /* La phrase qui dit ce que l'ombre porte. Sans elle, deux bandes grises sous
+     une courbe ne se lisent pas : elles passent pour un effet de dessin. Le
+     chiffre nommé est l'écart le plus large de la fenêtre, non celui de l'heure
+     en cours, qui est toujours petit et ne dirait rien. */
+  const phraseOmbre = (cle, unite, unites) => {
+    const q = ens && ens.q[cle];
+    if (!q) return "";
+    let kw = -1, large = 0;
+    for (let k = dec; k < Math.min(s.n, dec + FEN); k++) {
+      if (q.mini[k] === null || q.maxi[k] === null) continue;
+      const e = q.maxi[k] - q.mini[k];
+      if (e > large) { large = e; kw = k; }
+    }
+    if (kw < 0) return "";
+    const n = Math.round(large);
+    return ` L'ombre porte les ${ens.membres || 40} scénarios de la source, `
+      + `écartés de ${n} ${n >= 2 ? unites : unite} au plus large vers ${HJ(kw)}.`;
+  };
+
   /* Une bande entre deux séries, pour l'enveloppe des scénarios. Elle se dessine
      par tronçons : l'ensemble ne porte pas les journées écoulées et s'arrête où
      il s'arrête, et coudre ses bords manquants à zéro aurait tiré la bande au
@@ -624,9 +643,9 @@ export function dessiner(s) {
        la courbe et ne la déplacent guère ; la seconde l'aurait aplatie d'un
        quart pour loger une bande qui n'est pas une valeur à lire. */
     const tous = [...s.t, ...s.res, ...s.ros];
-    if (ens) {
+    if (ens?.q.t) {
       for (const c of ["bas", "haut"]) {
-        for (const v of ens[c]) if (v !== null && v !== undefined) tous.push(v);
+        for (const v of ens.q.t[c]) if (v !== null && v !== undefined) tous.push(v);
       }
     }
     let mn = Math.min(...tous), mx = Math.max(...tous);
@@ -660,9 +679,11 @@ export function dessiner(s) {
        La première dit ce qui est possible, la seconde ce qui est probable, et
        leur superposition fait un dégradé sans qu'aucune n'ait à en porter un.
        Elles s'élargissent avec l'échéance, ce qui est tout le propos. */
-    if (ens) {
-      d += `<g class="mg-sc-e">${enveloppe(ens.maxi, ens.mini, y0, y1, mn, mx)}</g>`;
-      d += `<g class="mg-sc-q">${enveloppe(ens.haut, ens.bas, y0, y1, mn, mx)}</g>`;
+    if (ens?.q.t) {
+      d += `<g class="mg-sc-e">`
+        + `${enveloppe(ens.q.t.maxi, ens.q.t.mini, y0, y1, mn, mx)}</g>`;
+      d += `<g class="mg-sc-q">`
+        + `${enveloppe(ens.q.t.haut, ens.q.t.bas, y0, y1, mn, mx)}</g>`;
     }
     d += `<path d="${aire(s.t, y0, y1, mn, mx)}" fill="url(#mgTy)" opacity=".28"/>`;
     d += `<polyline points="${pts(s.ros, y0, y1, mn, mx)}" fill="none" stroke="currentColor" `
@@ -678,20 +699,7 @@ export function dessiner(s) {
        courbe ne se lisent pas : elles passent pour un effet de dessin. Le
        chiffre nommé est l'écart le plus large de la fenêtre, non celui de
        l'heure en cours, qui vaut un demi-degré et ne dirait rien. */
-    let mot = "";
-    if (ens) {
-      let kw = -1, large = 0;
-      for (let k = dec; k < Math.min(s.n, dec + FEN); k++) {
-        if (ens.mini[k] === null || ens.maxi[k] === null) continue;
-        const e = ens.maxi[k] - ens.mini[k];
-        if (e > large) { large = e; kw = k; }
-      }
-      if (kw >= 0) {
-        mot = ` L'ombre porte les ${ens.membres || 40} scénarios de la source, `
-          + `écartés de ${Math.round(large)} degré${Math.round(large) >= 2 ? "s" : ""} `
-          + `au plus large vers ${HJ(kw)}.`;
-      }
-    }
+    const mot = phraseOmbre("t", "degré", "degrés");
     poser("Température", `${bornes(w.t)}°`, h, d,
       `Minimum ${Math.round(s.t[kn])}° vers ${HJ(kn)}, maximum ${Math.round(s.t[kx])}° `
       + `vers ${HJ(kx)}. Trait fin le ressenti, pointillé le point de rosée.${mot}`, cle);
@@ -750,8 +758,23 @@ export function dessiner(s) {
     const h = H(cle, H_VOIE);
     const hs = h >= MIN_BANDE ? H_SYM : 0, hv = g ? H_VAL : 0, hb = hs + hv;
     const y0 = hb + 5, y1 = h - 4;
-    const mx = Math.max(30, Math.max(...s.raf) * 1.08);
+    /* Les quartiles de la rafale entrent dans l'échelle, l'étendue non, comme
+       sur la température : l'y faire entrer aurait écrasé les deux tracés vers
+       le bas de la voie. */
+    const hautsR = ens?.q.raf
+      ? ens.q.raf.haut.filter(v => v !== null && v !== undefined) : [];
+    const mx = Math.max(30, Math.max(...s.raf, ...hautsR) * 1.08);
     let d = fond(hb, h);
+    /* L'enveloppe se pose sur la rafale et non sur le vent moyen. C'est la
+       rafale qui décide, c'est elle que la règle des faits marquants regarde et
+       que le maximum de la voie marque ; et le vent moyen est déjà tracé en
+       aire pleine, sous laquelle une bande n'aurait pas paru. */
+    if (ens?.q.raf) {
+      d += `<g class="mg-sc-e">`
+        + `${enveloppe(ens.q.raf.maxi, ens.q.raf.mini, y0, y1, 0, mx)}</g>`;
+      d += `<g class="mg-sc-q">`
+        + `${enveloppe(ens.q.raf.haut, ens.q.raf.bas, y0, y1, 0, mx)}</g>`;
+    }
     // Les bandes nommées tiennent lieu de graduation : cinq chiffres de plus
     // dans la gouttière ne diraient rien que « modéré » ne dise déjà.
     // C'est la rafale qui recouvre, elle passe au-dessus du vent.
@@ -771,11 +794,12 @@ export function dessiner(s) {
     const rafMax = Math.round(Math.max(...w.raf));
     const fortes = plagesW(k => w.raf[k] >= 40);
     poser("Vent", `${bornes(w.v)} km/h, ${motDe("v", Math.max(...w.v))}`, h, d,
-      fortes.length
+      (fortes.length
         ? `Rafales au-dessus de quarante ${dire(fortes)}, jusqu'à ${rafMax} km/h. `
           + `Vent ${dCardinal(w.dir[0])} en début de fenêtre.`
         : `Vent ${dCardinal(w.dir[0])} en début de fenêtre, rafales jusqu'à ${rafMax} km/h `
-          + `vers ${HJ(kr)}. Les flèches montrent où va le vent.`, cle);
+          + `vers ${HJ(kr)}. Les flèches montrent où va le vent.`)
+      + phraseOmbre("raf", "km/h", "km/h"), cle);
   }
 
   // ---- 5. Indice ultraviolet ----

@@ -88,6 +88,8 @@ for (const theme of ["light", "dark"]) {
     };
     col("temperature_2m", h.temperature_2m, 1);
     col("precipitation", h.precipitation, 0.2);
+    col("wind_speed_10m", h.wind_speed_10m, 2);
+    col("wind_gusts_10m", h.wind_gusts_10m, 3);
     r.fulfill({ status: 200, contentType: "application/json",
       body: JSON.stringify({ hourly: out }) });
   });
