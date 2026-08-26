@@ -822,6 +822,11 @@ async function lireEnsemble(g) {
   if (mien !== generation || !d) return;
   rendre();
   if (vueCourante) rendreFeuille();
+  /* Le journal a déjà écrit ses lignes sans les scénarios, la prévision étant
+     servie la première. Il repasse pour y poser la part des scénarios mouillés,
+     à côté de la probabilité de la source. */
+  const c = P.chargeCourante();
+  if (c) Justesse.noter(c, Justesse.lieuDe(g.lat, g.lon), new Date(), d);
 }
 
 /* Le relevé peut avoir abouti alors que l'interface adresse était muette : la

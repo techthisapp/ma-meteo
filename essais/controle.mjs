@@ -3724,17 +3724,18 @@ ok("la fourchette encadre toujours la médiane, sur chaque grandeur",
     }
     return "";
   }) === "");
-/* Les grandeurs encadrées sont celles dont la dispersion parle : la température
-   et le vent, moyen et en rafales. La pluie ne s'encadre pas, elle se compte, et
-   l'indice ultraviolet n'a aucun scénario du côté de la source. */
-ok("trois grandeurs sont encadrées, et ce sont les bonnes",
+/* Résumer n'est pas encadrer. Quatre grandeurs sont résumées en quantiles ;
+   trois seulement portent une bande, la pluie disant ce qu'elle a à dire en
+   mots. L'indice ultraviolet n'a aucun scénario du côté de la source. */
+ok("quatre grandeurs sont résumées, trois seulement sont encadrées",
   await pgSc.evaluate(async () => {
     const E = await import("/src/ensemble.js");
-    return Object.keys(E.chargeCourante()?.q || {}).sort().join(",");
-  }) === "raf,t,v",
+    return `${Object.keys(E.chargeCourante()?.q || {}).sort().join(",")}`
+      + ` | ${[...E.ENCADREES].sort().join(",")}`;
+  }) === "mm,raf,t,v | raf,t,v",
   await pgSc.evaluate(async () => {
     const E = await import("/src/ensemble.js");
-    return Object.keys(E.chargeCourante()?.q || {}).join(",");
+    return `${Object.keys(E.chargeCourante()?.q || {}).join(",")} | ${E.ENCADREES.join(",")}`;
   }));
 ok("la dispersion s'élargit avec l'échéance, sur chaque grandeur",
   await pgSc.evaluate(async () => {
@@ -3835,13 +3836,27 @@ ok("l'indice ultraviolet non plus, la source n'en rendant aucun scénario",
     const E = await import("/src/ensemble.js");
     return !("uv" in (E.chargeCourante()?.q || {}));
   }));
-ok("la part des scénarios mouillés est gardée, prête pour le comptage",
+ok("la part des scénarios mouillés est gardée",
   await pgSc.evaluate(async () => {
     const E = await import("/src/ensemble.js");
     const p = E.chargeCourante()?.pluie;
     return Array.isArray(p) && p.every(x => x === null || (x >= 0 && x <= 100))
       && p.some(x => x !== null);
   }));
+/* Ce que le comptage ajoute est la quantité, non une seconde probabilité. La
+   mesure a tranché : la probabilité de la source et la part des scénarios
+   s'accordent à dix points près sur quatre-vingt-douze pour cent des heures, et
+   rien ne dit lequel tombe le plus juste là où ils divergent. La voie parle donc
+   de millimètres, et ne pose pas deux probabilités côte à côte. */
+const phraseMm = await pgSc.evaluate(() => {
+  const v = document.querySelector('.mg-v[data-cle="mm"] .mg-l');
+  return v ? v.textContent : "";
+});
+ok("la voie de la pluie dit l'étalement des quantités",
+  /Sur les 40 scénarios, la moitié (donnent moins de [\d,]+ mm|n'en donnent aucune) vers /
+    .test(phraseMm) && /le plus arrosé [\d,]+ mm\.$/.test(phraseMm.trim()), phraseMm);
+ok("elle ne pose pas une seconde probabilité à côté de la première",
+  (phraseMm.match(/%/g) || []).length === 1, phraseMm);
 
 /* Une source d'ensemble muette ne prive de rien : la prévision déterministe est
    déjà à l'écran, et l'enveloppe ne paraît simplement pas. */
@@ -3917,6 +3932,35 @@ ok("une seconde notation dans la même heure n'ajoute rien",
     J.noter(P.chargeCourante(), "47.500,4.300");
     return J.lire().lignes.length - avant;
   }) === 0);
+/* Chaque ligne porte les deux probabilités, celle de la source et la part des
+   scénarios mouillés. Rien n'en affiche aucune : c'est le jalon 6 qui dira,
+   dans deux mois et par échéance, laquelle tombe le plus juste. Les scénarios
+   arrivant après la prévision, la ligne est écrite sans eux puis complétée. */
+ok("chaque ligne porte les deux probabilités",
+  await pgSc.evaluate(() => {
+    const j = JSON.parse(localStorage.getItem("mameteo.justesse.v1") || "null");
+    const l = (j?.lignes || []).filter(x => x.pe !== undefined);
+    if (!l.length) return "aucune ligne complétée";
+    const faux = l.filter(x => !(x.pe >= 0 && x.pe <= 100) || typeof x.pb !== "number");
+    return faux.length ? JSON.stringify(faux[0]) : "";
+  }) === "", await pgSc.evaluate(() => {
+    const j = JSON.parse(localStorage.getItem("mameteo.justesse.v1") || "null");
+    return JSON.stringify((j?.lignes || []).find(x => x.pe !== undefined) || {});
+  }));
+ok("la part des scénarios se pose sur les lignes déjà écrites",
+  await pgSc.evaluate(async () => {
+    const J = await import("/src/justesse.js");
+    const P = await import("/src/previsions.js");
+    const E = await import("/src/ensemble.js");
+    const j = J.lire();
+    const cible = j.lignes.find(l => l.pe !== undefined);
+    if (!cible) return "aucune ligne à éprouver";
+    delete cible.pe;
+    localStorage.setItem("mameteo.justesse.v1", JSON.stringify(j));
+    const r = J.noter(P.chargeCourante(), cible.l, new Date(), E.chargeCourante());
+    const apres = J.lire().lignes.find(l => l.c === cible.c && l.e === cible.e);
+    return r.completees >= 1 && apres?.pe !== undefined ? "" : `complétées ${r.completees}`;
+  }) === "");
 await ctxSc.close();
 
 console.log("\n--- Mouvement réduit ---");

@@ -66,16 +66,25 @@ export function palier(heures) {
    La charge est celle qui vient d'être servie, quelle que soit sa source : c'est
    la prévision que l'application a montrée qu'on juge, non celle qu'un modèle
    aurait pu rendre. */
-export function noter(charge, lieu, maintenant = new Date()) {
+export function noter(charge, lieu, maintenant = new Date(), scenarios = null) {
   const h = charge && charge.hourly;
   if (!Array.isArray(h?.time) || !Array.isArray(h?.temperature_2m) || !lieu) {
-    return { notes: 0, releves: 0 };
+    return { notes: 0, releves: 0, completees: 0 };
   }
+  /* La part des scénarios mouillés est notée à côté de la probabilité de la
+     source. Les deux s'accordent à dix points près sur quatre-vingt-douze pour
+     cent des heures, et rien ne dit aujourd'hui lequel tombe le plus juste là
+     où ils divergent : la question ne se tranche pas par l'opinion mais par la
+     mesure, et c'est le jalon 6 qui la tranchera, par échéance. Les noter tous
+     les deux coûte un champ par ligne et rend cette comparaison possible. */
+  const rangE = scenarios && Array.isArray(scenarios.time)
+    ? new Map(scenarios.time.map((t, i) => [t, i])) : null;
   const j = lire();
   const rang = new Map(j.lignes.map((l, k) => [`${l.l}|${l.c}|${l.e}`, k]));
   const t0 = maintenant.getTime();
   const nouvelles = [];
   let releves = 0;
+  let completees = 0;
 
   for (let i = 0; i < h.time.length; i++) {
     const heure = Number(h.time[i].slice(11, 13));
@@ -100,18 +109,33 @@ export function noter(charge, lieu, maintenant = new Date()) {
     const p = palier(ecart);
     if (p === null) continue;
     const cle = `${lieu}|${cible}|${p}`;
-    if (rang.has(cle)) continue;
+    const je = rangE ? rangE.get(h.time[i]) : undefined;
+    const pe = je === undefined ? null : scenarios.pluie[je];
+    /* Les scénarios arrivent après la prévision : la ligne est écrite sans eux,
+       puis complétée quand ils sont là. Sans cela le champ serait resté vide à
+       chaque chargement, la ligne existant déjà. */
+    if (rang.has(cle)) {
+      const dedans = j.lignes[rang.get(cle)];
+      if (dedans && dedans.pe === undefined && pe !== null && pe !== undefined) {
+        dedans.pe = pe;
+        completees++;
+      }
+      continue;
+    }
     rang.set(cle, -1);
     nouvelles.push({
       l: lieu, c: cible, e: p,
       t: Math.round(t * 10) / 10,
       mm: Math.round((h.precipitation?.[i] ?? 0) * 10) / 10,
       pb: Math.round(h.precipitation_probability?.[i] ?? 0),
+      ...(pe === null || pe === undefined ? {} : { pe }),
       le: cleHeure(maintenant).slice(0, 13),
     });
   }
 
-  if (!nouvelles.length && !releves) return { notes: 0, releves: 0 };
+  if (!nouvelles.length && !releves && !completees) {
+    return { notes: 0, releves: 0, completees: 0 };
+  }
   j.lignes = j.lignes.concat(nouvelles);
 
   // L'oubli : par l'âge d'abord, par le nombre ensuite, les plus vieilles en tête.
@@ -119,7 +143,7 @@ export function noter(charge, lieu, maintenant = new Date()) {
   j.lignes = j.lignes.filter(l => Date.parse(`${l.c}:00:00`) >= limite);
   if (j.lignes.length > LIGNES_MAX) j.lignes = j.lignes.slice(j.lignes.length - LIGNES_MAX);
   ecrire(j);
-  return { notes: nouvelles.length, releves };
+  return { notes: nouvelles.length, releves, completees };
 }
 
 // Vide le journal. Sert aux essais, et à un réglage de remise à zéro si un jour

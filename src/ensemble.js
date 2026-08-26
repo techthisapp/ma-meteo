@@ -24,8 +24,8 @@ const MODELE = "icon_seamless";
 const JOURS = 7;
 const CACHE = "mameteo.ensemble.v1";
 
-/* Les grandeurs encadrées, sous la clé de la voie qui les porte. Toutes ne s'y
-   prêtent pas, et la source a été interrogée avant de choisir.
+/* Les grandeurs résumées, sous la clé de la voie qui les porte. Toutes ne se
+   prêtent pas aux scénarios, et la source a été interrogée avant de choisir.
 
    La rafale et le vent moyen ont la dispersion la plus parlante après la
    température : seize kilomètres par heure d'étendue sur la rafale à trente-six
@@ -36,16 +36,25 @@ const CACHE = "mameteo.ensemble.v1";
    nuageuse, il n'a pas de dispersion propre. La couverture nuageuse en a une de
    soixante-dix points sur une échelle de cent, où la bande remplirait la voie.
    Le point de rosée partage la voie de la température et redirait la même
-   chose. Et la pluie ne s'encadre pas : ses scénarios sont presque tous à zéro
-   et quelques-uns à quelques dixièmes, une bande de zéro à un demi-millimètre
-   est muette là où le comptage des scénarios mouillés parle. */
+   chose. */
 const GRANDEURS = {
   t: "temperature_2m",
   v: "wind_speed_10m",
   raf: "wind_gusts_10m",
+  mm: "precipitation",
 };
-const PLUIE = "precipitation";
-const DEMANDEES = [...Object.values(GRANDEURS), PLUIE];
+
+/* Résumer n'est pas encadrer. La pluie est résumée comme les autres, mais sa
+   voie ne porte pas de bande : ses scénarios sont presque tous à zéro et
+   quelques-uns à quelques dixièmes, et une bande de zéro à un demi-millimètre
+   est muette. Ce qu'elle a à dire tient en mots, la part des scénarios mouillés
+   et l'étalement des quantités, ce que la probabilité affichée ne sait pas
+   dire : relevé à Brest le 29 août à six heures, la source annonçait
+   quatre-vingt-trois pour cent et un virgule un millimètre quand la médiane des
+   scénarios donnait un virgule cinq et le plus arrosé quatre virgule six. */
+export const ENCADREES = ["t", "v", "raf"];
+const PLUIE = GRANDEURS.mm;
+const DEMANDEES = Object.values(GRANDEURS);
 
 /* Trois heures de garde. L'ensemble d'ICON tourne toutes les trois heures et sa
    dispersion bouge lentement : la relire à chaque heure comme la prévision

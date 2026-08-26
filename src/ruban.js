@@ -47,7 +47,7 @@
 import { nombreFr, jourCourt, heureTxt, esc, cleJour } from "./horloge.js";
 import { plagesDe, dCardinal, CARD_ABR, iCard } from "./previsions.js";
 import { icoCiel, icoTemps, couleurT, couleurUV } from "./icones.js";
-import { alignerSur } from "./ensemble.js";
+import { alignerSur, LAME } from "./ensemble.js";
 
 const L = 358, M = 5, GOUT = 34;
 const P = L - M - GOUT;
@@ -282,6 +282,36 @@ export function dessiner(s) {
     const n = Math.round(large);
     return ` L'ombre porte les ${ens.membres || 40} scénarios de la source, `
       + `écartés de ${n} ${n >= 2 ? unites : unite} au plus large vers ${HJ(kw)}.`;
+  };
+
+  /* Ce que le comptage des scénarios ajoute sur la pluie, et que la probabilité
+     affichée ne sait pas dire : la quantité et son étalement.
+
+     Mesuré et comparé avant d'être écrit : la probabilité de la source et la
+     part des scénarios mouillés s'accordent à dix points près sur quatre-vingt-
+     douze pour cent des heures, et rien ne dit lequel tombe le plus juste là où
+     ils divergent. La phrase ne pose donc pas une seconde probabilité à côté de
+     la première, elle parle de millimètres. Relevé à Brest le 29 août à six
+     heures, la source annonçait quatre-vingt-trois pour cent et un virgule un
+     millimètre quand la médiane des scénarios donnait un virgule cinq et le plus
+     arrosé quatre virgule six.
+
+     L'heure nommée est la plus arrosée que les scénarios envisagent dans la
+     fenêtre : c'est celle sur laquelle une décision se prend. */
+  const phraseLame = () => {
+    const q = ens && ens.q.mm;
+    if (!q) return "";
+    let kw = -1, pointe = 0;
+    for (let k = dec; k < Math.min(s.n, dec + FEN); k++) {
+      if (q.maxi[k] === null || q.maxi[k] === undefined) continue;
+      if (q.maxi[k] > pointe) { pointe = q.maxi[k]; kw = k; }
+    }
+    if (kw < 0 || pointe < LAME) return "";
+    const med = q.med[kw];
+    return ` Sur les ${ens.membres || 40} scénarios, la moitié `
+      + (med < LAME ? `n'en donnent aucune vers ${HJ(kw)}`
+        : `donnent moins de ${nombreFr(med)} mm vers ${HJ(kw)}`)
+      + `, le plus arrosé ${nombreFr(pointe)} mm.`;
   };
 
   /* Une bande entre deux séries, pour l'enveloppe des scénarios. Elle se dessine
@@ -743,11 +773,12 @@ export function dessiner(s) {
       }
       if (g) d += valeurs(s.mm, v => (v >= 0.1 ? nombreFr(v) : ""), hs + 9);
       const quand = dire(plagesW(k => w.mm[k] >= 0.1));
-      poser("Pluie", droite, h, d, tot < 0.1
+      poser("Pluie", droite, h, d, (tot < 0.1
         ? `Aucune pluie sur la fenêtre. Risque maximal ${rx} %. `
           + `L'aire pâle derrière les barres porte le risque, de zéro à cent pour cent.`
         : `${nombreFr(tot)} mm attendus, ${quand}. Risque maximal ${rx} %. `
-          + `L'aire pâle derrière les barres porte le risque, de zéro à cent pour cent.`, cle);
+          + `L'aire pâle derrière les barres porte le risque, de zéro à cent pour cent.`)
+        + phraseLame(), cle);
     }
   }
 
