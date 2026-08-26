@@ -391,8 +391,11 @@ function ecranAccueil() {
     const sDemain = P.serieHoraire(restant, 24, 12);
     const sApres = P.serieHoraire(restant + 24, 24, 12);
 
+    /* La comparaison avec la veille ne se pose que sur la fenêtre de la journée
+       en cours : c'est la seule dont l'heure en cours fasse partie. */
     const lJour = sJour
-      ? conseils(sJour, { evenement: prochainAstre(), aujourdhui: cejour }) : [];
+      ? conseils(sJour, { evenement: prochainAstre(), aujourdhui: cejour,
+        veille: P.ecartVeille() }) : [];
     /* Le renversement de température ne se dit qu'avec demain : c'est de cette
        journée qu'il parle. L'évènement du Soleil, lui, ne vaut que pour les
        heures qui viennent. */

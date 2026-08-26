@@ -255,6 +255,34 @@ ok("chaque bloc s'en tient à sa fenêtre", await pg.evaluate(() => {
   [...document.querySelectorAll("#ecran .section[data-bloc] h2")]
     .map(e => e.textContent).join(" | ")));
 ok("aucune ligne ne se répète", new Set(cj).size === cj.length);
+
+/* La comparaison avec la veille. « Dix-sept degrés » ne se juge que par rapport
+   à quelque chose, et la veille est la seule référence que tout le monde a en
+   tête. La charge d'essai porte vingt-trois degrés hier à neuf heures et
+   dix-sept aujourd'hui. */
+const cjVeille = cj.find(x => /qu'hier/.test(x)) || "";
+ok("la comparaison avec la même heure la veille s'écrit",
+  cjVeille.trim() === "6 degrés de moins qu'hier à la même heure, 17° contre 23°.",
+  cjVeille || "aucune ligne");
+ok("elle se pose dans le bloc du jour, non dans celui qui suit",
+  await pg.evaluate(() => {
+    const dans = c => [...document.querySelectorAll(
+      `#ecran .section[data-bloc="${c}"] .cj-l`)].some(e => /qu'hier/.test(e.textContent));
+    return dans("jour") && !dans("suite");
+  }));
+/* Les fenêtres partent toutes de l'heure en cours : aucune règle ne peut parler
+   d'une heure écoulée, la journée d'hier étant chargée. La comparaison est la
+   seule à regarder en arrière, et elle n'écrit aucune heure. */
+ok("aucune règle ne se déclenche sur une heure écoulée", await pg.evaluate(() => {
+  const h = new Date().getHours();
+  const t = [...document.querySelectorAll('#ecran .section[data-bloc="jour"] .cj-l')]
+    .map(e => e.textContent).join(" ");
+  const vues = [...t.matchAll(/(\d\d) h/g)].map(m => Number(m[1]));
+  const tot = vues.filter(x => x < h);
+  return tot.length ? `${tot.join(", ")} avant ${h} h` : "";
+}) === "", await pg.evaluate(() =>
+  [...document.querySelectorAll('#ecran .section[data-bloc="jour"] .cj-l')]
+    .map(e => e.textContent).join(" | ")));
 ok("aucun verbe de jardin", !/arros|voiler|tuteur|repiquage|ombrer|plant/i.test(cj.join(" ")), cj.join(" | "));
 const alertesTxt = (await pg.locator(".al").allInnerTexts()).join(" ").toLowerCase();
 const conseilsTxt = cj.join(" ").toLowerCase();
@@ -1037,16 +1065,64 @@ ok("le dessin déborde le cadre et la découpe le retient", await pg.evaluate(()
   return b.width > large * 2 ? "" : `tracé de ${b.width.toFixed(0)} pour un cadre de ${large}`;
 }) === "");
 
-/* Le passé de la journée est tracé, en retrait, et l'heure en cours porte son
-   repère : la série commence à minuit, non à l'heure qu'il est. */
+/* Le passé est tracé, en retrait, et l'heure en cours porte son repère. La série
+   ne commence plus à minuit du jour en cours mais deux journées plus tôt : le
+   saut arrière traverse hier, puis avant-hier, et s'arrête au premier jour
+   chargé. */
 await pg.locator('.mg-nav [data-glisse="-24"]').click();
 await pg.waitForTimeout(420);
-ok("le saut arrière remonte au début de l'horizon",
-  (await txt(".mg-fenl")) === "00 h à demain 00 h", await txt(".mg-fenl"));
-ok("le saut arrière ne va pas au delà de minuit du jour",
-  await pg.locator('.mg-nav [data-glisse="-24"]').isDisabled());
+ok("le saut arrière passe la veille sans buter sur minuit",
+  (await txt(".mg-fenl")) === "hier 05 h à 05 h", await txt(".mg-fenl"));
 ok("le passé est tracé et mis en retrait",
   await pg.locator('.mg-v[data-cle="t"] .mg-passe').count() === 1);
+/* Une fenêtre entièrement écoulée est voilée de bout en bout : le voile part du
+   début de la bande dessinée et court jusqu'à l'heure en cours, laquelle tombe
+   au delà du cadre. */
+ok("une fenêtre entièrement écoulée est voilée sur toute sa largeur",
+  await pg.evaluate(() => {
+    const svg = document.querySelector('.mg-v[data-cle="t"] svg.mg-s');
+    const p = svg.querySelector(".mg-passe"), r = svg.querySelector("defs clipPath rect");
+    if (!p) return "aucun voile";
+    const g = Number(r.getAttribute("x")), w = Number(r.getAttribute("width"));
+    const x = Number(p.getAttribute("x")), lg = Number(p.getAttribute("width"));
+    return x <= g + 0.5 && x + lg >= g + w - 0.5 ? ""
+      : `voile de ${x.toFixed(0)} à ${(x + lg).toFixed(0)} pour un cadre de ${g} à ${g + w}`;
+  }) === "");
+/* Le repère existe encore dans le dessin, la bande débordant le cadre d'une
+   fenêtre de part et d'autre, mais il tombe hors du cadre et la découpe le
+   retient. Compter les éléments ne dirait rien, c'est son abscisse qui parle. */
+ok("l'heure en cours ne se repère pas dans une fenêtre qui ne la contient pas",
+  await pg.evaluate(() => {
+    const svg = document.querySelector('.mg-v[data-cle="t"] svg.mg-s');
+    const l = svg.querySelector(".mg-ici");
+    if (!l) return "";
+    const r = svg.querySelector("defs clipPath rect");
+    const g = Number(r.getAttribute("x")), w = Number(r.getAttribute("width"));
+    const x = Number(l.getAttribute("x1"));
+    return x < g || x > g + w ? "" : `repère à ${x.toFixed(0)} dans le cadre ${g} à ${g + w}`;
+  }) === "");
+await pg.locator('.mg-nav [data-glisse="-24"]').click();
+await pg.waitForTimeout(420);
+ok("le saut arrière atteint l'avant-veille, qui se nomme",
+  (await txt(".mg-fenl")) === "avant-hier 05 h à hier 05 h", await txt(".mg-fenl"));
+await pg.locator('.mg-nav [data-glisse="-24"]').click();
+await pg.waitForTimeout(420);
+ok("le saut arrière s'arrête au premier jour chargé",
+  (await txt(".mg-fenl")) === "avant-hier 00 h à hier 00 h", await txt(".mg-fenl"));
+ok("au début de l'horizon, le saut arrière s'éteint",
+  await pg.locator('.mg-nav [data-glisse="-24"]').isDisabled());
+ok("le libellé propose de revenir à maintenant",
+  await pg.locator('.mg-fen[data-maintenant]').count() === 1);
+
+/* Revenu sur la journée en cours, le repère reparaît là où il doit tomber :
+   une fenêtre partie de minuit le pose à sa neuvième heure, l'horloge des essais
+   étant figée à neuf heures. */
+await pg.locator('.mg-nav [data-glisse="24"]').click();
+await pg.waitForTimeout(420);
+await pg.locator('.mg-nav [data-glisse="24"]').click();
+await pg.waitForTimeout(420);
+ok("deux sauts avant ramènent à minuit du jour en cours",
+  (await txt(".mg-fenl")) === "00 h à demain 00 h", await txt(".mg-fenl"));
 ok("l'heure en cours porte son repère",
   await pg.locator('.mg-v[data-cle="t"] .mg-ici').count() === 1);
 ok("le repère tombe à la neuvième heure de la fenêtre", await pg.evaluate(() => {
@@ -1056,8 +1132,6 @@ ok("le repère tombe à la neuvième heure de la fenêtre", await pg.evaluate(()
   const f = (Number(l.getAttribute("x1")) - g) / w;
   return Math.abs(f - 9 / 24) < 0.02 ? "" : `repère à ${(f * 24).toFixed(1)} h`;
 }) === "");
-ok("le libellé propose de revenir à maintenant",
-  await pg.locator('.mg-fen[data-maintenant]').count() === 1);
 
 /* L'échelle est commune à tout l'horizon : recalée à chaque glissement, la
    courbe se serait déformée sous le doigt et deux journées n'auraient plus été
@@ -1094,7 +1168,7 @@ while (!(await pg.locator('.mg-nav [data-glisse="24"]').isDisabled()) && sauts <
   await pg.waitForTimeout(240);
   sauts++;
 }
-ok("le glissement court sur six journées depuis le début de l'horizon",
+ok("le glissement court jusqu'au dernier jour chargé",
   sauts === 4, `${sauts} sauts depuis après-demain`);
 ok("l'horizon s'arrête au dernier jour de la charge",
   (await txt(".mg-fenl")) === "lun 00 h à mar 00 h", await txt(".mg-fenl"));
@@ -1202,11 +1276,32 @@ await pg.waitForTimeout(420);
 
 console.log("\n--- La semaine ---");
 await onglet("semaine");
-ok("sept lignes", await pg.locator(".sem-r").count() === 7, String(await pg.locator(".sem-r").count()));
-const j1 = await pg.locator(".sem .j").first().innerText();
-ok("la première ligne est aujourd'hui", j1.startsWith("Auj."), j1.replace("\n"," "));
+/* Neuf rangées : les deux journées que les heures couvrent en arrière, puis les
+   sept annoncées. La table commençait à aujourd'hui, faute d'avoir demandé les
+   journées d'avant. */
+ok("neuf lignes", await pg.locator(".sem-r").count() === 9, String(await pg.locator(".sem-r").count()));
+const jNoms = (await pg.locator(".sem .j b").allInnerTexts()).map(x => x.trim());
+ok("les trois journées qui se nomment portent leur nom, les autres leur date",
+  jNoms[1] === "Hier" && jNoms[2] === "Auj." && jNoms[3] === "Demain"
+  && /^(lun|mar|mer|jeu|ven|sam|dim)/.test(jNoms[0]), jNoms.join(" | "));
+/* « Avant-hier » ne tient pas dans une colonne de soixante-quatre points : le
+   nom court y sert, comme après-demain. Un nom trop long ne déborde pas, il
+   repasse à la ligne : c'est la hauteur qui le dit, non la largeur. */
+ok("aucun nom de journée ne repasse à la ligne", await pg.evaluate(() => {
+  const h = [...document.querySelectorAll(".sem .j b")]
+    .map(e => e.getBoundingClientRect().height);
+  const bas = Math.min(...h);
+  const gros = h.filter(x => x > bas + 1);
+  return gros.length ? `${gros.length} noms sur deux lignes` : "";
+}) === "");
+ok("les journées écoulées sont mises en retrait",
+  await pg.locator(".sem-passe").count() === 2
+  && await pg.evaluate(() => {
+    const p = document.querySelector(".sem-passe > .sem-r");
+    return p ? Number(getComputedStyle(p).opacity) < 0.9 : false;
+  }));
 ok("chaque ligne porte sa borne basse à gauche et sa borne haute à droite",
-  await pg.locator(".sem-min").count() === 7 && await pg.locator(".sem-max").count() === 7);
+  await pg.locator(".sem-min").count() === 9 && await pg.locator(".sem-max").count() === 9);
 ok("les plages se posent sur une échelle commune", await pg.evaluate(() => {
   const p = [...document.querySelectorAll(".sem-plage")]
     .map(e => parseFloat(e.style.left));
@@ -1222,7 +1317,7 @@ ok("aucune rangée de la semaine ne dépasse deux lignes", await pg.evaluate(() 
   [...document.querySelectorAll(".sem-r")].every(t => t.getBoundingClientRect().height < 76)));
 ok("le symbole du ciel est le même partout", await pg.evaluate(() => {
   // Bandeau, semaine et liste des communes emploient tous `icoTemps`.
-  return document.querySelectorAll(".sem .c svg.ict").length === 7;
+  return document.querySelectorAll(".sem .c svg.ict").length === 9;
 }));
 ok("les symboles de temps sont en deux tons", await pg.evaluate(() => {
   const s = document.querySelector(".sem .c svg.ict");
@@ -1236,8 +1331,8 @@ ok("les symboles de temps sont en deux tons", await pg.evaluate(() => {
 /* ---- Les moments d'une journée de la semaine ---- */
 
 ok("chaque journée annonce qu'elle s'ouvre",
-  await pg.locator('.sem-r[aria-expanded="false"]').count() === 7
-  && await pg.locator(".sem-chev").count() === 7);
+  await pg.locator('.sem-r[aria-expanded="false"]').count() === 9
+  && await pg.locator(".sem-chev").count() === 9);
 ok("aucun volet n'est ouvert à l'arrivée",
   await pg.locator(".md:not([hidden])").count() === 0);
 
@@ -1295,8 +1390,9 @@ ok("chaque volet dit la borne qui compte et rien de superflu",
 ok("la rafale forte est signalée quelque part dans la semaine", await pg.evaluate(() =>
   [...document.querySelectorAll(".md u")].length > 0));
 
-// Sur la journée en cours, un moment déjà passé s'efface.
-await pg.locator(".sem-r").first().click();
+/* Sur la journée en cours, un moment déjà passé s'efface. La rangée du jour
+   n'est plus la première de la table, deux journées écoulées la précédant. */
+await pg.locator(".sem-auj .sem-r").click();
 await pg.waitForTimeout(350);
 ok("un moment passé s'efface sur la journée en cours", await pg.evaluate(() => {
   const v = document.querySelector(".md:not([hidden])");
@@ -1305,7 +1401,17 @@ ok("un moment passé s'efface sur la journée en cours", await pg.evaluate(() =>
   return [...v.children].every((c, q) =>
     c.classList.contains("passe") === (q * 6 + 6 <= h));
 }));
-await pg.locator(".sem-r").first().click();
+/* Une journée entièrement écoulée n'efface aucun de ses moments : tout y est
+   passé, et le dire quatre fois n'apprendrait rien. Sa rangée fermée porte déjà
+   le retrait. */
+await pg.locator(".sem-auj .sem-r").click();
+await pg.waitForTimeout(300);
+await pg.locator(".sem-passe .sem-r").first().click();
+await pg.waitForTimeout(350);
+ok("une journée écoulée n'efface aucun de ses moments",
+  await pg.locator(".md:not([hidden]) > div.passe").count() === 0
+  && await pg.locator(".md:not([hidden]) > div").count() === 4);
+await pg.locator(".sem-passe .sem-r").first().click();
 await pg.waitForTimeout(300);
 
 console.log("\n--- Le soleil ---");
@@ -2415,10 +2521,11 @@ ok("sur un temps calme, le tableau ne garde que ses lignes utiles",
   (await pgCalme.locator("#ecran .mt-l").allInnerTexts()).map(t => t.trim()).filter(Boolean).join("/"));
 await ctxCalme.close();
 
-/* Heures écourtées : la source s'arrête au milieu du troisième jour. Les jours
-   sans heures complètes ne doivent alors pas s'ouvrir, ni porter de chevron, et
-   la journée coupée en deux ne doit pas s'ouvrir non plus sur des tranches
-   vides. */
+/* Heures écourtées : la source s'arrête au milieu du troisième jour annoncé.
+   Les jours sans heures complètes ne doivent alors pas s'ouvrir, ni porter de
+   chevron, et la journée coupée en deux ne doit pas s'ouvrir non plus sur des
+   tranches vides. La coupe se compte depuis le début de la série, laquelle porte
+   deux journées écoulées avant le jour en cours. */
 const ctxCourt = await nav.newContext({
   viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
   locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
@@ -2432,7 +2539,7 @@ await ctxCourt.route(/api\.open-meteo\.com/, route => {
   }
   if (u.includes("hourly=")) {
     const h = {};
-    for (const c of Object.keys(d.hourly)) h[c] = d.hourly[c].slice(0, 60);
+    for (const c of Object.keys(d.hourly)) h[c] = d.hourly[c].slice(0, 48 + 60);
     route.fulfill({ status: 200, contentType: "application/json",
       body: JSON.stringify({ hourly: h }) }); return;
   }
@@ -2458,19 +2565,29 @@ ok("les heures sont demandées sur sept jours",
   !!uHoraire && uHoraire.includes("forecast_days=7"), uHoraire || "aucune requête horaire");
 ok("AROME n'est demandé que sur trois jours",
   !!uArome && uArome.includes("forecast_days=3"), uArome || "aucune requête AROME");
+/* Les journées écoulées viennent de la même requête, sans appel de plus. AROME
+   les porte aussi : sans elles, le modèle fin se serait arrêté à minuit du jour
+   en cours et le ruban aurait changé de source en plein tracé. */
+ok("deux journées écoulées sont demandées avec les heures",
+  !!uHoraire && uHoraire.includes("past_days=2"), uHoraire || "aucune requête horaire");
+ok("AROME porte les mêmes journées écoulées",
+  !!uArome && uArome.includes("past_days=2"), uArome || "aucune requête AROME");
+ok("aucune requête horaire supplémentaire n'est émise",
+  urls.filter(u => u.includes("hourly=")).length === 2,
+  urls.filter(u => u.includes("hourly=")).length + " requêtes horaires");
 
 await pgCourt.locator('[data-onglet="semaine"]').click();
 await pgCourt.waitForTimeout(500);
 ok("sans heures complètes, la journée ne s'ouvre pas",
-  await pgCourt.locator(".sem-r").count() === 7
-  && await pgCourt.locator(".sem-r[aria-expanded]").count() === 2
+  await pgCourt.locator(".sem-r").count() === 9
+  && await pgCourt.locator(".sem-r[aria-expanded]").count() === 4
   && await pgCourt.locator(".sem-fixe").count() === 5,
   `${await pgCourt.locator(".sem-r[aria-expanded]").count()} ouvrables`);
 ok("une journée qui ne s'ouvre pas ne porte pas de chevron",
-  await pgCourt.locator(".sem-chev").count() === 2);
+  await pgCourt.locator(".sem-chev").count() === 4);
 ok("les journées sans heures gardent leurs bornes",
-  await pgCourt.locator(".sem-min").count() === 7
-  && await pgCourt.locator(".sem-max").count() === 7);
+  await pgCourt.locator(".sem-min").count() === 9
+  && await pgCourt.locator(".sem-max").count() === 9);
 await ctxCourt.close();
 
 /* Une charge gardée sous une autre forme. La version d'avant ne demandait que
@@ -2498,15 +2615,15 @@ await pgVieux.goto("http://localhost:8137/", { waitUntil: "networkidle" });
 await pgVieux.waitForTimeout(1600);
 ok("une charge gardée sous une autre forme n'est pas servie", await pgVieux.evaluate(async () => {
   const P = await import("/src/previsions.js");
-  return (P.chargeCourante()?.hourly?.time?.length ?? 0) === 168;
+  return (P.chargeCourante()?.hourly?.time?.length ?? 0) === 216;
 }), String(await pgVieux.evaluate(async () => {
   const P = await import("/src/previsions.js");
   return P.chargeCourante()?.hourly?.time?.length ?? 0;
 })));
 await pgVieux.locator('[data-onglet="semaine"]').click();
 await pgVieux.waitForTimeout(600);
-ok("la semaine s'ouvre bien sur ses sept journées après une charge périmée",
-  await pgVieux.locator(".sem-chev").count() === 7,
+ok("la semaine s'ouvre bien sur ses neuf journées après une charge périmée",
+  await pgVieux.locator(".sem-chev").count() === 9,
   String(await pgVieux.locator(".sem-chev").count()));
 await ctxVieux.close();
 
@@ -3080,11 +3197,95 @@ ok("un vrai renversement de température se dit",
    là. C'est la plainte d'origine. */
 await pgFrais.locator('[data-onglet="semaine"]').click();
 await pgFrais.waitForTimeout(600);
-const maxDemain = (await pgFrais.locator(".sem-r").nth(1).locator(".sem-max").innerText()).trim();
+const maxDemain = await pgFrais.evaluate(() => [...document.querySelectorAll(".sem-r")]
+  .find(x => x.querySelector(".j b")?.textContent.trim() === "Demain")
+  ?.querySelector(".sem-max").textContent.trim() || "aucune rangée demain");
 ok("le maximum de demain est le même sur les deux écrans",
   bascule.includes(`${maxDemain} au plus chaud`),
   `« ${bascule.trim()} » contre « ${maxDemain} » sur la semaine`);
 await ctxFrais.close();
+
+/* Une nuit de changement d'heure porte vingt-trois ou vingt-cinq heures : la
+   même heure la veille ne se trouve pas en reculant de vingt-quatre rangs. Le
+   contexte retire une heure comprise entre la même heure hier et l'heure en
+   cours, ce qui décale la seconde d'un rang et pas la première, et pose sur
+   l'heure que le rang aurait désignée une température qui ferait taire la
+   règle.
+
+   La lecture par horodatage écrit donc sa ligne, la lecture par rang non. */
+const ctxDecale = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+await ctxDecale.addInitScript(amorce(FAIN));
+await ctxDecale.route(/api\.open-meteo\.com/, route => {
+  const u = route.request().url();
+  const d = JSON.parse(JSON.stringify(METEO));
+  const k8 = d.hourly.time.indexOf("2026-08-17T08:00");
+  d.hourly.temperature_2m[k8] = 18;
+  const k15 = d.hourly.time.indexOf("2026-08-17T15:00");
+  for (const c of Object.keys(d.hourly)) d.hourly[c].splice(k15, 1);
+  if (u.includes("current=")) {
+    route.fulfill({ status: 200, contentType: "application/json", body: "[]" }); return;
+  }
+  if (u.includes("hourly=")) {
+    route.fulfill({ status: 200, contentType: "application/json",
+      body: JSON.stringify({ hourly: d.hourly }) }); return;
+  }
+  delete d.hourly;
+  route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
+});
+await ctxDecale.route(/data\.gouv\.fr|webservice\.meteofrance\.com/, r => r.abort());
+const pgDecale = await ctxDecale.newPage();
+await pgDecale.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await pgDecale.waitForTimeout(1500);
+ok("la même heure la veille se cherche par son horodatage, non par son rang",
+  await pgDecale.evaluate(async () => {
+    const P = await import("/src/previsions.js");
+    const v = P.ecartVeille();
+    return v ? `${v.ecart}|${Math.round(v.hier)}` : "aucune lecture";
+  }) === "-6|23",
+  await pgDecale.evaluate(async () => {
+    const P = await import("/src/previsions.js");
+    return JSON.stringify(P.ecartVeille());
+  }));
+ok("la ligne de comparaison le dit sur l'écran",
+  (await pgDecale.locator("#ecran .cj-l").allInnerTexts())
+    .some(x => /6 degrés de moins qu'hier/.test(x)),
+  (await pgDecale.locator("#ecran .cj-l").allInnerTexts()).join(" | "));
+await ctxDecale.close();
+
+/* Sous le seuil, la comparaison se tait : une oscillation ordinaire d'un ou deux
+   degrés d'un jour à l'autre n'apprend rien, et occuperait une des trois places
+   du bloc tous les jours. */
+const ctxPareil = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+await ctxPareil.addInitScript(amorce(FAIN));
+await ctxPareil.route(/api\.open-meteo\.com/, route => {
+  const u = route.request().url();
+  const d = JSON.parse(JSON.stringify(METEO));
+  const k = d.hourly.time.indexOf("2026-08-17T09:00");
+  d.hourly.temperature_2m[k] = 21;
+  if (u.includes("current=")) {
+    route.fulfill({ status: 200, contentType: "application/json", body: "[]" }); return;
+  }
+  if (u.includes("hourly=")) {
+    route.fulfill({ status: 200, contentType: "application/json",
+      body: JSON.stringify({ hourly: d.hourly }) }); return;
+  }
+  delete d.hourly;
+  route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
+});
+await ctxPareil.route(/data\.gouv\.fr|webservice\.meteofrance\.com/, r => r.abort());
+const pgPareil = await ctxPareil.newPage();
+await pgPareil.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await pgPareil.waitForTimeout(1500);
+ok("un écart de quatre degrés avec la veille ne s'écrit pas",
+  !(await pgPareil.locator("#ecran .cj-l").allInnerTexts()).some(x => /qu'hier/.test(x)),
+  (await pgPareil.locator("#ecran .cj-l").allInnerTexts()).join(" | "));
+await ctxPareil.close();
 
 /* Le ciel à deux astres. Le 18 août 2026 à dix-neuf heures, le Soleil est à
    dix-sept degrés et la Lune à vingt-deux : le vrai ciel les porte tous les
@@ -3170,12 +3371,19 @@ await pageA("2026-08-18T09:00:00+02:00", null, async pg => {
   const sous = await pg.locator(".titre-ecran p").innerText();
   await pg.locator('[data-onglet="semaine"]').click();
   await pg.waitForTimeout(500);
-  const sem = await pg.evaluate(() => [...document.querySelectorAll(".sem-r")].slice(0, 2)
-    .map(e => ({
+  /* Les rangées se désignent par leur nom et non par leur rang : la table
+     commence deux journées avant aujourd'hui depuis que les heures portent le
+     passé. */
+  const sem = await pg.evaluate(() => ["Auj.", "Demain"].map(nom => {
+    const e = [...document.querySelectorAll(".sem-r")]
+      .find(x => x.querySelector(".j b")?.textContent.trim() === nom);
+    if (!e) return { eau: "", min: "", max: "" };
+    return {
       eau: (e.querySelector(".c em") || {}).textContent?.trim() || "",
       min: e.querySelector(".sem-min")?.textContent.trim(),
       max: e.querySelector(".sem-max")?.textContent.trim(),
-    })));
+    };
+  }));
   ok("les bornes du bandeau sont celles de la semaine",
     acc.bornes.includes(`${sem[0].min} à ${sem[0].max}`),
     `« ${acc.bornes} » contre « ${sem[0].min} à ${sem[0].max} »`);

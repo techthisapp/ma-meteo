@@ -42,6 +42,7 @@ export const SEUILS = {
   couvert: 60,        // pour cent de couverture, seuil du ciel couvert
   tenue: 3,           // heures, durée qu'une bascule de ciel doit tenir
   bascule: 6,         // degrés, écart qui vaut un refroidissement ou un réchauffement
+  veille: 5,          // degrés, écart avec la même heure la veille qui mérite d'être dit
   ressenti: 5,        // degrés, écart entre le ressenti et la température
   pression: 6,        // hectopascals, variation qui annonce un changement
   astreProche: 3,     // heures, au-delà desquelles un lever ou un coucher n'est plus un fait
@@ -202,7 +203,23 @@ export function conseils(s, g) {
       + `${Math.round(mx.aujourdhui)}° aujourd'hui.`);
   }
 
-  /* 9. Le ressenti, quand il s'écarte franchement de la température. C'est lui
+  /* 9. La comparaison avec la veille, à la même heure. C'est le premier repère
+     qu'on cherche en ouvrant l'application : le thermomètre seul ne dit pas s'il
+     fait plus doux ou plus frais qu'hier, et le renversement de la règle 8 parle
+     de demain, non de maintenant.
+
+     Elle ne se pose que sur la fenêtre de la journée en cours, la seule dont
+     l'heure en cours fasse partie : le contexte ne porte la veille que là. Le
+     seuil est celui d'une masse d'air qui a changé, non d'une oscillation
+     ordinaire. */
+  const vl = g && g.veille;
+  if (vl && Math.abs(vl.ecart) >= SEUILS.veille) {
+    dire("thermo", 3.6, 0,
+      `${Math.abs(vl.ecart)} degrés de ${vl.ecart < 0 ? "moins" : "plus"} qu'hier `
+      + `à la même heure, ${Math.round(vl.t)}° contre ${Math.round(vl.hier)}°.`);
+  }
+
+  /* 10. Le ressenti, quand il s'écarte franchement de la température. C'est lui
      qui dit comment s'habiller, non le thermomètre. */
   let kr = 0;
   for (let k = 1; k < s.n; k++) {
@@ -214,7 +231,7 @@ export function conseils(s, g) {
       `Ressenti ${Math.round(s.res[kr])}° pour ${Math.round(s.t[kr])}° vers ${dem(kr)}.`);
   }
 
-  // 10. L'air saturé sous une température douce.
+  // 11. L'air saturé sous une température douce.
   const mal = plagesDe(s.n, k =>
     s.hum[k] >= SEUILS.humidite && s.t[k] >= SEUILS.humiditeTmin && s.t[k] <= SEUILS.humiditeTmax)
     .filter(([a, b]) => b - a >= SEUILS.humiditeHeures);
@@ -224,7 +241,7 @@ export function conseils(s, g) {
       + `Brouillard et rosée persistante possibles.`);
   }
 
-  /* 11. La pression. Une baisse marquée annonce une dégradation, une hausse une
+  /* 12. La pression. Une baisse marquée annonce une dégradation, une hausse une
      amélioration : c'est la plus ancienne lecture du temps, et la seule qui
      porte au-delà de la fenêtre. */
   const dp = Math.round(s.pres[s.n - 1] - s.pres[0]);
@@ -234,7 +251,7 @@ export function conseils(s, g) {
       : `Pression en hausse de ${dp} hPa, amélioration probable.`);
   }
 
-  /* 12. La bascule du ciel. Le premier passage d'un régime à l'autre qui tienne
+  /* 13. La bascule du ciel. Le premier passage d'un régime à l'autre qui tienne
      trois heures : « le ciel se dégage vers 16 h » vaut mieux qu'une courbe de
      couverture. */
   const couvert = k => s.nua[k] >= SEUILS.couvert;
@@ -250,7 +267,7 @@ export function conseils(s, g) {
     break;
   }
 
-  /* 13. Le lever ou le coucher du Soleil, quand il tombe dans les trois heures.
+  /* 14. Le lever ou le coucher du Soleil, quand il tombe dans les trois heures.
      Au-delà, ce n'est plus un fait de la journée mais une donnée d'almanach, et
      l'écran du soleil est là pour cela. */
   if (g && g.evenement) {
@@ -263,7 +280,7 @@ export function conseils(s, g) {
     }
   }
 
-  // 14. L'indice ultraviolet.
+  // 15. L'indice ultraviolet.
   const uvx = Math.max(...s.uv);
   if (uvx >= SEUILS.uv) {
     const ku = s.uv.indexOf(uvx);

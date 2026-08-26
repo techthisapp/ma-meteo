@@ -39,6 +39,19 @@ const HORAIRE = [
    à comparer la pluie mesurée au poste et la pluie annoncée. */
 const PASSE = 14;
 
+/* Deux journées écoulées en heures. Le ruban lisait depuis minuit du jour en
+   cours et s'arrêtait là, faute d'avoir demandé les journées d'avant : la
+   lecture continue du passé au futur butait sur une heure arbitraire, celle du
+   changement de date. Deux journées la font remonter à avant-hier minuit, la
+   semaine y gagne ses deux rangées écoulées, et la comparaison avec la veille y
+   trouve la même heure la veille.
+
+   Le surcoût est de quarante-huit heures sur la même requête, sans appel
+   supplémentaire. */
+const PASSE_H = 2;
+// Ce que les autres écrans peuvent remonter dans le passé sans trou.
+export const JOURS_PASSES = PASSE_H;
+
 /* La portée demandée à la source. Elle entre dans la clé du cache : le jour où
    elle change, la charge gardée sous l'ancienne forme cesse d'être servie
    d'elle-même.
@@ -128,7 +141,7 @@ async function prendre(url, essais) {
 
 export async function charger({ lat, lon }) {
   if (lat === null || lat === undefined) { charge = null; return null; }
-  const cle = `${lat},${lon}|${JOURS}j|${JOURS_AROME}a`;
+  const cle = `${lat},${lon}|${JOURS}j|${JOURS_AROME}a|${PASSE_H}p`;
   try {
     const c = JSON.parse(localStorage.getItem(CACHE) || "null");
     if (c && c.cle === cle && c.h === heureCle() && Date.now() - c.t < TTL) {
@@ -146,8 +159,12 @@ export async function charger({ lat, lon }) {
      sept jours ne rendrait que des colonnes vides : sa requête reste à trois
      jours, et la fusion laisse le modèle global au delà. */
   const uq = `${base}&daily=${QUOTIDIEN}&past_days=${PASSE}&forecast_days=${JOURS}`;
-  const uh = `${base}&hourly=${HORAIRE}&forecast_days=${JOURS}`;
-  const ua = `${base}&hourly=${HORAIRE}&forecast_days=${JOURS_AROME}`
+  const uh = `${base}&hourly=${HORAIRE}&past_days=${PASSE_H}&forecast_days=${JOURS}`;
+  /* AROME porte aussi les journées écoulées : sans elles, la fusion collait sa
+     série sur les mauvaises heures, l'une commençant à minuit du jour en cours
+     et l'autre deux jours plus tôt. La fusion se fait par horodatage, mais la
+     série d'AROME s'arrêterait alors deux jours trop tôt. */
+  const ua = `${base}&hourly=${HORAIRE}&past_days=${PASSE_H}&forecast_days=${JOURS_AROME}`
     + `&models=${AROME.join(",")}`;
 
   try {
@@ -326,6 +343,29 @@ export function serieHorizon() {
   const i = iHeure();
   if (i < 0 || !charge?.hourly) return null;
   return serieHoraire(-i, charge.hourly.time.length, 8);
+}
+
+/* La même heure la veille, comparée à l'heure en cours. « Dix-sept degrés » ne
+   se juge que par rapport à quelque chose, et la veille est la seule référence
+   que tout le monde a en tête.
+
+   L'indice de la veille se cherche par son horodatage et non par un recul de
+   vingt-quatre rangs : les deux nuits de changement d'heure portent vingt-trois
+   et vingt-cinq heures, et le rang aurait alors désigné une autre heure.
+
+   Rend `null` quand la charge ne porte pas la journée écoulée, ce qui est le cas
+   d'une charge enregistrée par une version antérieure. */
+export function ecartVeille() {
+  const h = charge?.hourly;
+  const i = iHeure();
+  if (i < 0 || !Array.isArray(h?.temperature_2m)) return null;
+  const veille = new Date();
+  veille.setDate(veille.getDate() - 1);
+  const j = h.time.indexOf(cleHeure(veille));
+  if (j < 0) return null;
+  const t = h.temperature_2m[i], hier = h.temperature_2m[j];
+  if (t === null || t === undefined || hier === null || hier === undefined) return null;
+  return { t, hier, ecart: Math.round(t) - Math.round(hier) };
 }
 
 /* Deux modèles chargés, un seul qui annonce la pluie : la prévision est alors

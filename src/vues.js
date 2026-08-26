@@ -116,10 +116,15 @@ export function vueSemaine() {
   if (!c || i < 0) return { titre: "La semaine", corps: `<div class="carte"><p class="vide">Prévision indisponible.</p></div>` };
 
   const d = c.daily;
+  /* La table commence aux journées écoulées que les heures couvrent, et non à
+     aujourd'hui. La charge quotidienne en porte quatorze, les heures deux : une
+     rangée plus ancienne n'aurait ni ses quatre moments ni ses bornes tirées de
+     la même source que les autres, et se serait ouverte sur rien. */
+  const debut = Math.max(0, i - P.JOURS_PASSES);
   const fin = Math.min(i + 7, d.time.length);
   const lignes = [];
   let tmin = Infinity, tmax = -Infinity;
-  for (let k = i; k < fin; k++) {
+  for (let k = debut; k < fin; k++) {
     const h = P.jourHoraire(d.time[k]);
     tmin = Math.min(tmin, h ? h.tn : d.temperature_2m_min[k]);
     tmax = Math.max(tmax, h ? h.tx : d.temperature_2m_max[k]);
@@ -129,7 +134,7 @@ export function vueSemaine() {
   const maintenant = P.serieHoraire()?.t?.[0] ?? null;
   const heureCourante = new Date().getHours();
 
-  for (let k = i; k < fin; k++) {
+  for (let k = debut; k < fin; k++) {
     /* Les heures là où elles couvrent la journée entière, la charge quotidienne
        au-delà. Deux sources pour un seul jour font des contradictions dans une
        même feuille. */
@@ -140,7 +145,12 @@ export function vueSemaine() {
     const pb = h ? h.pb : d.precipitation_probability_max[k];
     const code = h ? h.code : d.weather_code[k];
 
-    const nom = k === i ? "Auj." : k === i + 1 ? "Demain" : jourCourt(d.time[k]);
+    /* Trois journées portent un nom propre, celles qu'on désigne par un mot
+       plutôt que par une date : hier, aujourd'hui, demain. « Avant-hier » ne
+       tient pas dans la colonne, qui fait soixante-quatre points, et le nom
+       court y suffit comme il suffit après-demain. */
+    const nom = k === i ? "Auj." : k === i + 1 ? "Demain"
+      : k === i - 1 ? "Hier" : jourCourt(d.time[k]);
     const date = new Date(`${d.time[k]}T12:00`)
       .toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 
@@ -179,7 +189,11 @@ export function vueSemaine() {
         + ico("chevron_bas", "sem-chev") + `</button>`
       : `<div class="sem-r sem-fixe">${corps}</div>`;
 
-    lignes.push(`<div class="sem-j${k === i ? " sem-auj" : ""}">${tete}`
+    /* Une journée écoulée s'efface, comme un moment passé dans un volet ou la
+       part écoulée de la course du Soleil. Sans cela la table paraissait
+       commencer avant-hier, et l'œil cherchait aujourd'hui. */
+    lignes.push(`<div class="sem-j${k === i ? " sem-auj" : ""}`
+      + `${k < i ? " sem-passe" : ""}">${tete}`
       + (mo ? `<div class="md" id="${cle}" hidden>${volet(mo, k === i, heureCourante)}</div>` : "")
       + `</div>`);
   }

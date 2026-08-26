@@ -146,12 +146,23 @@ const motDe = (cle, v) => {
   return m.toLowerCase();
 };
 
-/* Le nom d'un jour, compté depuis celui de l'heure en cours. L'horizon porte
-   sept jours : « demain 14 h » sur une fenêtre calée sur jeudi désignerait
-   mercredi, ce qui est faux. Au delà d'après-demain le jour se nomme. */
-const MOTS_JOUR = ["", "demain ", "après-demain "];
+/* Le nom d'un jour, compté depuis celui de l'heure en cours. « demain 14 h » sur
+   une fenêtre calée sur jeudi désignerait mercredi, ce qui est faux. Au delà
+   d'avant-hier et d'après-demain le jour se nomme.
+
+   La référence est le jour de l'heure en cours, non le premier indice de la
+   série : celui-ci tombe deux journées plus tôt depuis que l'horizon porte le
+   passé, et tout se serait décalé d'autant. */
+const MOTS_JOUR = {
+  "-2": "avant-hier ", "-1": "hier ", 0: "", 1: "demain ", 2: "après-demain ",
+};
 const ecartJours = (a, b) =>
   Math.round((Date.parse(`${b}T12:00:00`) - Date.parse(`${a}T12:00:00`)) / 86400000);
+const jourRef = s => s.jour[Math.max(0, Math.min(s.n - 1, s.ici))];
+const nomJour = (s, jour) => {
+  const e = ecartJours(jourRef(s), jour);
+  return MOTS_JOUR[e] !== undefined ? MOTS_JOUR[e] : `${jourCourt(jour)} `;
+};
 
 export function dessiner(s) {
   serie = s;
@@ -479,15 +490,9 @@ export function dessiner(s) {
   /* Les phrases de résumé. Un fait tiré de la série, non une notice : « Écran
      solaire de 11 h à 16 h » se lit, « indice ultraviolet heure par heure » se
      saute. */
-  /* Le jour se nomme depuis aujourd'hui, l'horizon en portant sept. La série
-     commence à minuit du jour en cours : son premier indice donne la date de
-     référence. */
-  const HJ = k => {
-    const e = ecartJours(s.jour[0], s.jour[k]);
-    const h = heureTxt(s.heure[k]);
-    if (e <= 0) return h;
-    return e < MOTS_JOUR.length ? MOTS_JOUR[e] + h : `${jourCourt(s.jour[k])} ${h}`;
-  };
+  /* Le jour se nomme depuis aujourd'hui, l'horizon portant deux journées
+     écoulées et sept annoncées. */
+  const HJ = k => nomJour(s, s.jour[k]) + heureTxt(s.heure[k]);
   /* Les extrêmes se cherchent dans la fenêtre visible et se disent en indice
      d'horizon : le maximum de jeudi n'a rien à faire dans la phrase d'une
      fenêtre calée sur mardi. */
@@ -809,10 +814,7 @@ export function dessiner(s) {
   const dFin = new Date(`${s.jour[kFin]}T00:00:00`);
   dFin.setHours(s.heure[kFin] + 1);
   const jFin = cleJour(dFin);
-  const eFin = ecartJours(s.jour[0], jFin);
-  const motFin = eFin <= 0 ? ""
-    : eFin < MOTS_JOUR.length ? MOTS_JOUR[eFin] : `${jourCourt(jFin)} `;
-  const lib = `${HJ(dec)} à ${motFin}${heureTxt(dFin.getHours())}`;
+  const lib = `${HJ(dec)} à ${nomJour(s, jFin)}${heureTxt(dFin.getHours())}`;
   const chev = droite => `<svg viewBox="0 0 24 24" aria-hidden="true">`
     + `<path d="${droite ? "M9 5l7 7-7 7" : "M15 5l-7 7 7 7"}" fill="none" `
     + `stroke="currentColor" stroke-width="2.2" stroke-linecap="round" `
@@ -849,9 +851,7 @@ export function brancher(bloc, surVoie) {
 
   const lire = k => {
     heureLue = k;
-    const e = ecartJours(s.jour[0], s.jour[k]);
-    const prefixe = e <= 0 ? ""
-      : e < MOTS_JOUR.length ? MOTS_JOUR[e] : `${jourCourt(s.jour[k])} `;
+    const prefixe = nomJour(s, s.jour[k]);
     const lit = {
       t: `${prefixe}${heureTxt(s.heure[k])}, ${Math.round(s.t[k])}°`,
       mm: s.mm[k] >= 0.1

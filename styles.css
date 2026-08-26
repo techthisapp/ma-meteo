@@ -919,6 +919,12 @@ button.rangee:active{background:var(--surface-2)}
   box-shadow:0 0 0 2px var(--etiquette);
 }
 .sem-auj .j b{color:var(--accent)}
+/* Les journées écoulées, en retrait. Le voile porte sur la rangée fermée seule :
+   dépliée, elle se lit comme les autres, et son volet marque déjà ses moments
+   passés. La plage de température garde sa couleur, c'est elle qu'on vient
+   comparer. */
+.sem-passe > .sem-r{opacity:.62}
+.sem-passe > .sem-r[aria-expanded="true"]{opacity:1}
 
 /* Le volet des quatre moments, sous la rangée dépliée. Quatre colonnes, une
    température par moment, et deux lignes basses qui ne paraissent que si elles
