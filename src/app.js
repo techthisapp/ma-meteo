@@ -401,10 +401,17 @@ function ecranAccueil() {
     /* Le renversement de température ne se dit qu'avec demain : c'est de cette
        journée qu'il parle. L'évènement du Soleil, lui, ne vaut que pour les
        heures qui viennent. */
+    /* Les scénarios de la journée dont parle le bloc : la fourchette du maximum
+       s'écrit avec la journée qu'elle concerne, non sur l'accueil au dessus du
+       grand chiffre où elle n'aurait rien à dire, la dispersion de l'heure en
+       cours valant un demi-degré. */
     const lSuite = [
-      ...(sDemain ? conseils(sDemain,
-        { maxima: maximaJour(), aujourdhui: cejour, decalage: restant }) : []),
-      ...(sApres ? conseils(sApres, { aujourdhui: cejour, decalage: restant + 24 }) : []),
+      ...(sDemain ? conseils(sDemain, { maxima: maximaJour(), aujourdhui: cejour,
+        decalage: restant, scenarios: Ensemble.journee(d.time[i + 1]),
+        medianes: Ensemble.alignerSur(sDemain)?.q.t.med }) : []),
+      ...(sApres ? conseils(sApres, { aujourdhui: cejour, decalage: restant + 24,
+        scenarios: Ensemble.journee(d.time[i + 2]),
+        medianes: Ensemble.alignerSur(sApres)?.q.t.med }) : []),
     ].sort((a, b) => b.g - a.g).slice(0, LIGNES_MAX);
 
     const bloc = (cle, titre, dedans) => (dedans

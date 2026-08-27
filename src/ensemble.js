@@ -202,6 +202,50 @@ export function alignerSur(serie) {
   return out.n ? out : null;
 }
 
+/* Ce que les scénarios disent d'une journée civile, ou `null` quand ils ne la
+   couvrent pas entière. L'ensemble porte sept jours annoncés et aucun jour
+   écoulé : la table de la semaine lui demande neuf journées et n'en obtient
+   qu'une partie, ce qui est normal et se dit par l'absence.
+
+   `etendue` est la dispersion moyenne sur les heures de la journée, non celle
+   d'une heure prise au hasard : une nuit calme sous un après-midi indécis ne
+   doit pas passer pour une journée sûre. Les bornes du maximum, elles, disent
+   la fourchette du chiffre que la table affiche. */
+export function journee(date) {
+  if (!charge?.q?.t) return null;
+  const q = charge.q.t;
+  const k = [];
+  charge.time.forEach((t, i) => { if (t.slice(0, 10) === date) k.push(i); });
+  if (k.length < 24) return null;
+  const bons = k.filter(i => q.mini[i] !== null && q.maxi[i] !== null);
+  if (bons.length < 24) return null;
+  const somme = bons.reduce((a, i) => a + (q.maxi[i] - q.mini[i]), 0);
+  /* L'heure la plus chaude au sens des scénarios, celle dont la médiane monte
+     le plus haut : c'est le maximum de la journée que la table affiche. */
+  let kx = bons[0];
+  for (const i of bons) if (q.med[i] > q.med[kx]) kx = i;
+  return {
+    etendue: Math.round((somme / bons.length) * 10) / 10,
+    mini: q.mini[kx], med: q.med[kx], maxi: q.maxi[kx],
+    membres: charge.membres,
+  };
+}
+
+/* Trois mots pour dire l'accord des scénarios sur une journée, et les seuils qui
+   les séparent. Mesurés sur la source : la dispersion vaut environ deux degrés
+   à un jour, cinq à deux jours et six à sept jours. Les seuils tombent donc à
+   trois et six, où ils séparent le lendemain du reste de la semaine. */
+export const ACCORDS = [
+  [0, "bonne", "les scénarios s'accordent"],
+  [3, "moyenne", "les scénarios s'écartent un peu"],
+  [6, "faible", "les scénarios sont partagés"],
+];
+export function accordDe(etendue) {
+  let a = ACCORDS[0];
+  for (const x of ACCORDS) if (etendue >= x[0]) a = x;
+  return { nom: a[1], phrase: a[2] };
+}
+
 export function oublier() {
   charge = null;
   cleChargee = null;

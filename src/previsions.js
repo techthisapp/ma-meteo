@@ -303,19 +303,25 @@ export function serieHoraire(depart = 0, duree = 24, minimum = 8) {
      de sa portée elle n'existe pas, et la compter pour zéro ferait dire aux deux
      modèles qu'ils se contredisent alors qu'un seul parle. La série de secours
      s'arrête donc là où AROME s'arrête. */
-  const mmS = (() => {
+  const secours = (colonne, defaut) => {
     const b = charge.horaireSecours;
-    if (!Array.isArray(b?.precipitation) || !Array.isArray(b?.time)) return null;
+    if (!Array.isArray(b?.[colonne]) || !Array.isArray(b?.time)) return null;
     const r = new Map(b.time.map((t, k) => [t, k]));
     const out = [];
     for (const t of h.time.slice(i, i + n)) {
       const k = r.get(t);
       if (k === undefined) break;
-      const v = b.precipitation[k];
-      out.push(v === null || v === undefined ? 0 : v);
+      const v = b[colonne][k];
+      out.push(v === null || v === undefined ? defaut : v);
     }
     return out.length ? out : null;
-  })();
+  };
+  const mmS = secours("precipitation", 0);
+  /* La température du modèle global, à côté de celle qui est servie. Sur les
+     trois premiers jours la seconde vient d'AROME : les deux voix se comparent,
+     et leur écart est un désaccord entre modèles. Au delà, AROME s'arrête et les
+     deux voix se confondent, ce qui se voit à leur écart nul. */
+  const tS = secours("temperature_2m", null);
 
   return {
     n,
@@ -331,7 +337,7 @@ export function serieHoraire(depart = 0, duree = 24, minimum = 8) {
     nua: p("cloud_cover"), pres: p("pressure_msl"),
     v: p("wind_speed_10m"), raf: p("wind_gusts_10m"), dir: p("wind_direction_10m"),
     uv: p("uv_index"), clair: p("is_day"),
-    mmS,
+    mmS, tS,
   };
 }
 

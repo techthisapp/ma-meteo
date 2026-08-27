@@ -1416,7 +1416,10 @@ const voletsKO = await pg.evaluate(async () => {
     const date = j.dataset.jour;
     const mo = P.momentsJour(date);
     if (!mo) { maux.push(`${date}: aucun moment`); continue; }
-    const cases = [...document.getElementById(j.getAttribute("aria-controls")).children];
+    /* Le volet porte ses quatre moments, et sous eux la ligne d'accord des
+       scénarios quand l'ensemble couvre la journée entière. */
+    const dedans = [...document.getElementById(j.getAttribute("aria-controls")).children];
+    const cases = dedans.filter(e => !e.classList.contains("md-sc"));
     if (cases.length !== 4) { maux.push(`${date}: ${cases.length} cases`); continue; }
     cases.forEach((c, q) => {
       const m = mo[q];
@@ -1438,6 +1441,57 @@ ok("chaque volet dit la borne qui compte et rien de superflu",
 
 ok("la rafale forte est signalée quelque part dans la semaine", await pg.evaluate(() =>
   [...document.querySelectorAll(".md u")].length > 0));
+
+/* L'accord des scénarios, écrit en toutes lettres sous les quatre moments. Un
+   chiffre de dispersion ne se lit pas : « six degrés d'étendue » ne dit rien à
+   qui n'a pas l'habitude, quand « les scénarios sont partagés, de 18 à 27 degrés
+   au plus chaud » dit à la fois l'accord et ce qu'il recouvre.
+
+   L'ensemble porte sept jours annoncés et aucun jour écoulé : les deux rangées
+   du passé ne portent donc pas la ligne, et c'est normal. */
+{
+  const vus = await pg.evaluate(() => [...document.querySelectorAll(".sem-j")].map(j => ({
+    jour: j.querySelector(".sem-r")?.dataset.jour || "",
+    passe: j.classList.contains("sem-passe"),
+    dit: (j.querySelector(".md-sc") || {}).textContent || "",
+  })));
+  const couverts = vus.filter(x => x.dit);
+  ok("les journées que les scénarios couvrent disent leur confiance",
+    couverts.length === 7 && vus.filter(x => x.passe).every(x => !x.dit),
+    `${couverts.length} journées sur ${vus.length}, `
+    + `dont ${vus.filter(x => x.passe && x.dit).length} écoulées`);
+  ok("la confiance s'écrit en toutes lettres et porte la fourchette",
+    couverts.every(x => /^Confiance (bonne|moyenne|faible) : les scénarios /.test(x.dit)
+      && /de -?\d+ à -?\d+° au plus chaud\.$/.test(x.dit.trim())),
+    couverts[0]?.dit || "aucune ligne");
+  /* La confiance se dégrade avec l'échéance : les scénarios s'accordent sur
+     demain et se partagent en fin de semaine. Une ligne qui dirait la même chose
+     sur les sept journées ne dirait rien. */
+  const mots = couverts.map(x => (x.dit.match(/Confiance (\w+)/) || [])[1]);
+  ok("elle se dégrade à mesure que l'échéance s'éloigne",
+    new Set(mots).size >= 2 && mots[0] === "bonne" && mots[mots.length - 1] === "faible",
+    mots.join(", "));
+  /* La dispersion est la moyenne sur les heures de la journée, non celle d'une
+     heure prise au hasard : une nuit calme sous un après-midi indécis ne doit
+     pas passer pour une journée sûre. Le contrôle la recalcule à part. */
+  ok("la dispersion est la moyenne des heures de la journée",
+    await pg.evaluate(async () => {
+      const E = await import("/src/ensemble.js");
+      const c = E.chargeCourante();
+      if (!c?.q?.t) return "aucun ensemble";
+      for (const date of [...new Set(c.time.map(t => t.slice(0, 10)))]) {
+        const j = E.journee(date);
+        if (!j) continue;
+        const k = [];
+        c.time.forEach((t, i) => { if (t.slice(0, 10) === date) k.push(i); });
+        const moy = k.reduce((a, i) => a + (c.q.t.maxi[i] - c.q.t.mini[i]), 0) / k.length;
+        if (Math.abs(moy - j.etendue) > 0.06) {
+          return `${date} : ${j.etendue} rendu, ${moy.toFixed(2)} attendu`;
+        }
+      }
+      return "";
+    }) === "");
+}
 
 /* Sur la journée en cours, un moment déjà passé s'efface. La rangée du jour
    n'est plus la première de la table, deux journées écoulées la précédant. */
@@ -3857,6 +3911,138 @@ ok("la voie de la pluie dit l'étalement des quantités",
     .test(phraseMm) && /le plus arrosé [\d,]+ mm\.$/.test(phraseMm.trim()), phraseMm);
 ok("elle ne pose pas une seconde probabilité à côté de la première",
   (phraseMm.match(/%/g) || []).length === 1, phraseMm);
+
+/* La fourchette écrite sur l'accueil. Elle ne se dit que là où elle a de la
+   matière : à l'heure en cours la dispersion vaut un demi-degré et la phrase
+   serait creuse, à trois jours elle vaut cinq degrés et change la décision.
+
+   Le contexte assèche la charge et calme le vent : sur la charge d'essai, les
+   deux lignes de pluie et celle des rafales occupent les trois places du bloc
+   et évincent la fourchette, ce qui est le bon comportement du plafond mais ne
+   permet pas de l'éprouver. */
+const ctxFourch = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+await ctxFourch.addInitScript(amorce(FAIN));
+await brancherRoutes(ctxFourch);
+await ctxFourch.route(/https:\/\/api\.open-meteo\.com/, route => {
+  const u = route.request().url();
+  const d = JSON.parse(JSON.stringify(METEO));
+  d.hourly.precipitation = d.hourly.precipitation.map(() => 0);
+  d.hourly.precipitation_probability = d.hourly.precipitation_probability.map(() => 0);
+  d.hourly.wind_gusts_10m = d.hourly.wind_gusts_10m.map(() => 12);
+  d.hourly.wind_speed_10m = d.hourly.wind_speed_10m.map(() => 8);
+  d.hourly.uv_index = d.hourly.uv_index.map(() => 1);
+  if (u.includes("current=")) {
+    route.fulfill({ status: 200, contentType: "application/json", body: "[]" }); return;
+  }
+  /* AROME s'écarte ici de deux degrés du modèle global, sous le seuil : un écart
+     ordinaire entre deux modèles n'est pas un désaccord, et la règle doit se
+     taire dessus. */
+  if (u.includes("models=meteofrance_arome")) {
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      hourly: { time: d.hourly.time.slice(),
+        temperature_2m: d.hourly.temperature_2m.map(v => v + 2) } }) }); return;
+  }
+  if (u.includes("hourly=")) {
+    route.fulfill({ status: 200, contentType: "application/json",
+      body: JSON.stringify({ hourly: d.hourly }) }); return;
+  }
+  delete d.hourly;
+  route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
+});
+const pgFourch = await ctxFourch.newPage();
+await pgFourch.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await pgFourch.waitForTimeout(1600);
+const cjF = await pgFourch.locator("#ecran .cj-l").allInnerTexts();
+ok("la fourchette des scénarios s'écrit là où elle a de la matière",
+  cjF.some(x => /^Scénarios partagés sur le maximum, de -?\d+ à -?\d+°\.$/.test(x.trim())),
+  cjF.join(" | ") || "aucune ligne");
+/* Elle parle de la journée de son bloc, non de l'heure en cours : la dispersion
+   de maintenant vaut un demi-degré et n'a rien à dire. */
+ok("elle se pose dans un bloc qui suit, non dans celui du jour",
+  await pgFourch.evaluate(() => {
+    const dans = c => [...document.querySelectorAll(
+      `#ecran .section[data-bloc="${c}"] .cj-l`)].some(e => /Scénarios partagés/.test(e.textContent));
+    return !dans("jour") && dans("suite");
+  }));
+/* Deux degrés d'écart entre modèles ne sont pas un désaccord : c'est
+   l'ordinaire, et une phrase qui le dirait tous les jours ne dirait rien. */
+ok("un écart ordinaire entre modèles ne fait pas parler la règle du désaccord",
+  !cjF.some(x => /ne s'accordent pas/.test(x)), cjF.join(" | "));
+await ctxFourch.close();
+
+/* Le désaccord entre modèles. Trois voix, toutes déjà chargées et aucune requête
+   nouvelle : le modèle global, AROME par-dessus lui sur les trois premiers
+   jours, et la médiane des scénarios d'ICON.
+
+   Sur la charge d'essai les trois se confondent, AROME rendant la même série que
+   le modèle global et les membres étant posés symétriquement autour d'elle : la
+   règle s'y tait, ce qui est le bon comportement et se contrôle plus bas. Ici
+   AROME est décalé de six degrés, et la phrase doit nommer les deux extrêmes. */
+const ctxDesac = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+await ctxDesac.addInitScript(amorce(FAIN));
+await brancherRoutes(ctxDesac);
+await ctxDesac.route(/https:\/\/api\.open-meteo\.com/, route => {
+  const u = route.request().url();
+  const d = JSON.parse(JSON.stringify(METEO));
+  d.hourly.precipitation = d.hourly.precipitation.map(() => 0);
+  d.hourly.precipitation_probability = d.hourly.precipitation_probability.map(() => 0);
+  d.hourly.wind_gusts_10m = d.hourly.wind_gusts_10m.map(() => 12);
+  d.hourly.wind_speed_10m = d.hourly.wind_speed_10m.map(() => 8);
+  d.hourly.uv_index = d.hourly.uv_index.map(() => 1);
+  if (u.includes("current=")) {
+    route.fulfill({ status: 200, contentType: "application/json", body: "[]" }); return;
+  }
+  if (u.includes("models=meteofrance_arome")) {
+    const a = { time: d.hourly.time.slice(), temperature_2m: d.hourly.temperature_2m.map(v => v + 6) };
+    route.fulfill({ status: 200, contentType: "application/json",
+      body: JSON.stringify({ hourly: a }) }); return;
+  }
+  if (u.includes("hourly=")) {
+    route.fulfill({ status: 200, contentType: "application/json",
+      body: JSON.stringify({ hourly: d.hourly }) }); return;
+  }
+  delete d.hourly;
+  route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
+});
+/* Les scénarios suivent AROME et non le modèle global : les trois voix ne se
+   réduisent donc pas à deux, et retirer celle du modèle global fait tomber
+   l'écart à zéro. C'est ce qui rend cette voix nécessaire. */
+await ctxDesac.route(/ensemble-api\.open-meteo\.com/, r => {
+  const e = JSON.parse(JSON.stringify(ENSEMBLE));
+  for (const c of Object.keys(e.hourly)) {
+    if (c.startsWith("temperature_2m")) e.hourly[c] = e.hourly[c].map(v => v + 6);
+  }
+  r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(e) });
+});
+const pgDesac = await ctxDesac.newPage();
+await pgDesac.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await pgDesac.waitForTimeout(1600);
+const cjD = await pgDesac.locator("#ecran .cj-l").allInnerTexts();
+const ligneD = cjD.find(x => /ne s'accordent pas/.test(x)) || "";
+ok("le désaccord entre modèles se dit, avec ses extrêmes et son échéance",
+  /^Les modèles ne s'accordent pas vers .+, de -?\d+ à -?\d+ degrés\.$/.test(ligneD.trim()),
+  ligneD || cjD.join(" | ") || "aucune ligne");
+ok("les extrêmes nommés encadrent les six degrés d'écart posés", (() => {
+  const m = ligneD.match(/de (-?\d+) à (-?\d+) degrés/);
+  if (!m) return false;
+  const e = Number(m[2]) - Number(m[1]);
+  return e >= 5 && e <= 7;
+})(), ligneD);
+ok("elle passe devant la fourchette des scénarios",
+  await pgDesac.evaluate(() => {
+    const l = [...document.querySelectorAll('#ecran .section[data-bloc="suite"] .cj-l')]
+      .map(e => e.textContent);
+    const d = l.findIndex(x => /ne s'accordent pas/.test(x));
+    const f = l.findIndex(x => /Scénarios partagés/.test(x));
+    return d >= 0 && (f < 0 || d < f);
+  }));
+await ctxDesac.close();
 
 /* Une source d'ensemble muette ne prive de rien : la prévision déterministe est
    déjà à l'écran, et l'enveloppe ne paraît simplement pas. */

@@ -43,6 +43,8 @@ export const SEUILS = {
   tenue: 3,           // heures, durée qu'une bascule de ciel doit tenir
   bascule: 6,         // degrés, écart qui vaut un refroidissement ou un réchauffement
   veille: 5,          // degrés, écart avec la même heure la veille qui mérite d'être dit
+  fourchette: 5,      // degrés, étendue des scénarios sur un maximum qui mérite d'être dite
+  desaccord: 4,       // degrés, écart entre modèles qui vaut d'être signalé
   ressenti: 5,        // degrés, écart entre le ressenti et la température
   pression: 6,        // hectopascals, variation qui annonce un changement
   astreProche: 3,     // heures, au-delà desquelles un lever ou un coucher n'est plus un fait
@@ -203,7 +205,51 @@ export function conseils(s, g) {
       + `${Math.round(mx.aujourdhui)}° aujourd'hui.`);
   }
 
-  /* 9. La comparaison avec la veille, à la même heure. C'est le premier repère
+  /* 9. Le désaccord entre modèles. Trois voix, toutes déjà chargées : le modèle
+     global, AROME par-dessus lui sur les trois premiers jours, et la médiane des
+     scénarios d'ICON. Aucune requête nouvelle.
+
+     La phrase nomme les valeurs extrêmes et l'échéance concernée, et se pose là
+     où l'écart est le plus large. Au delà de la portée d'AROME les deux
+     premières voix se confondent, et il n'en reste que deux : la phrase vaut
+     encore, elle porte simplement sur un désaccord entre deux modèles.
+
+     Elle passe devant la fourchette des scénarios, qui dit la dispersion d'un
+     seul modèle : deux modèles qui se contredisent est un fait plus fort qu'un
+     modèle qui hésite. */
+  const med = g && g.medianes;
+  if (Array.isArray(s.tS) && Array.isArray(med)) {
+    let kd = -1, large = 0, bas = 0, haut = 0;
+    for (let k = 0; k < s.n; k++) {
+      const voix = [s.t[k], s.tS[k], med[k]]
+        .filter(v => v !== null && v !== undefined && Number.isFinite(v));
+      if (voix.length < 2) continue;
+      const mn = Math.min(...voix), mx = Math.max(...voix);
+      if (mx - mn > large) { large = mx - mn; kd = k; bas = mn; haut = mx; }
+    }
+    if (kd >= 0 && large >= SEUILS.desaccord) {
+      dire("jauge", 3.7, kd,
+        `Les modèles ne s'accordent pas vers ${dem(kd)}, `
+        + `de ${Math.round(bas)} à ${Math.round(haut)} degrés.`);
+    }
+  }
+
+  /* 10. La fourchette des scénarios sur le maximum de la journée. Elle ne se dit
+     que là où elle a de la matière : à l'heure en cours la dispersion vaut un
+     demi-degré et la phrase serait creuse, à trois jours elle vaut cinq degrés
+     et change la décision.
+
+     Elle ne redit pas le maximum que la règle de chaleur ou celle du
+     renversement viennent de nommer : c'est l'écart qu'elle apporte, non le
+     chiffre. */
+  const sc = g && g.scenarios;
+  if (sc && sc.maxi - sc.mini >= SEUILS.fourchette) {
+    dire("jauge", 3.4, s.n - 1,
+      `Scénarios partagés sur le maximum, de ${Math.round(sc.mini)} `
+      + `à ${Math.round(sc.maxi)}°.`);
+  }
+
+  /* 11. La comparaison avec la veille, à la même heure. C'est le premier repère
      qu'on cherche en ouvrant l'application : le thermomètre seul ne dit pas s'il
      fait plus doux ou plus frais qu'hier, et le renversement de la règle 8 parle
      de demain, non de maintenant.
@@ -219,7 +265,7 @@ export function conseils(s, g) {
       + `à la même heure, ${Math.round(vl.t)}° contre ${Math.round(vl.hier)}°.`);
   }
 
-  /* 10. Le ressenti, quand il s'écarte franchement de la température. C'est lui
+  /* 12. Le ressenti, quand il s'écarte franchement de la température. C'est lui
      qui dit comment s'habiller, non le thermomètre. */
   let kr = 0;
   for (let k = 1; k < s.n; k++) {
@@ -231,7 +277,7 @@ export function conseils(s, g) {
       `Ressenti ${Math.round(s.res[kr])}° pour ${Math.round(s.t[kr])}° vers ${dem(kr)}.`);
   }
 
-  // 11. L'air saturé sous une température douce.
+  // 13. L'air saturé sous une température douce.
   const mal = plagesDe(s.n, k =>
     s.hum[k] >= SEUILS.humidite && s.t[k] >= SEUILS.humiditeTmin && s.t[k] <= SEUILS.humiditeTmax)
     .filter(([a, b]) => b - a >= SEUILS.humiditeHeures);
@@ -241,7 +287,7 @@ export function conseils(s, g) {
       + `Brouillard et rosée persistante possibles.`);
   }
 
-  /* 12. La pression. Une baisse marquée annonce une dégradation, une hausse une
+  /* 14. La pression. Une baisse marquée annonce une dégradation, une hausse une
      amélioration : c'est la plus ancienne lecture du temps, et la seule qui
      porte au-delà de la fenêtre. */
   const dp = Math.round(s.pres[s.n - 1] - s.pres[0]);
@@ -251,7 +297,7 @@ export function conseils(s, g) {
       : `Pression en hausse de ${dp} hPa, amélioration probable.`);
   }
 
-  /* 13. La bascule du ciel. Le premier passage d'un régime à l'autre qui tienne
+  /* 15. La bascule du ciel. Le premier passage d'un régime à l'autre qui tienne
      trois heures : « le ciel se dégage vers 16 h » vaut mieux qu'une courbe de
      couverture. */
   const couvert = k => s.nua[k] >= SEUILS.couvert;
@@ -267,7 +313,7 @@ export function conseils(s, g) {
     break;
   }
 
-  /* 14. Le lever ou le coucher du Soleil, quand il tombe dans les trois heures.
+  /* 16. Le lever ou le coucher du Soleil, quand il tombe dans les trois heures.
      Au-delà, ce n'est plus un fait de la journée mais une donnée d'almanach, et
      l'écran du soleil est là pour cela. */
   if (g && g.evenement) {
@@ -280,7 +326,7 @@ export function conseils(s, g) {
     }
   }
 
-  // 15. L'indice ultraviolet.
+  // 17. L'indice ultraviolet.
   const uvx = Math.max(...s.uv);
   if (uvx >= SEUILS.uv) {
     const ku = s.uv.indexOf(uvx);

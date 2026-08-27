@@ -11,6 +11,7 @@ import * as Astres from "./astres.js";
 import * as Feu from "./feu.js";
 import * as Relief from "./relief.js";
 import * as Temps from "./temps.js";
+import * as Ensemble from "./ensemble.js";
 import * as Vig from "./vigilance.js";
 import { SEUILS } from "./conseils.js";
 
@@ -194,7 +195,8 @@ export function vueSemaine() {
        commencer avant-hier, et l'œil cherchait aujourd'hui. */
     lignes.push(`<div class="sem-j${k === i ? " sem-auj" : ""}`
       + `${k < i ? " sem-passe" : ""}">${tete}`
-      + (mo ? `<div class="md" id="${cle}" hidden>${volet(mo, k === i, heureCourante)}</div>` : "")
+      + (mo ? `<div class="md" id="${cle}" hidden>${volet(mo, k === i, heureCourante)}`
+        + `${confiance(d.time[k])}</div>` : "")
       + `</div>`);
   }
 
@@ -206,6 +208,22 @@ export function vueSemaine() {
       + `global.</p></div>`,
     brancher(bloc) { brancherSemaine(bloc); },
   };
+}
+
+/* L'accord des scénarios sur une journée, écrit en toutes lettres sous ses
+   quatre moments. Un chiffre de dispersion ne se lit pas : « six degrés
+   d'étendue » ne dit rien à qui n'a pas l'habitude, quand « les scénarios sont
+   partagés, de 18 à 27 degrés au plus chaud » dit à la fois l'accord et ce
+   qu'il recouvre.
+
+   La ligne ne paraît que sur les journées que l'ensemble couvre entières : il
+   porte sept jours annoncés et aucun jour écoulé, la table en demande neuf. */
+function confiance(date) {
+  const j = Ensemble.journee(date);
+  if (!j) return "";
+  const a = Ensemble.accordDe(j.etendue);
+  return `<p class="md-sc">Confiance ${esc(a.nom)} : ${esc(a.phrase)}, `
+    + `de ${Math.round(j.mini)} à ${Math.round(j.maxi)}° au plus chaud.</p>`;
 }
 
 /* Le volet des quatre moments. Une seule température, celle qui compte : le
