@@ -489,15 +489,18 @@ function ecranVue(nom) {
 /* ---------- Le jeton du rappel de parapluie ---------- */
 
 /* Le jeton se pose dans la barre de tête, à la même place sur les cinq écrans.
-   Le silence est l'état par défaut : une journée sèche, une fenêtre de sortie
+   Le silence est l'état par défaut : une journée sèche, une période d'alerte
    déjà passée ou un jeton déjà pris ne font rien paraître.
 
+   Il écrit les heures de la pluie et non l'instant d'alerte : c'est la pluie
+   qu'on veut situer, l'alerte étant seulement le moment où on la dit.
+
    Il se recalcule à chaque rendu et non une fois pour toutes : le rendu suit le
-   changement de commune, la fin d'une fenêtre et la prise du jeton. */
+   changement de commune, la fin d'une période et la prise du jeton. */
 function poserJeton() {
   const bouton = $("navJeton");
   const j = charge === "pret"
-    ? Parapluie.jeton(P.serieHorizon(), Reglages.sorties(Parapluie.SORTIES_DEFAUT))
+    ? Parapluie.jeton(P.serieHorizon(), Reglages.alertes(Parapluie.ALERTES_DEFAUT))
     : null;
   ctx.jeton = j;
   ctx.commune = Reglages.lire().commune || "";
@@ -708,9 +711,9 @@ function rendreFeuille() {
        dedans se voit dehors, le jeton pris quittant la barre de tête. */
     if (options?.ecran) { sentir(10); fermerFeuille(); rendre(); return; }
     if (options?.fermer) { fermerFeuille(); return; }
-    /* L'écran de dessous se refait, la feuille reste ouverte : un réglage change
-       la barre de tête sans que la feuille ait à se redessiner. */
-    if (options?.ecranSeul) { rendre(); return; }
+    /* L'écran de dessous se refait avec la feuille, laquelle reste ouverte : un
+       réglage change à la fois ce que la feuille écrit et la barre de tête. */
+    if (options?.dessous) rendre();
     rendreFeuille();
   }, majEtat);
   $("feuille-titre").innerHTML = esc(f.titre)

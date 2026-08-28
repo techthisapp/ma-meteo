@@ -19,8 +19,8 @@ const DEFAUT = {
   suivies: [],         // communes suivies, la courante comprise
   auto: false,         // le lieu courant suit la position de l'appareil
   position: null,      // dernier relevé : commune, codePostal, lat, lon, t
-  sorties: null,       // heures de sortie, deux fenêtres au pas de la demi-heure
-  jetonsPris: [],      // jetons de parapluie déjà pris, par date et fenêtre
+  alertes: null,       // instants d'alerte du parapluie, au pas de la demi-heure
+  jetonsPris: [],      // jetons de parapluie déjà pris, par date et instant
 };
 
 let etat = { ...DEFAUT };
@@ -30,14 +30,13 @@ try {
   if (brut && typeof brut === "object") etat = { ...DEFAUT, ...brut };
 } catch { /* stockage indisponible, les valeurs par défaut suffisent */ }
 
-/* Deux fenêtres de sortie, chacune une paire d'heures croissantes dans la
-   journée, au pas de la demi-heure. Une forme abîmée retombe sur la valeur par
-   défaut plutôt que de faire paraître un jeton à une heure absurde. */
+/* Deux instants d'alerte croissants dans la journée, au pas de la demi-heure.
+   Une forme abîmée retombe sur la valeur par défaut plutôt que de faire
+   paraître un jeton à une heure absurde. */
 const estDemie = h => Number.isFinite(h) && h * 2 === Math.round(h * 2);
-function estSorties(v) {
-  return Array.isArray(v) && v.length === 2 && v.every(f =>
-    Array.isArray(f) && f.length === 2 && estDemie(f[0]) && estDemie(f[1])
-    && f[0] >= 0 && f[0] < f[1] && f[1] <= 24);
+function estAlertes(v) {
+  return Array.isArray(v) && v.length === 2 && v.every(estDemie)
+    && v[0] >= 0 && v[0] < v[1] && v[1] < 24;
 }
 
 /* Clé d'un lieu : ses coordonnées arrondies au dix-millième, soit une dizaine
@@ -61,10 +60,20 @@ if (etat.auto && !etat.position) etat.auto = false;
    dans la liste y ferait entrer une commune que personne n'a demandée. */
 if (!etat.suivies.length && etat.lat !== null && !etat.auto) etat.suivies = [nu(etat)];
 
-/* Les heures de sortie et les jetons pris viennent avec le rappel de parapluie :
-   un réglage écrit avant lui ne les porte pas. */
+/* Les instants d'alerte et les jetons pris viennent avec le rappel de
+   parapluie : un réglage écrit avant lui ne les porte pas.
+
+   La première version du rappel gardait deux plages de sortie, `[[7.5, 9],
+   [17, 19]]`, avant que les heures ne deviennent des instants d'alerte. Un
+   réglage de cette forme se reprend par le début de chaque plage, qui est bien
+   le moment où l'on sortait, plutôt que d'être jeté en silence. */
 if (!Array.isArray(etat.jetonsPris)) etat.jetonsPris = [];
-if (!estSorties(etat.sorties)) etat.sorties = null;
+if (Array.isArray(etat.sorties)) {
+  const repris = etat.sorties.map(f => (Array.isArray(f) ? f[0] : f));
+  if (!estAlertes(etat.alertes) && estAlertes(repris)) etat.alertes = repris;
+  delete etat.sorties;
+}
+if (!estAlertes(etat.alertes)) etat.alertes = null;
 
 const ecrire = () => {
   try { localStorage.setItem(CLE, JSON.stringify(etat)); }
@@ -224,12 +233,13 @@ export function poserEcriture(e) {
   poser({ ecriture: e });
 }
 
-/* Les heures de sortie. `null` rend la valeur par défaut du module du parapluie,
-   qui la porte avec les seuils : les nombres du rappel vivent au même endroit. */
-export const sorties = defaut => (estSorties(etat.sorties) ? etat.sorties : defaut);
-export function poserSorties(v) {
-  if (!estSorties(v)) return;
-  poser({ sorties: v.map(f => [f[0], f[1]]) });
+/* Les instants d'alerte. `null` rend la valeur par défaut du module du
+   parapluie, qui la porte avec les seuils : les nombres du rappel vivent au
+   même endroit. */
+export const alertes = defaut => (estAlertes(etat.alertes) ? etat.alertes : defaut);
+export function poserAlertes(v) {
+  if (!estAlertes(v)) return;
+  poser({ alertes: [v[0], v[1]] });
 }
 
 /* Les jetons pris. La liste s'oublie d'elle-même : un jeton porte sa date, et

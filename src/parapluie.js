@@ -23,18 +23,29 @@ import { SEUILS } from "./conseils.js";
 export const GENE = 0.5;
 export const RETOURNEMENT = SEUILS.rafale;
 
-/* Les heures de sortie, au pas de la demi-heure. Deux fenêtres, matin et soir.
-   Une seule manquerait le retour du soir, ou couvrirait la journée entière et ne
-   dirait plus rien.
+/* Les instants d'alerte, au pas de la demi-heure. Ce sont les moments où l'on
+   veut être prévenu, non les moments où l'on regarde s'il pleut : ce sont les
+   occasions de prendre un parapluie avant de sortir.
 
-   La source est horaire, mais une fenêtre au pas de la demi-heure reste juste :
-   une heure de prévision couvre l'intervalle qui la suit, et elle compte dès
-   qu'elle rencontre la fenêtre. Une sortie à sept heures et demie retient bien
-   l'heure de sept heures, dont la seconde moitié est dehors. */
-export const SORTIES_DEFAUT = [[7.5, 9], [17, 19]];
+   Chaque alerte couvre le temps qui la sépare de la suivante, la dernière
+   s'arrêtant à minuit. L'alerte du matin répond donc de la pluie de quatorze
+   heures, que l'on rencontrera sans être repassé chez soi.
 
-/* Une heure de prévision couvre `[h, h + 1)`. Elle rencontre la fenêtre dès que
-   les deux intervalles se croisent, non quand son début tombe dedans. */
+   La tranche qui va de minuit à la première alerte n'est couverte par personne,
+   et c'est voulu : on n'y sort pas, et prévenir d'une pluie de nuit ne donne
+   aucune occasion de prendre quoi que ce soit. */
+export const ALERTES_DEFAUT = [7.5, 17];
+
+// Les périodes d'une journée, telles que les instants d'alerte les découpent.
+export function periodes(alertes) {
+  const a = [...new Set(alertes)].filter(h => h >= 0 && h < 24).sort((x, y) => x - y);
+  return a.map((h, i) => [h, i + 1 < a.length ? a[i + 1] : 24]);
+}
+
+/* Une heure de prévision couvre `[h, h + 1)`. Elle rencontre la période dès que
+   les deux intervalles se croisent, non quand son début tombe dedans : une
+   alerte à sept heures et demie retient bien l'heure de sept heures, dont la
+   seconde moitié est devant soi. */
 const chevauche = (h, h0, h1) => h + 1 > h0 && h < h1;
 
 // « 07:30 » quand la demie est prise, « 09 h » sinon.
@@ -52,88 +63,96 @@ export const OBJETS = {
 const cleJour = d => `${d.getFullYear()}-`
   + `${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-/* Le jeton du jour, ou `null`.
-
-   La fenêtre retenue est la première de la journée qui porte encore des heures
-   à venir : le jeton nomme la sortie qui vient. Une fenêtre déjà commencée
-   compte pour ses heures restantes, il est utile de savoir qu'il pleut pendant
-   celle qu'on traverse ; une fenêtre entièrement passée est écartée, annoncer
-   un parapluie pour huit heures à dix heures du matin n'aidant personne.
-
-   Une seule condition écarte une heure, celle qui la dit passée. La fenêtre
-   n'est pas jugée une seconde fois sur l'heure qu'il est : deux gardes pour un
-   même fait se couvrent l'une l'autre, et aucune ne se contrôle plus.
-
-   La sortie qui vient décide seule. Une matinée sèche ne renvoie pas au soir :
-   le jeton dit ce qu'il faut prendre maintenant, et le soir aura son tour. */
-export function jeton(serie, sorties, maintenant = new Date()) {
-  if (!serie || !Array.isArray(serie.heure)) return null;
-  const jour = cleJour(maintenant);
-  const hMaintenant = maintenant.getHours();
-
-  for (const [h0, h1] of [...sorties].sort((a, b) => a[0] - b[0])) {
-    let mm = 0, raf = 0, vu = false;
-    for (let k = 0; k < serie.n; k++) {
-      if (serie.jour[k] !== jour) continue;
-      const h = serie.heure[k];
-      if (!chevauche(h, h0, h1) || h < hMaintenant) continue;
-      vu = true;
-      mm = Math.max(mm, serie.mm[k] || 0);
-      raf = Math.max(raf, serie.raf[k] || 0);
-    }
-    if (!vu) continue;                 // fenêtre passée, ou hors de la charge
-    if (mm < GENE) return null;        // la sortie qui vient est sèche
-    return {
-      objet: raf >= RETOURNEMENT ? "capuche" : "parapluie",
-      jour, h0, h1, mm: Math.round(mm * 10) / 10, raf: Math.round(raf),
-      cle: `${jour}|${h0}-${h1}`,
-    };
+/* Les salves de pluie d'une période : les suites d'heures consécutives au delà
+   du seuil de gêne. Une averse de quatorze heures et une autre de dix-neuf
+   heures sont deux salves, et les fondre en une seule ferait annoncer cinq
+   heures de pluie là où il en tombe deux. */
+function salvesDe(serie, jour, h0, h1, hMin) {
+  const heures = [];
+  let mm = 0, raf = 0;
+  for (let k = 0; k < serie.n; k++) {
+    if (serie.jour[k] !== jour) continue;
+    const h = serie.heure[k];
+    if (!chevauche(h, h0, h1) || h < hMin) continue;
+    if ((serie.mm[k] || 0) < GENE) continue;
+    heures.push(h);
+    mm = Math.max(mm, serie.mm[k] || 0);
+    raf = Math.max(raf, serie.raf[k] || 0);
   }
-  return null;
+  if (!heures.length) return null;
+  heures.sort((a, b) => a - b);
+  const salves = [];
+  for (const h of heures) {
+    const der = salves[salves.length - 1];
+    if (der && der[1] === h) der[1] = h + 1;
+    else salves.push([h, h + 1]);
+  }
+  return { salves, mm, raf };
 }
+
+/* Toutes les périodes d'alerte à venir qui portent de la pluie gênante, du plus
+   proche au plus lointain, sur tout l'horizon chargé.
+
+   Une heure déjà passée ne compte pas : annoncer un parapluie pour huit heures
+   à dix heures du matin n'aide personne. Une heure est passée quand elle est
+   entièrement derrière, celle qui est en cours comptant encore. */
+export function periodesPluvieuses(serie, alertes, maintenant = new Date()) {
+  if (!serie || !Array.isArray(serie.jour)) return [];
+  const aujourdhui = cleJour(maintenant);
+  const hCourante = maintenant.getHours();
+  const decoupe = periodes(alertes);
+  const out = [];
+
+  for (const jour of [...new Set(serie.jour)].sort()) {
+    if (jour < aujourdhui) continue;
+    const passe = jour === aujourdhui;
+    for (const [alerte, fin] of decoupe) {
+      /* Une seule condition écarte une heure, celle qui la dit passée. Une
+         période entièrement derrière soi n'a plus une seule heure à venir et
+         tombe donc d'elle-même : l'écarter une seconde fois sur sa borne de fin
+         serait une garde que rien ne peut plus éprouver. */
+      const p = salvesDe(serie, jour, alerte, fin, passe ? hCourante : -1);
+      if (!p) continue;
+      const [h0, h1] = p.salves[0];
+      out.push({
+        objet: p.raf >= RETOURNEMENT ? "capuche" : "parapluie",
+        jour, alerte, fin, h0, h1, salves: p.salves,
+        mm: Math.round(p.mm * 10) / 10, raf: Math.round(p.raf),
+        cle: `${jour}|${alerte}`,
+      });
+    }
+  }
+  return out;
+}
+
+/* Le jeton du jour, ou `null`. C'est la première période pluvieuse de la
+   journée en cours : la dernière alerte s'arrêtant à minuit, une pluie du
+   lendemain relève de l'alerte du lendemain, et non de celle de ce soir. */
+export function jeton(serie, alertes, maintenant = new Date()) {
+  const jour = cleJour(maintenant);
+  return periodesPluvieuses(serie, alertes, maintenant).find(p => p.jour === jour) || null;
+}
+
+// Les heures de pluie d'une période, écrites comme on les dirait.
+export const pluieTxt = p => (p
+  ? p.salves.map(([a, b]) => fenetreTxt(a, b)).join(" et ") : "");
 
 // Ce que le jeton écrit, en une ligne.
 export const motDe = j => (j
-  ? `${OBJETS[j.objet][0]}, ${fenetreTxt(j.h0, j.h1)}` : "");
-
-/* Les journées pluvieuses de l'horizon, une par jour, pour la variante qui pose
-   un évènement par journée. La fenêtre retenue est celle des sorties, non la
-   journée entière : un rappel à trois heures du matin n'a pas d'objet. */
-export function journeesPluvieuses(serie, sorties, maintenant = new Date()) {
-  if (!serie || !Array.isArray(serie.jour)) return [];
-  const par = new Map();
-  const t0 = maintenant.getTime();
-  for (let k = 0; k < serie.n; k++) {
-    const h = serie.heure[k];
-    const f = sorties.find(([a, b]) => chevauche(h, a, b));
-    if (!f) continue;
-    /* Une heure compte jusqu'à sa fin : celle qui est en cours n'est pas passée,
-       et le jeton comme l'agenda retiennent la même. */
-    const [aa, mo, jj] = serie.jour[k].split("-").map(Number);
-    if (new Date(aa, mo - 1, jj, h + 1).getTime() <= t0) continue;
-    const cle = `${serie.jour[k]}|${f[0]}-${f[1]}`;
-    const d = par.get(cle) || { jour: serie.jour[k], h0: f[0], h1: f[1], mm: 0, raf: 0 };
-    d.mm = Math.max(d.mm, serie.mm[k] || 0);
-    d.raf = Math.max(d.raf, serie.raf[k] || 0);
-    par.set(cle, d);
-  }
-  return [...par.values()]
-    .filter(d => d.mm >= GENE)
-    .map(d => ({ ...d, objet: d.raf >= RETOURNEMENT ? "capuche" : "parapluie",
-      mm: Math.round(d.mm * 10) / 10, raf: Math.round(d.raf),
-      cle: `${d.jour}|${d.h0}-${d.h1}` }))
-    .sort((a, b) => (a.jour < b.jour ? -1 : a.jour > b.jour ? 1 : a.h0 - b.h0));
-}
+  ? `${OBJETS[j.objet][0]}, pluie de ${pluieTxt(j)}` : "");
 
 /* Le fichier d'agenda, fabriqué sur l'appareil. C'est ce qui donne une vraie
    alerte sans aucun service dorsal : l'agenda du téléphone s'en charge ensuite.
 
+   Le rappel se pose à l'instant d'alerte de la période, non à l'heure de la
+   pluie : c'est en sortant qu'on prend un parapluie, et un rappel qui sonne
+   quand la pluie tombe arrive trop tard. Quand l'instant d'alerte est déjà
+   passé, il se pose au début de la pluie, l'alarme gardant son avance.
+
    Les horodatages sont écrits en heure locale flottante, sans fuseau : un
    rappel de sortie est attaché à l'heure du lieu, non à un instant absolu, et
-   une heure flottante suit l'appareil sans table de fuseaux à embarquer.
+   une heure flottante suit l'appareil sans table de fuseaux à embarquer. */
 
-   Les lignes se replient à soixante-quinze octets, comme la norme le demande,
-   et se terminent par un retour chariot suivi d'un saut de ligne. */
 /* Le repli compte des octets et non des caractères, comme la norme le demande :
    un nom accentué pèse plus que sa longueur. La coupure tombe entre deux points
    de code, jamais au milieu d'un caractère, et la ligne de suite commence par
@@ -169,27 +188,39 @@ const horoUTC = d => `${d.getUTCFullYear()}`
   + `${String(d.getUTCMinutes()).padStart(2, "0")}`
   + `${String(d.getUTCSeconds()).padStart(2, "0")}Z`;
 
-// Quinze minutes avant la sortie : le temps de trouver le parapluie.
+// Quinze minutes avant l'alerte : le temps de trouver le parapluie.
 export const AVANCE = 15;
 
-export function ics(jetons, commune, maintenant = new Date()) {
-  const lot = (Array.isArray(jetons) ? jetons : [jetons]).filter(Boolean);
+// Une demi-heure de rendez-vous, bornée à la fin de la journée.
+const DUREE = 0.5;
+
+/* L'heure à laquelle le rappel se pose. L'instant d'alerte tant qu'il est
+   devant soi, le début de la pluie sinon. */
+export function departDe(p, maintenant = new Date()) {
+  const h = maintenant.getHours() + maintenant.getMinutes() / 60;
+  return (p.jour > cleJour(maintenant) || p.alerte > h) ? p.alerte : p.h0;
+}
+
+export function ics(lots, commune, maintenant = new Date()) {
+  const lot = (Array.isArray(lots) ? lots : [lots]).filter(Boolean);
   if (!lot.length) return "";
   const l = [
     "BEGIN:VCALENDAR", "VERSION:2.0",
     "PRODID:-//Ma meteo//Rappel de parapluie//FR",
     "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
   ];
-  for (const j of lot) {
-    const titre = `${OBJETS[j.objet][0]}${commune ? ` à ${commune}` : ""}`;
+  for (const p of lot) {
+    const titre = `${OBJETS[p.objet][0]}${commune ? ` à ${commune}` : ""}`;
+    const debut = departDe(p, maintenant);
     l.push("BEGIN:VEVENT");
-    l.push(`UID:${j.cle.replace(/[^0-9A-Za-z-]/g, "")}@ma-meteo`);
+    l.push(`UID:${p.cle.replace(/[^0-9A-Za-z]+/g, "-")}@ma-meteo`);
     l.push(`DTSTAMP:${horoUTC(maintenant)}`);
-    l.push(`DTSTART:${horoLocal(j.jour, j.h0)}`);
-    l.push(`DTEND:${horoLocal(j.jour, j.h1)}`);
+    l.push(`DTSTART:${horoLocal(p.jour, debut)}`);
+    l.push(`DTEND:${horoLocal(p.jour, Math.min(debut + DUREE, 23.75))}`);
     l.push(plier(`SUMMARY:${echapper(titre)}`));
-    l.push(plier(`DESCRIPTION:${echapper(`${nombreVirgule(j.mm)} mm attendus`
-      + `, rafales jusqu'à ${j.raf} km/h.`)}`));
+    l.push(plier(`DESCRIPTION:${echapper(`Pluie de ${pluieTxt(p)}, `
+      + `jusqu'à ${nombreVirgule(p.mm)} mm dans l'heure`
+      + `, rafales jusqu'à ${p.raf} km/h.`)}`));
     l.push("BEGIN:VALARM", "ACTION:DISPLAY",
       plier(`DESCRIPTION:${echapper(titre)}`), `TRIGGER:-PT${AVANCE}M`, "END:VALARM");
     l.push("END:VEVENT");

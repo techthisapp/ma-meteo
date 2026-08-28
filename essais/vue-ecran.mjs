@@ -54,14 +54,14 @@ for (const theme of ["light", "dark"]) {
   await ctx.route(/api\.open-meteo\.com/, route => {
     const u = route.request().url();
     const d = JSON.parse(JSON.stringify(METEO));
-    /* De la pluie posée sur la fenêtre de sortie du soir, pour les vues qui
-       montrent le rappel de parapluie. La charge d'essai est sèche. */
+    /* De la pluie posée l'après-midi du 18 août, pour les vues qui montrent le
+       rappel de parapluie. La charge d'essai est sèche ce jour-là. */
     if (process.env.PLUIE) {
       for (let k = 0; k < d.hourly.time.length; k++) {
-        if (!/^2026-08-18T1[78]/.test(d.hourly.time[k])) continue;
+        if (!/^2026-08-18T1[45]/.test(d.hourly.time[k])) continue;
         d.hourly.precipitation[k] = 1.2;
         d.hourly.precipitation_probability[k] = 80;
-        if (process.env.PLUIE === "vent") d.hourly.wind_gusts_10m[k] = 55;
+        d.hourly.wind_gusts_10m[k] = process.env.PLUIE === "vent" ? 55 : 30;
       }
     }
     if (u.includes("current=")) {
