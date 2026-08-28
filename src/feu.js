@@ -253,6 +253,79 @@ function motifs(chaud) {
 
 const FORCE = { matiere: 0.52, vitesse: 1.25, flammes: 4, ampleur: 0.6, battement: 0.18, coeur: 0.42 };
 
+/* Le corps de l'astre seul : fond sombre, matière chaude ajoutée en deux
+   passes contraires, cœur qui bat, limbe assombri, le tout découpé au disque.
+   Il est écrit à part parce que la vignette n'a que lui à peindre, la couronne
+   et les jets débordant d'une tuile de la taille d'un mot. */
+function corps(x, c, R, m, t, f) {
+  x.save();
+  x.beginPath();
+  x.arc(c, c, R, 0, Math.PI * 2);
+  x.clip();
+  x.drawImage(m.disque, c - R, c - R, R * 2, R * 2);
+
+  const matiere = (sens, vit, ech, op, phase) => {
+    x.save();
+    x.globalCompositeOperation = "lighter";
+    x.globalAlpha = op;
+    x.translate(c, c);
+    x.rotate(sens * t * vit * f.vitesse);
+    const cote2 = R * 2 * ech;
+    // Dérive lente : la matière ne fait pas que tourner, elle bouillonne.
+    const dx = Math.sin(t * 0.19 * f.vitesse + phase) * R * 0.22;
+    const dy = Math.cos(t * 0.15 * f.vitesse + phase) * R * 0.22;
+    x.drawImage(m.matiere, -cote2 / 2 + dx, -cote2 / 2 + dy, cote2, cote2);
+    x.restore();
+  };
+  matiere(1, 0.085, 1.30, f.matiere, 0);
+  matiere(-1, 0.055, 2.10, f.matiere * 0.7, 2.1);
+
+  // Cœur : il bat, sans jamais s'éteindre.
+  x.save();
+  x.globalCompositeOperation = "lighter";
+  x.globalAlpha = f.coeur + f.battement * Math.sin(t * 1.9 * f.vitesse);
+  x.drawImage(m.coeur, c - R, c - R, R * 2, R * 2);
+  x.restore();
+
+  x.save();
+  x.globalCompositeOperation = "multiply";
+  x.drawImage(m.limbe, c - R, c - R, R * 2, R * 2);
+  x.restore();
+  x.restore();
+}
+
+/* ---------- La vignette ----------
+
+   Le disque seul, sans couronne ni jets, à la taille d'un mot, comme la
+   vignette de la Lune est un disque peint et non un symbole. Les deux écrans
+   jumeaux portent alors le même genre d'objet devant leur sous-ligne, et leurs
+   textes commencent au même endroit.
+
+   Elle ne s'anime pas et ne passe pas par la boucle : c'est une image, non une
+   scène. Les motifs viennent de la même réserve que le grand disque, à la même
+   teinte : la vignette ne coûte donc aucun calcul de plus.
+
+   Aucun cerne ne la borne, à la différence de celle de la Lune : une Lune
+   nouvelle n'est qu'une lueur cendrée et se perdrait sans lui, le Soleil est
+   toujours vif. */
+export function vignette(cv, chaud = 0) {
+  if (!cv) return;
+  const cote = cv.clientWidth || 22;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const px = Math.max(1, Math.round(cote * dpr));
+  if (cv.width !== px) { cv.width = px; cv.height = px; }
+
+  const x = cv.getContext("2d");
+  if (!x) return;
+  x.setTransform(dpr, 0, 0, dpr, 0, 0);
+  x.clearRect(0, 0, cote, cote);
+
+  /* Un instant fixe, celui que le mouvement réduit emploie déjà pour le grand
+     disque : la vignette est une image, elle n'a pas d'horloge. */
+  const teinte = Number.isFinite(chaud) ? Math.max(0, Math.min(1, chaud)) : 0;
+  corps(x, cote / 2, cote * 0.47, motifs(teinte), 6.2, FORCE);
+}
+
 /* Une image. `t` est en secondes depuis le début de la boucle, `chaud` la
    teinte tirée de la hauteur du Soleil. */
 export function dessiner(cv, t, chaud) {
@@ -315,40 +388,7 @@ export function dessiner(cv, t, chaud) {
   x.restore();
 
   // 4. Le disque : fond sombre, matière chaude ajoutée, bord assombri.
-  x.save();
-  x.beginPath();
-  x.arc(c, c, R, 0, Math.PI * 2);
-  x.clip();
-  x.drawImage(m.disque, c - R, c - R, R * 2, R * 2);
-
-  const matiere = (sens, vit, ech, op, phase) => {
-    x.save();
-    x.globalCompositeOperation = "lighter";
-    x.globalAlpha = op;
-    x.translate(c, c);
-    x.rotate(sens * t * vit * f.vitesse);
-    const cote2 = R * 2 * ech;
-    // Dérive lente : la matière ne fait pas que tourner, elle bouillonne.
-    const dx = Math.sin(t * 0.19 * f.vitesse + phase) * R * 0.22;
-    const dy = Math.cos(t * 0.15 * f.vitesse + phase) * R * 0.22;
-    x.drawImage(m.matiere, -cote2 / 2 + dx, -cote2 / 2 + dy, cote2, cote2);
-    x.restore();
-  };
-  matiere(1, 0.085, 1.30, f.matiere, 0);
-  matiere(-1, 0.055, 2.10, f.matiere * 0.7, 2.1);
-
-  // Cœur : il bat, sans jamais s'éteindre.
-  x.save();
-  x.globalCompositeOperation = "lighter";
-  x.globalAlpha = f.coeur + f.battement * Math.sin(t * 1.9 * f.vitesse);
-  x.drawImage(m.coeur, c - R, c - R, R * 2, R * 2);
-  x.restore();
-
-  x.save();
-  x.globalCompositeOperation = "multiply";
-  x.drawImage(m.limbe, c - R, c - R, R * 2, R * 2);
-  x.restore();
-  x.restore();
+  corps(x, c, R, m, t, f);
 
   // 5. Débordement du limbe : la matière brûle un peu au delà du bord.
   x.save();

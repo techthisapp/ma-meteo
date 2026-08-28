@@ -1556,6 +1556,52 @@ ok("les trois crépuscules sont nommés",
     .every(x => soleilTxt.includes(x)));
 ok("le lever porte un point cardinal", /Lever[\s\S]{0,40}(nord|est|sud|ouest)/.test(soleilTxt), soleilTxt.slice(0, 80));
 
+/* Les deux écrans jumeaux portent la même sous-ligne : une vignette de l'astre
+   peinte, puis son état. Dans le ciel du bandeau chaque astre est à sa place
+   réelle et peut n'y être pas visible du tout ; la vignette le montre toujours. */
+ok("le Soleil porte sa vignette devant son état", await pg.evaluate(() => {
+  const v = document.querySelector(".plein-titre em canvas#ptSoleil");
+  if (!v) return false;
+  const t = document.querySelector(".plein-titre em span");
+  return !!t && v.compareDocumentPosition(t) === Node.DOCUMENT_POSITION_FOLLOWING;
+}));
+ok("elle est peinte, opaque et chaude", await pg.evaluate(() => {
+  const cv = document.getElementById("ptSoleil");
+  const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+  let n = 0, r = 0, b = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] < 200) continue;
+    n++; r += d[i]; b += d[i + 2];
+  }
+  // Le disque couvre environ les trois quarts du carré, et le feu est chaud.
+  if (n < (d.length / 4) * 0.5) return `${n} pixels opaques`;
+  return r / n > b / n + 40 ? "" : `rouge ${Math.round(r / n)} contre bleu ${Math.round(b / n)}`;
+}) === "");
+/* Le même alignement des deux côtés : c'est la vignette qui décale le texte,
+   et une seule règle de taille la porte pour les deux écrans. */
+const decalage = async cle => {
+  await onglet(cle);
+  await pg.waitForTimeout(500);
+  return pg.evaluate(() => {
+    const em = document.querySelector(".plein-titre em");
+    const sp = em?.querySelector("span");
+    const cv = em?.querySelector("canvas");
+    const t = document.querySelector(".plein-titre > b");
+    if (!em || !sp || !cv || !t) return null;
+    const b = em.getBoundingClientRect();
+    return [Math.round(sp.getBoundingClientRect().left - b.left),
+      Math.round(cv.getBoundingClientRect().width),
+      Math.round(b.left - t.getBoundingClientRect().left)];
+  });
+};
+const alSoleil = await decalage("soleil");
+const alLune = await decalage("lune");
+ok("les deux écrans jumeaux alignent leur sous-ligne au même endroit",
+  !!alSoleil && JSON.stringify(alSoleil) === JSON.stringify(alLune),
+  `${JSON.stringify(alSoleil)} contre ${JSON.stringify(alLune)}`);
+await onglet("soleil");
+await pg.waitForTimeout(500);
+
 /* La plainte d'origine : la même heure écrite deux fois. Le bandeau annonce le
    prochain évènement et redit donc son heure, il reste hors du compte. */
 ok("aucune heure n'est écrite deux fois dans le corps", await pg.evaluate(() => {

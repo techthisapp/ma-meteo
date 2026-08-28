@@ -1275,7 +1275,10 @@ button.rangee:active{background:var(--surface-2)}
   font-style:normal;font-size:var(--texte-legende);margin-top:var(--espace-xs);
 }
 .plein-titre > em > span{opacity:.76}
-.pt-lune{display:block;width:22px;height:22px;flex:0 0 auto}
+/* La vignette de l'astre, sur les deux écrans jumeaux. Une seule règle de
+   taille pour les deux : c'est elle qui fait commencer les deux sous-lignes
+   au même endroit. */
+.pt-astre{display:block;width:22px;height:22px;flex:0 0 auto}
 
 @media (prefers-reduced-motion:reduce){
   .ci-etoiles i,.plein-titre{animation:none}

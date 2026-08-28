@@ -503,9 +503,13 @@ function bandeauCiel(g, maintenant, meridien) {
   const c = cielDe(p.hauteur, montant);
 
   /* L'abscisse suit l'azimut, l'ordonnée la hauteur : le disque est à sa place,
-     non sur un arc supposé. */
-  return panneauCiel(c, [{ x: abscisse(p.azimut), y: ordonnee(p.hauteur),
-    sous: p.hauteur < Astres.SEUIL.soleil, corps: corpsSoleil(c) }]);
+     non sur un arc supposé.
+
+     La teinte du feu est rendue à côté du panneau : la vignette de la sous-ligne
+     la reprend, et la recalculer là-bas ferait deux fois la même règle, dont la
+     part la plus fragile est de savoir si le Soleil monte ou descend. */
+  return { ciel: panneauCiel(c, [{ x: abscisse(p.azimut), y: ordonnee(p.hauteur),
+    sous: p.hauteur < Astres.SEUIL.soleil, corps: corpsSoleil(c) }]), chaud: c.chaud };
 }
 
 /* Le bandeau de la Lune. Le ciel est celui du Soleil : une Lune levée en plein
@@ -852,13 +856,22 @@ export function vueSoleil() {
         : `<span class="cp-abs">le Soleil ne descend pas si bas</span>`)).join("")
     + `</div>`;
 
+  const bdCiel = bandeauCiel(g, maintenant, e.meridien);
+
   return {
     titre: "Le soleil",
     pleinCadre: true,
-    corps: `<div class="plein">${bandeauCiel(g, maintenant, e.meridien)}`
+    corps: `<div class="plein">${bdCiel.ciel}`
       + `<div class="plein-titre">`
       + (prochain ? `<i>${esc(prochain[1])}</i><b>${hm(prochain[0].getTime())}</b>` : `<b>Le soleil</b>`)
-      + `<em><span>${esc(etat)}</span></em></div></div>`
+      /* Le disque, à côté de son état, comme la Lune porte le sien à côté du
+         nom de sa phase. Dans le ciel du bandeau le Soleil est à sa place
+         réelle : couché, il ne s'y voit pas. La vignette le montre toujours, et
+         les deux écrans jumeaux commencent alors leur sous-ligne au même
+         endroit. */
+      + `<em><canvas class="pt-astre" id="ptSoleil" `
+      + `data-chaud="${bdCiel.chaud.toFixed(3)}" aria-hidden="true"></canvas>`
+      + `<span>${esc(etat)}</span></em></div></div>`
 
       + `<div class="ecran-corps">`
       + `<div class="section"><h2>Trajectoire</h2>`
@@ -885,6 +898,8 @@ export function vueSoleil() {
       + `</div>`,
 
     brancher(bloc) {
+      Feu.vignette(bloc.querySelector("#ptSoleil"),
+        Number(bloc.querySelector("#ptSoleil")?.dataset.chaud));
       Feu.poser(bloc.querySelector("#ciFeu"));
     },
   };
@@ -996,7 +1011,7 @@ export function vueLune() {
       /* La forme du disque, à côté de son nom. Dans le ciel du bandeau la Lune
          est à sa place réelle : sous l'horizon, basse derrière le sol ou pâlie
          par le jour, elle ne se voit pas. La vignette la montre toujours. */
-      + `<em><canvas class="pt-lune" id="ptLune" `
+      + `<em><canvas class="pt-astre" id="ptLune" `
       + `data-phase="${anglePhase(p.eclairee).toFixed(1)}" `
       + `data-angle="${Astres.angleLimbe(maintenant, g.lat, g.lon).toFixed(4)}" `
       + `data-eclairee="${p.eclairee.toFixed(3)}" aria-hidden="true"></canvas>`
