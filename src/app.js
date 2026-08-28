@@ -19,13 +19,14 @@ import * as Feu from "./feu.js";
 import * as Relief from "./relief.js";
 import * as Temps from "./temps.js";
 import { vueTemps, vueSemaine, vueVigilance, vueSoleil, vueLune, vueCommunes, vueReglages,
-  vueAjout, vueParapluie, bandeauAccueil } from "./vues.js";
+  vueAjout, vueParapluie, vueRessenti, bandeauAccueil } from "./vues.js";
 import { moments } from "./ecritures.js";
 import * as Vig from "./vigilance.js";
 import * as Astres from "./astres.js";
 import * as Justesse from "./justesse.js";
 import * as Ensemble from "./ensemble.js";
 import * as Parapluie from "./parapluie.js";
+import * as Reponse from "./reponse.js";
 
 const $ = id => document.getElementById(id);
 
@@ -285,6 +286,14 @@ function ecranAccueil() {
   const jour = new Date().toLocaleDateString("fr-FR",
     { weekday: "long", day: "numeric", month: "long" });
 
+  /* La réponse du matin se calcule sur l'horizon, non sur la fenêtre de vingt-
+     quatre heures : elle porte sur ce qui reste de la journée civile, et la
+     fenêtre glissante déborderait sur demain. Le contexte la garde pour la
+     feuille du ressenti, qui lit la même. */
+  const reponse = Reponse.repondre(P.serieHorizon(), new Date(),
+    { biais: Reglages.biais() });
+  ctx.reponse = reponse;
+
   let corps = "";
   let plein = false;
 
@@ -361,9 +370,19 @@ function ecranAccueil() {
        ne se lit plus. */
     const params = Temps.depuis(code, s ? s.nua[0] : null, s ? s.mm[0] : null);
     plein = true;
-    corps += `<div class="plein">`
-      + bandeauAccueil(g, new Date(), params, s ? s.v[0] : 0)
-      + `<div class="plein-titre"><i>${esc(jour.charAt(0).toUpperCase() + jour.slice(1))}</i>`
+    const bd = bandeauAccueil(g, new Date(), params, s ? s.v[0] : 0);
+    corps += `<div class="plein" style="--ci-clarte:${bd.clarte.toFixed(3)}">`
+      + bd.ciel
+      /* La réponse du matin, en matière verre sur le ciel. Elle traverse la
+         largeur au-dessus de la ligne de date : c'est la seule bande du ciel qui
+         ne rencontre jamais rien, les astres étant posés à leur azimut réel et
+         pouvant tomber n'importe où au-dessus, le grand chiffre et les bornes du
+         jour occupant tout ce qui est en dessous. */
+      + `<div class="plein-titre">`
+      + (reponse ? `<button type="button" class="pt-rep" data-feuille="ressenti" `
+        + `aria-label="${esc(reponse.texte)} Régler mon ressenti.">`
+        + `${ico("thermo", "pt-rep-ic")}<span>${esc(reponse.texte)}</span></button>` : "")
+      + `<i>${esc(jour.charAt(0).toUpperCase() + jour.slice(1))}</i>`
       + `<div class="pt-temps">`
       + `<button type="button" class="bd-deg" data-detail="t" `
       + `aria-label="Température, voir les vingt-quatre heures">`
@@ -695,11 +714,13 @@ async function suivrePosition({ force } = {}) {
 /* ---------- Couche superposition ---------- */
 
 const FEUILLES = { vigilance: vueVigilance, communes: vueCommunes,
-  ajout: vueAjout, reglages: vueReglages, parapluie: vueParapluie };
+  ajout: vueAjout, reglages: vueReglages, parapluie: vueParapluie,
+  ressenti: vueRessenti };
 
 /* Accroches : un contenu court n'occupe pas tout l'écran. */
 const ACCROCHE = { vigilance: "moyenne", communes: "grande",
-  ajout: "grande", reglages: "grande", parapluie: "moyenne" };
+  ajout: "grande", reglages: "grande", parapluie: "moyenne",
+  ressenti: "moyenne" };
 
 function rendreFeuille() {
   if (!vueCourante) return;

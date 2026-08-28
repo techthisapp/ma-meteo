@@ -21,6 +21,7 @@ const DEFAUT = {
   position: null,      // dernier relevé : commune, codePostal, lat, lon, t
   alertes: null,       // instants d'alerte du parapluie, au pas de la demi-heure
   jetonsPris: [],      // jetons de parapluie déjà pris, par date et instant
+  biais: 0,            // ressenti personnel, en degrés, borné
 };
 
 let etat = { ...DEFAUT };
@@ -240,6 +241,22 @@ export const alertes = defaut => (estAlertes(etat.alertes) ? etat.alertes : defa
 export function poserAlertes(v) {
   if (!estAlertes(v)) return;
   poser({ alertes: [v[0], v[1]] });
+}
+
+/* Le ressenti personnel. Deux personnes ne sentent pas le même froid, et le
+   biais dit de combien de degrés celle-ci s'écarte de la moyenne. Il déplace le
+   conseil d'habillement et rien d'autre : les degrés écrits viennent de la
+   source, et trois contrôles gardent leur accord entre écrans.
+
+   Il est borné des deux côtés. Sans borne, une suite d'appuis sur le même
+   bouton finirait par conseiller un manteau en juillet, et la borne est ce qui
+   fait de ce réglage une correction plutôt qu'une autre échelle. Il reste sur
+   l'appareil et n'entre dans aucune requête. */
+export const biais = () => (Number.isFinite(etat.biais) ? etat.biais : 0);
+export function poserBiais(v, borne) {
+  const b = Math.max(-borne, Math.min(borne, Math.round(Number(v) || 0)));
+  poser({ biais: b });
+  return b;
 }
 
 /* Les jetons pris. La liste s'oublie d'elle-même : un jeton porte sa date, et

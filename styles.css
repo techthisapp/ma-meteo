@@ -1204,6 +1204,46 @@ button.rangee:active{background:var(--surface-2)}
   display:block;font-style:normal;font-size:var(--texte-note);
   font-weight:var(--graisse-medium);opacity:.88;
 }
+
+/* La réponse du matin, en matière verre sur le ciel. Elle traverse la largeur
+   au-dessus de la ligne de date, la seule bande du ciel qui ne rencontre jamais
+   rien : les astres sont posés à leur azimut réel et peuvent tomber n'importe où
+   au-dessus, le grand chiffre et les bornes du jour occupent tout ce qui est en
+   dessous.
+
+   Sa matière porte son contraste. L'encart tombe entre les deux voiles de
+   lisibilité, là où ils se rejoignent au plus faible : mesuré sur un plafond de
+   plein jour, le ciel nu y laisse un blanc à deux virgule cinq de contraste, et
+   la matière le remonte à quatre virgule deux.
+
+   Elle est fixe et non réglée sur `--ci-clarte`. Trente pour cent suffisent sur
+   le plafond le plus clair que l'application peigne, et un réglage qui ne change
+   rien d'observable serait une garde que rien ne pourrait éprouver. */
+.pt-rep{
+  display:flex;align-items:center;gap:var(--espace-sm);width:100%;
+  margin-bottom:var(--espace-md);padding:var(--espace-sm) var(--espace-md);
+  border-radius:var(--rayon-lg);text-align:left;color:#FFFFFF;
+  font-size:var(--texte-sous);font-weight:var(--graisse-medium);line-height:1.3;
+  background:rgba(10,16,26,.30);
+  border:1px solid rgba(255,255,255,.18);
+  backdrop-filter:blur(14px) saturate(1.2);
+  -webkit-backdrop-filter:blur(14px) saturate(1.2);
+  animation:monte var(--duree-complexe) var(--ressort) both;
+}
+.pt-rep-ic{width:17px;height:17px;flex:0 0 auto;opacity:.85}
+.pt-rep:active{opacity:.7}
+/* Sans matière de verre, la bande garde son contraste par sa seule couleur. */
+@media (prefers-reduced-transparency:reduce),(prefers-contrast:more){
+  .pt-rep{
+    background:rgba(10,16,26,.78);backdrop-filter:none;-webkit-backdrop-filter:none;
+    border-color:rgba(255,255,255,.30);
+  }
+}
+
+/* Le ressenti personnel : deux gestes de même poids, côte à côte. */
+.rs-geste{display:flex;gap:var(--espace-sm)}
+.rs-geste > button{flex:1 1 0;min-width:0;padding:0 var(--espace-md);font-size:var(--texte-sous)}
+.rs-phrase{font-size:var(--texte-corps);line-height:1.4}
 /* Le grand chiffre des trois bandeaux, la température de l'accueil comme
    l'heure du soleil et de la lune : même corps, même graisse légère, même
    approche. Deux traitements pour un même rôle donnaient trois écrans qui ne se

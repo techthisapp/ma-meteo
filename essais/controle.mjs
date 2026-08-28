@@ -53,7 +53,7 @@ const FIGE = new Date("2026-08-18T09:00:00+02:00").getTime();
    à l'heure `L` après maintenant, elle vaut `0,5 + L / 20`, plafonnée à six. */
 const MEMBRES = 40;
 const demiLargeur = L => Math.min(6, 0.5 + Math.max(0, L) / 20);
-const ensembleDe = () => {
+const ensembleDe = (mult = 1) => {
   const h = METEO.hourly;
   const i0 = h.time.indexOf("2026-08-18T00:00");
   const t0 = new Date(FIGE).getTime();
@@ -67,7 +67,7 @@ const ensembleDe = () => {
       const f = (m % 2 ? -1 : 1) * Math.ceil(m / 2) / Math.floor(MEMBRES / 2);
       out[`${nom}_member${String(m).padStart(2, "0")}`] = out.time.map((t, k) => {
         const L = (Date.parse(`${t}:00`) - t0) / 3600000;
-        const v = base[i0 + k] + f * demiLargeur(L) * echelle;
+        const v = base[i0 + k] + f * demiLargeur(L) * mult * echelle;
         return Math.round(Math.max(nom === "precipitation" ? 0 : -60, v) * 10) / 10;
       });
     }
@@ -79,6 +79,8 @@ const ensembleDe = () => {
   return { hourly: out };
 };
 const ENSEMBLE = ensembleDe();
+// Six fois plus large : les scénarios y sont partagés au sens de `ACCORDS`.
+const ENSEMBLE_LARGE = ensembleDe(6);
 
 const FAIN = {
   commune: "Fain-lès-Moutiers", codePostal: "21500", lat: 47.5, lon: 4.3,
@@ -242,6 +244,8 @@ const ok = (nom, cond, detail) => {
   else console.log(`  ok     ${nom}`);
 };
 const txt = async s => (await pg.locator(s).count()) ? (await pg.locator(s).first().innerText()) : "";
+const txtDe = async (p, s) => (await p.locator(s).count())
+  ? (await p.locator(s).first().innerText()) : "";
 const onglet = async cle => {
   await pg.locator(`[data-onglet="${cle}"]`).click();
   await pg.waitForTimeout(500);
@@ -2437,14 +2441,19 @@ ok("aucune valeur brute de rayon dans les écrans", await pg.evaluate(() => {
     && !/50%|999px/.test(r.style.cssText)));
 }));
 
-ok("le verre est réservé à la couche navigation", await pg.evaluate(() => {
-  const flous = [...document.querySelectorAll("body *")].filter(e => {
-    const s = getComputedStyle(e);
-    const f = s.backdropFilter || s.webkitBackdropFilter || "none";
-    return f !== "none" && f !== "";
-  });
-  return flous.every(e => e.closest(".nav, .onglets"));
-}));
+/* Le verre est la matière de la couche navigation. La réponse du matin en est la
+   seule exception, arbitrée : posée sur le ciel, elle emploie la matière que la
+   barre de tête emploie déjà. L'exception est nommée ici, une exception qui
+   n'est pas écrite n'en est plus une. */
+ok("le verre est réservé à la couche navigation et à la réponse du matin",
+  await pg.evaluate(() => {
+    const flous = [...document.querySelectorAll("body *")].filter(e => {
+      const s = getComputedStyle(e);
+      const f = s.backdropFilter || s.webkitBackdropFilter || "none";
+      return f !== "none" && f !== "";
+    });
+    return flous.every(e => e.closest(".nav, .onglets") || e.matches(".pt-rep"));
+  }));
 
 const horsEchelle = await pg.evaluate(() => {
   const r = getComputedStyle(document.documentElement);
@@ -2468,6 +2477,41 @@ const horsEchelle = await pg.evaluate(() => {
 });
 ok("toutes les tailles de texte viennent de l'échelle",
   horsEchelle.length === 0, horsEchelle.join(", "));
+
+console.log("\n--- La réponse du matin ---");
+
+/* Une phrase qui tranche ce qu'il y a à faire, posée dans le ciel. Elle donne
+   une instruction là où les conseils donnent un fait, et c'est ce qui la
+   distingue du bloc qui la suit. */
+ok("l'encart porte une instruction et non un fait",
+  /^(Manteau|Veste|Pull|Manches|Tenue|Aérer)/.test((await txt(".pt-rep")).trim()),
+  await txt(".pt-rep"));
+/* Elle ne parle jamais du parapluie : le jeton porte déjà cette réponse sur les
+   cinq écrans, et la redire la mettrait deux fois sur le même écran. */
+ok("elle ne parle pas du parapluie, qui est l'affaire du jeton",
+  !/parapluie|capuche/i.test(await txt(".pt-rep")), await txt(".pt-rep"));
+/* Elle traverse la largeur au-dessus de la ligne de date. En dessous, elle
+   rencontrerait le grand chiffre et les bornes du jour. */
+ok("elle est posée au-dessus de la ligne de date et du grand chiffre",
+  await pg.evaluate(() => {
+    const r = document.querySelector(".pt-rep")?.getBoundingClientRect();
+    const jour = document.querySelector(".plein-titre > i")?.getBoundingClientRect();
+    const deg = document.querySelector(".bd-deg")?.getBoundingClientRect();
+    const ciel = document.querySelector(".ci")?.getBoundingClientRect();
+    if (!r || !jour || !deg || !ciel) return "un élément manque";
+    if (r.bottom > jour.top + 0.5) return "l'encart déborde sur la ligne de date";
+    if (r.bottom > deg.top + 0.5) return "l'encart déborde sur le grand chiffre";
+    if (r.top < ciel.top || r.bottom > ciel.bottom) return "l'encart sort du ciel";
+    if (r.width < ciel.width * 0.7) return "l'encart ne traverse pas la largeur";
+    return "";
+  }) === "", await pg.evaluate(() => {
+    const r = document.querySelector(".pt-rep")?.getBoundingClientRect();
+    return r ? `${Math.round(r.width)} sur ${Math.round(r.height)}` : "absent";
+  }));
+/* L'encart est une cible : il ouvre la feuille du ressenti personnel, où le
+   retour se donne au moment où le conseil est lu. */
+ok("l'encart ouvre la feuille du ressenti",
+  await pg.getAttribute(".pt-rep", "data-feuille") === "ressenti");
 
 console.log("\n--- États vide et chargement ---");
 await ctx.close();
@@ -2968,6 +3012,41 @@ const lisible = await pgCouvert.evaluate(async b64 => {
 }, cliche);
 ok("le titre reste lisible sur un plafond de plein jour",
   lisible >= 3.2, `contraste ${lisible.toFixed(2)} pour un blanc sur le ciel`);
+
+/* L'encart de la réponse du matin est écrit en blanc lui aussi, à la place
+   qu'il occupe dans le ciel. Ce qui le rend lisible n'est pas sa matière, qui
+   est fixe, mais la bande où il est posé : le voile bas couvre à cette hauteur
+   plus de la moitié du ciel. Le contrôle mesure donc le contraste composé à sa
+   place, et tombe si l'encart quitte cette bande pour le milieu du ciel, où les
+   deux voiles se rejoignent au plus faible. La mesure prend les rangs de
+   rembourrage, au-dessus et en dessous du texte. */
+const clicheRep = (await pgCouvert.locator(".pt-rep").screenshot()).toString("base64");
+const lisibleRep = await pgCouvert.evaluate(async b64 => {
+  const img = new Image();
+  img.src = "data:image/png;base64," + b64;
+  await img.decode();
+  const c = document.createElement("canvas");
+  c.width = img.width; c.height = img.height;
+  const x = c.getContext("2d");
+  x.drawImage(img, 0, 0);
+  const W = c.width, H = c.height;
+  const d = x.getImageData(0, 0, W, H).data;
+  const lin = v => (v / 255 <= 0.03928 ? v / 255 / 12.92 : (((v / 255) + 0.055) / 1.055) ** 2.4);
+  const lum = k => 0.2126 * lin(d[k]) + 0.7152 * lin(d[k + 1]) + 0.0722 * lin(d[k + 2]);
+  /* Les rangs de rembourrage, au-dessus et en dessous du texte, et seulement le
+     tiers central en largeur : aux coins, le rayon de la carte laisse voir le
+     ciel nu, qui n'est pas la matière que l'on mesure. */
+  let haut = 0;
+  for (const f of [0.10, 0.16, 0.84, 0.90]) {
+    const y = Math.round(H * f);
+    for (let px = Math.round(W * 0.35); px < W * 0.65; px += 2) {
+      haut = Math.max(haut, lum((y * W + px) * 4));
+    }
+  }
+  return 1.05 / (haut + 0.05);
+}, clicheRep);
+ok("l'encart de la réponse reste lisible sur un plafond de plein jour",
+  lisibleRep >= 3.2, `contraste ${lisibleRep.toFixed(2)} pour un blanc sur la matière`);
 
 await ctxCouvert.close();
 
@@ -4550,6 +4629,163 @@ ok("un réglage de plages de sortie se reprend en instants d'alerte",
     return JSON.stringify(R.lire().alertes);
   }));
 await ctxRepris.close();
+/* ---------- Le ressenti et le silence de la réponse ---------- */
+
+console.log("\n--- Le ressenti calibré ---");
+
+/* Un contexte à la carte pour la réponse du matin : la charge d'essai est
+   reprise en déplaçant la température ressentie, qui décide de la tenue, et la
+   température réelle, qui décide de l'aération. */
+const meteoRes = (res, tem) => () => {
+  const d = JSON.parse(JSON.stringify(METEO));
+  const h = d.hourly;
+  for (let k = 0; k < h.time.length; k++) {
+    if (!/^2026-08-18T/.test(h.time[k])) continue;
+    const heure = Number(h.time[k].slice(11, 13));
+    h.apparent_temperature[k] = res(heure);
+    if (tem) h.temperature_2m[k] = tem(heure);
+  }
+  return d;
+};
+
+const ctxReponse = async (patch, reglages, ensemble) => {
+  const c = await nav.newContext({
+    viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+    locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+  });
+  await c.addInitScript(amorceGardee(reglages || FAIN, FIGE));
+  await brancherRoutes(c);
+  await c.route(/https:\/\/api\.open-meteo\.com/, route => {
+    const u = route.request().url();
+    const d = patch();
+    if (u.includes("current=")) {
+      route.fulfill({ status: 200, contentType: "application/json", body: "[]" }); return;
+    }
+    if (u.includes("models=meteofrance_arome") || u.includes("hourly=")) {
+      route.fulfill({ status: 200, contentType: "application/json",
+        body: JSON.stringify({ hourly: d.hourly }) }); return;
+    }
+    delete d.hourly;
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
+  });
+  if (ensemble) {
+    await c.route(/ensemble-api\.open-meteo\.com/, r => r.fulfill({
+      status: 200, contentType: "application/json", body: JSON.stringify(ensemble) }));
+  }
+  const p = await c.newPage();
+  const urls = [];
+  p.on("request", r => urls.push(r.url()));
+  await p.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+  await p.waitForTimeout(1500);
+  return [c, p, urls];
+};
+
+/* Une journée qui tient dans une seule tenue ordinaire n'a rien à décider. Le
+   silence par défaut du dépôt s'applique : aucun encart, et le ciel reste nu. */
+const [ctxPlat, pgPlat] = await ctxReponse(meteoRes(() => 19, () => 19));
+ok("une journée sans rien à décider ne fait paraître aucun encart",
+  await pgPlat.locator(".pt-rep").count() === 0,
+  await pgPlat.locator(".pt-rep").innerText().catch(() => ""));
+ok("et le ciel garde sa ligne de date et son grand chiffre",
+  await pgPlat.locator(".plein-titre > i").count() === 1
+  && await pgPlat.locator(".bd-deg").count() === 1);
+await ctxPlat.close();
+
+/* L'aération. Elle ne parle que les jours où l'intérieur va devenir plus chaud
+   que le dehors : l'hiver, où il fait toujours plus frais dehors, la règle se
+   déclencherait tous les jours et cesserait d'être lue. La tenue est ici
+   constante, l'aération a donc son tour. */
+const [ctxAerer, pgAerer] = await ctxReponse(
+  meteoRes(() => 23, h => (h >= 9 && h < 12 ? 16 : 26)));
+ok("l'aération nomme sa fenêtre et la fraîcheur du dehors",
+  (await txtDe(pgAerer, ".pt-rep")).trim() === "Aérer de 09 h à 12 h, 16° dehors.",
+  await txtDe(pgAerer, ".pt-rep"));
+await ctxAerer.close();
+
+/* La même journée fraîche, mais sans après-midi chaud : ouvrir une fenêtre n'y
+   gagnerait rien, et la règle se tait. */
+const [ctxHiver, pgHiver] = await ctxReponse(meteoRes(() => 23, () => 16));
+ok("l'aération se tait quand l'intérieur ne va pas se réchauffer",
+  await pgHiver.locator(".pt-rep").count() === 0,
+  await pgHiver.locator(".pt-rep").innerText().catch(() => ""));
+await ctxHiver.close();
+
+/* Le biais personnel. Il déplace la tenue et non les degrés écrits : ceux-ci
+   viennent de la source, et le ruban, la table des moments et la semaine
+   doivent s'accorder au degré. */
+const [ctxBiais, pgBiais, urlsBiais] = await ctxReponse(
+  meteoRes(h => (h < 12 ? 8.6 : 14.6), () => 16));
+const sansBiais = (await txtDe(pgBiais, ".pt-rep")).trim();
+ok("sans correction, la tenue suit la température ressentie",
+  /^Manteau, 9°, puis veste vers \d\d h, 15°\.$/.test(sansBiais), sansBiais);
+await pgBiais.locator(".pt-rep").click();
+await pgBiais.waitForTimeout(450);
+ok("l'encart ouvre la feuille du ressenti personnel",
+  (await pgBiais.locator("#feuille-titre").innerText()).startsWith("Mon ressenti"),
+  await pgBiais.locator("#feuille-titre").innerText());
+await pgBiais.locator('[data-biais="1"]').click();
+await pgBiais.waitForTimeout(400);
+const avecBiais = (await txtDe(pgBiais, ".pt-rep")).trim();
+ok("un degré de trop chaud allège la tenue d'un cran",
+  /^Veste, 9°, puis pull léger vers \d\d h, 15°\.$/.test(avecBiais), avecBiais);
+ok("et ne déplace aucun des degrés écrits",
+  sansBiais.match(/-?\d+°/g).join(",") === avecBiais.match(/-?\d+°/g).join(","),
+  `${sansBiais} | ${avecBiais}`);
+/* La borne. Sans elle, une suite d'appuis finirait par conseiller un manteau en
+   juillet, et le réglage cesserait d'être une correction. */
+for (let i = 0; i < 5; i++) {
+  await pgBiais.locator('[data-biais="1"]').click();
+  await pgBiais.waitForTimeout(220);
+}
+ok("le biais reste borné des deux côtés",
+  await pgBiais.evaluate(() =>
+    JSON.parse(localStorage.getItem("mameteo.reglages.v1")).biais) === 3,
+  String(await pgBiais.evaluate(() =>
+    JSON.parse(localStorage.getItem("mameteo.reglages.v1")).biais)));
+for (let i = 0; i < 8; i++) {
+  await pgBiais.locator('[data-biais="-1"]').click();
+  await pgBiais.waitForTimeout(220);
+}
+ok("et il se borne aussi vers le froid",
+  await pgBiais.evaluate(() =>
+    JSON.parse(localStorage.getItem("mameteo.reglages.v1")).biais) === -3,
+  String(await pgBiais.evaluate(() =>
+    JSON.parse(localStorage.getItem("mameteo.reglages.v1")).biais)));
+/* Le biais reste sur l'appareil. Aucune requête ne le porte, ce que le contrôle
+   vérifie sur les adresses réellement émises depuis le réglage. */
+const urlsApres = urlsBiais.length;
+await pgBiais.locator('[data-biais="1"]').click();
+await pgBiais.waitForTimeout(400);
+ok("il n'entre dans aucune requête",
+  urlsBiais.slice(urlsApres).every(u => !/biais|bias|ressenti/i.test(u)),
+  urlsBiais.slice(urlsApres).join(" ") || "aucune requête nouvelle");
+await ctxBiais.close();
+
+/* La confiance. Elle ne s'écrit que lorsqu'elle est mauvaise : une mention à
+   chaque fois se lirait une semaine, puis ne se lirait plus. */
+const [ctxLarge, pgLarge] = await ctxReponse(
+  meteoRes(h => (h < 12 ? 8.6 : 14.6), () => 16), null, ENSEMBLE_LARGE);
+ok("des scénarios partagés se disent dans la phrase",
+  /Scénarios partagés\.$/.test((await txtDe(pgLarge, ".pt-rep")).trim()),
+  await txtDe(pgLarge, ".pt-rep"));
+await ctxLarge.close();
+
+/* Une journée qui se rafraîchit se dit dans l'ordre du temps, non du plus froid
+   au plus chaud : on s'habille pour le premier des deux moments, et nommer une
+   heure déjà passée en second serait une phrase à l'envers. */
+const [ctxRefroidit, pgRefroidit] = await ctxReponse(
+  meteoRes(h => (h < 15 ? 22 : 10), () => 16));
+ok("une journée qui se rafraîchit se dit dans l'ordre du temps",
+  (await txtDe(pgRefroidit, ".pt-rep")).trim()
+    === "Manches courtes, 22°, puis veste vers 15 h, 10°.",
+  await txtDe(pgRefroidit, ".pt-rep"));
+await ctxRefroidit.close();
+
+const [ctxSur, pgSur] = await ctxReponse(meteoRes(h => (h < 12 ? 8.6 : 14.6), () => 16));
+ok("des scénarios accordés ne se disent pas",
+  !/Scénarios/.test(await txtDe(pgSur, ".pt-rep")), await txtDe(pgSur, ".pt-rep"));
+await ctxSur.close();
+
 console.log("\n--- Mouvement réduit ---");
 const ctx2 = await nav.newContext({
   viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,

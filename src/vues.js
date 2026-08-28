@@ -13,6 +13,7 @@ import * as Relief from "./relief.js";
 import * as Temps from "./temps.js";
 import * as Ensemble from "./ensemble.js";
 import * as Parapluie from "./parapluie.js";
+import * as Reponse from "./reponse.js";
 import * as Vig from "./vigilance.js";
 import { SEUILS } from "./conseils.js";
 
@@ -576,7 +577,14 @@ export function bandeauAccueil(g, maintenant, p, vent) {
     : { sorte: "lune", x: xl / 100, y: yl / 100 };
   const toile = `<canvas class="ci-temps" id="ciTemps" aria-hidden="true" `
     + Temps.attributs(p, c, vent, astre) + `></canvas>`;
-  return panneauCiel(c, astres, toile, Temps.clarteDe(c, p));
+
+  /* La clarté du ciel peint est rendue à côté du panneau, et non posée sur lui
+     seul. Le titre et la réponse du matin sont hors du panneau, à côté de lui :
+     posée sur `.ci`, la variable ne les atteignait pas et l'ombre du titre se
+     calculait depuis le début sur une clarté nulle, c'est-à-dire jamais réglée.
+     L'écran la pose sur le cadre, où tout ce qui est écrit sur le ciel la lit. */
+  const clarte = Temps.clarteDe(c, p);
+  return { ciel: panneauCiel(c, astres, toile, clarte), clarte };
 }
 
 /* La trajectoire du jour : la hauteur du Soleil de minuit à minuit. Le trait
@@ -1503,6 +1511,61 @@ export function vueParapluie(ctx, rendre, majEtat) {
         Reglages.prendreJeton(j.cle);
         rendre({ ecran: true });
       });
+    },
+  };
+}
+
+/* ---------- Le ressenti personnel ---------- */
+
+/* Deux personnes ne sentent pas le même froid. Un retour en un geste, trop
+   chaud ou trop froid, déplace le conseil d'habillement de la réponse du matin,
+   et rien d'autre : les degrés écrits viennent de la source. */
+export function vueRessenti(ctx, rendre, majEtat) {
+  const b = Reglages.biais();
+  const r = ctx.reponse;
+  const dit = b === 0 ? "Aucune correction"
+    : `${b > 0 ? "+" : "−"}${Math.abs(b)} degré${Math.abs(b) > 1 ? "s" : ""}`;
+
+  return {
+    titre: "Mon ressenti",
+    sous: dit,
+    corps:
+      (r ? `<div class="carte"><div class="carte-tete"><h3>Conseil du jour</h3></div>`
+        + `<p class="rs-phrase">${esc(r.texte)}</p></div>` : "")
+
+      + `<div class="carte"><div class="carte-tete"><h3>La dernière fois</h3></div>`
+      + `<div class="rs-geste">`
+      + `<button type="button" class="bouton-borde" data-biais="1">J'ai eu trop chaud</button>`
+      + `<button type="button" class="bouton-borde" data-biais="-1">J'ai eu trop froid</button>`
+      + `</div>`
+      + `<p class="note">Chaque appui déplace le conseil d'un degré, dans la limite `
+      + `de ${Reponse.BIAIS_MAX} degrés de part et d'autre. Sans borne, une suite `
+      + `d'appuis finirait par conseiller un manteau en juillet.</p>`
+      + (b !== 0 ? `<button type="button" class="bouton-texte" id="rsZero">`
+        + `Revenir à zéro</button>` : "")
+      + `</div>`
+
+      + `<p class="note">La correction déplace le conseil d'habillement, non les `
+      + `degrés écrits : ceux-ci viennent de la source, et le ruban, la table des `
+      + `moments et la semaine doivent s'accorder au degré. Elle reste sur cet `
+      + `appareil et n'entre dans aucune requête.</p>`,
+
+    brancher(bloc) {
+      for (const x of bloc.querySelectorAll("[data-biais]")) {
+        x.addEventListener("click", () => {
+          const avant = Reglages.biais();
+          const apres = Reglages.poserBiais(avant + Number(x.dataset.biais), Reponse.BIAIS_MAX);
+          if (apres === avant) { majEtat(`Correction bornée à ${Reponse.BIAIS_MAX} degrés.`); return; }
+          rendre({ dessous: true });
+        });
+      }
+      const z = bloc.querySelector("#rsZero");
+      if (z) {
+        z.addEventListener("click", () => {
+          Reglages.poserBiais(0, Reponse.BIAIS_MAX);
+          rendre({ dessous: true });
+        });
+      }
     },
   };
 }
