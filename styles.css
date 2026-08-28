@@ -1240,6 +1240,13 @@ button.rangee:active{background:var(--surface-2)}
   }
 }
 
+/* La porte de l'écran de questions, sous les mesures du jour. Une carte qui est
+   une rangée : la marge de carte et le gabarit de rangée à la fois. */
+.act-porte{width:100%;text-align:left}
+/* Une activité sans créneau reste lisible, mais son heure ne se lit pas comme
+   une réponse : c'est une absence, non un rendez-vous. */
+.act-sans .rangee-val b{font-weight:var(--graisse-regular);color:var(--etiquette-3)}
+
 /* Le ressenti personnel : deux gestes de même poids, côte à côte. */
 .rs-geste{display:flex;gap:var(--espace-sm)}
 .rs-geste > button{flex:1 1 0;min-width:0;padding:0 var(--espace-md);font-size:var(--texte-sous)}

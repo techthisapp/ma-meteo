@@ -230,6 +230,13 @@ await brancherRoutes(ctx);
 const pg = await ctx.newPage();
 const erreurs = [];
 pg.on("pageerror", e => erreurs.push(String(e)));
+/* Les adresses réellement émises vers la prévision, pour éprouver le contrat
+   avec la source : les colonnes demandées, et rien de plus. L'ensemble porte le
+   même domaine à un préfixe près et reste hors du compte. */
+const appelsHoraire = [];
+pg.on("request", r => {
+  if (r.url().startsWith("https://api.open-meteo.com")) appelsHoraire.push(r.url());
+});
 pg.on("console", m => {
   // Les deux sources data.gouv sont volontairement coupées dans cet essai.
   if (m.type() === "error" && !/ERR_FAILED|ERR_ABORTED/.test(m.text())) erreurs.push("console: " + m.text());
@@ -2559,6 +2566,107 @@ ok("elle est posée au-dessus de la ligne de date et du grand chiffre",
 ok("l'encart ouvre la feuille du ressenti",
   await pg.getAttribute(".pt-rep", "data-feuille") === "ressenti");
 
+console.log("\n--- L'écran de questions ---");
+
+await pg.locator('[data-onglet="accueil"]').click();
+await pg.waitForTimeout(400);
+ok("l'accueil porte la porte de l'écran de questions, sous les mesures du jour",
+  await pg.evaluate(() => {
+    const b = document.querySelector(".act-porte");
+    const m = document.querySelector(".bd-mesures");
+    if (!b || !m) return "un élément manque";
+    if (b.dataset.feuille !== "activites") return "la porte n'ouvre pas la feuille";
+    if (m.compareDocumentPosition(b) !== Node.DOCUMENT_POSITION_FOLLOWING) {
+      return "la porte n'est pas sous les mesures";
+    }
+    return "";
+  }) === "");
+await pg.locator(".act-porte").click();
+await pg.waitForTimeout(500);
+
+const lignesAct = async p => p.evaluate(() =>
+  [...document.querySelectorAll("#feuille-corps .rangee")].map(r => ({
+    nom: r.querySelector(".rangee-txt b").textContent,
+    quand: r.querySelector(".rangee-val b").textContent,
+    detail: r.querySelector(".rangee-txt span").textContent,
+    sans: r.classList.contains("act-sans"),
+  })));
+const act = await lignesAct(pg);
+ok("les six activités sont là, dans l'ordre",
+  act.map(a => a.nom).join(" | ")
+    === "Courir | Rouler à vélo | Étendre le linge | Aérer pour rafraîchir | Arroser | Laver la voiture",
+  act.map(a => a.nom).join(" | "));
+ok("chacune porte un créneau daté et ce qui le décide",
+  act.every(a => a.quand.trim() && a.detail.trim()),
+  JSON.stringify(act.map(a => [a.quand, a.detail])));
+
+/* Le créneau annoncé doit tenir contre la série, recalculée à part par le
+   contrôle : c'est la seule façon de savoir que le moteur ne rend pas le
+   premier créneau venu. */
+ok("le créneau de la course est sec et dans ses bornes de ressenti et d'ultraviolet",
+  await pg.evaluate(async () => {
+    const A = await import("/src/activites.js");
+    const P = await import("/src/previsions.js");
+    const s = P.serieHoraire(0, A.FENETRE, 8);
+    const c = A.ACTIVITES.find(x => x.cle === "courir").creneau(s, [...Array(s.n).keys()]);
+    if (!c) return "aucun créneau";
+    const S = A.SEUILS_ACT;
+    for (let i = c[0]; i < c[1]; i++) {
+      if ((s.mm[i] || 0) >= 0.1) return `pluie à ${s.heure[i]} h`;
+      if (s.res[i] < S.courirFroid || s.res[i] > S.courirChaud) return `ressenti ${s.res[i]}`;
+      if (s.uv[i] >= S.courirUv) return `UV ${s.uv[i]}`;
+    }
+    return "";
+  }) === "");
+/* Les deux activités qu'on décide de faire soi-même restent dans les heures où
+   l'on sort. Sans cette borne, une nuit calme et sèche donnait « 17 h à 03 h » :
+   c'est vrai du vent, et personne ne roule à trois heures du matin. */
+ok("les créneaux d'effort restent dans les heures où l'on sort",
+  await pg.evaluate(async () => {
+    const A = await import("/src/activites.js");
+    const P = await import("/src/previsions.js");
+    const s = P.serieHoraire(0, A.FENETRE, 8);
+    const S = A.SEUILS_ACT;
+    for (const cle of ["courir", "velo"]) {
+      const c = A.ACTIVITES.find(x => x.cle === cle).creneau(s, [...Array(s.n).keys()]);
+      if (!c) continue;
+      for (let i = c[0]; i < c[1]; i++) {
+        if (s.heure[i] < S.effort[0] || s.heure[i] >= S.effort[1]) {
+          return `${cle} à ${s.heure[i]} h`;
+        }
+      }
+    }
+    return "";
+  }) === "");
+/* Douze heures sèches après le lavage : sans elles, la première averse défait
+   le travail, et c'est la seule condition de cette activité. */
+ok("le créneau du lavage porte ses douze heures sèches",
+  await pg.evaluate(async () => {
+    const A = await import("/src/activites.js");
+    const P = await import("/src/previsions.js");
+    const s = P.serieHoraire(0, A.FENETRE, 8);
+    const c = A.ACTIVITES.find(x => x.cle === "voiture").creneau(s, [...Array(s.n).keys()]);
+    if (!c) return "aucun créneau";
+    for (let j = c[0]; j <= c[0] + A.SEUILS_ACT.lavageSec; j++) {
+      if ((s.mm[j] || 0) >= 0.1) return `pluie ${j - c[0]} heures après`;
+    }
+    return "";
+  }) === "");
+/* La colonne d'évapotranspiration est demandée à la source, et la signature des
+   colonnes entre dans la clé du cache : une charge écrite sans elle ne doit pas
+   être servie au code qui la lit. */
+ok("l'évapotranspiration est demandée en horaire et en quotidien",
+  appelsHoraire.some(u => /hourly=[^&]*et0_fao_evapotranspiration/.test(u))
+  && appelsHoraire.some(u => /daily=[^&]*et0_fao_evapotranspiration/.test(u)),
+  appelsHoraire.length + " requêtes");
+ok("la signature des colonnes entre dans la clé du cache",
+  await pg.evaluate(() => {
+    const c = JSON.parse(localStorage.getItem("mameteo.previsions.v1") || "null");
+    return c && /\|[0-9a-z]+c$/.test(c.cle) ? "" : `clé ${c ? c.cle : "absente"}`;
+  }) === "");
+await pg.locator("#feuille-fermer").click();
+await pg.waitForTimeout(400);
+
 console.log("\n--- États vide et chargement ---");
 await ctx.close();
 
@@ -4831,6 +4939,86 @@ const [ctxSur, pgSur] = await ctxReponse(meteoRes(h => (h < 12 ? 8.6 : 14.6), ()
 ok("des scénarios accordés ne se disent pas",
   !/Scénarios/.test(await txtDe(pgSur, ".pt-rep")), await txtDe(pgSur, ".pt-rep"));
 await ctxSur.close();
+
+/* ---------- Les activités sur des charges à la carte ---------- */
+
+console.log("\n--- Les activités, cas limites ---");
+
+const meteoAct = patch => () => {
+  const d = JSON.parse(JSON.stringify(METEO));
+  patch(d);
+  return d;
+};
+
+const ouvrirActivites = async p => {
+  await p.locator(".act-porte").click();
+  await p.waitForTimeout(500);
+  return p.evaluate(() =>
+    [...document.querySelectorAll("#feuille-corps .rangee")].map(r => ({
+      nom: r.querySelector(".rangee-txt b").textContent,
+      quand: r.querySelector(".rangee-val b").textContent,
+      detail: r.querySelector(".rangee-txt span").textContent,
+      sans: r.classList.contains("act-sans"),
+    })));
+};
+
+/* Une charge entièrement mouillée. Une activité sans créneau favorable le dit et
+   ne propose rien : rendre le premier créneau à défaut ferait conseiller de
+   courir sous la pluie. */
+const [ctxTrempe, pgTrempe] = await ctxReponse(meteoAct(d => {
+  d.hourly.precipitation = d.hourly.precipitation.map(() => 1.5);
+  d.hourly.precipitation_probability = d.hourly.precipitation_probability.map(() => 95);
+}));
+const trempe = await ouvrirActivites(pgTrempe);
+ok("sans créneau favorable, chaque activité le dit et ne propose rien",
+  trempe.filter(a => a.nom !== "Arroser").every(a =>
+    a.quand === "Aucun créneau" && a.sans && a.detail.length > 10),
+  JSON.stringify(trempe.map(a => [a.nom, a.quand])));
+/* L'arrosage a besoin d'une soirée sèche. N'en trouver aucune sur deux journées
+   veut dire qu'il pleut, et le jardin est alors arrosé. */
+ok("sous la pluie, l'arrosage dit que la pluie s'en charge",
+  trempe.find(a => a.nom === "Arroser").quand === "La pluie s'en charge",
+  trempe.find(a => a.nom === "Arroser").quand);
+ok("et chacune dit pourquoi, non seulement qu'il n'y en a pas",
+  trempe.filter(a => a.quand === "Aucun créneau").every(a => /pluie|mouill|vent|sèche|intérieur/i.test(a.detail)),
+  JSON.stringify(trempe.filter(a => a.quand === "Aucun créneau").map(a => a.detail)));
+await ctxTrempe.close();
+
+/* Le lavage attend que douze heures sèches le suivent. Une matinée sèche
+   suivie d'une averse de l'après-midi ne convient pas : la première averse
+   défait le travail, et c'est la seule condition de cette activité. */
+const [ctxAverse, pgAverse] = await ctxReponse(meteoAct(d => {
+  for (let k = 0; k < d.hourly.time.length; k++) {
+    if (/^2026-08-18T1[5-7]/.test(d.hourly.time[k])) d.hourly.precipitation[k] = 1.5;
+  }
+}));
+const averse = await ouvrirActivites(pgAverse);
+/* La charge d'essai porte aussi une pluie de nuit le 19 août, de trois à cinq
+   heures : le premier lavage possible tombe donc après elle, au matin suivant. */
+ok("une averse de l'après-midi repousse le lavage au delà d'elle",
+  averse.find(a => a.nom === "Laver la voiture").quand === "demain 07 h à 21 h",
+  averse.find(a => a.nom === "Laver la voiture").quand);
+await ctxAverse.close();
+
+/* Le bilan d'arrosage suit l'évapotranspiration et la pluie, non la pluie
+   seule. Les deux contextes ne diffèrent que par l'évapotranspiration : même
+   pluie tombée, deux verdicts contraires. */
+const arrosageDe = async et0 => {
+  const [c, p] = await ctxReponse(meteoAct(d => {
+    d.daily.et0_fao_evapotranspiration = d.daily.et0_fao_evapotranspiration.map(() => et0);
+  }));
+  const l = await ouvrirActivites(p);
+  await c.close();
+  return l.find(a => a.nom === "Arroser");
+};
+const sec7 = await arrosageDe(3.5);
+const humide7 = await arrosageDe(0.1);
+ok("un sol qui a beaucoup évaporé demande un arrosage",
+  sec7.quand !== "Pas nécessaire" && /déficit/.test(sec7.detail),
+  `${sec7.quand} | ${sec7.detail}`);
+ok("le même cumul de pluie, sans évaporation, n'en demande pas",
+  humide7.quand === "Pas nécessaire" && /excédent/.test(humide7.detail),
+  `${humide7.quand} | ${humide7.detail}`);
 
 console.log("\n--- Mouvement réduit ---");
 const ctx2 = await nav.newContext({

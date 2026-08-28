@@ -120,7 +120,9 @@ for (const theme of ["light", "dark"]) {
     await pg.waitForTimeout(500);
   }
   if (process.env.FEUILLE) {
-    await pg.locator(process.env.FEUILLE === "parapluie" ? "#navJeton" : "#btnReglages").click();
+    const cible = { parapluie: "#navJeton", activites: ".act-porte" }[process.env.FEUILLE]
+      || "#btnReglages";
+    await pg.locator(cible).click();
     await pg.waitForTimeout(600);
   }
   await pg.screenshot({ path: path.join(SORTIE, `${cle}-haut-${theme}.png`) });

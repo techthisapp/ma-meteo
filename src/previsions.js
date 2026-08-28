@@ -25,6 +25,11 @@ const QUOTIDIEN = [
   "weather_code", "temperature_2m_max", "temperature_2m_min",
   "precipitation_sum", "precipitation_probability_max", "wind_speed_10m_max",
   "sunrise", "sunset", "daylight_duration",
+  /* L'évapotranspiration de référence, en millimètres par journée. C'est ce que
+     le sol et les plantes ont perdu ; comparée à la pluie tombée, elle donne le
+     bilan d'eau qui décide d'un arrosage. Soixante-dix-sept octets compressés de
+     plus sur une requête qui porte déjà quatorze journées écoulées. */
+  "et0_fao_evapotranspiration",
 ].join(",");
 
 const HORAIRE = [
@@ -32,6 +37,15 @@ const HORAIRE = [
   "relative_humidity_2m", "precipitation", "precipitation_probability",
   "weather_code", "cloud_cover", "pressure_msl", "wind_speed_10m",
   "wind_gusts_10m", "wind_direction_10m", "uv_index", "is_day",
+  /* L'évapotranspiration de référence, en millimètres par heure. C'est la
+     vitesse à laquelle l'eau s'en va, et elle décide du séchage du linge.
+     Le déficit de pression de vapeur avait d'abord été retenu pour cela, puis
+     écarté à la mesure : à déficit égal au-dessus de 0,8 kPa, l'évapotranspiration
+     horaire va de 0,01 à 0,57 millimètre par heure selon le vent et le soleil,
+     un facteur cinquante-sept. Le déficit seul ne dit donc presque rien de la
+     vitesse de séchage, quand cette colonne la donne, et l'arrosage en a de
+     toute façon besoin. Deux cent soixante et onze octets compressés. */
+  "et0_fao_evapotranspiration",
 ].join(",");
 
 /* Quatorze jours d'antériorité. « Mon jardin » en demandait trente, calés sur la
@@ -62,6 +76,15 @@ export const JOURS_PASSES = PASSE_H;
    sur ses deux premières journées. */
 const JOURS = 7;
 const JOURS_AROME = 3;
+
+/* La signature des colonnes demandées, dans la clé du cache au même titre que
+   les portées. Une colonne ajoutée manque à toute charge écrite avant elle : la
+   servir ferait tourner le code nouveau sur une donnée qui ne la porte pas, ce
+   que le dépôt a déjà payé une fois avec la semaine qui ne s'ouvrait que sur
+   deux journées. La signature change d'elle-même, sans compteur à penser à
+   incrémenter. */
+const COLONNES = [...`${HORAIRE}|${QUOTIDIEN}`]
+  .reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7).toString(36);
 
 let charge = null;
 let heureCharge = null;
@@ -141,7 +164,7 @@ async function prendre(url, essais) {
 
 export async function charger({ lat, lon }) {
   if (lat === null || lat === undefined) { charge = null; return null; }
-  const cle = `${lat},${lon}|${JOURS}j|${JOURS_AROME}a|${PASSE_H}p`;
+  const cle = `${lat},${lon}|${JOURS}j|${JOURS_AROME}a|${PASSE_H}p|${COLONNES}c`;
   try {
     const c = JSON.parse(localStorage.getItem(CACHE) || "null");
     if (c && c.cle === cle && c.h === heureCle() && Date.now() - c.t < TTL) {
@@ -337,6 +360,10 @@ export function serieHoraire(depart = 0, duree = 24, minimum = 8) {
     nua: p("cloud_cover"), pres: p("pressure_msl"),
     v: p("wind_speed_10m"), raf: p("wind_gusts_10m"), dir: p("wind_direction_10m"),
     uv: p("uv_index"), clair: p("is_day"),
+    /* La vitesse à laquelle l'eau s'en va. Une heure sans valeur vaut zéro et
+       non la valeur voisine : c'est un flux, non un état, et l'interpoler
+       inventerait de l'évaporation là où la source n'en donne pas. */
+    et0: p("et0_fao_evapotranspiration", true),
     mmS, tS,
   };
 }
@@ -440,6 +467,32 @@ export function momentsJour(date) {
     });
   }
   return out;
+}
+
+/* Le bilan d'eau des journées écoulées : ce que la pluie a apporté moins ce que
+   l'évapotranspiration a repris. C'est lui qui décide d'un arrosage, non le
+   cumul de pluie seul : dix millimètres tombés sur une semaine à quatre
+   millimètres d'évaporation par jour ne compensent rien.
+
+   La fenêtre s'arrête à la veille : la journée en cours n'est pas finie, et son
+   cumul sous-estimerait autant la pluie que l'évaporation. La requête
+   quotidienne porte déjà quatorze journées écoulées, aucune n'est demandée en
+   plus. */
+export function bilanEau(jours) {
+  const d = charge?.daily;
+  const i = iJour();
+  if (!d || i < 1 || !Array.isArray(d.et0_fao_evapotranspiration)) return null;
+  const debut = Math.max(0, i - jours);
+  if (i - debut < jours) return null;
+  let pluie = 0, et0 = 0;
+  for (let k = debut; k < i; k++) {
+    const p = d.precipitation_sum?.[k], e = d.et0_fao_evapotranspiration[k];
+    if (p === null || p === undefined || e === null || e === undefined) return null;
+    pluie += p;
+    et0 += e;
+  }
+  const r = v => Math.round(v * 10) / 10;
+  return { jours: i - debut, pluie: r(pluie), et0: r(et0), bilan: r(pluie - et0) };
 }
 
 export function jourHoraire(date) {

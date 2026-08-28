@@ -14,6 +14,7 @@
 
 import { heureTxt } from "./horloge.js";
 import * as Ensemble from "./ensemble.js";
+import * as Activites from "./activites.js";
 
 /* L'échelle d'habillement, en degrés ressentis. Les bornes sont celles auxquelles
    on change de vêtement, non des paliers réguliers : entre neuf et quinze degrés
@@ -33,16 +34,6 @@ export const tenueDe = t => {
   for (const [seuil, nom] of TENUES) if (t >= seuil) n = nom;
   return n;
 };
-
-/* L'intérieur ordinaire, et l'écart qui vaut la peine d'ouvrir une fenêtre.
-   Trois degrés : en deçà, l'air entrant ne rafraîchit rien de mesurable et le
-   conseil serait un réflexe et non un fait. */
-export const INTERIEUR = 20;
-export const ECART = 3;
-
-/* Les heures où l'on ouvre une fenêtre. Conseiller d'aérer à quatre heures du
-   matin n'a pas d'objet. */
-export const EVEIL = [6, 23];
 
 // Au delà, les scénarios sont partagés et la phrase le dit.
 export const CONFIANCE_BASSE = 6;
@@ -106,29 +97,20 @@ export function habillement(serie, k, biais = 0) {
       + `vers ${heureTxt(serie.heure[b])}, ${Math.round(serie.res[b])}°.` };
 }
 
-/* L'aération. Elle ne parle que les jours où l'intérieur va devenir plus chaud
-   que le dehors, faute de quoi la règle se déclencherait tout l'hiver, où il
-   fait toujours plus frais dehors que dedans, et cesserait d'être lue.
+/* L'aération. La règle vit dans `activites.js`, où l'écran de questions la lit
+   aussi : deux règles pour la même question finiraient par se contredire sur le
+   même écran, et le dépôt a déjà payé un défaut de ce genre avec le maximum de
+   journée qui valait vingt-quatre d'un côté et trente-trois de l'autre.
 
-   La fenêtre est la première suite d'heures assez fraîches et sans pluie. */
+   Ce qui appartient à la réponse du matin est la phrase, non le calcul. */
 export function aeration(serie, k) {
-  if (!k.length) return null;
-  const chaud = Math.max(...k.map(i => serie.t[i]));
-  if (chaud < INTERIEUR + ECART) return null;
-  let debut = null, fin = null, frais = null;
-  for (const i of k) {
-    const h = serie.heure[i];
-    const bon = h >= EVEIL[0] && h < EVEIL[1]
-      && serie.t[i] <= INTERIEUR - ECART && (serie.mm[i] || 0) === 0;
-    if (bon) {
-      if (debut === null) { debut = h; frais = serie.t[i]; }
-      fin = h + 1;
-      frais = Math.min(frais, serie.t[i]);
-    } else if (debut !== null) break;
-  }
-  if (debut === null) return null;
+  const c = Activites.creneauAerer(serie, k);
+  if (!c) return null;
+  let frais = Infinity;
+  for (let i = c[0]; i < c[1]; i++) frais = Math.min(frais, serie.t[i]);
   return { cle: "aerer",
-    texte: `Aérer de ${heureTxt(debut)} à ${heureTxt(fin)}, ${Math.round(frais)}° dehors.` };
+    texte: `Aérer de ${heureTxt(serie.heure[c[0]])} à ${heureTxt(serie.heure[c[1] - 1] + 1)}, `
+      + `${Math.round(frais)}° dehors.` };
 }
 
 /* La réponse du jour, ou `null`. L'habillement passe devant l'aération : on

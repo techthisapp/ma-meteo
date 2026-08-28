@@ -14,6 +14,7 @@ import * as Temps from "./temps.js";
 import * as Ensemble from "./ensemble.js";
 import * as Parapluie from "./parapluie.js";
 import * as Reponse from "./reponse.js";
+import * as Activites from "./activites.js";
 import * as Vig from "./vigilance.js";
 import { SEUILS } from "./conseils.js";
 
@@ -1527,6 +1528,41 @@ export function vueParapluie(ctx, rendre, majEtat) {
         rendre({ ecran: true });
       });
     },
+  };
+}
+
+/* ---------- L'écran de questions ---------- */
+
+/* Six questions ordinaires, une réponse chacune. Le moteur et les seuils vivent
+   dans `activites.js` ; la feuille ne fait que les écrire.
+
+   Une activité sans créneau le dit et donne sa raison : « aucun créneau » seul
+   ne permet pas de décider autrement. */
+export function vueActivites() {
+  const s = P.serieHoraire(0, Activites.FENETRE, 8);
+  const r = s ? Activites.repondre(s, P.bilanEau(Activites.SEUILS_ACT.arrosageJours)) : [];
+
+  if (!r.length) {
+    return {
+      titre: "Quand faire quoi",
+      corps: `<p class="note">La prévision horaire manque : les créneaux se cherchent `
+        + `sur les quarante-huit heures qui viennent.</p>`,
+    };
+  }
+
+  return {
+    titre: "Quand faire quoi",
+    sous: "Sur les 48 heures qui viennent",
+    corps: `<div class="carte groupe-plat">`
+      + r.map(a => `<div class="rangee${a.creneau ? "" : " act-sans"}">`
+        + ico(a.symbole, "")
+        + `<span class="rangee-txt"><b>${esc(a.nom)}</b>`
+        + `<span>${esc(a.detail)}${a.partages ? ", scénarios partagés" : ""}</span></span>`
+        + `<span class="rangee-val"><b>${esc(a.quand)}</b></span></div>`).join("")
+      + `</div>`
+      + `<p class="note">Chaque activité rend le premier créneau qui lui convient, `
+      + `non le meilleur de la semaine : au delà de deux jours, les scénarios `
+      + `s'écartent déjà de cinq degrés.</p>`,
   };
 }
 
