@@ -82,6 +82,14 @@ const D = {
   sans_reseau: '<path d="M2.6 8.8a15 15 0 0 1 6-3.4M15.4 5.4a15 15 0 0 1 6 3.4"/>'
     + '<path d="M6.4 12.6a9.6 9.6 0 0 1 3-1.8M14.6 10.8a9.6 9.6 0 0 1 3 1.8"/>'
     + '<path d="M9.8 16.2a4.6 4.6 0 0 1 4.4 0"/><path d="M12 20v.1"/><path d="M3 3l18 18"/>',
+  /* Le parapluie et la capuche, pour le jeton du rappel. Deux dessins distincts
+     et non un seul teinté : la couleur ne porte jamais seule l'information. */
+  parapluie: '<path d="M12 3.2v1.4"/>'
+    + '<path d="M2.8 13.4a9.2 9.2 0 0 1 18.4 0z" stroke-linejoin="round"/>'
+    + '<path d="M12 13.4v5.6a2 2 0 0 1-4 0"/>',
+  capuche: '<path d="M5 20.4V13a7 7 0 0 1 14 0v7.4"/>'
+    + '<path d="M8.6 20.4a3.4 3.4 0 0 1 6.8 0"/>'
+    + '<path d="M9.4 7.4a5.6 5.6 0 0 1 5.2 0"/>',
 };
 
 /* Le ciel clair et les éclaircies ne se dessinent pas de la même façon selon

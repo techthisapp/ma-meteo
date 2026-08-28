@@ -98,6 +98,23 @@ const amorceA = (reglages, quand) => `{
   localStorage.setItem("mameteo.reglages.v1", ${JSON.stringify(JSON.stringify(reglages))});
 }`;
 
+/* La même amorce, qui ne récrit pas les réglages déjà posés. Les amorces
+   ci-dessus remettent l'état à neuf à chaque page, ce qui est ce qu'il faut
+   presque partout ; les contrôles qui éprouvent ce que l'application garde d'un
+   rechargement à l'autre ont besoin du contraire. */
+const amorceGardee = (reglages, quand) => `{
+  const ecart = ${new Date(quand).getTime()} - Date.now();
+  const D = Date;
+  globalThis.Date = class extends D {
+    constructor(...a){ super(...(a.length ? a : [D.now() + ecart])); }
+    static now(){ return D.now() + ecart; }
+  };
+  Object.setPrototypeOf(globalThis.Date, D);
+  if (!localStorage.getItem("mameteo.reglages.v1")) {
+    localStorage.setItem("mameteo.reglages.v1", ${JSON.stringify(JSON.stringify(reglages))});
+  }
+}`;
+
 const amorce = reglages => `{
   const ecart = ${FIGE} - Date.now();
   const D = Date;
@@ -249,6 +266,11 @@ ok("la barre de tête porte la commune", (await txt("#navLieuNom")) === "Fain-l�
   await txt("#navLieuNom"));
 ok("le bouton de commune ouvre la feuille des communes",
   await pg.getAttribute("#navLieu", "data-feuille") === "communes");
+/* La charge d'essai est sèche : le rappel de parapluie n'a rien à dire, et le
+   silence est son état par défaut. Le reste de ses contrôles est plus bas, sur
+   des contextes qui portent de la pluie. */
+ok("une journée sèche ne fait paraître aucun jeton de parapluie",
+  await pg.locator("#navJeton").isHidden());
 
 console.log("\n--- Écran d'accueil ---");
 ok("le jour est porté par le ciel, non par un titre d'écran",
@@ -4148,6 +4170,278 @@ ok("la part des scénarios se pose sur les lignes déjà écrites",
     return r.completees >= 1 && apres?.pe !== undefined ? "" : `complétées ${r.completees}`;
   }) === "");
 await ctxSc.close();
+
+/* ---------- Le rappel de parapluie ---------- */
+
+console.log("\n--- Le rappel de parapluie ---");
+
+/* De la pluie posée sur la fenêtre du soir du 18 août, les deux heures que la
+   fenêtre 17 h à 19 h recouvre. Les rafales de la charge y valent 39 et 36
+   kilomètres par heure, sous le seuil de retournement : c'est un parapluie. */
+const meteoPluie = (raf, motif = /^2026-08-18T1[78]/) => () => {
+  const d = JSON.parse(JSON.stringify(METEO));
+  const h = d.hourly;
+  for (let k = 0; k < h.time.length; k++) {
+    if (!motif.test(h.time[k])) continue;
+    h.precipitation[k] = 1.2;
+    h.precipitation_probability[k] = 80;
+    if (raf !== undefined) h.wind_gusts_10m[k] = raf;
+  }
+  return d;
+};
+
+const ctxJeton = async (patch, quand) => {
+  const c = await nav.newContext({
+    viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+    locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+  });
+  await c.addInitScript(amorceGardee(FAIN, quand || FIGE));
+  await brancherRoutes(c);
+  await c.route(/https:\/\/api\.open-meteo\.com/, route => {
+    const u = route.request().url();
+    const d = patch();
+    if (u.includes("current=")) {
+      route.fulfill({ status: 200, contentType: "application/json", body: "[]" }); return;
+    }
+    if (u.includes("models=meteofrance_arome") || u.includes("hourly=")) {
+      route.fulfill({ status: 200, contentType: "application/json",
+        body: JSON.stringify({ hourly: d.hourly }) }); return;
+    }
+    delete d.hourly;
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
+  });
+  const p = await c.newPage();
+  await p.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+  await p.waitForTimeout(1400);
+  return [c, p];
+};
+
+/* La fenêtre passée. Les deux sorties du 18 août sont mouillées, et il est
+   vingt heures trente : les deux sont derrière. La comparaison se fait à
+   l'heure, non à la journée. */
+const [ctxTard, pgTard] = await ctxJeton(
+  meteoPluie(undefined, /^2026-08-18T(0[78]|1[78])/), "2026-08-18T20:30:00+02:00");
+ok("le jeton disparaît une fois la fenêtre passée",
+  await pgTard.locator("#navJeton").isHidden());
+await ctxTard.close();
+
+/* La même journée mouillée, à dix-huit heures trente : la fenêtre du soir est
+   commencée, sa pluie est tombée à dix-sept heures et l'heure qui reste est
+   sèche. Le jeton se tait, une heure passée ne le faisant pas parler. */
+const [ctxDedans, pgDedans] = await ctxJeton(
+  meteoPluie(undefined, /^2026-08-18T(0[78]|17)/), "2026-08-18T18:30:00+02:00");
+ok("dans une fenêtre commencée, la pluie déjà tombée ne fait rien paraître",
+  await pgDedans.locator("#navJeton").isHidden());
+await ctxDedans.close();
+
+/* La même heure, la pluie posée sur l'heure qui reste : la fenêtre est la même,
+   et cette fois le jeton parle. Les deux contrôles se répondent, l'un
+   n'établissant rien sans l'autre. */
+const [ctxReste, pgReste] = await ctxJeton(
+  meteoPluie(undefined, /^2026-08-18T18/), "2026-08-18T18:30:00+02:00");
+ok("dans la même fenêtre, la pluie qui reste à tomber le fait paraître",
+  await pgReste.locator("#navJeton").isVisible());
+await ctxReste.close();
+
+const [ctxPluie, pgPluie] = await ctxJeton(meteoPluie());
+ok("de la pluie gênante pendant la sortie fait paraître le jeton",
+  await pgPluie.locator("#navJeton").isVisible());
+ok("le jeton nomme la fenêtre concernée",
+  (await pgPluie.locator("#navJetonTxt").innerText()).trim() === "17 h à 19 h",
+  await pgPluie.locator("#navJetonTxt").innerText());
+ok("il annonce un parapluie quand les rafales restent sous le seuil",
+  /^Parapluie,/.test(await pgPluie.getAttribute("#navJeton", "aria-label")),
+  await pgPluie.getAttribute("#navJeton", "aria-label"));
+
+/* La barre de tête garde sa hauteur, et le jeton tient tout entier dedans : le
+   risque nommé dans la consigne est qu'il pousse le nom de commune dehors. */
+ok("la barre de tête garde sa hauteur et le jeton tient dedans",
+  await pgPluie.evaluate(() => {
+    const barre = document.querySelector(".nav-corps").getBoundingClientRect();
+    const j = document.getElementById("navJeton").getBoundingClientRect();
+    const n = document.getElementById("navLieuNom").getBoundingClientRect();
+    const haut = parseFloat(getComputedStyle(document.documentElement)
+      .getPropertyValue("--nav-haut"));
+    return Math.round(barre.height) === Math.round(haut) && j.top >= barre.top - 0.5
+      && j.bottom <= barre.bottom + 0.5 && j.width > 60 && n.width > 40
+      && n.right <= j.left + 0.5;
+  }));
+
+/* Le jeton se tient à la même place sur les cinq écrans : c'est ce qui en fait
+   un repère, une réponse posée hors du contenu. */
+ok("le jeton garde sa place sur les cinq écrans", await (async () => {
+  const vus = [];
+  for (const cle of ["accueil", "temps", "semaine", "soleil", "lune"]) {
+    await pgPluie.locator(`[data-onglet="${cle}"]`).click();
+    await pgPluie.waitForTimeout(400);
+    const b = await pgPluie.locator("#navJeton").boundingBox();
+    vus.push(b ? `${Math.round(b.x)},${Math.round(b.y)}` : "absent");
+  }
+  await pgPluie.locator('[data-onglet="accueil"]').click();
+  await pgPluie.waitForTimeout(400);
+  return new Set(vus).size === 1 && !vus.includes("absent");
+})());
+
+/* Le jeton se refait à chaque rendu, sur les cinq écrans et non sur le seul
+   accueil : la barre de tête est commune, et un jeton pris ailleurs ne doit pas
+   y rester posé. La place est rendue ensuite pour la suite des contrôles. */
+await pgPluie.locator('[data-onglet="temps"]').click();
+await pgPluie.waitForTimeout(350);
+await pgPluie.evaluate(async () => {
+  const R = await import("/src/reglages.js");
+  const Pl = await import("/src/parapluie.js");
+  const Pr = await import("/src/previsions.js");
+  R.prendreJeton(Pl.jeton(Pr.serieHorizon(), R.sorties(Pl.SORTIES_DEFAUT)).cle);
+});
+await pgPluie.locator('[data-onglet="semaine"]').click();
+await pgPluie.waitForTimeout(400);
+ok("un jeton pris se retire aussi depuis un écran qui n'est pas l'accueil",
+  await pgPluie.locator("#navJeton").isHidden());
+await pgPluie.evaluate(() => localStorage.setItem("mameteo.reglages.v1",
+  JSON.stringify({ ...JSON.parse(localStorage.getItem("mameteo.reglages.v1")),
+    jetonsPris: [] })));
+await pgPluie.reload({ waitUntil: "networkidle" });
+await pgPluie.waitForTimeout(1400);
+
+/* Le fichier d'agenda. C'est le seul mécanisme qui donne une vraie alerte sans
+   service dorsal : il doit porter la bonne date, la bonne fenêtre, et une
+   alarme qui tombe avant l'évènement, non dessus. */
+const ICS = await pgPluie.evaluate(async () => {
+  const Pl = await import("/src/parapluie.js");
+  const Pr = await import("/src/previsions.js");
+  const R = await import("/src/reglages.js");
+  const j = Pl.jeton(Pr.serieHorizon(), R.sorties(Pl.SORTIES_DEFAUT));
+  return Pl.ics(j, "Fain-lès-Moutiers");
+});
+ok("le fichier d'agenda porte un calendrier complet",
+  ICS.startsWith("BEGIN:VCALENDAR\r\n") && ICS.trimEnd().endsWith("END:VCALENDAR")
+  && (ICS.match(/BEGIN:VEVENT/g) || []).length === 1, ICS.slice(0, 40));
+ok("son évènement porte la date et la fenêtre du jeton",
+  ICS.includes("DTSTART:20260818T170000") && ICS.includes("DTEND:20260818T190000"),
+  (ICS.match(/DT(START|END):\S+/g) || []).join(" "));
+ok("son alarme tombe quinze minutes avant l'évènement",
+  ICS.includes("BEGIN:VALARM") && /TRIGGER:-PT15M/.test(ICS),
+  (ICS.match(/TRIGGER:\S+/g) || []).join(" "));
+ok("il nomme l'objet et la commune",
+  /SUMMARY:Parapluie à Fain-lès-Moutiers/.test(ICS),
+  (ICS.match(/SUMMARY:.*/) || [""])[0]);
+/* La norme demande des fins de ligne en retour chariot suivi d'un saut de
+   ligne, et des lignes de soixante-quinze octets au plus. */
+ok("ses fins de ligne sont celles de la norme",
+  await pgPluie.evaluate(t => /[^\r]\n/.test(t) ? "un saut de ligne seul" : "", ICS) === "");
+/* Le repli des lignes longues. Aucun nom de commune de France n'y mène, le plus
+   long tenant sous le compte : le contrôle l'éprouve donc sur un nom assez long
+   pour l'atteindre, plutôt que de porter un repli que rien ne vérifie. Le
+   fichier replié doit se déplier sur le texte de départ, sans quoi l'agenda
+   afficherait un titre coupé. */
+ok("une ligne longue se replie et se déplie sur son texte",
+  await pgPluie.evaluate(async () => {
+    const Pl = await import("/src/parapluie.js");
+    const Pr = await import("/src/previsions.js");
+    const R = await import("/src/reglages.js");
+    const j = Pl.jeton(Pr.serieHorizon(), R.sorties(Pl.SORTIES_DEFAUT));
+    const long = "Saint-Rémy-en-Bouzemont-Saint-Genest-et-Isson-lès-Deux-Églises";
+    const t = Pl.ics(j, long);
+    const e = new TextEncoder();
+    const trop = t.split("\r\n").filter(l => e.encode(l).length > 75);
+    if (trop.length) return `ligne de ${e.encode(trop[0]).length} octets`;
+    const deplie = t.replace(/\r\n /g, "");
+    return deplie.includes(`SUMMARY:Parapluie à ${long}`)
+      ? "" : "le dépliage ne rend pas le titre";
+  }) === "");
+
+/* La prise du jeton. Elle est gardée en local et portée par la date et la
+   fenêtre : un rechargement ne doit pas le faire revenir.
+
+   L'appui passe par une aide qui rend la main sur un élément absent, au lieu de
+   lever : une faute rétablie plus haut doit faire tomber les contrôles qu'elle
+   concerne, non interrompre la suite avant les autres. */
+const clic = async (p, sel) => {
+  if (!(await p.locator(sel).count()) || !(await p.locator(sel).isVisible())) return false;
+  await p.locator(sel).click();
+  return true;
+};
+await clic(pgPluie, "#navJeton");
+await pgPluie.waitForTimeout(450);
+ok("l'appui sur le jeton ouvre sa feuille",
+  (await pgPluie.locator("#feuille-titre").innerText()).startsWith("Parapluie"),
+  await pgPluie.locator("#feuille-titre").innerText());
+ok("la feuille porte les deux mécanismes, l'agenda et la prise",
+  await pgPluie.locator("#plAgenda").count() === 1
+  && await pgPluie.locator("#plPris").count() === 1);
+await clic(pgPluie, "#plPris");
+await pgPluie.waitForTimeout(500);
+ok("le jeton disparaît après un appui", await pgPluie.locator("#navJeton").isHidden());
+await pgPluie.reload({ waitUntil: "networkidle" });
+await pgPluie.waitForTimeout(1400);
+ok("et ne revient pas au rechargement", await pgPluie.locator("#navJeton").isHidden());
+ok("la prise est gardée par sa date et sa fenêtre",
+  (await pgPluie.evaluate(() =>
+    JSON.parse(localStorage.getItem("mameteo.reglages.v1")).jetonsPris)).includes("2026-08-18|17-19"),
+  await pgPluie.evaluate(() =>
+    JSON.stringify(JSON.parse(localStorage.getItem("mameteo.reglages.v1")).jetonsPris)));
+
+/* Les heures de sortie se règlent, et le rappel les suit : une fenêtre déplacée
+   hors de la pluie ne doit plus rien faire paraître. */
+await pgPluie.evaluate(() => localStorage.setItem("mameteo.reglages.v1",
+  JSON.stringify({ ...JSON.parse(localStorage.getItem("mameteo.reglages.v1")),
+    jetonsPris: [], sorties: [[7.5, 9], [20, 22]] })));
+await pgPluie.reload({ waitUntil: "networkidle" });
+await pgPluie.waitForTimeout(1400);
+ok("une fenêtre de sortie déplacée hors de la pluie ne fait rien paraître",
+  await pgPluie.locator("#navJeton").isHidden());
+await pgPluie.locator("#btnReglages").click();
+await pgPluie.waitForTimeout(450);
+ok("les réglages portent les deux fenêtres de sortie, quatre bornes",
+  await pgPluie.locator(".rg-h").count() === 4);
+ok("les bornes affichées sont celles qui sont enregistrées",
+  await pgPluie.evaluate(() =>
+    [...document.querySelectorAll(".rg-h")].map(s => s.value).join(",")) === "7.5,9,20,22",
+  await pgPluie.evaluate(() =>
+    [...document.querySelectorAll(".rg-h")].map(s => s.value).join(",")));
+/* Une fin qui passerait avant son début est refusée, et le menu revient à la
+   valeur en vigueur plutôt que de montrer un état que rien n'enregistre. */
+await pgPluie.selectOption('.rg-h[data-fen="1"][data-bout="1"]', "19");
+await pgPluie.waitForTimeout(350);
+ok("une fenêtre dont la fin précède le début est refusée",
+  await pgPluie.evaluate(() =>
+    document.querySelector('.rg-h[data-fen="1"][data-bout="1"]').value) === "22"
+  && JSON.stringify(await pgPluie.evaluate(() =>
+    JSON.parse(localStorage.getItem("mameteo.reglages.v1")).sorties)) === "[[7.5,9],[20,22]]",
+  await pgPluie.evaluate(() =>
+    JSON.stringify(JSON.parse(localStorage.getItem("mameteo.reglages.v1")).sorties)));
+/* Une fenêtre ramenée sur la pluie fait reparaître le jeton sans quitter la
+   feuille : l'écran de dessous se refait pendant qu'elle reste ouverte. */
+await pgPluie.selectOption('.rg-h[data-fen="1"][data-bout="0"]', "17");
+await pgPluie.waitForTimeout(200);
+await pgPluie.selectOption('.rg-h[data-fen="1"][data-bout="1"]', "19");
+await pgPluie.waitForTimeout(400);
+ok("une fenêtre ramenée sur la pluie fait reparaître le jeton",
+  await pgPluie.locator("#navJeton").isVisible());
+ok("la recette du raccourci se donne étape par étape",
+  await pgPluie.locator(".rg-recette li").count() === 6,
+  String(await pgPluie.locator(".rg-recette li").count()));
+await ctxPluie.close();
+
+/* Le vent. Un parapluie ne tient pas au delà du seuil de retournement, et
+   l'annoncer alors serait un mauvais conseil. */
+const [ctxCapuche, pgCapuche] = await ctxJeton(meteoPluie(55));
+ok("un vent au delà du seuil fait écrire capuche et non parapluie",
+  /^Capuche,/.test(await pgCapuche.getAttribute("#navJeton", "aria-label")),
+  await pgCapuche.getAttribute("#navJeton", "aria-label"));
+await clic(pgCapuche, "#navJeton");
+await pgCapuche.waitForTimeout(450);
+ok("sa feuille dit pourquoi le parapluie ne convient pas",
+  /rafale, un parapluie se retourne/.test(await pgCapuche.locator(".feuille-corps").innerText()),
+  await pgCapuche.locator(".feuille-corps").innerText());
+ok("le seuil de retournement est celui de la règle des rafales",
+  await pgCapuche.evaluate(async () => {
+    const Pl = await import("/src/parapluie.js");
+    const C = await import("/src/conseils.js");
+    return Pl.RETOURNEMENT === C.SEUILS.rafale;
+  }));
+await ctxCapuche.close();
+
 
 console.log("\n--- Mouvement réduit ---");
 const ctx2 = await nav.newContext({

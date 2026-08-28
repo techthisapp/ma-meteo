@@ -54,6 +54,16 @@ for (const theme of ["light", "dark"]) {
   await ctx.route(/api\.open-meteo\.com/, route => {
     const u = route.request().url();
     const d = JSON.parse(JSON.stringify(METEO));
+    /* De la pluie posée sur la fenêtre de sortie du soir, pour les vues qui
+       montrent le rappel de parapluie. La charge d'essai est sèche. */
+    if (process.env.PLUIE) {
+      for (let k = 0; k < d.hourly.time.length; k++) {
+        if (!/^2026-08-18T1[78]/.test(d.hourly.time[k])) continue;
+        d.hourly.precipitation[k] = 1.2;
+        d.hourly.precipitation_probability[k] = 80;
+        if (process.env.PLUIE === "vent") d.hourly.wind_gusts_10m[k] = 55;
+      }
+    }
     if (u.includes("current=")) {
       route.fulfill({ status: 200, contentType: "application/json", body: "[]" }); return;
     }
@@ -108,6 +118,10 @@ for (const theme of ["light", "dark"]) {
   if (process.env.OUVRIR) {
     await pg.locator(".sem-r").nth(Number(process.env.OUVRIR)).click();
     await pg.waitForTimeout(500);
+  }
+  if (process.env.FEUILLE) {
+    await pg.locator(process.env.FEUILLE === "parapluie" ? "#navJeton" : "#btnReglages").click();
+    await pg.waitForTimeout(600);
   }
   await pg.screenshot({ path: path.join(SORTIE, `${cle}-haut-${theme}.png`) });
   await pg.evaluate(() => window.scrollTo({ top: 99999, behavior: "instant" }));

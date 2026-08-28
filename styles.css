@@ -113,6 +113,7 @@
   --ic-nuage:#7B8A99;
   --ic-soleil:#D79A28;
   --ic-pluie:#3B82C4;
+  --pluie-fond:#E4EFF9;          /* fond doux du jeton de parapluie */
   --ic-neige:#6FAEDA;
   --ic-orage:#CE7A1E;
   --ic-lune:#6C7CA6;
@@ -164,6 +165,7 @@
     --ic-nuage:#93A3B2;
     --ic-soleil:#E7B754;
     --ic-pluie:#6BA8DC;
+    --pluie-fond:#1D2B3A;
     --ic-neige:#8FC4E6;
     --ic-orage:#E29845;
     --ic-lune:#98A7CC;
@@ -216,7 +218,7 @@ body{
 body.fige{overflow:hidden}
 
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
-input{font:inherit;color:inherit}
+input,select{font:inherit;color:inherit}
 a{color:var(--accent)}
 
 /* État désactivé, commun à tous les contrôles. */
@@ -325,6 +327,24 @@ button:disabled,button[aria-disabled="true"],input:disabled{
 .nav-lieu > .nav-pos{display:inline-flex;flex:0 0 auto;color:var(--accent);overflow:visible}
 .nav-pos svg{width:15px;height:15px}
 .nav-lieu:active{opacity:.6}
+/* Le jeton du rappel de parapluie. Il vit dans la barre de tête, entre la
+   commune et les réglages, et se voit donc sur les cinq écrans. Il porte son
+   dessin et sa fenêtre en heures, ce qui tient dans la place laissée par un nom
+   de commune tronqué. La couleur est celle de la pluie du design system, non
+   celle de l'accent : le jeton n'est pas une action ordinaire. */
+.nav-jeton{
+  display:inline-flex;align-items:center;gap:var(--espace-xs);
+  height:32px;flex:0 0 auto;margin-right:var(--espace-xs);
+  padding:0 var(--espace-sm);border-radius:var(--rayon-plein);
+  background:var(--pluie-fond);color:var(--ic-pluie);
+  font-size:var(--texte-legende);font-weight:var(--graisse-semibold);
+  white-space:nowrap;
+}
+.nav-jeton svg{width:16px;height:16px}
+.nav-jeton:active{opacity:.6}
+/* Sur le ciel plein cadre, le jeton garde sa matière propre : posé en
+   transparence comme le reste de la barre, il se perdait dans les nuages. */
+.nav.sur-ciel .nav-jeton{background:rgba(255,255,255,.22);color:#FFFFFF}
 .nav-act{
   display:inline-flex;align-items:center;justify-content:center;
   width:var(--touche);height:var(--touche);margin-right:calc(var(--espace-sm) * -1);
@@ -653,6 +673,29 @@ button.rangee:active{background:var(--surface-2)}
 }
 .rg-champ:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:transparent}
 .champ-erreur{font-size:var(--texte-note);color:var(--erreur);display:flex;align-items:center;gap:var(--espace-xs)}
+
+/* Les deux bornes d'une fenêtre de sortie. Le menu garde le gabarit d'une
+   valeur de rangée, la hauteur de touche étant portée par la rangée elle-même. */
+.rg-fen{display:flex;align-items:center;gap:var(--espace-xs)}
+.rg-fen i{font-style:normal;color:var(--etiquette-2)}
+.rg-h{
+  min-height:34px;padding:0 var(--espace-sm);
+  border-radius:var(--rayon-sm);border:1px solid var(--filet);
+  background:var(--fond);color:var(--etiquette);
+  font-size:var(--texte-sous);font-weight:var(--graisse-semibold);
+  font-variant-numeric:tabular-nums;
+}
+.rg-h:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+/* La recette du raccourci. Les numéros sont l'information : ils se lisent en
+   marge, alignés sur la colonne du texte. */
+.rg-recette{
+  margin-top:var(--espace-md);padding-left:var(--espace-lg);
+  display:flex;flex-direction:column;gap:var(--espace-sm);
+  font-size:var(--texte-sous);line-height:1.45;color:var(--etiquette-2);
+}
+.rg-recette li{list-style:decimal;padding-left:var(--espace-xs)}
+.rg-recette li::marker{color:var(--etiquette-3);font-variant-numeric:tabular-nums}
 
 /* ---------- 8. États ---------- */
 

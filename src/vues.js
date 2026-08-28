@@ -12,6 +12,7 @@ import * as Feu from "./feu.js";
 import * as Relief from "./relief.js";
 import * as Temps from "./temps.js";
 import * as Ensemble from "./ensemble.js";
+import * as Parapluie from "./parapluie.js";
 import * as Vig from "./vigilance.js";
 import { SEUILS } from "./conseils.js";
 
@@ -1406,9 +1407,121 @@ function brancherRecherche(bloc, rendre, majEtat) {
   });
 }
 
+/* ---------- Le rappel de parapluie ---------- */
+
+/* Un fichier fabriqué sur l'appareil, remis au système. Aucun service dorsal
+   n'intervient : le texte est construit ici, l'agenda du téléphone le lit. */
+function telechargerIcs(texte, nom) {
+  const url = URL.createObjectURL(new Blob([texte], { type: "text/calendar;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nom;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+/* Le jour d'un jeton, dit comme on le dirait. La clé du jour se construit en
+   heure locale : `toISOString` bascule sur l'UTC et nommerait la veille passé
+   vingt-deux heures en été. */
+const cleLocale = (d = new Date()) => `${d.getFullYear()}-`
+  + `${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const jourDit = j => (j === cleLocale() ? "aujourd'hui" : jourLong(j));
+
+export function vueParapluie(ctx, rendre, majEtat) {
+  const j = ctx.jeton;
+  if (!j) {
+    return {
+      titre: "Rappel",
+      corps: `<p class="note">Aucune pluie gênante n'est attendue pendant les heures `
+        + `de sortie. Le rappel ne paraît que lorsqu'il y a lieu.</p>`,
+    };
+  }
+
+  const [nom, objet] = Parapluie.OBJETS[j.objet];
+  const capuche = j.objet === "capuche";
+  const semaine = Parapluie.journeesPluvieuses(
+    P.serieHorizon(), Reglages.sorties(Parapluie.SORTIES_DEFAUT));
+  const autres = semaine.filter(d => d.cle !== j.cle).length;
+
+  return {
+    titre: nom,
+    sous: `${jourDit(j.jour)}, ${Parapluie.fenetreTxt(j.h0, j.h1)}`,
+    corps:
+      `<div class="carte">`
+      + `<div class="rangee">${ico(j.objet, "")}`
+      + `<span class="rangee-txt"><b>Prendre ${capuche ? "une" : "un"} ${esc(objet)}</b>`
+      + `<span>${capuche
+        ? `Au delà de ${Parapluie.RETOURNEMENT} km/h de rafale, un parapluie se retourne.`
+        : `Les rafales restent sous ${Parapluie.RETOURNEMENT} km/h.`}</span></span></div>`
+      + `<div class="rangee"><span class="rangee-txt">Pluie la plus forte</span>`
+      + valeur(`${nombreFr(j.mm)} mm`, { doux: "dans l'heure" }) + `</div>`
+      + `<div class="rangee"><span class="rangee-txt">Rafales</span>`
+      + valeur(`${j.raf} km/h`) + `</div>`
+      + `</div>`
+
+      + `<button type="button" class="bouton-plein" id="plAgenda">`
+      + `Poser un rappel dans l'agenda</button>`
+      + (autres ? `<button type="button" class="bouton-borde" id="plSemaine">`
+        + `Poser les ${semaine.length} journées pluvieuses</button>` : "")
+      + `<button type="button" class="bouton-borde" id="plPris">C'est pris</button>`
+
+      + `<p class="note">Le rappel se pose à ${esc(Parapluie.fenetreTxt(j.h0, j.h1))}, `
+      + `avec une alarme ${Parapluie.AVANCE} minutes avant. Le fichier d'agenda est `
+      + `fabriqué sur cet appareil et remis à l'agenda du téléphone, sans compte ni `
+      + `service. « C'est pris » retire le rappel jusqu'à la prochaine journée pluvieuse.</p>`,
+
+    brancher(bloc) {
+      const poser = (lot, fichier, dit) => {
+        const texte = Parapluie.ics(lot, ctx.commune);
+        if (!texte) { majEtat("Aucun rappel à poser."); return; }
+        telechargerIcs(texte, fichier);
+        majEtat(dit);
+      };
+      bloc.querySelector("#plAgenda").addEventListener("click", () =>
+        poser(j, "rappel-parapluie.ics", "Rappel remis à l'agenda."));
+      const sem = bloc.querySelector("#plSemaine");
+      if (sem) {
+        sem.addEventListener("click", () =>
+          poser(semaine, "rappels-parapluie.ics",
+            `${semaine.length} rappels remis à l'agenda.`));
+      }
+      bloc.querySelector("#plPris").addEventListener("click", () => {
+        Reglages.prendreJeton(j.cle);
+        rendre({ ecran: true });
+      });
+    },
+  };
+}
+
+/* Le choix d'une heure, au pas de la demi-heure. Un menu déroulant plutôt qu'un
+   champ d'heure : le champ natif propose la minute, précision que la source
+   horaire n'a pas, et son clavier diffère d'un système à l'autre. */
+const optionsHeure = (de, a, valeur) => {
+  let o = "";
+  for (let h = de; h <= a; h += 0.5) {
+    o += `<option value="${h}"${h === valeur ? " selected" : ""}>`
+      + `${esc(Parapluie.heureDemie(h))}</option>`;
+  }
+  return o;
+};
+
+const RECETTE = [
+  "Ouvrir l'application Raccourcis, onglet Automatisation, puis Nouvelle automatisation.",
+  "Choisir Heure de la journée, régler l'heure de sortie du matin et la répétition quotidienne.",
+  "Décocher Demander avant d'exécuter, pour que le rappel parte seul.",
+  "Ajouter l'action Obtenir le contenu de l'URL et y coller l'adresse de Ma météo.",
+  "Ajouter l'action Ouvrir l'app et choisir Ma météo, pour lire le jeton du jour.",
+  "Enregistrer, puis refaire la même automatisation pour l'heure de sortie du soir.",
+];
+
 export function vueReglages(ctx, rendre, majEtat) {
   const g = Reglages.lire();
   const c = P.chargeCourante();
+  const so = Reglages.sorties(Parapluie.SORTIES_DEFAUT);
+  const FENETRES = [["Matin", 0], ["Soir", 1]];
 
   const sources = [
     ["Prévision", "Open-Meteo, AROME de Météo-France forcé sur les deux premiers jours"],
@@ -1423,6 +1536,30 @@ export function vueReglages(ctx, rendre, majEtat) {
       + `<div class="seg">` + Reglages.ECRITURES.map(([k, n]) =>
         `<button type="button" data-ecriture="${k}"${k === g.ecriture ? ' class="actif"' : ""}>${esc(n)}</button>`)
         .join("") + `</div></div>`
+
+      + `<div class="carte"><div class="carte-tete"><h3>Heures de sortie</h3></div>`
+      + FENETRES.map(([n, i]) => `<div class="rangee">`
+        + `<span class="rangee-txt">${esc(n)}</span>`
+        + `<span class="rangee-val rg-fen">`
+        + `<select class="rg-h" data-fen="${i}" data-bout="0" `
+        + `aria-label="Début de la sortie du ${esc(n.toLowerCase())}">`
+        + optionsHeure(0, 23.5, so[i][0]) + `</select>`
+        + `<i>à</i>`
+        + `<select class="rg-h" data-fen="${i}" data-bout="1" `
+        + `aria-label="Fin de la sortie du ${esc(n.toLowerCase())}">`
+        + optionsHeure(0.5, 24, so[i][1]) + `</select>`
+        + `</span></div>`).join("")
+      + `<p class="note">Le rappel de parapluie ne regarde que ces deux fenêtres. `
+      + `Une pluie annoncée en dehors ne fait paraître aucun jeton.</p></div>`
+
+      + `<div class="carte"><div class="carte-tete"><h3>Rappel automatique sur iPhone</h3></div>`
+      + `<p class="note">L'application ne peut pas envoyer de notification : elle n'a `
+      + `aucun service dorsal. Une automatisation de l'application Raccourcis ouvre `
+      + `Ma météo aux heures de sortie, ce qui revient au même résultat. À construire `
+      + `une fois, à la main.</p>`
+      + `<ol class="rg-recette">` + RECETTE.map(e => `<li>${esc(e)}</li>`).join("") + `</ol>`
+      + `<p class="note">Le rappel posé dans l'agenda depuis le jeton du jour reste `
+      + `la voie la plus simple : il porte une alarme et ne demande aucun réglage.</p></div>`
 
       + `<div class="carte"><div class="carte-tete"><h3>Sources</h3></div>`
       + sources.map(([n, v]) => `<div class="rangee"><span class="rangee-txt">${esc(n)}</span>`
@@ -1440,6 +1577,28 @@ export function vueReglages(ctx, rendre, majEtat) {
           Reglages.poserEcriture(b.dataset.ecriture);
           for (const x of bloc.querySelectorAll("[data-ecriture]")) {
             x.classList.toggle("actif", x === b);
+          }
+        });
+      }
+
+      /* Une fenêtre dont la fin passerait avant le début est refusée par les
+         réglages. Le menu revient alors à la valeur en vigueur, plutôt que de
+         montrer un état que rien n'enregistre. */
+      const menus = [...bloc.querySelectorAll(".rg-h")];
+      const remettre = v => {
+        for (const m of menus) m.value = String(v[Number(m.dataset.fen)][Number(m.dataset.bout)]);
+      };
+      for (const m of menus) {
+        m.addEventListener("change", () => {
+          const v = Reglages.sorties(Parapluie.SORTIES_DEFAUT).map(f => [f[0], f[1]]);
+          v[Number(m.dataset.fen)][Number(m.dataset.bout)] = Number(m.value);
+          Reglages.poserSorties(v);
+          const apres = Reglages.sorties(Parapluie.SORTIES_DEFAUT);
+          remettre(apres);
+          if (apres[Number(m.dataset.fen)][Number(m.dataset.bout)] !== Number(m.value)) {
+            majEtat("La fin d'une sortie vient après son début.");
+          } else {
+            rendre({ ecranSeul: true });
           }
         });
       }

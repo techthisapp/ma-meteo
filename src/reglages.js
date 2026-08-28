@@ -19,6 +19,8 @@ const DEFAUT = {
   suivies: [],         // communes suivies, la courante comprise
   auto: false,         // le lieu courant suit la position de l'appareil
   position: null,      // dernier relevé : commune, codePostal, lat, lon, t
+  sorties: null,       // heures de sortie, deux fenêtres au pas de la demi-heure
+  jetonsPris: [],      // jetons de parapluie déjà pris, par date et fenêtre
 };
 
 let etat = { ...DEFAUT };
@@ -27,6 +29,16 @@ try {
   const brut = JSON.parse(localStorage.getItem(CLE) || "null");
   if (brut && typeof brut === "object") etat = { ...DEFAUT, ...brut };
 } catch { /* stockage indisponible, les valeurs par défaut suffisent */ }
+
+/* Deux fenêtres de sortie, chacune une paire d'heures croissantes dans la
+   journée, au pas de la demi-heure. Une forme abîmée retombe sur la valeur par
+   défaut plutôt que de faire paraître un jeton à une heure absurde. */
+const estDemie = h => Number.isFinite(h) && h * 2 === Math.round(h * 2);
+function estSorties(v) {
+  return Array.isArray(v) && v.length === 2 && v.every(f =>
+    Array.isArray(f) && f.length === 2 && estDemie(f[0]) && estDemie(f[1])
+    && f[0] >= 0 && f[0] < f[1] && f[1] <= 24);
+}
 
 /* Clé d'un lieu : ses coordonnées arrondies au dix-millième, soit une dizaine
    de mètres. Deux entrées de la même commune ne peuvent pas coexister. */
@@ -48,6 +60,11 @@ if (etat.auto && !etat.position) etat.auto = false;
 /* En mode position, le lieu courant n'est pas une commune choisie : le reprendre
    dans la liste y ferait entrer une commune que personne n'a demandée. */
 if (!etat.suivies.length && etat.lat !== null && !etat.auto) etat.suivies = [nu(etat)];
+
+/* Les heures de sortie et les jetons pris viennent avec le rappel de parapluie :
+   un réglage écrit avant lui ne les porte pas. */
+if (!Array.isArray(etat.jetonsPris)) etat.jetonsPris = [];
+if (!estSorties(etat.sorties)) etat.sorties = null;
 
 const ecrire = () => {
   try { localStorage.setItem(CLE, JSON.stringify(etat)); }
@@ -205,6 +222,29 @@ export const ECRITURES = [["ruban", "Ruban"], ["liste", "Liste"]];
 export function poserEcriture(e) {
   if (!ECRITURES.some(([c]) => c === e)) return;
   poser({ ecriture: e });
+}
+
+/* Les heures de sortie. `null` rend la valeur par défaut du module du parapluie,
+   qui la porte avec les seuils : les nombres du rappel vivent au même endroit. */
+export const sorties = defaut => (estSorties(etat.sorties) ? etat.sorties : defaut);
+export function poserSorties(v) {
+  if (!estSorties(v)) return;
+  poser({ sorties: v.map(f => [f[0], f[1]]) });
+}
+
+/* Les jetons pris. La liste s'oublie d'elle-même : un jeton porte sa date, et
+   ceux d'avant-hier ne peuvent plus reparaître. Sans cet oubli la liste
+   grandirait d'une entrée par journée pluvieuse, pour toujours. */
+const JETONS_GARDES = 3;
+export const jetonPris = cle => etat.jetonsPris.includes(cle);
+export function prendreJeton(cle) {
+  if (!cle || etat.jetonsPris.includes(cle)) return;
+  const limite = new Date();
+  limite.setDate(limite.getDate() - JETONS_GARDES);
+  const seuil = `${limite.getFullYear()}-${String(limite.getMonth() + 1).padStart(2, "0")}`
+    + `-${String(limite.getDate()).padStart(2, "0")}`;
+  const gardes = etat.jetonsPris.filter(x => String(x).slice(0, 10) >= seuil);
+  poser({ jetonsPris: [...gardes, cle] });
 }
 
 /* Recherche de commune par l'interface adresse de data.gouv.fr. Elle répond

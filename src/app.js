@@ -19,12 +19,13 @@ import * as Feu from "./feu.js";
 import * as Relief from "./relief.js";
 import * as Temps from "./temps.js";
 import { vueTemps, vueSemaine, vueVigilance, vueSoleil, vueLune, vueCommunes, vueReglages,
-  vueAjout, bandeauAccueil } from "./vues.js";
+  vueAjout, vueParapluie, bandeauAccueil } from "./vues.js";
 import { moments } from "./ecritures.js";
 import * as Vig from "./vigilance.js";
 import * as Astres from "./astres.js";
 import * as Justesse from "./justesse.js";
 import * as Ensemble from "./ensemble.js";
+import * as Parapluie from "./parapluie.js";
 
 const $ = id => document.getElementById(id);
 
@@ -485,6 +486,29 @@ function ecranVue(nom) {
   };
 }
 
+/* ---------- Le jeton du rappel de parapluie ---------- */
+
+/* Le jeton se pose dans la barre de tête, à la même place sur les cinq écrans.
+   Le silence est l'état par défaut : une journée sèche, une fenêtre de sortie
+   déjà passée ou un jeton déjà pris ne font rien paraître.
+
+   Il se recalcule à chaque rendu et non une fois pour toutes : le rendu suit le
+   changement de commune, la fin d'une fenêtre et la prise du jeton. */
+function poserJeton() {
+  const bouton = $("navJeton");
+  const j = charge === "pret"
+    ? Parapluie.jeton(P.serieHorizon(), Reglages.sorties(Parapluie.SORTIES_DEFAUT))
+    : null;
+  ctx.jeton = j;
+  ctx.commune = Reglages.lire().commune || "";
+  const vu = !!j && !Reglages.jetonPris(j.cle);
+  bouton.hidden = !vu;
+  if (!vu) return;
+  $("navJetonIco").innerHTML = ico(j.objet, "");
+  $("navJetonTxt").textContent = Parapluie.fenetreTxt(j.h0, j.h1);
+  bouton.setAttribute("aria-label", `${Parapluie.motDe(j)}. Ouvrir le rappel.`);
+}
+
 /* ---------- Rendu de l'écran courant ---------- */
 
 function rendre() {
@@ -524,6 +548,7 @@ function rendre() {
     ? (g.commune || "Ma position") : (g.commune || "Ma météo");
   $("navPos").hidden = !enPos;
   $("navLieu").hidden = false;
+  poserJeton();
   ecran.classList.toggle("plein-cadre", f.pleinCadre === true);
   ecran.classList.toggle("ecran-large", f.large === true);
   ecran.innerHTML = (f.pleinCadre ? "" : titreEcran(f.titre, f.sous, f.cote)) + f.corps;
@@ -667,11 +692,11 @@ async function suivrePosition({ force } = {}) {
 /* ---------- Couche superposition ---------- */
 
 const FEUILLES = { vigilance: vueVigilance, communes: vueCommunes,
-  ajout: vueAjout, reglages: vueReglages };
+  ajout: vueAjout, reglages: vueReglages, parapluie: vueParapluie };
 
 /* Accroches : un contenu court n'occupe pas tout l'écran. */
 const ACCROCHE = { vigilance: "moyenne", communes: "grande",
-  ajout: "grande", reglages: "grande" };
+  ajout: "grande", reglages: "grande", parapluie: "moyenne" };
 
 function rendreFeuille() {
   if (!vueCourante) return;
@@ -679,7 +704,13 @@ function rendreFeuille() {
     /* Le retour sensoriel accompagne une sélection décidée par l'utilisateur,
        jamais un rendu automatique. */
     if (options?.recharger) { sentir(10); fermerFeuille(); charger(); return; }
+    /* La feuille se ferme et l'écran se refait : ce qui vient d'être décidé
+       dedans se voit dehors, le jeton pris quittant la barre de tête. */
+    if (options?.ecran) { sentir(10); fermerFeuille(); rendre(); return; }
     if (options?.fermer) { fermerFeuille(); return; }
+    /* L'écran de dessous se refait, la feuille reste ouverte : un réglage change
+       la barre de tête sans que la feuille ait à se redessiner. */
+    if (options?.ecranSeul) { rendre(); return; }
     rendreFeuille();
   }, majEtat);
   $("feuille-titre").innerHTML = esc(f.titre)
@@ -855,6 +886,7 @@ async function nommerPosition() {
 
 $("btnReglages").addEventListener("click", () => ouvrirFeuille("reglages"));
 $("navLieu").addEventListener("click", () => ouvrirFeuille("communes"));
+$("navJeton").addEventListener("click", () => { sentir(8); ouvrirFeuille("parapluie"); });
 $("feuille-fermer").addEventListener("click", () => history.back());
 $("feuille-retour").addEventListener("click", retour);
 $("voile").addEventListener("click", () => history.back());
