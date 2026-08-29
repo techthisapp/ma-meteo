@@ -5,9 +5,16 @@
    le temps fait, elle dit ce qu'il faut faire, et c'est le seul endroit de
    l'application qui donne une instruction.
 
-   Elle ne parle jamais du parapluie. C'est l'affaire du jeton, qui vit dans la
-   barre de tête et porte déjà cette réponse sur les cinq écrans ; la redire ici
-   la mettrait deux fois sur le même écran.
+   Elle porte deux lignes au plus, chacune avec son symbole : ce qu'il faut
+   prendre, puis comment s'habiller. L'objet vient en premier, c'est celui qu'on
+   oublie en sortant quand le vêtement est déjà sur soi.
+
+   La première version laissait la pluie au seul jeton de la barre de tête, pour
+   ne rien dire deux fois sur le même écran. Vu à l'usage, un conseil de vêtement
+   qui ne dit pas de prendre une capuche est incomplet : c'est la même question,
+   celle de ce qu'on emporte, et la couper en deux la rendait moins utile que la
+   redite ne coûtait. Le jeton reste à sa place sur les cinq écrans, et sert de
+   porte au rappel d'agenda.
 
    Le silence est l'état par défaut. Une journée sans instruction à donner laisse
    le ciel nu. */
@@ -15,6 +22,7 @@
 import { heureTxt } from "./horloge.js";
 import * as Ensemble from "./ensemble.js";
 import * as Activites from "./activites.js";
+import * as Parapluie from "./parapluie.js";
 
 /* L'échelle d'habillement, en degrés ressentis. Les bornes sont celles auxquelles
    on change de vêtement, non des paliers réguliers : entre neuf et quinze degrés
@@ -113,18 +121,43 @@ export function aeration(serie, k) {
       + `${Math.round(frais)}° dehors.` };
 }
 
-/* La réponse du jour, ou `null`. L'habillement passe devant l'aération : on
-   s'habille avant d'ouvrir une fenêtre, et c'est la question que l'on se pose
-   en se levant.
+/* La réponse du jour, ou `null`. Une ligne par fait, chacune avec son symbole :
+   ce qu'il faut prendre, puis comment s'habiller.
 
-   La confiance ne s'écrit que lorsqu'elle est mauvaise. Une mention à chaque
-   fois se lirait une semaine, puis ne se lirait plus. */
+   L'objet vient en premier. C'est celui qu'on oublie en sortant, quand le
+   vêtement est déjà sur soi ; et c'est le seul des deux qui trempe.
+
+   Il est passé par le contexte et non recalculé : le jeton de la barre de tête
+   le porte déjà, avec sa prise et sa fenêtre d'alerte. Deux calculs pour le même
+   objet finiraient par se contredire à quelques minutes près.
+
+   L'habillement passe devant l'aération : on s'habille avant d'ouvrir une
+   fenêtre, et c'est la question que l'on se pose en se levant.
+
+   La confiance ne s'écrit que lorsqu'elle est mauvaise, et sur la dernière
+   ligne. Une mention à chaque fois se lirait une semaine, puis ne se lirait
+   plus. */
 export function repondre(serie, maintenant = new Date(), opts = {}) {
   if (!serie || !Array.isArray(serie.res)) return null;
   const k = reste(serie, maintenant);
+  const lignes = [];
+
+  if (opts.jeton) {
+    lignes.push({ cle: "objet", symbole: opts.jeton.objet, feuille: "parapluie",
+      texte: Parapluie.motCourt(opts.jeton) });
+  }
   const r = habillement(serie, k, opts.biais || 0) || aeration(serie, k);
-  if (!r) return null;
+  if (r) {
+    lignes.push({ ...r, feuille: "ressenti",
+      symbole: r.cle === "aerer" ? "maison" : "thermo" });
+  }
+  if (!lignes.length) return null;
+
   const j = Ensemble.journee(cleJour(maintenant));
   const partages = !!j && j.etendue >= CONFIANCE_BASSE;
-  return { ...r, texte: partages ? `${r.texte} Scénarios partagés.` : r.texte, partages };
+  if (partages) {
+    const d = lignes[lignes.length - 1];
+    d.texte = `${d.texte} Scénarios partagés.`;
+  }
+  return { lignes, partages, texte: lignes.map(l => l.texte).join(" ") };
 }

@@ -2539,10 +2539,11 @@ console.log("\n--- La réponse du matin ---");
 ok("l'encart porte une instruction et non un fait",
   /^(Manteau|Veste|Pull|Manches|Tenue|Aérer)/.test((await txt(".pt-rep")).trim()),
   await txt(".pt-rep"));
-/* Elle ne parle jamais du parapluie : le jeton porte déjà cette réponse sur les
-   cinq écrans, et la redire la mettrait deux fois sur le même écran. */
-ok("elle ne parle pas du parapluie, qui est l'affaire du jeton",
-  !/parapluie|capuche/i.test(await txt(".pt-rep")), await txt(".pt-rep"));
+/* Sans pluie, elle n'a qu'une ligne : le silence par défaut vaut ligne par
+   ligne, et non pour l'encart entier. */
+ok("sans objet à prendre, elle n'a qu'une ligne",
+  await pg.locator(".pt-rep .pt-l").count() === 1,
+  String(await pg.locator(".pt-rep .pt-l").count()));
 /* Elle traverse la largeur au-dessus de la ligne de date. En dessous, elle
    rencontrerait le grand chiffre et les bornes du jour. */
 ok("elle est posée au-dessus de la ligne de date et du grand chiffre",
@@ -2561,10 +2562,17 @@ ok("elle est posée au-dessus de la ligne de date et du grand chiffre",
     const r = document.querySelector(".pt-rep")?.getBoundingClientRect();
     return r ? `${Math.round(r.width)} sur ${Math.round(r.height)}` : "absent";
   }));
-/* L'encart est une cible : il ouvre la feuille du ressenti personnel, où le
-   retour se donne au moment où le conseil est lu. */
-ok("l'encart ouvre la feuille du ressenti",
-  await pg.getAttribute(".pt-rep", "data-feuille") === "ressenti");
+/* Chaque ligne est une cible propre : l'objet mène au rappel d'agenda, la tenue
+   au réglage du ressenti. Une seule cible pour les deux enverrait l'un des deux
+   appuis au mauvais endroit. */
+ok("chaque ligne de l'encart ouvre la feuille qui la concerne",
+  await pg.evaluate(() => {
+    const l = [...document.querySelectorAll(".pt-rep .pt-l")];
+    if (!l.length) return "aucune ligne";
+    const f = l.map(x => x.dataset.feuille);
+    return f.every(x => x === "parapluie" || x === "ressenti") && new Set(f).size === f.length
+      ? "" : f.join(",");
+  }) === "");
 
 console.log("\n--- L'écran de questions ---");
 
@@ -4597,6 +4605,26 @@ ok("une ligne longue se replie et se déplie sur son texte",
       ? "" : "le dépliage ne rend pas le titre";
   }) === "");
 
+/* La réponse du matin porte l'objet à côté de la tenue. Un conseil de vêtement
+   qui ne dit pas de prendre un parapluie est incomplet : c'est la même question,
+   celle de ce qu'on emporte. */
+await pgPluie.locator('[data-onglet="accueil"]').click();
+await pgPluie.waitForTimeout(400);
+ok("l'encart porte l'objet, puis la tenue, dans cet ordre",
+  await pgPluie.evaluate(() => {
+    const l = [...document.querySelectorAll(".pt-rep .pt-l")];
+    if (l.length !== 2) return `${l.length} lignes`;
+    if (!/^(Parapluie|Capuche),/.test(l[0].textContent.trim())) return l[0].textContent;
+    if (!/ressentis|puis /.test(l[1].textContent)) return l[1].textContent;
+    return "";
+  }) === "", await txtDe(pgPluie, ".pt-rep"));
+ok("chaque ligne de l'encart mène là où elle appartient",
+  await pgPluie.evaluate(() =>
+    [...document.querySelectorAll(".pt-rep .pt-l")].map(x => x.dataset.feuille).join(","))
+    === "parapluie,ressenti",
+  await pgPluie.evaluate(() =>
+    [...document.querySelectorAll(".pt-rep .pt-l")].map(x => x.dataset.feuille).join(",")));
+
 /* La feuille et la prise. La prise est gardée sous la date et l'instant
    d'alerte : prendre le jeton du matin ne doit pas faire taire celui du soir,
    et un rechargement ne doit pas le rendre. */
@@ -4615,6 +4643,12 @@ ok("elle dit pourquoi le rappel ne se pose pas à l'heure d'alerte",
 await clic(pgPluie, "#plPris");
 await pgPluie.waitForTimeout(500);
 ok("le jeton disparaît après un appui", await pgPluie.locator("#navJeton").isHidden());
+/* La prise vaut pour les deux endroits : l'objet quitte aussi l'encart, sans
+   quoi l'application redemanderait de prendre ce qui est déjà pris. */
+ok("et l'objet quitte aussi l'encart de la réponse",
+  await pgPluie.evaluate(() =>
+    [...document.querySelectorAll(".pt-rep .pt-l")].every(x => x.dataset.feuille !== "parapluie")),
+  await txtDe(pgPluie, ".pt-rep"));
 await pgPluie.reload({ waitUntil: "networkidle" });
 await pgPluie.waitForTimeout(1400);
 ok("et ne revient pas au rechargement", await pgPluie.locator("#navJeton").isHidden());

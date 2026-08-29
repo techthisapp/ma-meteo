@@ -141,6 +141,10 @@ export const pluieTxt = p => (p
 export const motDe = j => (j
   ? `${OBJETS[j.objet][0]}, pluie de ${pluieTxt(j)}` : "");
 
+/* La même chose en plus court, pour la réponse du matin : l'encart porte déjà
+   un symbole de pluie, le mot « pluie » y serait dit deux fois. */
+export const motCourt = j => (j ? `${OBJETS[j.objet][0]}, ${pluieTxt(j)}` : "");
+
 /* Le fichier d'agenda, fabriqué sur l'appareil. C'est ce qui donne une vraie
    alerte sans aucun service dorsal : l'agenda du téléphone s'en charge ensuite.
 

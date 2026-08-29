@@ -290,8 +290,12 @@ function ecranAccueil() {
      quatre heures : elle porte sur ce qui reste de la journée civile, et la
      fenêtre glissante déborderait sur demain. Le contexte la garde pour la
      feuille du ressenti, qui lit la même. */
+  /* Le jeton est celui de la barre de tête, calculé une fois : la réponse du
+     matin le reprend plutôt que de le recalculer, et un jeton déjà pris ne
+     revient donc pas par l'encart. */
+  const jetonEncart = ctx.jeton && !Reglages.jetonPris(ctx.jeton.cle) ? ctx.jeton : null;
   const reponse = Reponse.repondre(P.serieHorizon(), new Date(),
-    { biais: Reglages.biais() });
+    { biais: Reglages.biais(), jeton: jetonEncart });
   ctx.reponse = reponse;
 
   let corps = "";
@@ -379,9 +383,14 @@ function ecranAccueil() {
          pouvant tomber n'importe où au-dessus, le grand chiffre et les bornes du
          jour occupant tout ce qui est en dessous. */
       + `<div class="plein-titre">`
-      + (reponse ? `<button type="button" class="pt-rep" data-feuille="ressenti" `
-        + `aria-label="${esc(reponse.texte)} Régler mon ressenti.">`
-        + `${ico("thermo", "pt-rep-ic")}<span>${esc(reponse.texte)}</span></button>` : "")
+      /* Une ligne par fait, chacune sa cible : l'objet mène au rappel d'agenda,
+         le vêtement au réglage du ressenti. Une seule cible pour les deux
+         enverrait l'un des deux appuis au mauvais endroit. */
+      + (reponse ? `<div class="pt-rep">`
+        + reponse.lignes.map(l => `<button type="button" class="pt-l" `
+          + `data-feuille="${esc(l.feuille)}" aria-label="${esc(l.texte)}">`
+          + `${ico(l.symbole, "pt-rep-ic")}<span>${esc(l.texte)}</span></button>`).join("")
+        + `</div>` : "")
       + `<i>${esc(jour.charAt(0).toUpperCase() + jour.slice(1))}</i>`
       + `<div class="pt-temps">`
       + `<button type="button" class="bd-deg" data-detail="t" `
@@ -545,6 +554,11 @@ function rendre() {
   const situe = Reglages.situe();
   const nom = ONGLETS.find(o => o[0] === onglet)?.[2] || "";
 
+  /* Le jeton se pose avant que l'écran ne se bâtisse : la réponse du matin le
+     reprend du contexte, et le calculer après lui donnerait celui du rendu
+     précédent. */
+  poserJeton();
+
   let f;
   if (!situe) {
     f = {
@@ -577,7 +591,6 @@ function rendre() {
     ? (g.commune || "Ma position") : (g.commune || "Ma météo");
   $("navPos").hidden = !enPos;
   $("navLieu").hidden = false;
-  poserJeton();
   ecran.classList.toggle("plein-cadre", f.pleinCadre === true);
   ecran.classList.toggle("ecran-large", f.large === true);
   ecran.innerHTML = (f.pleinCadre ? "" : titreEcran(f.titre, f.sous, f.cote)) + f.corps;

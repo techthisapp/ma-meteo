@@ -1220,7 +1220,8 @@ button.rangee:active{background:var(--surface-2)}
    le plafond le plus clair que l'application peigne, et un réglage qui ne change
    rien d'observable serait une garde que rien ne pourrait éprouver. */
 .pt-rep{
-  display:flex;align-items:center;gap:var(--espace-sm);width:100%;
+  display:flex;flex-direction:column;align-items:stretch;gap:var(--espace-xs);
+  width:100%;
   margin-bottom:var(--espace-md);padding:var(--espace-sm) var(--espace-md);
   border-radius:var(--rayon-lg);text-align:left;color:#FFFFFF;
   font-size:var(--texte-sous);font-weight:var(--graisse-medium);line-height:1.3;
@@ -1230,8 +1231,15 @@ button.rangee:active{background:var(--surface-2)}
   -webkit-backdrop-filter:blur(14px) saturate(1.2);
   animation:monte var(--duree-complexe) var(--ressort) both;
 }
+/* Une ligne par fait : l'objet à prendre, puis la tenue. Chacune est une cible
+   propre, l'une menant au rappel d'agenda et l'autre au réglage du ressenti. */
+.pt-l{
+  display:flex;align-items:center;gap:var(--espace-sm);width:100%;
+  min-height:var(--touche);
+  text-align:left;color:inherit;font:inherit;
+}
 .pt-rep-ic{width:17px;height:17px;flex:0 0 auto;opacity:.85}
-.pt-rep:active{opacity:.7}
+.pt-l:active{opacity:.6}
 /* Sans matière de verre, la bande garde son contraste par sa seule couleur. */
 @media (prefers-reduced-transparency:reduce),(prefers-contrast:more){
   .pt-rep{

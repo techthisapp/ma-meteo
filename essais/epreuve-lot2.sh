@@ -48,9 +48,20 @@ case "$N" in
   9) # Ne jamais écrire la confiance.
      perl -0pi -e 's/  const partages = !!j && j\.etendue >= CONFIANCE_BASSE;/  const partages = false;/' src/reponse.js
      ATTENDU="des scénarios partagés se disent dans la phrase" ;;
- 10) # Faire dire le parapluie à la phrase.
-     perl -0pi -e 's/  const r = habillement\(serie, k, opts\.biais \|\| 0\) \|\| aeration\(serie, k\);/  const r = { cle: "pluie", texte: "Parapluie aujourd\x27hui." };/' src/reponse.js
-     ATTENDU="elle ne parle pas du parapluie, qui est l'affaire du jeton" ;;
+ 10) # Faire porter l'objet à l'encart même quand il n'y en a pas.
+     perl -0pi -e 's/  if \(opts\.jeton\) \{/  if (true) {/' src/reponse.js
+     perl -0pi -e 's/      texte: Parapluie\.motCourt\(opts\.jeton\) \}\);/      texte: Parapluie.motCourt(opts.jeton) || "Parapluie" });/' src/reponse.js
+     perl -0pi -e 's/    lignes\.push\(\{ cle: "objet", symbole: opts\.jeton\.objet, feuille: "parapluie",/    lignes.push({ cle: "objet", symbole: "parapluie", feuille: "parapluie",/' src/reponse.js
+     ATTENDU="sans objet à prendre, elle n'a qu'une ligne" ;;
+ 14) # Ne pas porter l'objet dans l'encart, le laisser au seul jeton.
+     perl -0pi -e 's/  if \(opts\.jeton\) \{/  if (false) {/' src/reponse.js
+     ATTENDU="l'encart porte l'objet, puis la tenue, dans cet ordre" ;;
+ 15) # Une seule destination pour les deux lignes de l'encart.
+     perl -0pi -e 's/    lignes\.push\(\{ \.\.\.r, feuille: "ressenti",/    lignes.push({ ...r, feuille: "parapluie",/' src/reponse.js
+     ATTENDU="chaque ligne de l'encart mène là où elle appartient" ;;
+ 16) # Laisser l'objet dans l'encart après la prise du jeton.
+     perl -0pi -e 's/  const jetonEncart = ctx\.jeton && !Reglages\.jetonPris\(ctx\.jeton\.cle\) \? ctx\.jeton : null;/  const jetonEncart = ctx.jeton;/' src/app.js
+     ATTENDU="et l'objet quitte aussi l'encart de la réponse" ;;
  12) # Étendre le verre hors de la couche navigation et de son exception.
      perl -0pi -e 's/^\.carte,\.groupe\{/.carte,.groupe{backdrop-filter:blur(6px);/m' styles.css
      ATTENDU="le verre est réservé à la couche navigation et à la réponse du matin" ;;
