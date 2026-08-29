@@ -1250,10 +1250,20 @@ button.rangee:active{background:var(--surface-2)}
 
 /* La porte de l'écran de questions, sous les mesures du jour. Une carte qui est
    une rangée : la marge de carte et le gabarit de rangée à la fois. */
-.act-porte{width:100%;text-align:left}
+/* Les deux portes de l'accueil, quand faire quoi et où est le beau temps. Même
+   gabarit, elles se lisent comme une paire. */
+.porte{width:100%;text-align:left}
 /* Une activité sans créneau reste lisible, mais son heure ne se lit pas comme
    une réponse : c'est une absence, non un rendez-vous. */
 .act-sans .rangee-val b{font-weight:var(--graisse-regular);color:var(--etiquette-3)}
+
+/* Où est le beau temps. Le repère suit le nom du lieu courant, comme la cible
+   suit « Ma position » dans la liste des lieux : c'est la rangée à laquelle les
+   autres se comparent, et elle doit se retrouver d'un coup d'œil. */
+.bt-ici .rangee-txt b{display:flex;align-items:center;gap:var(--espace-xs)}
+.bt-repere{width:13px;height:13px;flex:0 0 auto;color:var(--accent)}
+.bt-verdict{padding-bottom:var(--espace-xs)}
+.bt-large{width:100%}
 
 /* Le ressenti personnel : deux gestes de même poids, côte à côte. */
 .rs-geste{display:flex;gap:var(--espace-sm)}

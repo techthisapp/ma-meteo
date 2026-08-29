@@ -12,7 +12,7 @@
    Une activité sans créneau le dit et ne propose rien. Rendre le premier
    créneau à défaut ferait conseiller de courir sous la pluie. */
 
-import { heureTxt, jourCourt } from "./horloge.js";
+import { heureTxt, jourCourt, nombreFr } from "./horloge.js";
 import { SEUILS } from "./conseils.js";
 import * as Ensemble from "./ensemble.js";
 
@@ -146,7 +146,7 @@ export const ACTIVITES = [
     dit: (serie, [a, b]) => {
       let e = 0;
       for (let i = a; i < b; i++) e += serie.et0[i];
-      return `${nombreVirgule(e)} mm d'eau partis`;
+      return `${nombreFr(e)} mm d'eau partis`;
     },
   },
   {
@@ -208,8 +208,8 @@ export function arrosage(bilan) {
   return {
     utile: manque >= S.deficit,
     chiffre: manque >= S.deficit
-      ? `${nombreVirgule(manque)} mm de déficit sur ${bilan.jours} jours`
-      : `${nombreVirgule(Math.max(0, bilan.bilan))} mm d'excédent sur ${bilan.jours} jours`,
+      ? `${nombreFr(manque)} mm de déficit sur ${bilan.jours} jours`
+      : `${nombreFr(Math.max(0, bilan.bilan))} mm d'excédent sur ${bilan.jours} jours`,
   };
 }
 
@@ -256,6 +256,3 @@ export function repondre(serie, bilan) {
     };
   });
 }
-
-const nombreVirgule = v =>
-  (Math.abs(v) >= 10 ? String(Math.round(v)) : v.toFixed(1).replace(".", ","));

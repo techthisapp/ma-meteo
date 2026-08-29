@@ -33,7 +33,37 @@ const nav = await chromium.launch({
 
 const FIGE = new Date(process.env.QUAND || "2026-08-18T09:00:00+02:00").getTime();
 const REGLAGES = { commune: "Fain-lès-Moutiers", codePostal: "21500",
-  lat: 47.5, lon: 4.3, ecriture: "ruban", poste: null };
+  lat: 47.5, lon: 4.3, ecriture: "ruban", poste: null,
+  /* Trois lieux suivis pour la feuille du beau temps, qui compare des lieux :
+     avec le seul lieu courant, la capture ne montrerait qu'une rangée. */
+  suivies: process.env.FEUILLE === "beautemps" ? [
+    { commune: "Fain-lès-Moutiers", codePostal: "21500", lat: 47.5, lon: 4.3 },
+    { commune: "Troyes", codePostal: "10000", lat: 48.3, lon: 4.07 },
+    { commune: "Autun", codePostal: "71400", lat: 46.95, lon: 4.3 },
+  ] : [] };
+
+/* Deux journées par point, comme la source les rend pour plusieurs couples de
+   coordonnées : le soleil monte vers le nord, la pluie tombe à l'ouest. */
+const journeesDe = (lat, lon) => {
+  const u = Math.max(0, Math.min(1, (lat - 46.6) / 1.8));
+  const journee = j => {
+    const p = j === 0 ? u : 1 - u;
+    return {
+      soleil: 2.5 + 7 * p + 0.4 * (lon - 4.3),
+      tmax: 27 - 5 * p,
+      pluie: lon < 3.9 ? 6 : 0,
+    };
+  };
+  const d = [journee(0), journee(1)];
+  return { daily: {
+    time: ["2026-08-18", "2026-08-19"],
+    weather_code: d.map(x => (x.pluie ? 61 : x.soleil > 7 ? 0 : 3)),
+    temperature_2m_max: d.map(x => Math.round(x.tmax * 10) / 10),
+    precipitation_sum: d.map(x => x.pluie),
+    sunshine_duration: d.map(x => Math.round(Math.max(0, x.soleil) * 3600)),
+    daylight_duration: [48600, 48600],
+  } };
+};
 
 for (const theme of ["light", "dark"]) {
   const ctx = await nav.newContext({
@@ -64,6 +94,14 @@ for (const theme of ["light", "dark"]) {
         d.hourly.wind_gusts_10m[k] = process.env.PLUIE === "vent" ? 55 : 30;
       }
     }
+    if (u.includes("sunshine_duration")) {
+      const q = new URL(u).searchParams;
+      const lats = decodeURIComponent(q.get("latitude")).split(",").map(Number);
+      const lons = decodeURIComponent(q.get("longitude")).split(",").map(Number);
+      route.fulfill({ status: 200, contentType: "application/json",
+        body: JSON.stringify(lats.map((la, k) => journeesDe(la, lons[k]))) });
+      return;
+    }
     if (u.includes("current=")) {
       route.fulfill({ status: 200, contentType: "application/json", body: "[]" }); return;
     }
@@ -75,6 +113,19 @@ for (const theme of ["light", "dark"]) {
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
   });
   await ctx.route(/data\.gouv\.fr|webservice\.meteofrance\.com/, r => r.abort());
+  /* L'interface adresse nomme les points de la grille. La route vient après
+     celle qui coupe data.gouv.fr, Playwright essayant la dernière posée en
+     premier. */
+  await ctx.route(/api-adresse\.data\.gouv\.fr\/reverse/, r => {
+    const u = new URL(r.request().url());
+    const lat = Number(u.searchParams.get("lat"));
+    const nom = lat > 48 ? "Troyes" : lat > 47.6 ? "Tonnerre"
+      : lat > 47.2 ? "Semur-en-Auxois" : "Autun";
+    r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ features: [{
+      geometry: { coordinates: [u.searchParams.get("lon"), lat] },
+      properties: { city: nom, postcode: "21140", type: "municipality" },
+    }] }) });
+  });
   /* Les scénarios, bâtis sur la charge d'essai : quarante membres écartés d'une
      demi-largeur qui s'ouvre avec l'échéance. La route vient après celle de la
      prévision, dont l'expression happerait ce domaine, Playwright essayant la
@@ -120,13 +171,24 @@ for (const theme of ["light", "dark"]) {
     await pg.waitForTimeout(500);
   }
   if (process.env.FEUILLE) {
-    const cible = { parapluie: "#navJeton", activites: ".act-porte" }[process.env.FEUILLE]
+    const cible = { parapluie: "#navJeton", activites: '[data-feuille="activites"]',
+      beautemps: '[data-feuille="beautemps"]' }[process.env.FEUILLE]
       || "#btnReglages";
     await pg.locator(cible).click();
     await pg.waitForTimeout(600);
+    if (process.env.LARGE) {
+      await pg.locator("#btLarge").click();
+      await pg.waitForTimeout(1400);
+    }
   }
   await pg.screenshot({ path: path.join(SORTIE, `${cle}-haut-${theme}.png`) });
-  await pg.evaluate(() => window.scrollTo({ top: 99999, behavior: "instant" }));
+  /* Une feuille ouverte a son propre défilement : faire glisser la fenêtre
+     rendait deux fois la même image. */
+  await pg.evaluate(() => {
+    const f = document.getElementById("feuille-corps");
+    if (f && !document.getElementById("feuille").hidden) f.scrollTop = 99999;
+    else window.scrollTo({ top: 99999, behavior: "instant" });
+  });
   await pg.waitForTimeout(400);
   await pg.screenshot({ path: path.join(SORTIE, `${cle}-bas-${theme}.png`) });
   await ctx.close();

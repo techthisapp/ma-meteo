@@ -278,6 +278,77 @@ export async function apercus(lieux) {
   return { par, age: 0 };
 }
 
+/* ---------- Les deux journées d'une liste de points ----------
+
+   Ce que demande « Où est le beau temps », pour une poignée de lieux suivis
+   comme pour les soixante-neuf points d'une grille de cent kilomètres : un
+   appel, un élément par point, deux journées.
+
+   La durée du jour est demandée point par point plutôt que reprise de la charge
+   principale : elle coûte 257 octets compressés sur la grille entière, et un
+   point porte alors tout ce que son score demande, sans dépendre d'une autre
+   lecture faite à un autre moment.
+
+   Le résultat est gardé en mémoire et non dans le stockage local. La grille pèse
+   trente-neuf kilooctets bruts et répond à une question posée sur le moment, là
+   où le stockage local sert à ouvrir l'application hors ligne : lui prendre sa
+   place se paierait le jour où la charge principale ne tiendrait plus. */
+
+const TTL_JOURNEES = 30 * 60 * 1000;
+const JOURNEES_JOURS = 2;
+const COLONNES_J = ["weather_code", "temperature_2m_max", "precipitation_sum",
+  "sunshine_duration", "daylight_duration"].join(",");
+
+/* Deux entrées suffisent : la liste des lieux suivis et la grille, qui sont les
+   deux questions de la feuille. Une troisième chasse la plus ancienne. */
+const memoire = new Map();
+
+const ranger = (cle, liste) => {
+  memoire.set(cle, { t: Date.now(), liste });
+  while (memoire.size > 2) memoire.delete(memoire.keys().next().value);
+};
+
+export async function journees(points) {
+  const liste = (points || []).filter(p => Number.isFinite(p?.lat) && Number.isFinite(p?.lon));
+  if (!liste.length) return { liste: [], age: 0 };
+
+  const cle = liste.map(p => `${p.lat},${p.lon}`).join(";");
+  const m = memoire.get(cle);
+  if (m && Date.now() - m.t < TTL_JOURNEES) return { liste: m.liste, age: Date.now() - m.t };
+
+  const u = "https://api.open-meteo.com/v1/forecast"
+    + `?latitude=${liste.map(p => p.lat).join(",")}`
+    + `&longitude=${liste.map(p => p.lon).join(",")}`
+    + `&daily=${COLONNES_J}`
+    + `&timezone=Europe%2FParis&forecast_days=${JOURNEES_JOURS}`;
+
+  const d = await prendre(u, 1);
+  // Hors ligne : la dernière lecture connue, avec son âge, ou rien.
+  if (!d) return m ? { liste: m.liste, age: Date.now() - m.t } : { liste: [], age: null };
+
+  // Un seul point rend un objet, plusieurs rendent un tableau.
+  const tab = Array.isArray(d) ? d : [d];
+  const nombre = (v, k) => {
+    const x = Array.isArray(v) ? v[k] : null;
+    return x === null || x === undefined ? NaN : x;
+  };
+  const sortie = liste.map((p, k) => {
+    const j = tab[k]?.daily;
+    if (!j?.time) return null;
+    return j.time.slice(0, JOURNEES_JOURS).map((date, i) => ({
+      date,
+      code: nombre(j.weather_code, i),
+      tmax: nombre(j.temperature_2m_max, i),
+      pluie: nombre(j.precipitation_sum, i),
+      // Les deux durées viennent en secondes et se lisent en heures.
+      soleil: nombre(j.sunshine_duration, i) / 3600,
+      jour: nombre(j.daylight_duration, i) / 3600,
+    }));
+  });
+  ranger(cle, sortie);
+  return { liste: sortie, age: 0 };
+}
+
 // Index du jour en cours dans la série quotidienne.
 export const iJour = () => (charge?.daily ? charge.daily.time.indexOf(cleJour(new Date())) : -1);
 
@@ -568,4 +639,11 @@ export const cardinal = d => CARDINAUX[iCard(d)];
 export const dCardinal = d => {
   const c = cardinal(d);
   return (c[0] === "e" || c[0] === "o" ? "d'" : "de ") + c;
+};
+/* La direction d'un point, non celle d'où vient le vent : « au nord-est », mais
+   « à l'est ». Les vues du soleil, de la lune et du beau temps s'en servent, et
+   la liste des huit points n'existe qu'ici. */
+export const versCardinal = d => {
+  const c = cardinal(d);
+  return /^[aeiou]/.test(c) ? `à l'${c}` : `au ${c}`;
 };

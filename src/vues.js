@@ -15,6 +15,7 @@ import * as Ensemble from "./ensemble.js";
 import * as Parapluie from "./parapluie.js";
 import * as Reponse from "./reponse.js";
 import * as Activites from "./activites.js";
+import * as BeauTemps from "./beautemps.js";
 import * as Vig from "./vigilance.js";
 import { SEUILS } from "./conseils.js";
 
@@ -22,13 +23,9 @@ import { SEUILS } from "./conseils.js";
 
 const hm = ms => new Date(ms).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
-const CARDINAUX = ["nord", "nord-est", "est", "sud-est", "sud", "sud-ouest", "ouest", "nord-ouest"];
-const cardinalDe = az => CARDINAUX[Math.round((((az % 360) + 360) % 360) / 45) % 8];
-
-const versCardinal = az => {
-  const c = cardinalDe(az);
-  return /^[aeiou]/.test(c) ? `à l'${c}` : `au ${c}`;
-};
+/* Les huit points cardinaux vivaient ici et dans `previsions.js`, à l'identique.
+   Deux listes pour une même rose finiraient par ne plus dire la même chose. */
+const versCardinal = P.versCardinal;
 
 // L'angle de phase se déduit de la part éclairée, qui vaut (1 + cos i) / 2.
 const anglePhase = eclairee =>
@@ -1563,6 +1560,170 @@ export function vueActivites() {
       + `<p class="note">Chaque activité rend le premier créneau qui lui convient, `
       + `non le meilleur de la semaine : au delà de deux jours, les scénarios `
       + `s'écartent déjà de cinq degrés.</p>`,
+  };
+}
+
+/* ---------- Où est le beau temps ---------- */
+
+/* La feuille jumelle de l'écran de questions. L'une dit quand, l'autre dit où,
+   et les deux rangées de l'accueil se lisent comme une paire.
+
+   Deux échelles et deux coûts. Les lieux suivis à l'ouverture, une dizaine de
+   points dans un appel ; cent kilomètres à la ronde sur appui, soixante-neuf
+   points dans un autre. La grille ne part pas d'elle-même : elle répond à une
+   question qu'on ne pose pas chaque matin.
+
+   Le score, ses poids et ses seuils vivent dans `beautemps.js`. La feuille ne
+   fait que les écrire, comme celle des activités. */
+export function vueBeauTemps(ctx, rendre, majEtat) {
+  const g = Reglages.lire();
+  if (!Number.isFinite(g.lat) || !Number.isFinite(g.lon)) {
+    return {
+      titre: "Où est le beau temps",
+      corps: `<p class="note">Aucun lieu courant : la comparaison part d'ici.</p>`,
+    };
+  }
+
+  const ici = { nom: g.commune || "Ici", lat: g.lat, lon: g.lon, ici: true };
+  /* Les lieux suivis, le lieu courant en tête et sans doublon : il est presque
+     toujours l'un d'eux, et sa rangée porte le repère de lieu. */
+  const lieux = [ici, ...Reglages.suivies()
+    .filter(l => l.lat !== g.lat || l.lon !== g.lon)
+    .map(l => ({ nom: l.commune || "Commune", lat: l.lat, lon: l.lon, ici: false }))]
+    .map(l => ({ ...l, km: BeauTemps.km(ici, l), cap: BeauTemps.azimut(ici, l) }));
+
+  const points = BeauTemps.grille(ici);
+  const S = BeauTemps.SEUILS_BEAU;
+
+  return {
+    titre: "Où est le beau temps",
+    corps:
+      `<div class="seg bt-jours">`
+      + [["0", "Aujourd'hui"], ["1", "Demain"]].map(([k, n]) =>
+        `<button type="button" data-jour="${k}"${k === "0" ? ' class="actif"' : ""}>`
+        + `${esc(n)}</button>`).join("")
+      + `</div>`
+
+      + `<div class="carte" id="btLieux"><div class="carte-tete"><h3>Mes lieux</h3></div>`
+      + `<p class="note">Lecture…</p></div>`
+
+      + `<button type="button" class="bouton-borde bt-large" id="btLarge">`
+      + `Chercher à ${S.rayon} km à la ronde</button>`
+      + `<div class="carte" id="btGrille" hidden></div>`
+
+      + `<p class="note">Le classement suit l'ensoleillement de la journée, `
+      + `corrigé par la pluie et par l'écart à ${S.agreable} degrés. Sur ${S.rayon} km, `
+      + `c'est le soleil qui sépare deux lieux : d'un point à l'autre de la grille, `
+      + `il varie du simple au double quand la température maximale varie de `
+      + `quelques degrés.</p>`
+      + `<p class="note">La grille compte ${points.length} points espacés de `
+      + `${S.pas} km, lus en un seul appel de quatre kilooctets.</p>`,
+
+    brancher(bloc) {
+      let j = 0;                       // la journée montrée, 0 aujourd'hui, 1 demain
+      let dLieux = null, dGrille = null;
+      const noms = new Map();          // « lat,lon » vers la commune, ou vide
+      const demandes = new Set();
+      const cle = l => `${l.lat},${l.lon}`;
+
+      const carteLieux = bloc.querySelector("#btLieux");
+      const carteGrille = bloc.querySelector("#btGrille");
+      const bLarge = bloc.querySelector("#btLarge");
+
+      /* Une rangée de classement. Le nom manquant d'un point de grille est
+         remplacé par sa position, laquelle situe déjà : une rangée vide en
+         attendant l'interface adresse ne dirait rien. */
+      const rangee = l => {
+        const nom = l.nom || noms.get(cle(l)) || "";
+        const loin = l.km >= 1 ? BeauTemps.loinTxt(l) : "";
+        const sous = [nom && loin, BeauTemps.journeeTxt(l)].filter(Boolean).join(" · ");
+        return `<div class="rangee${l.ici ? " bt-ici" : ""}">`
+          + ico(icoCiel(l.code, true), "")
+          + `<span class="rangee-txt"><b>${esc(nom || loin || "Ici")}`
+          + (l.ici ? ico("lieu", "bt-repere") : "") + `</b>`
+          + `<span>${esc(sous)}</span></span>`
+          + valeur(BeauTemps.soleilTxt(l.soleil), { doux: "de soleil" })
+          + `</div>`;
+      };
+
+      const tete = t => `<div class="carte-tete"><h3>${esc(t)}</h3></div>`;
+
+      const peindreLieux = () => {
+        if (!dLieux) return;
+        const cl = BeauTemps.classer(lieux, dLieux, j);
+        carteLieux.innerHTML = tete("Mes lieux")
+          + (cl.length ? cl.map(rangee).join("")
+            : `<p class="note">La source n'a rien rendu pour ces lieux.</p>`)
+          + (lieux.length < 2 ? `<p class="note">Un seul lieu suivi. En ajouter `
+            + `d'autres donne une comparaison sans nouvel appel.</p>` : "");
+      };
+
+      /* Les points nommés sont ceux qui sont montrés, non la grille entière :
+         soixante-neuf géocodages inverses pour cinq rangées lues coûteraient
+         soixante-quatre appels pour rien. */
+      const nommer = async liste => {
+        const reste = liste.filter(l => !l.nom && !noms.has(cle(l)) && !demandes.has(cle(l)));
+        if (!reste.length) return;
+        reste.forEach(l => demandes.add(cle(l)));
+        await Promise.all(reste.map(async l => {
+          const c = await Reglages.communeDe(l.lat, l.lon);
+          noms.set(cle(l), c?.commune || "");
+        }));
+        peindreGrille();
+      };
+
+      const peindreGrille = () => {
+        if (!dGrille) return;
+        const cl = BeauTemps.classer(points, dGrille, j);
+        const iciG = BeauTemps.iciDans(cl);
+        const mieux = BeauTemps.mieuxQuIci(cl, iciG);
+        const montres = BeauTemps.retenir(cl);
+        // Ici garde sa rangée même hors du haut du classement : c'est la
+        // référence à laquelle les autres se comparent.
+        if (iciG && !montres.includes(iciG)) montres.push(iciG);
+        /* Le centre de la grille est le lieu courant, dont le nom est déjà
+           connu : le demander à l'interface adresse coûterait un appel pour
+           réapprendre ce que les réglages portent. */
+        const rangees = montres.map(l => (l.ici ? { ...l, nom: ici.nom } : l));
+        carteGrille.innerHTML = tete(`À ${S.rayon} km à la ronde`)
+          + `<p class="note bt-verdict">${esc(mieux
+            ? `Mieux ${BeauTemps.loinTxt(mieux)}.`
+            : "Le beau temps est ici.")}</p>`
+          + rangees.map(rangee).join("");
+        nommer(rangees);
+      };
+
+      P.journees(lieux).then(({ liste, age }) => {
+        dLieux = liste;
+        peindreLieux();
+        if (age === null) majEtat("Source indisponible : les lieux ne sont pas comparés.");
+      });
+
+      for (const b of bloc.querySelectorAll("[data-jour]")) {
+        b.addEventListener("click", () => {
+          j = Number(b.dataset.jour);
+          for (const x of bloc.querySelectorAll("[data-jour]")) x.classList.toggle("actif", x === b);
+          peindreLieux();
+          peindreGrille();
+        });
+      }
+
+      bLarge.addEventListener("click", async () => {
+        bLarge.disabled = true;
+        bLarge.setAttribute("aria-busy", "true");
+        const { liste, age } = await P.journees(points);
+        bLarge.removeAttribute("aria-busy");
+        if (age === null) {
+          bLarge.disabled = false;
+          majEtat("Source indisponible : la grille n'a pas pu être lue.");
+          return;
+        }
+        dGrille = liste;
+        bLarge.hidden = true;
+        carteGrille.hidden = false;
+        peindreGrille();
+      });
+    },
   };
 }
 

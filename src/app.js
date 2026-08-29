@@ -19,7 +19,8 @@ import * as Feu from "./feu.js";
 import * as Relief from "./relief.js";
 import * as Temps from "./temps.js";
 import { vueTemps, vueSemaine, vueVigilance, vueSoleil, vueLune, vueCommunes, vueReglages,
-  vueAjout, vueParapluie, vueRessenti, vueActivites, bandeauAccueil } from "./vues.js";
+  vueAjout, vueParapluie, vueRessenti, vueActivites, vueBeauTemps,
+  bandeauAccueil } from "./vues.js";
 import { moments } from "./ecritures.js";
 import * as Vig from "./vigilance.js";
 import * as Astres from "./astres.js";
@@ -458,11 +459,20 @@ function ecranAccueil() {
           + `</div>` : "")
         /* L'écran de questions s'ouvre d'ici, sous les mesures du jour : c'est
            là que se lit ce qui concerne la journée en cours, et la rangée est
-           atteignable sans dérouler la page entière. */
-        + (s ? `<button type="button" class="carte rangee act-porte" data-feuille="activites">`
+           atteignable sans dérouler la page entière.
+
+           La seconde rangée mène à l'autre question, celle du lieu. Les deux se
+           lisent comme une paire, quand et où, et gardent le même gabarit : une
+           rangée pleine largeur qui porte son symbole, son titre et son
+           chevron. */
+        + (s ? `<button type="button" class="carte rangee porte" data-feuille="activites">`
           + ico("horloge", "") + `<span class="rangee-txt"><b>Quand faire quoi</b>`
           + `<span>Courir, étendre, aérer, arroser, laver</span></span>`
           + chevron + `</button>` : "")
+        + `<button type="button" class="carte rangee porte" data-feuille="beautemps">`
+        + ico("lieu", "") + `<span class="rangee-txt"><b>Où est le beau temps</b>`
+        + `<span>Mes lieux, et cent kilomètres à la ronde</span></span>`
+        + chevron + `</button>`
         + (lJour.length ? `<div class="carte retenir">`
           + `<div class="conseils">${conseilsHTML(lJour)}</div></div>` : ""));
 
@@ -735,12 +745,12 @@ async function suivrePosition({ force } = {}) {
 
 const FEUILLES = { vigilance: vueVigilance, communes: vueCommunes,
   ajout: vueAjout, reglages: vueReglages, parapluie: vueParapluie,
-  ressenti: vueRessenti, activites: vueActivites };
+  ressenti: vueRessenti, activites: vueActivites, beautemps: vueBeauTemps };
 
 /* Accroches : un contenu court n'occupe pas tout l'écran. */
 const ACCROCHE = { vigilance: "moyenne", communes: "grande",
   ajout: "grande", reglages: "grande", parapluie: "moyenne",
-  ressenti: "moyenne", activites: "moyenne" };
+  ressenti: "moyenne", activites: "moyenne", beautemps: "grande" };
 
 function rendreFeuille() {
   if (!vueCourante) return;
