@@ -3971,6 +3971,57 @@ await pageA("2026-08-20T22:00:00+02:00", null, async pg => {
     pf ? `opacité de ${pf.mn} à ${pf.mx}, clarté ${pf.clarte}` : "aucune toile");
 });
 
+/* Le Soleil se montre, ou non, selon la même règle sur les deux écrans qui le
+   portent. L'accueil l'appliquait, l'écran du Soleil non : son disque restait
+   allumé au ras du sol à onze heures du soir, sur un ciel déjà passé en nuit
+   pleine. Défaut vu sur téléphone le 29 août à 22 h 09.
+
+   Deux instants, de part et d'autre du seuil : à moins quatre degrés le disque
+   porte encore la lueur du crépuscule civil, à moins treize il n'y a plus rien
+   à peindre à sa place. */
+for (const [quand, hauteur, attendu] of [
+  ["2026-08-18T21:10:00+02:00", "moins quatre degrés", 1],
+  ["2026-08-18T22:09:00+02:00", "moins treize degrés", 0],
+]) {
+  await pageA(quand, null, async pg => {
+    const disques = async cle => {
+      await pg.locator(`[data-onglet="${cle}"]`).click();
+      await pg.waitForTimeout(450);
+      return pg.locator("#ecran canvas#ciFeu").count();
+    };
+    const accueil = await disques("accueil");
+    const soleil = await disques("soleil");
+    ok(`à ${hauteur}, les deux écrans montrent le même Soleil`,
+      accueil === attendu && soleil === attendu,
+      `accueil ${accueil}, écran du Soleil ${soleil}, attendu ${attendu}`);
+  });
+}
+
+/* Le relais entre le disque et le ciel. Le disque s'éteint six degrés sous
+   l'horizon, le dégradé du ciel porte encore la lueur jusqu'à douze : entre les
+   deux, le panneau n'est ni allumé ni noir. Sans ce recouvrement, la lueur
+   s'éteindrait d'un coup à l'instant où le disque disparaît. */
+const basDuCiel = {};
+for (const [cle, quand] of [
+  ["lueur", "2026-08-18T21:35:00+02:00"],   // moins huit degrés
+  ["nuit", "2026-08-18T23:00:00+02:00"],    // moins dix-neuf degrés
+]) {
+  await pageA(quand, null, async pg => {
+    await pg.locator('[data-onglet="soleil"]').click();
+    await pg.waitForTimeout(450);
+    basDuCiel[cle] = await pg.evaluate(() => ({
+      bas: document.querySelector("#ecran .ci")?.style.getPropertyValue("--ci-bas") || "",
+      feu: document.querySelectorAll("#ecran canvas#ciFeu").length,
+    }));
+  });
+}
+const rougeDe = s => Number((String(s).match(/\d+/g) || [0])[0]);
+ok("le disque éteint, le ciel porte encore la lueur du crépuscule",
+  basDuCiel.lueur.feu === 0 && basDuCiel.nuit.feu === 0
+  && rougeDe(basDuCiel.lueur.bas) > rougeDe(basDuCiel.nuit.bas) + 10,
+  `${basDuCiel.lueur.bas} contre ${basDuCiel.nuit.bas}, `
+  + `${basDuCiel.lueur.feu} et ${basDuCiel.nuit.feu} disques`);
+
 const ctxLent = await nav.newContext({
   viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
   locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,

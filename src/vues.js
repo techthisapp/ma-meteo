@@ -474,12 +474,28 @@ export function astresVus(ps, pl, eclairee) {
   const ecart = Math.hypot(
     (abscisse(ps.azimut) - abscisse(pl.azimut)) / 100,
     ((ordonnee(ps.hauteur) - ordonnee(pl.hauteur)) / 100) * PANNEAU);
-  const soleil = ps.hauteur > -6;
+  const soleil = soleilVu(ps.hauteur);
   const lune = soleil
     ? pl.hauteur > Astres.SEUIL.lune && eclairee > 0.12 && ecart > 0.30
     : true;
   return { soleil, lune, ecart };
 }
+
+/* Jusqu'où le Soleil se peint. Six degrés sous l'horizon, la fin du crépuscule
+   civil : au-dessus, il éclaire encore le bas du ciel et son disque enfoncé se
+   lit comme cette lueur ; en dessous, il n'y a plus rien à peindre à sa place.
+
+   La règle sert aux trois panneaux. L'accueil l'appliquait, l'écran du Soleil
+   non, et son disque restait donc allumé au ras du sol à onze heures du soir,
+   sur un ciel que `cielDe` avait déjà passé en nuit pleine à moins douze degrés.
+   Défaut vu sur téléphone le 29 août, à 22 h 09 sur Paris, le Soleil étant
+   couché depuis une heure et quart.
+
+   Le relais est continu : de zéro à moins six degrés le disque porte la lueur,
+   de moins six à moins douze c'est le dégradé du ciel qui la porte seul, et au
+   delà la nuit est pleine. */
+const SOUS_HORIZON = -6;
+export const soleilVu = hauteur => hauteur > SOUS_HORIZON;
 
 const corpsSoleil = c =>
   `<canvas class="ci-feu" id="ciFeu" data-chaud="${c.chaud.toFixed(3)}" `
@@ -507,7 +523,8 @@ function bandeauCiel(g, maintenant, meridien) {
      la reprend, et la recalculer là-bas ferait deux fois la même règle, dont la
      part la plus fragile est de savoir si le Soleil monte ou descend. */
   return { ciel: panneauCiel(c, [{ x: abscisse(p.azimut), y: ordonnee(p.hauteur),
-    sous: p.hauteur < Astres.SEUIL.soleil, corps: corpsSoleil(c) }]), chaud: c.chaud };
+    sous: p.hauteur < Astres.SEUIL.soleil,
+    corps: soleilVu(p.hauteur) ? corpsSoleil(c) : "" }]), chaud: c.chaud };
 }
 
 /* Le bandeau de la Lune. Le ciel est celui du Soleil : une Lune levée en plein
