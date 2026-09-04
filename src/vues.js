@@ -1,7 +1,8 @@
 /* Les vues de la feuille. Chacune rend un titre, un sous-titre facultatif, un
    corps et un branchement facultatif. */
 
-import { nombreFr, hhmm, jourCourt, jourLong, esc, departementDe, heureJour } from "./horloge.js";
+import { nombreFr, hhmm, heureTxt, jourCourt, jourLong, esc, departementDe,
+  heureJour } from "./horloge.js";
 import * as P from "./previsions.js";
 import { ico, icoTemps, icoCiel, tempsDe, couleurT } from "./icones.js";
 import * as Ruban from "./ruban.js";
@@ -16,6 +17,7 @@ import * as Parapluie from "./parapluie.js";
 import * as Reponse from "./reponse.js";
 import * as Activites from "./activites.js";
 import * as BeauTemps from "./beautemps.js";
+import * as Air from "./air.js";
 import * as Vig from "./vigilance.js";
 import { SEUILS } from "./conseils.js";
 
@@ -1580,6 +1582,92 @@ export function vueActivites() {
   };
 }
 
+/* ---------- L'air qu'on respire ---------- */
+
+/* Ce qui entre dans les poumons, que le temps qu'il fait ne dit pas. L'indice
+   européen et les quatre polluants qui le composent, puis les pollens en
+   saison.
+
+   Les seuils et les niveaux vivent dans `air.js`, avec leur origine. La feuille
+   ne fait que les écrire, comme celle des activités et celle du beau temps. */
+export function vueAir(ctx, rendre, majEtat) {
+  const s = P.serieHoraire(0, 24, 8);
+  const air = s ? Air.alignerSur(s) : null;
+
+  if (!air) {
+    return {
+      titre: "L'air qu'on respire",
+      corps: `<p class="note">La source de l'air est muette. Elle couvre l'Europe `
+        + `et rend quatre journées ; le reste de l'application n'en dépend pas.</p>`,
+    };
+  }
+
+  const ici = air.aqi[0];
+  const niv = Air.niveauDe(ici);
+  const pr = Air.pire(air);
+  const saison = Air.enSaison(air);
+  const majuscule = t => t.charAt(0).toUpperCase() + t.slice(1);
+
+  /* Le pire moment ne se dit que s'il dépasse le moment présent. Écrire « au
+     plus haut, bon » sous un « maintenant, bon » ferait deux fois la même
+     ligne. */
+  const pireDit = pr && Number.isFinite(ici) && pr.indice > ici;
+
+  /* La rangée ne porte pas de symbole : les deux se suivent dans la même carte
+     et le même symbole écrit deux fois ne dirait rien de plus, quand son retrait
+     aligne ces rangées sur celles des polluants juste en dessous. */
+  const rangeeAir = (nom, sous, indice) => {
+    const n = Air.niveauDe(indice);
+    return `<div class="rangee">`
+      + `<span class="rangee-txt"><b>${esc(nom)}</b><span>${esc(sous)}</span></span>`
+      + valeur(majuscule(n.nom), { doux: String(indice) })
+      + `</div>`;
+  };
+
+  const heureDe = k => heureTxt(s.heure[k]);
+
+  return {
+    titre: "L'air qu'on respire",
+    sous: niv ? majuscule(niv.nom) : "",
+    corps:
+      `<div class="carte">`
+      + rangeeAir("Maintenant", "Indice européen de qualité de l'air", ici)
+      + (pireDit ? rangeeAir("Au plus haut",
+        `Vers ${heureDe(pr.k)}, sur les vingt-quatre heures qui viennent`, pr.indice) : "")
+      + `</div>`
+
+      + `<div class="carte"><div class="carte-tete"><h3>Ce qui compose l'indice</h3></div>`
+      + Air.POLLUANTS.map(([cle, nom, , court]) => `<div class="rangee">`
+        + `<span class="rangee-txt"><b>${esc(nom)}</b><span>${esc(court)}</span></span>`
+        + valeur(air[cle][0] === null ? "—" : `${nombreFr(air[cle][0])}`,
+          { doux: "µg/m³" }) + `</div>`).join("")
+      + `<p class="note">L'indice est celui du polluant le plus mal placé, non `
+      + `une moyenne : un seul suffit à faire la journée.</p></div>`
+
+      + `<div class="carte"><div class="carte-tete"><h3>Les pollens</h3></div>`
+      + (saison.length
+        ? saison.map(p => `<div class="rangee">${ico("pollen", "")}`
+          + `<span class="rangee-txt"><b>${esc(p.nom)}</b>`
+          + `<span>${p.etat === "pic" ? `Au pic vers ${esc(heureDe(p.k))}` : "En saison"}`
+          + `</span></span>`
+          + valeur(nombreFr(p.valeur), { doux: "grains/m³" }) + `</div>`).join("")
+        : `<p class="note">Aucun pollen en saison sur les vingt-quatre heures qui `
+          + `viennent. Un taxon sous son seuil de saison ne s'écrit pas : une file `
+          + `de zéros occuperait la page pendant des mois.</p>`)
+      + `</div>`
+
+      + `<p class="note">Six niveaux, par pas de vingt : bon, moyen, dégradé, `
+      + `mauvais, très mauvais, extrêmement mauvais. Au delà de ${Air.DEGRADE}, `
+      + `l'air se dit sur l'accueil et les heures concernées cessent d'être des `
+      + `heures où l'on ouvre en grand.</p>`
+      + `<p class="note">Les seuils de saison et de pic viennent de la source `
+      + `elle-même : dix et cent grains par mètre cube pour l'aulne, le bouleau, `
+      + `l'olivier et l'armoise, trois et cinquante pour les graminées et `
+      + `l'ambroisie. Le profil des réglages décide de ce qui remonte sur `
+      + `l'accueil, non de ce que cette page montre.</p>`,
+  };
+}
+
 /* ---------- Où est le beau temps ---------- */
 
 /* La feuille jumelle de l'écran de questions. L'une dit quand, l'autre dit où,
@@ -1831,6 +1919,7 @@ export function vueReglages(ctx, rendre, majEtat) {
     ["Prévision", "Open-Meteo, AROME de Météo-France forcé sur les deux premiers jours"],
     ["Recherche de commune", "interface adresse de data.gouv.fr"],
     ["Vigilance", "renvoi vers Météo-France"],
+    ["Air et pollens", "analyses européennes de Copernicus, servies par Open-Meteo"],
   ];
 
   return {
@@ -1859,6 +1948,20 @@ export function vueReglages(ctx, rendre, majEtat) {
       + `de quatorze heures. De minuit à la première alerte, rien ne s'annonce : on `
       + `n'y sort pas, et prévenir n'y donne aucune occasion de prendre un `
       + `parapluie.</p></div>`
+
+      + `<div class="carte"><div class="carte-tete"><h3>Pollens suivis</h3></div>`
+      + Air.POLLENS.map(p => {
+        const suivi = Reglages.pollenSuivi(p.cle);
+        return `<button type="button" class="rangee rg-bascule" role="switch" `
+          + `aria-checked="${suivi}" data-pollen="${esc(p.cle)}">`
+          + `<span class="rangee-txt"><b>${esc(p.nom)}</b>`
+          + `<span>saison à partir de ${p.saison} grains/m³</span></span>`
+          + ico("coche", suivi ? "rg-coche" : "rg-coche rg-coche-vide") + `</button>`;
+      }).join("")
+      + `<p class="note">Les six sont suivis au départ. Un pollen retiré ne remonte `
+      + `plus dans ce qui est à savoir ; la feuille de l'air continue de le montrer `
+      + `s'il est en saison. Ce réglage reste sur l'appareil et n'entre dans aucune `
+      + `requête : les six sont demandés à la source quoi qu'il arrive.</p></div>`
 
       + `<div class="carte"><div class="carte-tete"><h3>Rappel automatique sur iPhone</h3></div>`
       + `<p class="note">L'application ne peut pas envoyer de notification : elle n'a `
@@ -1907,6 +2010,16 @@ export function vueReglages(ctx, rendre, majEtat) {
           } else {
             rendre({ dessous: true });
           }
+        });
+      }
+
+      /* Le profil d'allergies. L'écran de dessous se refait avec la feuille :
+         un pollen retiré peut faire disparaître une ligne de l'accueil, et la
+         voir partir sous la feuille est ce qui dit que le réglage a pris. */
+      for (const b of bloc.querySelectorAll("[data-pollen]")) {
+        b.addEventListener("click", () => {
+          Reglages.basculerPollen(b.dataset.pollen);
+          rendre({ dessous: true });
         });
       }
     },

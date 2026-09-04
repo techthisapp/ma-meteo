@@ -42,6 +42,13 @@ const D = {
     + '<g class="ic-b"><path d="M9 18v3.4M7.4 18.9l3.2 1.6M10.6 18.9l-3.2 1.6'
     + 'M16 18v3.4M14.4 18.9l3.2 1.6M17.6 18.9l-3.2 1.6"/></g>',
   goutte: '<path d="M12 3.4c4.2 4.8 6.6 8.2 6.6 11.2a6.6 6.6 0 0 1-13.2 0c0-3 2.4-6.4 6.6-11.2z"/>',
+  /* Le pollen : une tige et trois folioles, alternées. Un grain de pollen
+     dessiné en rond radiant se serait lu comme un soleil, lequel a déjà son
+     symbole à deux pas dans la même liste de faits. */
+  pollen: '<path d="M12 21.4V8.6"/>'
+    + '<path d="M12 8.6c0-2.7 1.5-4.7 4.4-5.4.3 2.8-1.2 4.8-4.4 5.4z"/>'
+    + '<path d="M12 13c-2.6-.5-4-2.2-4.2-4.9 2.6.3 4 1.9 4.2 4.9z"/>'
+    + '<path d="M12 17.2c2.4-.5 3.7-2 3.9-4.5-2.4.3-3.7 1.6-3.9 4.5z"/>',
   arc: '<path d="M3 18h18"/><path d="M6.2 18a5.8 5.8 0 0 1 11.6 0"/><path d="M12 6.4V4M5.2 9.2L3.6 7.6M18.8 9.2l1.6-1.6"/>',
   /* La course du jour : cinq moments qui se distinguent d'un coup d'œil. La
      lueur n'a qu'un demi-soleil, le lever une flèche montante, le coucher une

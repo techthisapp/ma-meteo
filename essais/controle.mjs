@@ -118,6 +118,43 @@ const journeesDe = (lat, lon) => {
   } };
 };
 
+/* La charge de l'air : quatre-vingt-seize heures à partir de minuit du 18 août,
+   la portée que le module demande. Trois profils, un par règle à éprouver.
+
+   L'indice monte l'après-midi, comme l'ozone dans la réalité. Les graminées
+   sont en saison sans être au pic, ce qui fait paraître une rangée dans la
+   feuille sans rien ajouter aux faits marquants ; les autres pollens sont sous
+   leur seuil de saison et ne doivent donc rien écrire du tout. */
+const AIR_PROFILS = {
+  base: { aqi: h => (h >= 12 && h <= 17 ? 26 : 14), pollens: {} },
+  // Un après-midi dégradé : la ligne des faits marquants, et les heures que
+  // l'aération doit refuser.
+  degrade: { aqi: h => (h >= 12 && h <= 20 ? 55 : 14), pollens: {} },
+  // Un pic d'ambroisie à quinze heures, le reste de la journée en saison.
+  ambroisie: { aqi: h => 14, pollens: { ragweed_pollen: h => (h === 15 ? 71 : 6) } },
+  // Un matin dégradé et une après-midi propre : l'aération doit attendre.
+  matin: { aqi: h => (h >= 9 && h <= 11 ? 55 : 14), pollens: {} },
+};
+
+const airDe = (profil = "base") => {
+  const p = AIR_PROFILS[profil] || AIR_PROFILS.base;
+  const cols = ["pm2_5", "pm10", "ozone", "nitrogen_dioxide", "alder_pollen",
+    "birch_pollen", "grass_pollen", "mugwort_pollen", "olive_pollen", "ragweed_pollen"];
+  const fixes = { pm2_5: 5.1, pm10: 8.2, ozone: 57, nitrogen_dioxide: 3.3,
+    alder_pollen: 0, birch_pollen: 0, grass_pollen: 12, mugwort_pollen: 0.4,
+    olive_pollen: 0, ragweed_pollen: 0.5 };
+  const h = { time: [], european_aqi: [] };
+  for (const c of cols) h[c] = [];
+  for (let j = 18; j < 22; j++) {
+    for (let x = 0; x < 24; x++) {
+      h.time.push(`2026-08-${j}T${String(x).padStart(2, "0")}:00`);
+      h.european_aqi.push(p.aqi(x));
+      for (const c of cols) h[c].push(p.pollens[c] ? p.pollens[c](x) : fixes[c]);
+    }
+  }
+  return { hourly: h };
+};
+
 const servirBeauTemps = (u, route) => {
   const q = new URL(u).searchParams;
   const lats = decodeURIComponent(q.get("latitude")).split(",").map(Number);
@@ -180,6 +217,10 @@ await ctx.addInitScript(amorce(FAIN));
 const appelsVig = [];
 
 const appelsEns = [];
+const appelsAir = [];
+/* Le profil d'air servi. Les contextes s'ouvrent l'un après l'autre : celui qui
+   veut un autre air le pose avant d'ouvrir sa page et le remet ensuite. */
+let profilAir = "base";
 
 const brancherRoutes = async c => {
   /* L'ensemble se sert avant la prévision : son domaine porte le même nom à un
@@ -263,6 +304,14 @@ const brancherRoutes = async c => {
     appelsEns.push(r.request().url());
     r.fulfill({ status: 200, contentType: "application/json",
       body: JSON.stringify(ENSEMBLE) });
+  });
+  /* L'air se sert après la prévision, pour la même raison que l'ensemble : son
+     domaine porte « api.open-meteo.com » à un préfixe près, et la route de la
+     prévision le happerait. */
+  await c.route(/air-quality-api\.open-meteo\.com/, r => {
+    appelsAir.push(r.request().url());
+    r.fulfill({ status: 200, contentType: "application/json",
+      body: JSON.stringify(airDe(profilAir)) });
   });
 };
 
@@ -2632,17 +2681,17 @@ ok("l'accueil porte la porte de l'écran de questions, sous les mesures du jour"
   }) === "");
 /* Les deux portes se lisent comme une paire, quand et où. Elles se suivent, ont
    le même gabarit, et la seconde ne se range pas ailleurs sur la page. */
-ok("les deux portes se suivent et partagent leur gabarit",
+ok("les trois portes se suivent et partagent leur gabarit",
   await pg.evaluate(() => {
-    const q = document.querySelector('[data-feuille="activites"]');
-    const o = document.querySelector('[data-feuille="beautemps"]');
-    if (!q || !o) return "une porte manque";
-    if (q.nextElementSibling !== o) return "les portes ne se suivent pas";
-    if (!q.classList.contains("porte") || !o.classList.contains("porte")) {
-      return "les portes n'ont pas le même gabarit";
+    const cles = ["activites", "beautemps", "air"];
+    const p = cles.map(c => document.querySelector(`[data-feuille="${c}"]`));
+    if (p.some(x => !x)) return "une porte manque";
+    for (let i = 1; i < p.length; i++) {
+      if (p[i - 1].nextElementSibling !== p[i]) return `${cles[i]} ne suit pas ${cles[i - 1]}`;
     }
-    const a = q.getBoundingClientRect(), b = o.getBoundingClientRect();
-    if (Math.abs(a.width - b.width) > 1) return `largeurs ${a.width} et ${b.width}`;
+    if (p.some(x => !x.classList.contains("porte"))) return "gabarits différents";
+    const l = p.map(x => x.getBoundingClientRect().width);
+    if (Math.max(...l) - Math.min(...l) > 1) return `largeurs ${l.join(" et ")}`;
     return "";
   }) === "");
 await pg.locator('[data-feuille="activites"]').click();
@@ -5413,6 +5462,142 @@ ok("et les lieux y sont encore classés",
   (await lignesBeau(pgBeau, "#btLieux")).length === 3);
 
 await ctxBeau.close();
+
+/* ---------- L'air qu'on respire ---------- */
+
+console.log("\n--- L'air qu'on respire ---");
+
+const METEO_NUE = () => JSON.parse(JSON.stringify(METEO));
+
+const ouvrirAir = async p => {
+  await p.locator('[data-feuille="air"]').click();
+  await p.waitForTimeout(600);
+  return p.evaluate(() =>
+    [...document.querySelectorAll("#feuille-corps .rangee")].map(r => ({
+      nom: r.querySelector(".rangee-txt b")?.textContent.trim() || "",
+      sous: r.querySelector(".rangee-txt span")?.textContent || "",
+      val: r.querySelector(".rangee-val")?.textContent.replace(/\s+/g, " ").trim() || "",
+    })));
+};
+
+const [ctxAir, pgAir, urlsAir] = await ctxReponse(METEO_NUE);
+const lignesAir = await ouvrirAir(pgAir);
+
+ok("la feuille s'ouvre sur la question de l'air",
+  (await txtDe(pgAir, "#feuille-titre")).startsWith("L'air qu'on respire"),
+  await txtDe(pgAir, "#feuille-titre"));
+/* L'indice du moment et le pire des vingt-quatre heures. À neuf heures la charge
+   d'essai donne quatorze, et vingt-six à partir de midi : deux niveaux
+   différents, donc deux rangées. */
+ok("l'indice du moment porte son niveau",
+  lignesAir[0]?.nom === "Maintenant" && /^Bon 14$/.test(lignesAir[0].val),
+  JSON.stringify(lignesAir[0]));
+ok("le pire moment se dit avec son heure",
+  lignesAir[1]?.nom === "Au plus haut" && /^Moyen 26$/.test(lignesAir[1].val)
+  && /^Vers 12 h/.test(lignesAir[1].sous),
+  JSON.stringify(lignesAir[1]));
+ok("les quatre polluants portent leur unité",
+  lignesAir.filter(l => /µg\/m³/.test(l.val)).length === 4,
+  JSON.stringify(lignesAir.filter(l => /µg/.test(l.val)).map(l => l.nom)));
+/* Un pollen sous son seuil de saison ne s'écrit pas. La charge d'essai porte
+   des graminées à douze grains, au-dessus de leur seuil de trois, et cinq
+   autres taxons en dessous du leur : une seule rangée doit paraître. */
+const rangeesPollen = lignesAir.filter(l => /grains\/m³/.test(l.val));
+ok("seul un pollen en saison paraît",
+  rangeesPollen.length === 1 && rangeesPollen[0].nom === "Graminées",
+  JSON.stringify(rangeesPollen.map(l => [l.nom, l.val])));
+ok("et il dit qu'il est en saison, non au pic",
+  /En saison/.test(rangeesPollen[0]?.sous || ""), rangeesPollen[0]?.sous);
+
+/* Le profil d'allergies : six rangées, toutes suivies au départ. */
+await pgAir.locator("#feuille-fermer").click();
+await pgAir.waitForTimeout(420);
+await pgAir.locator("#btnReglages").click();
+await pgAir.waitForTimeout(600);
+ok("le profil porte les six pollens, tous suivis au départ",
+  await pgAir.locator("[data-pollen]").count() === 6
+  && await pgAir.locator('[data-pollen][aria-checked="true"]').count() === 6,
+  `${await pgAir.locator("[data-pollen]").count()} rangées, `
+  + `${await pgAir.locator('[data-pollen][aria-checked="true"]').count()} suivies`);
+await pgAir.locator('[data-pollen="ambroisie"]').click();
+await pgAir.waitForTimeout(400);
+ok("un pollen retiré se marque comme tel",
+  await pgAir.locator('[data-pollen="ambroisie"][aria-checked="false"]').count() === 1);
+ok("et le retrait est gardé sur l'appareil",
+  await pgAir.evaluate(() => {
+    const r = JSON.parse(localStorage.getItem("mameteo.reglages.v1") || "{}");
+    return Array.isArray(r.pollensMuets) && r.pollensMuets.includes("ambroisie");
+  }));
+/* Le profil est une donnée de santé : il ne sort pas de l'appareil. La requête
+   demande les six pollens quoi qu'il arrive, avant comme après le retrait. */
+const requetesAir = () => urlsAir.filter(u => u.includes("air-quality"));
+ok("le profil n'entre dans aucune requête",
+  requetesAir().length > 0
+  && requetesAir().every(u => ["alder", "birch", "grass", "mugwort", "olive", "ragweed"]
+    .every(x => u.includes(`${x}_pollen`))),
+  `${requetesAir().length} requêtes`);
+await ctxAir.close();
+
+/* Un air dégradé se dit dans ce qui est à savoir, et pas en deçà. Les deux
+   contextes ne diffèrent que par l'air servi. */
+const conseilsDe = async profil => {
+  profilAir = profil;
+  const [c, p] = await ctxReponse(METEO_NUE);
+  const dit = (await p.locator("#ecran .conseils .cj-l").allInnerTexts()).join(" | ");
+  await c.close();
+  profilAir = "base";
+  return dit;
+};
+const ditDegrade = await conseilsDe("degrade");
+const ditBase = await conseilsDe("base");
+ok("un air dégradé se dit dans ce qui est à savoir",
+  /Air dégradé .*indice 55/.test(ditDegrade), ditDegrade);
+ok("un air ordinaire ne se dit pas", !/Air /.test(ditBase), ditBase);
+
+/* Le pic d'un pollen se dit, la saison ne se dit pas : une ligne quotidienne
+   pendant six semaines ne se lirait plus. Le profil décide, et c'est la seule
+   différence entre les deux contextes. */
+profilAir = "ambroisie";
+const [ctxPic, pgPic] = await ctxReponse(METEO_NUE);
+const ditPic = (await pgPic.locator("#ecran .conseils .cj-l").allInnerTexts()).join(" | ");
+await ctxPic.close();
+const [ctxSansAmbroisie, pgSansAmbroisie] = await ctxReponse(METEO_NUE,
+  { ...FAIN, pollensMuets: ["ambroisie"] });
+const ditMuet = (await pgSansAmbroisie.locator("#ecran .conseils .cj-l")
+  .allInnerTexts()).join(" | ");
+await ctxSansAmbroisie.close();
+profilAir = "base";
+ok("un pollen du profil au pic se dit",
+  /Ambroisie au pic.*71 grains par mètre cube/.test(ditPic), ditPic);
+ok("le même pollen retiré du profil ne se dit plus",
+  !/Ambroisie/.test(ditMuet), ditMuet);
+/* Les graminées sont en saison dans les deux contextes sans jamais atteindre
+   leur pic : la saison seule ne doit rien écrire. */
+ok("une saison sans pic ne se dit pas",
+  !/Graminées/.test(ditPic) && !/Graminées/.test(ditMuet), ditPic);
+
+/* L'air entre dans la règle d'aération. Les deux contextes portent la même
+   journée fraîche de neuf à quinze heures ; seul l'air du matin change. */
+const aererAvec = async profil => {
+  profilAir = profil;
+  const [c, p] = await ctxReponse(meteoRes(() => 23, h => (h >= 9 && h < 15 ? 16 : 26)));
+  const dit = (await txtDe(p, ".pt-rep")).trim();
+  const rangees = await ouvrirAir(p);
+  await c.close();
+  profilAir = "base";
+  return { dit, air: rangees.filter(l => /^(Bon|Moyen|Dégradé|Mauvais)/.test(l.val)) };
+};
+const aereBase = await aererAvec("base");
+const aereSale = await aererAvec("matin");
+ok("sans air dégradé, l'aération ouvre dès la première heure fraîche",
+  aereBase.dit === "Aérer de 09 h à 15 h, 16° dehors.", aereBase.dit);
+ok("un air dégradé le matin repousse l'aération après lui",
+  aereSale.dit === "Aérer de 12 h à 15 h, 16° dehors.", aereSale.dit);
+/* À neuf heures, le profil du matin est déjà au plus haut de la journée : la
+   rangée « au plus haut » redirait le moment présent, et ne paraît pas. */
+ok("le pire moment ne se répète pas quand c'est le moment présent",
+  aereSale.air.length === 1 && aereBase.air.length === 2,
+  `${aereSale.air.length} rangées d'air sur air dégradé, ${aereBase.air.length} sinon`);
 
 console.log("\n--- Mouvement réduit ---");
 const ctx2 = await nav.newContext({

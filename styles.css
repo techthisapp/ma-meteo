@@ -262,6 +262,7 @@ button:disabled,button[aria-disabled="true"],input:disabled{
 .icv-orage{color:var(--ic-orage)}
 .icv-nuage{color:var(--ic-nuage)}
 .icv-jauge{color:var(--etiquette-2)}
+.icv-pollen{color:var(--ic-soleil)}
 .icv-lever{color:var(--ic-soleil)}
 .icv-coucher{color:var(--ic-soleil)}
 
@@ -686,6 +687,13 @@ button.rangee:active{background:var(--surface-2)}
   font-variant-numeric:tabular-nums;
 }
 .rg-h:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+/* Le profil d'allergies : une rangée par pollen, cochée ou non. La coche garde
+   sa place quand elle est éteinte, sans quoi le nom se décalerait d'une rangée
+   à l'autre. */
+.rg-bascule{width:100%;text-align:left}
+.rg-coche{flex:0 0 auto;width:20px;height:20px;color:var(--accent);margin-left:var(--espace-xs)}
+.rg-coche-vide{color:var(--filet)}
 
 /* La recette du raccourci. Les numéros sont l'information : ils se lisent en
    marge, alignés sur la colonne du texte. */

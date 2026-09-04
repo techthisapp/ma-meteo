@@ -23,6 +23,7 @@
 
 import { nombreFr, heureTxt, esc } from "./horloge.js";
 import { plagesDe, divergencePluie } from "./previsions.js";
+import { POLLENS, DEGRADE, niveauDe, etatPollen } from "./air.js";
 import { ico } from "./icones.js";
 
 export const SEUILS = {
@@ -331,6 +332,48 @@ export function conseils(s, g) {
   if (uvx >= SEUILS.uv) {
     const ku = s.uv.indexOf(uvx);
     dire("soleil", 1, ku, `Indice UV ${Math.round(uvx)} vers ${dem(ku)}. Exposition à limiter.`);
+  }
+
+  /* 18. L'air. Il ne se dit qu'au delà du niveau dégradé : en deçà, c'est une
+     donnée de fond que la feuille de l'air porte déjà, et une ligne qui
+     paraîtrait tous les jours cesserait d'être lue. La gravité suit le niveau,
+     un air mauvais passant devant le vent et la chaleur.
+
+     La ligne nomme le pire niveau de la plage, non celui de son début : c'est
+     lui qui décide si l'on sort. */
+  const air = g && g.air;
+  if (air && Array.isArray(air.aqi)) {
+    const pa = plagesDe(s.n, k => Number.isFinite(air.aqi[k]) && air.aqi[k] >= DEGRADE);
+    if (pa.length) {
+      const [a, b] = [pa[0][0], pa[pa.length - 1][1]];
+      let pirek = a;
+      for (let k = a; k <= b; k++) if ((air.aqi[k] || 0) > (air.aqi[pirek] || 0)) pirek = k;
+      const niv = niveauDe(air.aqi[pirek]);
+      dire("brume", 4.5 + niv.rang * 0.7, b,
+        `Air ${niv.nom} ${plage(a, b)}, indice ${air.aqi[pirek]}.`);
+    }
+  }
+
+  /* 19. Les pollens du profil, au pic seulement. Une saison dure des semaines
+     et une ligne quotidienne pendant six semaines ne se lit plus ; le pic, lui,
+     est un fait de quelques jours. Un seul pollen paraît, le plus fort rapporté
+     à son propre seuil : les taxons n'ont pas la même échelle, trois grains
+     d'ambroisie pesant ce que trente grains de bouleau pèsent. */
+  if (air && air.pollens && Array.isArray(g.pollens)) {
+    let fort = null;
+    for (const p of POLLENS) {
+      if (!g.pollens.includes(p.cle)) continue;
+      const v = air.pollens[p.cle];
+      if (!Array.isArray(v)) continue;
+      for (let k = 0; k < s.n && k < v.length; k++) {
+        if (etatPollen(p, v[k]) !== "pic") continue;
+        if (!fort || v[k] / p.pic > fort.part) fort = { p, k, v: v[k], part: v[k] / p.pic };
+      }
+    }
+    if (fort) {
+      dire("pollen", 4.2, fort.k,
+        `${fort.p.nom} au pic ${dem(fort.k)}, ${nombreFr(fort.v)} grains par mètre cube.`);
+    }
   }
 
   return lignes.sort((a, b) => b.g - a.g).slice(0, LIGNES_MAX);

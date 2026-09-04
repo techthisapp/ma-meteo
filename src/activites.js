@@ -15,6 +15,7 @@
 import { heureTxt, jourCourt, nombreFr } from "./horloge.js";
 import { SEUILS } from "./conseils.js";
 import * as Ensemble from "./ensemble.js";
+import * as Air from "./air.js";
 
 /* La fenêtre. Quarante-huit heures : assez long pour qu'une activité trouve
    presque toujours un créneau, assez court pour que la prévision horaire tienne,
@@ -56,7 +57,9 @@ export const SEUILS_ACT = {
 
   /* Aérer pour rafraîchir. L'intérieur ordinaire vaut vingt degrés, et trois
      degrés d'écart sont ce qui vaut la peine d'ouvrir : en deçà, l'air entrant
-     ne rafraîchit rien de mesurable.
+     ne rafraîchit rien de mesurable. L'air du dehors doit aussi être
+     respirable, le seuil venant de `air.js` et non d'ici : ouvrir en grand sur
+     un air dégradé fait entrer ce qu'on voulait éviter.
 
      La règle ne parle que les jours où l'intérieur va devenir plus chaud que le
      dehors. Sans cette réserve elle se déclencherait tout l'hiver, où il fait
@@ -151,7 +154,7 @@ export const ACTIVITES = [
   },
   {
     cle: "aerer", nom: "Aérer pour rafraîchir", symbole: "maison",
-    sans: "L'intérieur ne va pas devenir plus chaud que le dehors",
+    sans: "L'intérieur ne va pas se réchauffer, ou l'air du dehors est dégradé",
     creneau(serie, k) { return creneauAerer(serie, k); },
     dit: (serie, [a, b]) => {
       let t = Infinity;
@@ -189,13 +192,21 @@ export const ACTIVITES = [
 
 /* Aérer pour rafraîchir. Écrite à part parce que la réponse du matin s'en sert
    aussi : deux règles pour la même question finiraient par se contredire sur le
-   même écran. */
+   même écran.
+
+   L'air entre dans la règle comme une condition de plus, non comme un choix du
+   meilleur moment : les six activités rendent le premier créneau qui convient,
+   et celle-ci ne va pas se mettre à chercher le moment idéal quand les cinq
+   autres ne le font pas. Une heure dont l'air est inconnu reste acceptable,
+   l'absence de donnée n'étant pas une raison de refuser. */
 export function creneauAerer(serie, k) {
   if (!k.length) return null;
   let chaud = -Infinity;
   for (const i of k) if (serie.jour[i] === serie.jour[k[0]]) chaud = Math.max(chaud, serie.t[i]);
   if (chaud < S.interieur + S.ecartAerer) return null;
-  return premierCreneau(serie, k, i => sec(serie, i)
+  const air = Air.alignerSur(serie);
+  const respirable = i => !air || air.aqi[i] === null || air.aqi[i] < Air.DEGRADE;
+  return premierCreneau(serie, k, i => sec(serie, i) && respirable(i)
     && serie.heure[i] >= S.eveil[0] && serie.heure[i] < S.eveil[1]
     && serie.t[i] <= S.interieur - S.ecartAerer, 1);
 }

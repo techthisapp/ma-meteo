@@ -22,6 +22,7 @@ const DEFAUT = {
   alertes: null,       // instants d'alerte du parapluie, au pas de la demi-heure
   jetonsPris: [],      // jetons de parapluie déjà pris, par date et instant
   biais: 0,            // ressenti personnel, en degrés, borné
+  pollensMuets: [],    // pollens dont on ne veut pas être averti
 };
 
 let etat = { ...DEFAUT };
@@ -257,6 +258,23 @@ export function poserBiais(v, borne) {
   const b = Math.max(-borne, Math.min(borne, Math.round(Number(v) || 0)));
   poser({ biais: b });
   return b;
+}
+
+/* Le profil d'allergies. Ce sont les pollens dont on ne veut pas être averti
+   qui sont gardés, non ceux qu'on suit : la liste vide vaut donc « tous », et
+   c'est ce qu'il faut. Un profil vide au départ ferait une fonction invisible
+   tant que personne n'ouvre les réglages, et une liste de suivis deviendrait
+   fausse le jour où un pollen s'ajoute à la source.
+
+   Le profil ne sort pas de l'appareil : la requête demande les six pollens quoi
+   qu'il arrive, et c'est ici seulement que le tri se fait. Filtrer la requête
+   ferait voyager une donnée de santé. */
+const muets = () => (Array.isArray(etat.pollensMuets) ? etat.pollensMuets : []);
+export const pollenSuivi = cle => !muets().includes(cle);
+export function basculerPollen(cle) {
+  const l = muets();
+  poser({ pollensMuets: l.includes(cle) ? l.filter(x => x !== cle) : [...l, cle] });
+  return pollenSuivi(cle);
 }
 
 /* Les jetons pris. La liste s'oublie d'elle-même : un jeton porte sa date, et

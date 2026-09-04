@@ -19,13 +19,14 @@ import * as Feu from "./feu.js";
 import * as Relief from "./relief.js";
 import * as Temps from "./temps.js";
 import { vueTemps, vueSemaine, vueVigilance, vueSoleil, vueLune, vueCommunes, vueReglages,
-  vueAjout, vueParapluie, vueRessenti, vueActivites, vueBeauTemps,
+  vueAjout, vueParapluie, vueRessenti, vueActivites, vueBeauTemps, vueAir,
   bandeauAccueil } from "./vues.js";
 import { moments } from "./ecritures.js";
 import * as Vig from "./vigilance.js";
 import * as Astres from "./astres.js";
 import * as Justesse from "./justesse.js";
 import * as Ensemble from "./ensemble.js";
+import * as Air from "./air.js";
 import * as Parapluie from "./parapluie.js";
 import * as Reponse from "./reponse.js";
 
@@ -425,9 +426,13 @@ function ecranAccueil() {
 
     /* La comparaison avec la veille ne se pose que sur la fenêtre de la journée
        en cours : c'est la seule dont l'heure en cours fasse partie. */
+    /* L'air et le profil d'allergies accompagnent les trois fenêtres, comme les
+       scénarios et les maxima : le moteur de règles reste une fonction de sa
+       série et de ce qu'on lui passe. */
+    const suivis = Air.POLLENS.map(p => p.cle).filter(Reglages.pollenSuivi);
     const lJour = sJour
       ? conseils(sJour, { evenement: prochainAstre(), aujourdhui: cejour,
-        veille: P.ecartVeille() }) : [];
+        veille: P.ecartVeille(), air: Air.alignerSur(sJour), pollens: suivis }) : [];
     /* Le renversement de température ne se dit qu'avec demain : c'est de cette
        journée qu'il parle. L'évènement du Soleil, lui, ne vaut que pour les
        heures qui viennent. */
@@ -438,10 +443,12 @@ function ecranAccueil() {
     const lSuite = [
       ...(sDemain ? conseils(sDemain, { maxima: maximaJour(), aujourdhui: cejour,
         decalage: restant, scenarios: Ensemble.journee(d.time[i + 1]),
-        medianes: Ensemble.alignerSur(sDemain)?.q.t.med }) : []),
+        medianes: Ensemble.alignerSur(sDemain)?.q.t.med,
+        air: Air.alignerSur(sDemain), pollens: suivis }) : []),
       ...(sApres ? conseils(sApres, { aujourdhui: cejour, decalage: restant + 24,
         scenarios: Ensemble.journee(d.time[i + 2]),
-        medianes: Ensemble.alignerSur(sApres)?.q.t.med }) : []),
+        medianes: Ensemble.alignerSur(sApres)?.q.t.med,
+        air: Air.alignerSur(sApres), pollens: suivis }) : []),
     ].sort((a, b) => b.g - a.g).slice(0, LIGNES_MAX);
 
     const bloc = (cle, titre, dedans) => (dedans
@@ -472,6 +479,12 @@ function ecranAccueil() {
         + `<button type="button" class="carte rangee porte" data-feuille="beautemps">`
         + ico("lieu", "") + `<span class="rangee-txt"><b>Où est le beau temps</b>`
         + `<span>Mes lieux, et cent kilomètres à la ronde</span></span>`
+        + chevron + `</button>`
+        /* La troisième porte : ce qui entre dans les poumons, que le temps
+           qu'il fait ne dit pas. */
+        + `<button type="button" class="carte rangee porte" data-feuille="air">`
+        + ico("brume", "") + `<span class="rangee-txt"><b>L'air qu'on respire</b>`
+        + `<span>Indice européen, polluants et pollens</span></span>`
         + chevron + `</button>`
         + (lJour.length ? `<div class="carte retenir">`
           + `<div class="conseils">${conseilsHTML(lJour)}</div></div>` : ""));
@@ -745,12 +758,14 @@ async function suivrePosition({ force } = {}) {
 
 const FEUILLES = { vigilance: vueVigilance, communes: vueCommunes,
   ajout: vueAjout, reglages: vueReglages, parapluie: vueParapluie,
-  ressenti: vueRessenti, activites: vueActivites, beautemps: vueBeauTemps };
+  ressenti: vueRessenti, activites: vueActivites, beautemps: vueBeauTemps,
+  air: vueAir };
 
 /* Accroches : un contenu court n'occupe pas tout l'écran. */
 const ACCROCHE = { vigilance: "moyenne", communes: "grande",
   ajout: "grande", reglages: "grande", parapluie: "moyenne",
-  ressenti: "moyenne", activites: "moyenne", beautemps: "grande" };
+  ressenti: "moyenne", activites: "moyenne", beautemps: "grande",
+  air: "grande" };
 
 function rendreFeuille() {
   if (!vueCourante) return;
@@ -898,6 +913,7 @@ async function charger() {
   nommerPosition();
   lireVigilance();
   lireEnsemble(g);
+  lireAir(g);
   /* Le journal de justesse note ce qui vient d'être servi. Il n'affiche rien et
      ne conditionne rien : il est appelé après le rendu, une charge en échec ne
      lui donnant du reste rien à noter. */
@@ -919,6 +935,18 @@ async function lireEnsemble(g) {
      à côté de la probabilité de la source. */
   const c = P.chargeCourante();
   if (c) Justesse.noter(c, Justesse.lieuDe(g.lat, g.lon), new Date(), d);
+}
+
+/* L'air se lit après la prévision et sans la retarder, comme les scénarios. Une
+   source muette ne prive de rien : le temps qu'il fait est déjà à l'écran, la
+   feuille de l'air dit que la source est muette, et la règle d'aération reprend
+   sa forme d'avant, sans condition sur l'air. */
+async function lireAir(g) {
+  const mien = generation;
+  const d = await Air.charger({ lat: g.lat, lon: g.lon });
+  if (mien !== generation || !d) return;
+  rendre();
+  if (vueCourante) rendreFeuille();
 }
 
 /* Le relevé peut avoir abouti alors que l'interface adresse était muette : la

@@ -113,6 +113,28 @@ for (const theme of ["light", "dark"]) {
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
   });
   await ctx.route(/data\.gouv\.fr|webservice\.meteofrance\.com/, r => r.abort());
+  /* L'air : quatre-vingt-seize heures à partir de minuit du 18 août. L'indice
+     monte l'après-midi, les graminées sont en saison, l'ambroisie au pic à
+     quinze heures. La route vient après celle de la prévision, dont
+     l'expression happerait ce domaine. */
+  await ctx.route(/air-quality-api\.open-meteo\.com/, r => {
+    const h = { time: [], european_aqi: [] };
+    const fixes = { pm2_5: 5.1, pm10: 8.2, ozone: 57, nitrogen_dioxide: 3.3,
+      alder_pollen: 0, birch_pollen: 0, grass_pollen: 12, mugwort_pollen: 0.4,
+      olive_pollen: 0, ragweed_pollen: 0.5 };
+    for (const c of Object.keys(fixes)) h[c] = [];
+    for (let j = 18; j < 22; j++) {
+      for (let x = 0; x < 24; x++) {
+        h.time.push(`2026-08-${j}T${String(x).padStart(2, "0")}:00`);
+        h.european_aqi.push(x >= 12 && x <= 17 ? 26 : 14);
+        for (const c of Object.keys(fixes)) {
+          h[c].push(c === "ragweed_pollen" && x === 15 ? 71 : fixes[c]);
+        }
+      }
+    }
+    r.fulfill({ status: 200, contentType: "application/json",
+      body: JSON.stringify({ hourly: h }) });
+  });
   /* L'interface adresse nomme les points de la grille. La route vient après
      celle qui coupe data.gouv.fr, Playwright essayant la dernière posée en
      premier. */
@@ -172,7 +194,8 @@ for (const theme of ["light", "dark"]) {
   }
   if (process.env.FEUILLE) {
     const cible = { parapluie: "#navJeton", activites: '[data-feuille="activites"]',
-      beautemps: '[data-feuille="beautemps"]' }[process.env.FEUILLE]
+      beautemps: '[data-feuille="beautemps"]',
+      air: '[data-feuille="air"]' }[process.env.FEUILLE]
       || "#btnReglages";
     await pg.locator(cible).click();
     await pg.waitForTimeout(600);
