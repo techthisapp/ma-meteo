@@ -759,7 +759,7 @@ export function vueSoleil() {
   const i = P.iJour();
   const g = Reglages.lire();
   if (!c || i < 0 || !Reglages.situe()) {
-    return { titre: "Le soleil", corps: `<div class="carte"><p class="vide">Indisponible.</p></div>` };
+    return { titre: "Le soleil", dedans: `<div class="carte"><p class="vide">Indisponible.</p></div>` };
   }
 
   const d = c.daily;
@@ -877,8 +877,7 @@ export function vueSoleil() {
 
   return {
     titre: "Le soleil",
-    pleinCadre: true,
-    corps: `<div class="plein">${bdCiel.ciel}`
+    plein: `<div class="plein">${bdCiel.ciel}`
       + `<div class="plein-titre">`
       + (prochain ? `<i>${esc(prochain[1])}</i><b>${hm(prochain[0].getTime())}</b>` : `<b>Le soleil</b>`)
       /* Le disque, à côté de son état, comme la Lune porte le sien à côté du
@@ -888,10 +887,9 @@ export function vueSoleil() {
          endroit. */
       + `<em><canvas class="pt-astre" id="ptSoleil" `
       + `data-chaud="${bdCiel.chaud.toFixed(3)}" aria-hidden="true"></canvas>`
-      + `<span>${esc(etat)}</span></em></div></div>`
+      + `<span>${esc(etat)}</span></em></div></div>`,
 
-      + `<div class="ecran-corps">`
-      + `<div class="section"><h2>Trajectoire</h2>`
+    dedans: `<div class="section"><h2>Trajectoire</h2>`
       + `<div class="carte"><div class="carte-tete"><h3>Hauteur dans le ciel</h3>`
       + `<em>Maintenant ${hm(maintenant.getTime())}</em></div>`
       + trajectoire(courbe, enMinutes(lever), enMinutes(coucher), minutes)
@@ -911,8 +909,7 @@ export function vueSoleil() {
       + `<p class="note">Les seuils tiennent à la hauteur du Soleil sous l'horizon : `
       + `six degrés pour le civil, douze pour le nautique, dix-huit pour `
       + `l'astronomique. Passé le dernier, plus aucune lueur solaire n'atteint le `
-      + `ciel.</p></div></div>`
-      + `</div>`,
+      + `ciel.</p></div></div>`,
 
     brancher(bloc) {
       Feu.vignette(bloc.querySelector("#ptSoleil"),
@@ -927,7 +924,7 @@ export function vueSoleil() {
 export function vueLune() {
   const g = Reglages.lire();
   if (!Reglages.situe()) {
-    return { titre: "La lune", corps: `<div class="carte"><p class="vide">Indisponible.</p></div>` };
+    return { titre: "La lune", dedans: `<div class="carte"><p class="vide">Indisponible.</p></div>` };
   }
 
   const maintenant = new Date();
@@ -1020,8 +1017,7 @@ export function vueLune() {
 
   return {
     titre: "La lune",
-    pleinCadre: true,
-    corps: `<div class="plein">${bandeauLune(g, maintenant, p)}`
+    plein: `<div class="plein">${bandeauLune(g, maintenant, p)}`
       + `<div class="plein-titre">`
       + (prochain ? `<i>${esc(prochain[1])}</i><b>${hm(prochain[0].getTime())}</b>`
         : `<b>La lune</b>`)
@@ -1032,10 +1028,9 @@ export function vueLune() {
       + `data-phase="${anglePhase(p.eclairee).toFixed(1)}" `
       + `data-angle="${Astres.angleLimbe(maintenant, g.lat, g.lon).toFixed(4)}" `
       + `data-eclairee="${p.eclairee.toFixed(3)}" aria-hidden="true"></canvas>`
-      + `<span>${esc(etat)}</span></em></div></div>`
+      + `<span>${esc(etat)}</span></em></div></div>`,
 
-      + `<div class="ecran-corps">`
-      + `<div class="section"><h2>Trajectoire</h2>`
+    dedans: `<div class="section"><h2>Trajectoire</h2>`
       + `<div class="carte"><div class="carte-tete"><h3>Hauteur dans le ciel</h3>`
       + `<em>Maintenant ${hm(maintenant.getTime())}</em></div>`
       + trajectoire(courbe, e.lever ? enMinutes(e.lever.getTime()) : null,
@@ -1053,12 +1048,55 @@ export function vueLune() {
       + `<div class="carte">${bande}`
       + `<p class="note">Positions calculées sur l'appareil, sans source distante. `
       + `Écart de l'ordre de la minute sur les heures, de quelques minutes sur les `
-      + `instants de phase.</p></div></div>`
-      + `</div>`,
+      + `instants de phase.</p></div></div>`,
 
     brancher(bloc) {
       Relief.poser(bloc.querySelector("#ciLune"));
       Relief.vignette(bloc.querySelector("#ptLune"));
+    },
+  };
+}
+
+/* ---------- La destination Le ciel ---------- */
+
+/* Le soleil et la lune sont deux écrans d'un même sujet, et ils étaient déjà
+   deux jumeaux : même panneau de ciel, même grand chiffre, même sous-ligne à
+   vignette, mêmes rangées d'évènement. Les fondre en une destination libère la
+   cinquième place de la barre d'onglets, que la carte prendra, et donne aux
+   étoiles du jalon 9 leur place sans qu'il faille reprendre la navigation une
+   seconde fois.
+
+   Le sélecteur se pose en tête du contenu, sous le ciel : le ciel est le sujet,
+   on choisit ensuite lequel. Il ne peut pas se poser sur la ligne du titre comme
+   celui de l'écran Le temps, ces deux écrans portant leur titre peint dans le
+   ciel et non dans la coque.
+
+   Chaque écran garde son propre corps entier. La fusion ne mêle pas deux
+   contenus, elle range deux écrans sous une même porte. */
+export function vueCiel(ctx, rendre) {
+  const quel = Reglages.ciel();
+  const f = quel === "lune" ? vueLune() : vueSoleil();
+
+  const seg = `<div class="seg">` + Reglages.ECRANS_CIEL.map(([c, n]) =>
+    `<button type="button" data-ciel="${c}"${c === quel ? ' class="actif"' : ""}`
+    + ` aria-current="${c === quel}">${esc(n)}</button>`).join("") + `</div>`;
+
+  return {
+    titre: f.titre,
+    // Sans ciel peint, l'écran n'est pas en plein cadre : la coque pose alors
+    // son titre, et le sélecteur reste en tête du contenu.
+    pleinCadre: !!f.plein,
+    corps: (f.plein || "")
+      + `<div class="ecran-corps">${seg}${f.dedans}</div>`,
+    brancher(bloc) {
+      if (typeof f.brancher === "function") f.brancher(bloc);
+      for (const b of bloc.querySelectorAll("[data-ciel]")) {
+        b.addEventListener("click", () => {
+          if (b.dataset.ciel === quel) return;
+          Reglages.poserCiel(b.dataset.ciel);
+          rendre();
+        });
+      }
     },
   };
 }

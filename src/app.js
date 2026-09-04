@@ -18,7 +18,7 @@ import * as Ruban from "./ruban.js";
 import * as Feu from "./feu.js";
 import * as Relief from "./relief.js";
 import * as Temps from "./temps.js";
-import { vueTemps, vueSemaine, vueVigilance, vueSoleil, vueLune, vueCommunes, vueReglages,
+import { vueTemps, vueSemaine, vueVigilance, vueCiel, vueCommunes, vueReglages,
   vueAjout, vueParapluie, vueRessenti, vueActivites, vueBeauTemps, vueAir,
   bandeauAccueil } from "./vues.js";
 import { moments } from "./ecritures.js";
@@ -57,8 +57,11 @@ const ONGLETS = [
   ["accueil", "maison", "Accueil"],
   ["temps", "horloge", "Le temps"],
   ["semaine", "semaine", "La semaine"],
-  ["soleil", "arc", "Le soleil"],
-  ["lune", "lune", "La lune"],
+  /* Le soleil et la lune tiennent une seule destination depuis le 3 septembre
+     2026 : deux écrans d'un même sujet, choisis par un sélecteur en tête de
+     contenu. La place libérée est celle de La carte, et les étoiles du jalon 9
+     s'ajouteront au même endroit. */
+  ["ciel", "arc", "Le ciel"],
 ];
 
 let onglet = "accueil";
@@ -525,7 +528,7 @@ function ecranAccueil() {
 
 /* ---------- Écrans branchés sur les vues ---------- */
 
-const VUES_ONGLET = { temps: vueTemps, semaine: vueSemaine, soleil: vueSoleil, lune: vueLune };
+const VUES_ONGLET = { temps: vueTemps, semaine: vueSemaine, ciel: vueCiel };
 
 function ecranVue(nom) {
   const f = VUES_ONGLET[nom](ctx, () => rendre(), majEtat);

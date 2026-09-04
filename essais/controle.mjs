@@ -348,12 +348,32 @@ const onglet = async cle => {
   await pg.waitForTimeout(500);
 };
 
+/* Le soleil et la lune sont deux écrans d'une même destination : on ouvre Le
+   ciel, puis on choisit lequel. */
+const ecranCiel = async (p, quel) => {
+  await p.locator('[data-onglet="ciel"]').click();
+  await p.waitForTimeout(400);
+  await p.locator(`[data-ciel="${quel}"]`).click();
+  await p.waitForTimeout(500);
+};
+
+/* Les cinq écrans de l'application, sous quatre destinations : le soleil et la
+   lune s'ouvrent par le sélecteur du ciel, les autres par leur onglet. */
+const ouvrirEcran = async cle => {
+  if (cle === "soleil" || cle === "lune") { await ecranCiel(pg, cle); return; }
+  await onglet(cle);
+  await pg.waitForTimeout(500);
+};
+
 console.log("\n--- Couche navigation ---");
-ok("la barre d'onglets porte cinq destinations",
-  await pg.locator(".onglet").count() === 5, String(await pg.locator(".onglet").count()));
+/* Quatre destinations depuis la fusion du soleil et de la lune en une seule,
+   Le ciel. La cinquième place est celle que La carte prendra : le design system
+   en autorise cinq, il n'en exige pas cinq. */
+ok("la barre d'onglets porte quatre destinations",
+  await pg.locator(".onglet").count() === 4, String(await pg.locator(".onglet").count()));
 const nomsOnglets = (await pg.locator(".onglet span").allInnerTexts()).join(",");
 ok("les destinations sont les bonnes",
-  nomsOnglets === "Accueil,Le temps,La semaine,Le soleil,La lune", nomsOnglets);
+  nomsOnglets === "Accueil,Le temps,La semaine,Le ciel", nomsOnglets);
 ok("aucun libellé d'onglet n'est tronqué", await pg.evaluate(() =>
   [...document.querySelectorAll(".onglet span")]
     .every(e => e.scrollWidth <= e.clientWidth + 1)));
@@ -568,7 +588,7 @@ ok("de jour, Lune couchée, le Soleil est seul",
    règle sur les deux écrans donne la même place au même instant. */
 const placeAccueil = await pg.evaluate(() =>
   document.querySelector("#ecran .ci-astre").style.getPropertyValue("--ax"));
-await onglet("soleil");
+await ecranCiel(pg, "soleil");
 const placeSoleil = await pg.evaluate(() =>
   document.querySelector("#ecran .ci-astre").style.getPropertyValue("--ax"));
 await onglet("accueil");
@@ -1640,8 +1660,55 @@ ok("une journée écoulée n'efface aucun de ses moments",
 await pg.locator(".sem-passe .sem-r").first().click();
 await pg.waitForTimeout(300);
 
+console.log("\n--- La destination Le ciel ---");
+
+/* Le soleil et la lune sont deux écrans d'une même destination depuis le
+   3 septembre 2026. Le sélecteur se pose en tête du contenu, sous le ciel : ces
+   deux écrans portent leur titre peint dans le ciel et non dans la coque, où le
+   sélecteur de l'écran Le temps se range. */
+await pg.locator('[data-onglet="ciel"]').click();
+await pg.waitForTimeout(500);
+ok("la destination porte deux écrans, un seul courant",
+  await pg.locator("#ecran [data-ciel]").count() === 2
+  && await pg.locator('#ecran [data-ciel][aria-current="true"]').count() === 1,
+  `${await pg.locator("#ecran [data-ciel]").count()} segments`);
+ok("le sélecteur ouvre le contenu, sous le ciel",
+  await pg.evaluate(() => {
+    const seg = document.querySelector("#ecran [data-ciel]")?.closest(".seg");
+    const corps = document.querySelector("#ecran .ecran-corps");
+    const ciel = document.querySelector("#ecran .plein");
+    if (!seg || !corps || !ciel) return "un élément manque";
+    if (seg.parentElement !== corps) return "le sélecteur n'est pas dans le contenu";
+    if (corps.firstElementChild !== seg) return "le sélecteur n'ouvre pas le contenu";
+    if (seg.getBoundingClientRect().top < ciel.getBoundingClientRect().bottom - 0.5) {
+      return "le sélecteur passe sur le ciel";
+    }
+    return "";
+  }) === "");
+await pg.locator('[data-ciel="lune"]').click();
+await pg.waitForTimeout(500);
+ok("le sélecteur ouvre l'autre écran",
+  await pg.locator("#ecran #ptLune").count() === 1
+  && await pg.locator("#ecran #ptSoleil").count() === 0,
+  `${await pg.locator("#ecran #ptLune").count()} lune, `
+  + `${await pg.locator("#ecran #ptSoleil").count()} soleil`);
+
+/* Le choix se garde, comme l'écriture de l'écran Le temps : revenir sur Le ciel
+   rend l'écran qu'on regardait, non le premier des deux. */
+await onglet("accueil");
+await pg.locator('[data-onglet="ciel"]').click();
+await pg.waitForTimeout(500);
+ok("le choix se garde d'une visite à l'autre",
+  await pg.locator("#ecran #ptLune").count() === 1,
+  await txt("#ecran .plein-titre"));
+ok("et il est gardé sur l'appareil",
+  await pg.evaluate(() =>
+    JSON.parse(localStorage.getItem("mameteo.reglages.v1") || "{}").ciel === "lune"));
+await pg.locator('[data-ciel="soleil"]').click();
+await pg.waitForTimeout(500);
+
 console.log("\n--- Le soleil ---");
-await onglet("soleil");
+await ecranCiel(pg, "soleil");
 await pg.waitForTimeout(600);
 const soleilTxt = await txt("#ecran");
 ok("la durée du jour est écrite", /\d+ h \d\d/.test(soleilTxt));
@@ -1677,8 +1744,7 @@ ok("elle est peinte, opaque et chaude", await pg.evaluate(() => {
 /* Le même alignement des deux côtés : c'est la vignette qui décale le texte,
    et une seule règle de taille la porte pour les deux écrans. */
 const decalage = async cle => {
-  await onglet(cle);
-  await pg.waitForTimeout(500);
+  await ecranCiel(pg, cle);
   return pg.evaluate(() => {
     const em = document.querySelector(".plein-titre em");
     const sp = em?.querySelector("span");
@@ -1696,7 +1762,7 @@ const alLune = await decalage("lune");
 ok("les deux écrans jumeaux alignent leur sous-ligne au même endroit",
   !!alSoleil && JSON.stringify(alSoleil) === JSON.stringify(alLune),
   `${JSON.stringify(alSoleil)} contre ${JSON.stringify(alLune)}`);
-await onglet("soleil");
+await ecranCiel(pg, "soleil");
 await pg.waitForTimeout(500);
 
 /* La plainte d'origine : la même heure écrite deux fois. Le bandeau annonce le
@@ -1905,7 +1971,7 @@ console.log("\n--- La lune ---");
 const requetes = [];
 const noter = r => requetes.push(r.url());
 pg.on("request", noter);
-await onglet("lune");
+await ecranCiel(pg, "lune");
 pg.off("request", noter);
 await pg.waitForTimeout(600);
 const lunTxt = await txt("#ecran");
@@ -1927,6 +1993,7 @@ ok("la phase est montrée en vignette à côté de son nom", await pg.evaluate((
 }));
 ok("la vignette porte des pixels opaques", await pg.evaluate(() => {
   const cv = document.getElementById("ptLune");
+  if (!cv) return false;
   const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
   let n = 0;
   for (let i = 3; i < d.length; i += 4) if (d[i] > 24) n++;
@@ -1937,6 +2004,7 @@ ok("la vignette porte des pixels opaques", await pg.evaluate(() => {
    doit être franche, sans quoi la vignette n'est qu'un rond gris. */
 ok("la part sombre de la vignette est franche", await pg.evaluate(() => {
   const cv = document.getElementById("ptLune");
+  if (!cv) return false;
   const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
   let opaques = 0, noirs = 0;
   for (let i = 0; i < d.length; i += 4) {
@@ -1947,6 +2015,7 @@ ok("la part sombre de la vignette est franche", await pg.evaluate(() => {
   return opaques > 0 && noirs / opaques >= 0.30;
 }), await pg.evaluate(() => {
   const cv = document.getElementById("ptLune");
+  if (!cv) return false;
   const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
   let o = 0, n = 0;
   for (let i = 0; i < d.length; i += 4) {
@@ -2447,8 +2516,7 @@ ok("l'accueil ne parle pas de mesure au poste",
 
 console.log("\n--- Largeur des écrans ---");
 for (const cle of ["accueil", "temps", "semaine", "soleil", "lune"]) {
-  await onglet(cle);
-  await pg.waitForTimeout(500);
+  await ouvrirEcran(cle);
   /* Le débord se mesure sur la couche de contenu, non sur le document : le
      document est écrêté par `overflow-x:hidden`, ce qui masque la faute au
      lieu de la corriger. Un bloc qui sort de la fenêtre coupe la colonne des
@@ -2476,8 +2544,7 @@ await onglet("accueil");
 console.log("\n--- Grand corps de texte ---");
 await pg.addStyleTag({ content: ":root{font-size:22px}" });
 for (const cle of ["accueil", "temps", "semaine", "soleil", "lune"]) {
-  await onglet(cle);
-  await pg.waitForTimeout(500);
+  await ouvrirEcran(cle);
   /* Deux fautes se cherchent ici : un contenu qui sort de sa rangée, et une
      rangée dont le contenu vient toucher le bord de sa carte. La seconde ne
      déborde pas au sens strict, mais la valeur se colle au bord et la coupure
@@ -4033,18 +4100,30 @@ for (const [quand, hauteur, attendu] of [
   ["2026-08-18T22:09:00+02:00", "moins treize degrés", 0],
 ]) {
   await pageA(quand, null, async pg => {
-    const disques = async cle => {
-      await pg.locator(`[data-onglet="${cle}"]`).click();
-      await pg.waitForTimeout(450);
-      return pg.locator("#ecran canvas#ciFeu").count();
-    };
-    const accueil = await disques("accueil");
-    const soleil = await disques("soleil");
+    const disques = async () => pg.locator("#ecran canvas#ciFeu").count();
+    await pg.locator('[data-onglet="accueil"]').click();
+    await pg.waitForTimeout(450);
+    const accueil = await disques();
+    await ecranCiel(pg, "soleil");
+    const soleil = await disques();
     ok(`à ${hauteur}, les deux écrans montrent le même Soleil`,
       accueil === attendu && soleil === attendu,
       `accueil ${accueil}, écran du Soleil ${soleil}, attendu ${attendu}`);
   });
 }
+
+/* Sur une installation neuve, la destination ouvre sur le soleil : il parle de
+   la journée en cours, quand la lune parle d'un cycle qui la déborde. Le
+   contexte est neuf, celui du contrôle principal ayant déjà changé d'écran. */
+await pageA("2026-08-18T09:00:00+02:00", null, async pg => {
+  await pg.locator('[data-onglet="ciel"]').click();
+  await pg.waitForTimeout(500);
+  ok("sur une installation neuve, le soleil ouvre la destination",
+    await pg.locator("#ecran #ptSoleil").count() === 1
+    && await pg.locator("#ecran #ptLune").count() === 0,
+    `${await pg.locator("#ecran #ptSoleil").count()} soleil, `
+    + `${await pg.locator("#ecran #ptLune").count()} lune`);
+});
 
 /* Le relais entre le disque et le ciel. Le disque s'éteint six degrés sous
    l'horizon, le dégradé du ciel porte encore la lueur jusqu'à douze : entre les
@@ -4056,8 +4135,7 @@ for (const [cle, quand] of [
   ["nuit", "2026-08-18T23:00:00+02:00"],    // moins dix-neuf degrés
 ]) {
   await pageA(quand, null, async pg => {
-    await pg.locator('[data-onglet="soleil"]').click();
-    await pg.waitForTimeout(450);
+    await ecranCiel(pg, "soleil");
     basDuCiel[cle] = await pg.evaluate(() => ({
       bas: document.querySelector("#ecran .ci")?.style.getPropertyValue("--ci-bas") || "",
       feu: document.querySelectorAll("#ecran canvas#ciFeu").length,
@@ -4689,9 +4767,9 @@ ok("la barre de tête garde sa hauteur et le jeton tient dedans",
       && n.right <= j.left + 0.5;
   }));
 
-ok("le jeton garde sa place sur les cinq écrans", await (async () => {
+ok("le jeton garde sa place sur les quatre écrans", await (async () => {
   const vus = [];
-  for (const cle of ["accueil", "temps", "semaine", "soleil", "lune"]) {
+  for (const cle of ["accueil", "temps", "semaine", "ciel"]) {
     await pgPluie.locator(`[data-onglet="${cle}"]`).click();
     await pgPluie.waitForTimeout(400);
     const b = await pgPluie.locator("#navJeton").boundingBox();

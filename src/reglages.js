@@ -15,6 +15,7 @@ const DEFAUT = {
   lat: null,
   lon: null,
   ecriture: "ruban",   // ruban ou liste
+  ciel: "soleil",      // écran ouvert dans la destination Le ciel
   poste: null,         // numéro du poste de mesure retenu
   suivies: [],         // communes suivies, la courante comprise
   auto: false,         // le lieu courant suit la position de l'appareil
@@ -233,6 +234,20 @@ export const ECRITURES = [["ruban", "Ruban"], ["liste", "Liste"]];
 export function poserEcriture(e) {
   if (!ECRITURES.some(([c]) => c === e)) return;
   poser({ ecriture: e });
+}
+
+/* Les écrans de la destination Le ciel. Le soleil ouvre : il parle de la journée
+   en cours, quand la Lune parle d'un cycle qui déborde la journée.
+
+   Le choix se garde, comme l'écriture de l'écran Le temps : revenir sur Le ciel
+   doit rendre l'écran qu'on regardait, non recommencer au premier. Les étoiles
+   s'ajouteront ici au jalon 9 ; un segment qui ne mènerait nulle part
+   maintenant serait une promesse que l'application ne tient pas. */
+export const ECRANS_CIEL = [["soleil", "Soleil"], ["lune", "Lune"]];
+export const ciel = () => (ECRANS_CIEL.some(([c]) => c === etat.ciel) ? etat.ciel : "soleil");
+export function poserCiel(e) {
+  if (!ECRANS_CIEL.some(([c]) => c === e)) return;
+  poser({ ciel: e });
 }
 
 /* Les instants d'alerte. `null` rend la valeur par défaut du module du

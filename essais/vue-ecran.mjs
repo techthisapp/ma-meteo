@@ -180,8 +180,16 @@ for (const theme of ["light", "dark"]) {
   const pg = await ctx.newPage();
   await pg.goto("http://localhost:8141/", { waitUntil: "networkidle" });
   await pg.waitForTimeout(900);
-  await pg.locator(`[data-onglet="${process.env.ECRAN || "soleil"}"]`).click();
+  /* Le soleil et la lune sont deux écrans de la destination Le ciel : la
+     variable les nomme encore, la capture ouvre la destination puis choisit. */
+  const voulu = process.env.ECRAN || "soleil";
+  const dansLeCiel = voulu === "soleil" || voulu === "lune";
+  await pg.locator(`[data-onglet="${dansLeCiel ? "ciel" : voulu}"]`).click();
   await pg.waitForTimeout(700);
+  if (dansLeCiel) {
+    await pg.locator(`[data-ciel="${voulu}"]`).click();
+    await pg.waitForTimeout(700);
+  }
 
   const cle = process.env.ECRAN || "soleil";
   if (process.env.OUVRIRVOIE) {
