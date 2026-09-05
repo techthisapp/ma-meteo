@@ -18,6 +18,7 @@ import * as Reponse from "./reponse.js";
 import * as Activites from "./activites.js";
 import * as BeauTemps from "./beautemps.js";
 import * as Air from "./air.js";
+import * as Carte from "./carte.js";
 import * as Vig from "./vigilance.js";
 import { SEUILS } from "./conseils.js";
 
@@ -1053,6 +1054,135 @@ export function vueLune() {
     brancher(bloc) {
       Relief.poser(bloc.querySelector("#ciLune"));
       Relief.vignette(bloc.querySelector("#ptLune"));
+    },
+  };
+}
+
+/* ---------- La carte ---------- */
+
+/* Le fond est dessiné, non chargé en tuiles : la mesure et ses raisons sont dans
+   `carte.js` et dans `geographie.js`. Cet écran ne fait que poser la toile, les
+   repères et les quelques commandes autour.
+
+   Il ne défile pas. La toile occupe tout ce qui reste entre les deux barres, et
+   le doigt qui glisse déplace la carte : il n'y a rien d'autre à faire défiler,
+   et le geste n'a donc rien à disputer à la page, ce qui est l'inverse du ruban.
+
+   Les repères sont des boutons du document, non des dessins sur la toile : un
+   repère se touche, se nomme et s'atteint au clavier, ce qu'un pixel peint ne
+   fait pas. Ils sont replacés à chaque image plutôt que redessinés. */
+export function vueCarte(ctx, rendre, majEtat) {
+  const g = Reglages.lire();
+  if (!Number.isFinite(g.lat) || !Number.isFinite(g.lon)) {
+    return {
+      titre: "La carte",
+      corps: `<div class="carte"><p class="vide">Aucun lieu courant.</p></div>`,
+    };
+  }
+
+  const suivies = Reglages.suivies();
+  const lieux = [{ nom: g.commune || "Ici", lat: g.lat, lon: g.lon, ici: true },
+    ...suivies.filter(l => l.lat !== g.lat || l.lon !== g.lon)
+      .map(l => ({ nom: l.commune || "Commune", lat: l.lat, lon: l.lon, ici: false }))];
+
+  const vue = { lat: g.lat, lon: g.lon, z: Carte.ZDEFAUT };
+
+  return {
+    titre: "La carte",
+    carte: true,
+    corps: `<div class="ca-cadre">`
+      + `<canvas class="ca" id="caToile" role="img" `
+      + `aria-label="Carte de ${esc(g.commune || "la position")} et de ses alentours"></canvas>`
+      + `<div class="ca-reperes" id="caReperes"></div>`
+      + `<div class="ca-outils">`
+      + `<button type="button" class="ca-o" id="caPlus" aria-label="Zoomer">`
+      + ico("plus", "") + `</button>`
+      + `<button type="button" class="ca-o" id="caMoins" aria-label="Dézoomer">`
+      + ico("moins", "") + `</button>`
+      + `<button type="button" class="ca-o" id="caIci" aria-label="Revenir sur le lieu courant">`
+      + ico("cible", "") + `</button>`
+      + `</div>`
+      + `<div class="ca-bas">`
+      + `<div class="ca-echelle" id="caEchelle"><i></i><span></span></div>`
+      + `<p class="ca-credit">Contours IGN et Natural Earth</p>`
+      + `</div></div>`,
+
+    brancher(bloc) {
+      const cv = bloc.querySelector("#caToile");
+      const zone = bloc.querySelector("#caReperes");
+      const barre = bloc.querySelector("#caEchelle");
+      if (!cv) return;
+
+      /* Les repères sont créés une fois et déplacés ensuite : les recréer à
+         chaque image perdrait le focus du clavier au milieu d'un geste. */
+      zone.innerHTML = lieux.map((l, k) => `<button type="button" class="ca-r`
+        + `${l.ici ? " ca-r-ici" : ""}" data-lieu="${k}">`
+        + `<span class="ca-r-pt"></span>`
+        + `<span class="ca-r-nom">${esc(l.nom)}<em data-deg></em></span></button>`).join("");
+      const boutons = [...zone.querySelectorAll(".ca-r")];
+
+      const placer = () => {
+        const l = cv.clientWidth, h = cv.clientHeight;
+        boutons.forEach((b, k) => {
+          const p = Carte.surEcran(vue, lieux[k].lat, lieux[k].lon, l, h);
+          /* Un repère hors du cadre est caché plutôt que posé au bord : une
+             pastille collée au bord dirait un lieu qui n'est pas là. */
+          const dehors = p.x < -40 || p.y < -40 || p.x > l + 40 || p.y > h + 40;
+          b.hidden = dehors;
+          if (!dehors) {
+            b.style.setProperty("--rx", `${p.x.toFixed(1)}px`);
+            b.style.setProperty("--ry", `${p.y.toFixed(1)}px`);
+          }
+        });
+        const e = Carte.echelleBarre(vue, cv.clientWidth);
+        barre.style.setProperty("--eb", `${Math.round(e.px)}px`);
+        barre.querySelector("span").textContent = `${e.km} km`;
+      };
+
+      const main = Carte.poser(cv, vue, placer);
+      const revoir = () => { main.redessiner(); };
+
+      // Le premier tracé attend que la toile ait sa taille.
+      requestAnimationFrame(() => { Carte.dessiner(cv, vue); placer(); });
+
+      const pas = d => {
+        Object.assign(vue, Carte.borner({ ...vue, z: vue.z + d }));
+        revoir();
+      };
+      bloc.querySelector("#caPlus").addEventListener("click", () => pas(1));
+      bloc.querySelector("#caMoins").addEventListener("click", () => pas(-1));
+      bloc.querySelector("#caIci").addEventListener("click", () => {
+        Object.assign(vue, Carte.borner({ lat: g.lat, lon: g.lon, z: Carte.ZDEFAUT }));
+        revoir();
+      });
+
+      /* Un appui sur un repère bascule la commune, comme une rangée de la liste
+         des lieux. Le repère du lieu courant ne bascule rien et ramène la vue
+         sur lui : c'est déjà là qu'on est. */
+      for (const b of boutons) {
+        b.addEventListener("click", () => {
+          const l = lieux[Number(b.dataset.lieu)];
+          if (l.ici) {
+            Object.assign(vue, Carte.borner({ lat: l.lat, lon: l.lon, z: vue.z }));
+            revoir();
+            return;
+          }
+          const cible = suivies.find(x => x.lat === l.lat && x.lon === l.lon);
+          if (cible) { Reglages.poserLieu(cible); rendre({ recharger: true }); }
+        });
+      }
+
+      /* Les températures arrivent après coup, d'un seul appel pour toute la
+         liste, celui-là même que sert la feuille des lieux. */
+      P.apercus(lieux).then(({ par }) => {
+        boutons.forEach((b, k) => {
+          const a = par[`${lieux[k].lat},${lieux[k].lon}`];
+          const em = b.querySelector("[data-deg]");
+          if (a && em) em.textContent = `${Math.round(a.t)}°`;
+        });
+      });
+
+      window.addEventListener("resize", revoir, { passive: true });
     },
   };
 }

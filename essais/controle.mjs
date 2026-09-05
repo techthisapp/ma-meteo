@@ -366,14 +366,14 @@ const ouvrirEcran = async cle => {
 };
 
 console.log("\n--- Couche navigation ---");
-/* Quatre destinations depuis la fusion du soleil et de la lune en une seule,
-   Le ciel. La cinquième place est celle que La carte prendra : le design system
-   en autorise cinq, il n'en exige pas cinq. */
-ok("la barre d'onglets porte quatre destinations",
-  await pg.locator(".onglet").count() === 4, String(await pg.locator(".onglet").count()));
+/* Cinq destinations : la fusion du soleil et de la lune a libéré une place, et
+   La carte l'a prise. Les quatre premières se lisent en échelle de temps, de
+   l'instant à la semaine ; la carte lit l'espace, elle vient après. */
+ok("la barre d'onglets porte cinq destinations",
+  await pg.locator(".onglet").count() === 5, String(await pg.locator(".onglet").count()));
 const nomsOnglets = (await pg.locator(".onglet span").allInnerTexts()).join(",");
 ok("les destinations sont les bonnes",
-  nomsOnglets === "Accueil,Le temps,La semaine,Le ciel", nomsOnglets);
+  nomsOnglets === "Accueil,Le temps,La semaine,Le ciel,La carte", nomsOnglets);
 ok("aucun libellé d'onglet n'est tronqué", await pg.evaluate(() =>
   [...document.querySelectorAll(".onglet span")]
     .every(e => e.scrollWidth <= e.clientWidth + 1)));
@@ -2515,7 +2515,7 @@ ok("l'accueil ne parle pas de mesure au poste",
   !(await txt("#ecran")).toLowerCase().includes("pluie mesurée"));
 
 console.log("\n--- Largeur des écrans ---");
-for (const cle of ["accueil", "temps", "semaine", "soleil", "lune"]) {
+for (const cle of ["accueil", "temps", "semaine", "soleil", "lune", "carte"]) {
   await ouvrirEcran(cle);
   /* Le débord se mesure sur la couche de contenu, non sur le document : le
      document est écrêté par `overflow-x:hidden`, ce qui masque la faute au
@@ -2543,7 +2543,7 @@ await onglet("accueil");
    colonne des heures se coupait au bord de l'écran. */
 console.log("\n--- Grand corps de texte ---");
 await pg.addStyleTag({ content: ":root{font-size:22px}" });
-for (const cle of ["accueil", "temps", "semaine", "soleil", "lune"]) {
+for (const cle of ["accueil", "temps", "semaine", "soleil", "lune", "carte"]) {
   await ouvrirEcran(cle);
   /* Deux fautes se cherchent ici : un contenu qui sort de sa rangée, et une
      rangée dont le contenu vient toucher le bord de sa carte. La seconde ne
@@ -4767,9 +4767,9 @@ ok("la barre de tête garde sa hauteur et le jeton tient dedans",
       && n.right <= j.left + 0.5;
   }));
 
-ok("le jeton garde sa place sur les quatre écrans", await (async () => {
+ok("le jeton garde sa place sur les cinq écrans", await (async () => {
   const vus = [];
-  for (const cle of ["accueil", "temps", "semaine", "ciel"]) {
+  for (const cle of ["accueil", "temps", "semaine", "ciel", "carte"]) {
     await pgPluie.locator(`[data-onglet="${cle}"]`).click();
     await pgPluie.waitForTimeout(400);
     const b = await pgPluie.locator("#navJeton").boundingBox();
@@ -5676,6 +5676,178 @@ ok("un air dégradé le matin repousse l'aération après lui",
 ok("le pire moment ne se répète pas quand c'est le moment présent",
   aereSale.air.length === 1 && aereBase.air.length === 2,
   `${aereSale.air.length} rangées d'air sur air dégradé, ${aereBase.air.length} sinon`);
+
+/* ---------- La carte ---------- */
+
+console.log("\n--- La carte ---");
+
+/* Le fond est dessiné, non chargé en tuiles : une tuile de plan de l'IGN pèse de
+   42 à 70 kilooctets, et une vue de téléphone en demande une douzaine. Les
+   contours embarqués coûtent trente-trois kilooctets une fois pour toutes. */
+const [ctxCarte, pgCarte] = await ctxReponse(METEO_NUE, REGL_BEAU);
+await pgCarte.locator('[data-onglet="carte"]').click();
+await pgCarte.waitForTimeout(700);
+
+ok("la carte est peinte sur sa toile",
+  await pgCarte.evaluate(() => {
+    const cv = document.getElementById("caToile");
+    if (!cv) return "aucune toile";
+    const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+    const teintes = new Set();
+    for (let i = 0; i < d.length; i += 4 * 97) teintes.add(`${d[i]},${d[i + 1]},${d[i + 2]}`);
+    // Un fond uni ne porte qu'une teinte : les traits en ajoutent.
+    return teintes.size > 3 ? "" : `${teintes.size} teintes`;
+  }) === "");
+/* L'écran de la carte ne défile pas : la toile occupe ce qui reste entre les
+   deux barres, et le doigt qui glisse déplace la carte. */
+ok("l'écran de la carte ne défile pas",
+  await pgCarte.evaluate(() =>
+    document.documentElement.scrollHeight <= window.innerHeight + 1),
+  await pgCarte.evaluate(() =>
+    `${document.documentElement.scrollHeight} contre ${window.innerHeight}`));
+ok("le lieu courant ouvre la carte en son centre",
+  await pgCarte.evaluate(() => {
+    const cv = document.getElementById("caToile");
+    const r = document.querySelector(".ca-r-ici");
+    if (!cv || !r) return "un élément manque";
+    const b = cv.getBoundingClientRect(), p = r.getBoundingClientRect();
+    const dx = (p.left + 11) - (b.left + b.width / 2);
+    const dy = (p.top + 11) - (b.top + b.height / 2);
+    return Math.abs(dx) < 2 && Math.abs(dy) < 2 ? "" : `écart ${dx.toFixed(1)}, ${dy.toFixed(1)}`;
+  }) === "");
+ok("chaque lieu suivi porte son repère",
+  await pgCarte.locator(".ca-r").count() === 3
+  && await pgCarte.locator(".ca-r-ici").count() === 1,
+  `${await pgCarte.locator(".ca-r").count()} repères`);
+
+/* Le zoom se mesure sur l'écartement de deux repères, non sur le libellé de
+   l'échelle : celui-ci reste le même d'un cran à l'autre quand la barre change
+   de longueur, la longueur ronde retenue ne changeant qu'un cran sur deux. */
+const ecartReperes = () => pgCarte.evaluate(() => {
+  const r = [...document.querySelectorAll(".ca-r")].filter(x => !x.hidden);
+  if (r.length < 2) return null;
+  const b = r.map(x => x.getBoundingClientRect());
+  return Math.round(Math.hypot(b[0].left - b[1].left, b[0].top - b[1].top));
+});
+const ecartAvant = await ecartReperes();
+await pgCarte.locator("#caPlus").click();
+await pgCarte.waitForTimeout(300);
+const ecartApres = await ecartReperes();
+ok("un cran de zoom double l'écartement des lieux",
+  ecartAvant > 10 && Math.abs(ecartApres / ecartAvant - 2) < 0.06,
+  `${ecartAvant} puis ${ecartApres}`);
+/* Un repère hors du cadre est caché plutôt que collé au bord : une pastille au
+   bord dirait un lieu qui n'est pas là. */
+for (let k = 0; k < 2; k++) { await pgCarte.locator("#caPlus").click(); await pgCarte.waitForTimeout(150); }
+await pgCarte.waitForTimeout(300);
+ok("un repère hors du cadre est caché",
+  await pgCarte.locator(".ca-r:not([hidden])").count() === 1
+  && await pgCarte.locator(".ca-r-ici:not([hidden])").count() === 1,
+  `${await pgCarte.locator(".ca-r:not([hidden])").count()} repères visibles`);
+for (let k = 0; k < 2; k++) { await pgCarte.locator("#caMoins").click(); await pgCarte.waitForTimeout(150); }
+await pgCarte.waitForTimeout(300);
+ok("l'échelle écrite reste une longueur ronde",
+  /^(1|2|5|10|20|50|100|200|500) km$/.test((await txtDe(pgCarte, ".ca-echelle span")).trim()),
+  await txtDe(pgCarte, ".ca-echelle span"));
+
+/* Le zoom reste entre ses bornes : au delà, le pas de la grille des contours se
+   verrait, et en deçà il n'y aurait plus rien à lire. */
+ok("le zoom reste entre ses bornes", await pgCarte.evaluate(async () => {
+  const C = await import("/src/carte.js");
+  const haut = C.borner({ lat: 47.5, lon: 4.3, z: 99 });
+  const bas = C.borner({ lat: 47.5, lon: 4.3, z: -5 });
+  if (haut.z !== C.ZMAX) return `haut ${haut.z}`;
+  if (bas.z !== C.ZMIN) return `bas ${bas.z}`;
+  const loin = C.borner({ lat: 12, lon: 60, z: 8 });
+  if (loin.lat > 53 || loin.lon > 13) return `centre ${loin.lat}, ${loin.lon}`;
+  return "";
+}) === "");
+/* La projection et son inverse se répondent : c'est ce qui garantit qu'un point
+   touché est bien le point du globe qu'on croit toucher. */
+ok("la projection et son inverse se répondent", await pgCarte.evaluate(async () => {
+  const C = await import("/src/carte.js");
+  const vue = { lat: 47.5, lon: 4.3, z: 8 };
+  for (const [x, y] of [[0, 0], [120, 300], [389, 600]]) {
+    const p = C.depuisEcran(vue, x, y, 390, 700);
+    const e = C.surEcran(vue, p.lat, p.lon, 390, 700);
+    if (Math.abs(e.x - x) > 0.01 || Math.abs(e.y - y) > 0.01) {
+      return `${x},${y} devient ${e.x.toFixed(2)},${e.y.toFixed(2)}`;
+    }
+  }
+  return "";
+}) === "");
+
+/* Un déplacement au doigt emmène la carte, et le bouton de retour la ramène sur
+   le lieu courant. */
+const centreDuRepere = () => pgCarte.evaluate(() => {
+  const cv = document.getElementById("caToile");
+  const r = document.querySelector(".ca-r-ici");
+  if (!cv || !r || r.hidden) return null;
+  const b = cv.getBoundingClientRect(), p = r.getBoundingClientRect();
+  return [Math.round((p.left + 11) - (b.left + b.width / 2)),
+    Math.round((p.top + 11) - (b.top + b.height / 2))];
+});
+const cadreCarte = await pgCarte.locator("#caToile").boundingBox();
+/* Le geste part d'un point libre : au centre exact se tient le repère du lieu
+   courant, et l'appui y ouvrirait la commune au lieu de déplacer la carte. */
+const dep = { x: cadreCarte.x + cadreCarte.width / 2,
+  y: cadreCarte.y + cadreCarte.height / 2 + 200 };
+await pgCarte.mouse.move(dep.x, dep.y);
+await pgCarte.mouse.down();
+await pgCarte.mouse.move(dep.x - 90, dep.y - 60, { steps: 6 });
+await pgCarte.mouse.up();
+await pgCarte.waitForTimeout(400);
+const apresGlissement = await centreDuRepere();
+ok("le doigt déplace la carte",
+  !!apresGlissement && Math.abs(apresGlissement[0] + 90) < 6 && Math.abs(apresGlissement[1] + 60) < 6,
+  JSON.stringify(apresGlissement));
+await pgCarte.locator("#caIci").click();
+await pgCarte.waitForTimeout(400);
+const apresRetour = await centreDuRepere();
+ok("le retour ramène la carte sur le lieu courant",
+  !!apresRetour && Math.abs(apresRetour[0]) < 2 && Math.abs(apresRetour[1]) < 2,
+  JSON.stringify(apresRetour));
+
+/* Un appui sur le repère d'un lieu suivi bascule la commune, comme une rangée
+   de la liste des lieux. */
+const nomAvant = await txtDe(pgCarte, "#navLieuNom");
+/* Cinq secondes suffisent : un repère qui ne paraît pas est une faute, et
+   l'attente par défaut de trente secondes ferait durer la suite d'autant à
+   chaque contrôle d'une fonction cassée. */
+await pgCarte.locator('.ca-r:not(.ca-r-ici)').first().click({ timeout: 5000 })
+  .catch(() => {});
+await pgCarte.waitForTimeout(1200);
+const nomApres = await txtDe(pgCarte, "#navLieuNom");
+ok("un appui sur un repère bascule la commune",
+  nomAvant !== nomApres && nomApres.length > 1, `${nomAvant} puis ${nomApres}`);
+/* Les contours embarqués : quatre couches, et une boîte qui tient dans la
+   fenêtre que la carte peut montrer. Un contour hors fenêtre serait des octets
+   servis pour une côte que personne ne verra. */
+ok("les contours se décodent et tiennent dans leur fenêtre",
+  await pgCarte.evaluate(async () => {
+    const G = await import("/src/geographie.js");
+    const c = G.contours();
+    const noms = ["contour", "departements", "terre", "bornes"];
+    for (const n of noms) {
+      if (!Array.isArray(c[n]) || !c[n].length) return `couche ${n} vide`;
+      for (const l of c[n]) {
+        for (let i = 0; i < l.length; i += 2) {
+          if (l[i] < -9 || l[i] > 15 || l[i + 1] < 38 || l[i + 1] > 55) {
+            return `${n} sort de la fenêtre : ${l[i].toFixed(2)}, ${l[i + 1].toFixed(2)}`;
+          }
+        }
+      }
+    }
+    // Le contour du pays porte la Corse : sans elle, la carte oublierait une région.
+    const corse = c.contour.some(l => {
+      for (let i = 0; i < l.length; i += 2) {
+        if (l[i] > 8.5 && l[i + 1] > 41.3 && l[i + 1] < 43.1) return true;
+      }
+      return false;
+    });
+    return corse ? "" : "la Corse manque au contour";
+  }) === "");
+await ctxCarte.close();
 
 console.log("\n--- Mouvement réduit ---");
 const ctx2 = await nav.newContext({

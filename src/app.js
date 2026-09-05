@@ -18,7 +18,7 @@ import * as Ruban from "./ruban.js";
 import * as Feu from "./feu.js";
 import * as Relief from "./relief.js";
 import * as Temps from "./temps.js";
-import { vueTemps, vueSemaine, vueVigilance, vueCiel, vueCommunes, vueReglages,
+import { vueTemps, vueSemaine, vueVigilance, vueCiel, vueCarte, vueCommunes, vueReglages,
   vueAjout, vueParapluie, vueRessenti, vueActivites, vueBeauTemps, vueAir,
   bandeauAccueil } from "./vues.js";
 import { moments } from "./ecritures.js";
@@ -62,6 +62,11 @@ const ONGLETS = [
      contenu. La place libérée est celle de La carte, et les étoiles du jalon 9
      s'ajouteront au même endroit. */
   ["ciel", "arc", "Le ciel"],
+  /* La carte prend la cinquième place, celle que la fusion du soleil et de la
+     lune a libérée. Elle vient en dernier : les quatre premières destinations
+     se lisent en échelle de temps, de l'instant à la semaine, la carte lit
+     l'espace. */
+  ["carte", "carte", "La carte"],
 ];
 
 let onglet = "accueil";
@@ -528,12 +533,21 @@ function ecranAccueil() {
 
 /* ---------- Écrans branchés sur les vues ---------- */
 
-const VUES_ONGLET = { temps: vueTemps, semaine: vueSemaine, ciel: vueCiel };
+const VUES_ONGLET = { temps: vueTemps, semaine: vueSemaine, ciel: vueCiel, carte: vueCarte };
 
+/* Un écran peut demander une relecture de la prévision, non seulement un rendu :
+   la carte bascule de commune depuis un repère, comme la liste des lieux le fait
+   depuis une rangée. Les feuilles avaient déjà cette voie, les écrans non. */
 function ecranVue(nom) {
-  const f = VUES_ONGLET[nom](ctx, () => rendre(), majEtat);
+  const f = VUES_ONGLET[nom](ctx, o => {
+    if (o?.recharger) { charger(); return; }
+    rendre();
+  }, majEtat);
   return {
     titre: f.titre,
+    /* La carte ne défile pas : elle occupe ce qui reste entre les deux barres,
+       et le doigt qui glisse la déplace. */
+    carte: f.carte === true,
     /* Le plein cadre porte son propre titre, dans le ciel : la coque ne pose
        pas le sien par-dessus. */
     pleinCadre: f.pleinCadre === true,
@@ -618,8 +632,10 @@ function rendre() {
   $("navPos").hidden = !enPos;
   $("navLieu").hidden = false;
   ecran.classList.toggle("plein-cadre", f.pleinCadre === true);
+  ecran.classList.toggle("ecran-carte", f.carte === true);
   ecran.classList.toggle("ecran-large", f.large === true);
-  ecran.innerHTML = (f.pleinCadre ? "" : titreEcran(f.titre, f.sous, f.cote)) + f.corps;
+  ecran.innerHTML = (f.pleinCadre || f.carte ? "" : titreEcran(f.titre, f.sous, f.cote))
+    + f.corps;
   if (typeof f.brancher === "function") f.brancher(ecran);
   if (y) window.scrollTo({ top: y, behavior: "instant" });
 

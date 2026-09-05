@@ -79,11 +79,16 @@ const D = {
   jauge: '<path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4.4-5"/>',
   chevron: '<path d="M9 5l7 7-7 7"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
+  moins: '<path d="M5 12h14"/>',
   chevron_bas: '<path d="M6 9.5l6 6 6-6"/>',
   coche: '<path d="M4.5 12.6l4.8 4.8L19.5 7.2"/>',
   cible: '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8.4"/><path d="M12 1.6v3M12 19.4v3M1.6 12h3M19.4 12h3"/>',
   maison: '<path d="M3.4 10.6 12 3.8l8.6 6.8V19a1.6 1.6 0 0 1-1.6 1.6H5a1.6 1.6 0 0 1-1.6-1.6z" '
     + 'stroke-linejoin="round"/><path d="M9.6 20.6v-6h4.8v6"/>',
+  /* La carte pliée : trois volets, deux plis. Une punaise aurait redit le
+     symbole du lieu, lequel sert déjà à la porte du beau temps. */
+  carte: '<path d="M9 4.4 3.4 6.7v12.9L9 17.3l6 2.3 5.6-2.3V4.4L15 6.7z" '
+    + 'stroke-linejoin="round"/><path d="M9 4.4v12.9M15 6.7v12.9"/>',
   lieu: '<path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z" stroke-linejoin="round"/>'
     + '<circle cx="12" cy="10" r="2.6"/>',
   sans_reseau: '<path d="M2.6 8.8a15 15 0 0 1 6-3.4M15.4 5.4a15 15 0 0 1 6 3.4"/>'

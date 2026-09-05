@@ -1106,6 +1106,95 @@ button.rangee:active{background:var(--surface-2)}
   padding:0 0 calc(var(--onglets-mesure) + var(--espace-2xl));
   gap:0;
 }
+/* La carte occupe tout ce qui reste entre les deux barres et ne défile pas :
+   le doigt qui glisse la déplace, il n'y a rien d'autre à faire défiler. Le
+   rembourrage de la couche de contenu est repris ici, en hauteur seulement, la
+   toile allant d'un bord à l'autre. */
+.ecran-carte{
+  padding:calc(var(--haut) + var(--nav-haut)) 0 var(--onglets-mesure);
+  gap:0;max-width:none;
+}
+.ca-cadre{
+  position:relative;overflow:hidden;
+  height:calc(100vh - var(--haut) - var(--nav-haut) - var(--onglets-mesure));
+  height:calc(100dvh - var(--haut) - var(--nav-haut) - var(--onglets-mesure));
+  min-height:260px;
+}
+/* La toile ne rend pas la main au défilement : sans cela, un glissement
+   vertical ferait défiler la page sous la carte au lieu de la déplacer. */
+.ca{display:block;width:100%;height:100%;touch-action:none;background:var(--ca-fond)}
+
+/* Les couleurs de la carte. Le fond est plus sourd que celui des cartes de
+   l'application : c'est un fond de plan, la pluie viendra dessus, et deux
+   surfaces également claires ne laisseraient rien voir. */
+.ca{
+  --ca-fond:#e9eef3;
+  --ca-contour:#7c8b9c;
+  --ca-dep:#c3ccd6;
+  --ca-etranger:#cfd7e0;
+}
+@media (prefers-color-scheme:dark){
+  .ca{
+    --ca-fond:#0f151c;
+    --ca-contour:#7b8ea3;
+    --ca-dep:#2b3542;
+    --ca-etranger:#28313d;
+  }
+}
+
+/* Les repères. Le point marque le lieu, le nom pend à sa droite : un nom centré
+   sous le point recouvrirait le lieu voisin une fois sur deux. */
+.ca-reperes{position:absolute;inset:0;pointer-events:none}
+.ca-r{
+  position:absolute;left:var(--rx);top:var(--ry);
+  transform:translate(-11px,-11px);
+  display:flex;align-items:center;gap:var(--espace-xs);
+  padding:0;pointer-events:auto;color:var(--etiquette);
+}
+.ca-r-pt{
+  width:22px;height:22px;flex:0 0 auto;border-radius:50%;
+  border:2px solid var(--surface);background:var(--etiquette-2);
+  box-shadow:0 1px 3px rgba(0,0,0,.28);
+}
+.ca-r-ici .ca-r-pt{background:var(--accent)}
+.ca-r-nom{
+  display:flex;align-items:baseline;gap:4px;white-space:nowrap;
+  padding:2px var(--espace-sm);border-radius:var(--rayon-sm);
+  background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.22);
+  font-size:var(--texte-note);font-weight:var(--graisse-medium);
+}
+.ca-r-nom em{font-style:normal;font-weight:var(--graisse-semibold)}
+
+/* Les commandes, en colonne à droite. Le pincement suffit au doigt ; les deux
+   boutons servent au clavier et à qui tient son téléphone d'une main. */
+.ca-outils{
+  position:absolute;right:var(--marge);top:var(--espace-base);
+  display:flex;flex-direction:column;gap:var(--espace-xs);
+}
+.ca-o{
+  width:var(--touche);height:var(--touche);
+  display:flex;align-items:center;justify-content:center;
+  border-radius:var(--rayon-md);background:var(--surface);
+  box-shadow:0 1px 4px rgba(0,0,0,.24);color:var(--etiquette);
+}
+.ca-o svg{width:20px;height:20px}
+.ca-o:active{background:var(--surface-2)}
+
+/* L'échelle et la mention des sources, au pied de la carte. Une carte sans
+   échelle ne dit pas si l'averse est à dix kilomètres ou à cent. */
+.ca-bas{
+  position:absolute;left:var(--marge);right:var(--marge);bottom:var(--espace-base);
+  display:flex;align-items:flex-end;justify-content:space-between;gap:var(--espace-md);
+  pointer-events:none;
+}
+.ca-echelle{display:flex;flex-direction:column;gap:2px;font-size:var(--texte-note)}
+.ca-echelle i{
+  display:block;width:var(--eb,60px);height:6px;
+  border:1px solid var(--etiquette-2);border-top:0;
+}
+.ca-echelle span{color:var(--etiquette-2);font-variant-numeric:tabular-nums}
+.ca-credit{font-size:var(--texte-note);color:var(--etiquette-3);text-align:right}
+
 /* Un écran de graphique n'est pas bridé à la largeur de lecture. Le ruban vit
    de sa densité de points par heure : quatre cent trente points de large en
    paysage au lieu de six cent vingt-huit, ce sont vingt-quatre heures affichées

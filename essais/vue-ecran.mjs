@@ -200,6 +200,15 @@ for (const theme of ["light", "dark"]) {
     await pg.locator(".sem-r").nth(Number(process.env.OUVRIR)).click();
     await pg.waitForTimeout(500);
   }
+  /* La carte s'ouvre au zoom par défaut : la variable permet de la reculer de
+     quelques crans pour voir le pays entier. */
+  if (process.env.DEZOOM) {
+    for (let k = 0; k < Number(process.env.DEZOOM); k++) {
+      await pg.locator("#caMoins").click();
+      await pg.waitForTimeout(120);
+    }
+    await pg.waitForTimeout(400);
+  }
   if (process.env.FEUILLE) {
     const cible = { parapluie: "#navJeton", activites: '[data-feuille="activites"]',
       beautemps: '[data-feuille="beautemps"]',
