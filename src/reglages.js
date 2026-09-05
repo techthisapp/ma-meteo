@@ -24,6 +24,7 @@ const DEFAUT = {
   jetonsPris: [],      // jetons de parapluie déjà pris, par date et instant
   biais: 0,            // ressenti personnel, en degrés, borné
   pollensMuets: [],    // pollens dont on ne veut pas être averti
+  radar: true,         // la couche de pluie sur la carte
 };
 
 let etat = { ...DEFAUT };
@@ -249,6 +250,12 @@ export function poserCiel(e) {
   if (!ECRANS_CIEL.some(([c]) => c === e)) return;
   poser({ ciel: e });
 }
+
+/* La couche de pluie de la carte. Allumée au départ : c'est ce que la carte a
+   de plus utile, et l'éteindre est le geste de qui veut lire le fond seul ou
+   ménager son réseau. Le choix se garde d'une visite à l'autre. */
+export const radar = () => etat.radar !== false;
+export function poserRadar(v) { poser({ radar: v === true }); }
 
 /* Les instants d'alerte. `null` rend la valeur par défaut du module du
    parapluie, qui la porte avec les seuils : les nombres du rappel vivent au

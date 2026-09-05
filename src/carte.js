@@ -110,7 +110,10 @@ const TRAITS = [
   ["contour", "contour", 1.1],
 ];
 
-export function dessiner(cv, vue) {
+/* Le tracé. Une couche peut se glisser entre le fond et les traits : c'est la
+   place de la pluie, qui doit couvrir le fond sans couvrir les frontières. La
+   carte ne sait pas ce qu'elle peint là, et la couche ne sait rien du fond. */
+export function dessiner(cv, vue, couche) {
   const ctx = cv.getContext("2d");
   const dpr = window.devicePixelRatio || 1;
   const l = cv.clientWidth || 320, h = cv.clientHeight || 320;
@@ -122,6 +125,10 @@ export function dessiner(cv, vue) {
   const c = couleurs(cv);
   ctx.fillStyle = c.fond || "#eef2f6";
   ctx.fillRect(0, 0, l, h);
+
+  /* La couche rend ce qu'elle a posé. Zéro veut dire fond nu, et les traits se
+     suffisent alors à eux-mêmes. */
+  const posees = couche ? couche(ctx, vue, l, h) || 0 : 0;
 
   const jeux = couches();
   const e = echelle(vue.z);
@@ -138,8 +145,6 @@ export function dessiner(cv, vue) {
   for (const [nom, teinte, epais] of TRAITS) {
     const lignes = jeux[nom];
     if (!lignes) continue;
-    ctx.strokeStyle = c[teinte] || "#8895a6";
-    ctx.lineWidth = epais * gros;
     ctx.beginPath();
     lignes.forEach((ligne, k) => {
       const [x0, y0, x1, y1] = boites[nom][k];
@@ -152,6 +157,21 @@ export function dessiner(cv, vue) {
         if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
       }
     });
+    /* La gaine. Les couleurs de trait sont réglées sur le fond de la carte ; une
+       couche posée dessus peut être de n'importe quelle teinte, et une limite de
+       département gris clair disparaît sous une averse jaune. Un trait plus
+       large de la couleur du fond, glissé sous le trait, rend le contraste quel
+       que soit ce qu'il y a dessous. Il ne se paie que quand la couche est là,
+       et le chemin ne se construit qu'une fois pour les deux passes. */
+    if (posees) {
+      ctx.strokeStyle = c.fond || "#eef2f6";
+      ctx.globalAlpha = 0.9;
+      ctx.lineWidth = epais * gros + 3;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    ctx.strokeStyle = c[teinte] || "#8895a6";
+    ctx.lineWidth = epais * gros;
     ctx.stroke();
   }
 }
@@ -178,7 +198,7 @@ export function borner(vue) {
    Le tracé est appelé au plus une fois par image : un doigt qui glisse produit
    des dizaines d'évènements par seconde, et redessiner à chacun ferait le même
    travail plusieurs fois pour la même image. */
-export function poser(cv, vue, surVue) {
+export function poser(cv, vue, surVue, couche) {
   const points = new Map();
   let depart = null;
   let attendu = null;
@@ -188,7 +208,7 @@ export function poser(cv, vue, surVue) {
     if (attendu !== null) return;
     attendu = requestAnimationFrame(() => {
       attendu = null;
-      dessiner(cv, vue);
+      dessiner(cv, vue, couche);
       if (surVue) surVue(vue);
     });
   };

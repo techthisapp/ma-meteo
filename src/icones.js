@@ -80,6 +80,10 @@ const D = {
   chevron: '<path d="M9 5l7 7-7 7"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   moins: '<path d="M5 12h14"/>',
+  /* Lecture et pause : deux formes pleines, seules du jeu. Un triangle en trait
+     et une paire de barres en trait ne se distinguent plus à vingt points. */
+  lecture: '<path d="M8 5.4l10 6.6-10 6.6z" fill="currentColor" stroke-linejoin="round"/>',
+  pause: '<path d="M8.6 5.6h2.6v12.8H8.6zM12.8 5.6h2.6v12.8h-2.6z" fill="currentColor"/>',
   chevron_bas: '<path d="M6 9.5l6 6 6-6"/>',
   coche: '<path d="M4.5 12.6l4.8 4.8L19.5 7.2"/>',
   cible: '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8.4"/><path d="M12 1.6v3M12 19.4v3M1.6 12h3M19.4 12h3"/>',

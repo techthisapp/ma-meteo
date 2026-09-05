@@ -2,6 +2,7 @@ import { chromium } from "playwright";
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
+import zlib from "node:zlib";
 import { fileURLToPath } from "node:url";
 
 const ICI = path.dirname(fileURLToPath(import.meta.url));
@@ -65,6 +66,53 @@ const journeesDe = (lat, lon) => {
   } };
 };
 
+/* Une tuile de pluie fabriquée. La nappe est une somme d'ondes prises en
+   coordonnées de monde : elle se raccorde donc d'une tuile à l'autre, et
+   l'image la déplace vers l'est comme une masse pluvieuse se déplace. */
+const PALETTE = [
+  [0.55, [120, 185, 232], 110], [0.63, [24, 140, 205], 190],
+  [0.71, [0, 175, 150], 215], [0.79, [225, 200, 70], 235],
+  [0.86, [228, 120, 55], 242], [0.92, [214, 62, 60], 248],
+];
+function tuilePluie(im, taille, z, tx, ty) {
+  const n = taille;
+  const brut = Buffer.alloc(n * (n * 4 + 1));
+  const N = Math.pow(2, z);
+  const decal = im * 0.0035;   // la masse avance vers l'est d'image en image
+  for (let y = 0; y < n; y++) {
+    const wy = (ty + y / n) / N;
+    const o = y * (n * 4 + 1);
+    for (let x = 0; x < n; x++) {
+      const wx = (tx + x / n) / N - decal;
+      const u = wx * 360 - 180, v = (0.5 - wy) * 360;
+      const a = Math.sin(u * 1.7 + v * 0.9) * Math.cos(v * 1.3 - u * 0.6);
+      const b = Math.sin(u * 4.1 - v * 2.7) * 0.45;
+      const c = Math.cos(u * 0.8 + v * 2.2) * 0.35;
+      const val = (a + b + c + 1.8) / 3.6;
+      let t = [0, 0, 0], al = 0;
+      for (const [seuil, teinte, alpha] of PALETTE) {
+        if (val >= seuil) { t = teinte; al = alpha; }
+      }
+      const p = o + 1 + x * 4;
+      brut[p] = t[0]; brut[p + 1] = t[1]; brut[p + 2] = t[2]; brut[p + 3] = al;
+    }
+  }
+  const bloc = (type, data) => {
+    const l = Buffer.alloc(4); l.writeUInt32BE(data.length, 0);
+    const tt = Buffer.from(type, "ascii");
+    const cc = Buffer.alloc(4); cc.writeUInt32BE(zlib.crc32(Buffer.concat([tt, data])) >>> 0, 0);
+    return Buffer.concat([l, tt, data, cc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(n, 0); ihdr.writeUInt32BE(n, 4);
+  ihdr[8] = 8; ihdr[9] = 6;
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    bloc("IHDR", ihdr), bloc("IDAT", zlib.deflateSync(brut)),
+    bloc("IEND", Buffer.alloc(0)),
+  ]);
+}
+
 for (const theme of ["light", "dark"]) {
   const ctx = await nav.newContext({
     viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
@@ -113,6 +161,26 @@ for (const theme of ["light", "dark"]) {
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
   });
   await ctx.route(/data\.gouv\.fr|webservice\.meteofrance\.com/, r => r.abort());
+  /* Le radar. Les tuiles sont fabriquées ici plutôt que demandées au service :
+     l'horloge de la capture est figée au 18 août, et les images du service
+     portent l'heure du jour où l'on capture. La nappe est une somme d'ondes en
+     coordonnées de monde, donc continue d'une tuile à l'autre, et sa palette
+     suit celle du service, du bleu pâle au rouge. */
+  await ctx.route(/api\.rainviewer\.com/, r => {
+    const t0 = Math.floor(FIGE / 1000 / 600) * 600;
+    const past = [];
+    for (let k = 12; k >= 0; k--) past.push({ time: t0 - k * 600, path: `/v2/radar/o${12 - k}` });
+    r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      host: "https://tilecache.rainviewer.com", radar: { past, nowcast: [] } }) });
+  });
+  await ctx.route(/tilecache\.rainviewer\.com/, r => {
+    const m = /\/v2\/radar\/o(\d+)\/(\d+)\/(\d+)\/(\d+)\/(\d+)\//.exec(r.request().url());
+    if (!m) { r.fulfill({ status: 404, body: "non" }); return; }
+    const [, im, taille, z, tx, ty] = m.map(Number);
+    r.fulfill({ status: 200, contentType: "image/png",
+      headers: { "Access-Control-Allow-Origin": "*" },
+      body: tuilePluie(im, taille, z, tx, ty) });
+  });
   /* L'air : quatre-vingt-seize heures à partir de minuit du 18 août. L'indice
      monte l'après-midi, les graminées sont en saison, l'ambroisie au pic à
      quinze heures. La route vient après celle de la prévision, dont

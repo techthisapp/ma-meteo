@@ -19,6 +19,7 @@ import * as Activites from "./activites.js";
 import * as BeauTemps from "./beautemps.js";
 import * as Air from "./air.js";
 import * as Carte from "./carte.js";
+import * as Radar from "./radar.js";
 import * as Vig from "./vigilance.js";
 import { SEUILS } from "./conseils.js";
 
@@ -1095,6 +1096,9 @@ export function vueCarte(ctx, rendre, majEtat) {
       + `aria-label="Carte de ${esc(g.commune || "la position")} et de ses alentours"></canvas>`
       + `<div class="ca-reperes" id="caReperes"></div>`
       + `<div class="ca-outils">`
+      + `<button type="button" class="ca-o" id="caPluie" role="switch" `
+      + `aria-checked="${Reglages.radar() ? "true" : "false"}" `
+      + `aria-label="Couche de pluie">` + ico("goutte", "") + `</button>`
       + `<button type="button" class="ca-o" id="caPlus" aria-label="Zoomer">`
       + ico("plus", "") + `</button>`
       + `<button type="button" class="ca-o" id="caMoins" aria-label="Dézoomer">`
@@ -1102,10 +1106,21 @@ export function vueCarte(ctx, rendre, majEtat) {
       + `<button type="button" class="ca-o" id="caIci" aria-label="Revenir sur le lieu courant">`
       + ico("cible", "") + `</button>`
       + `</div>`
+      + `<p class="ca-mot" id="caMot" role="status" hidden></p>`
+      + `<div class="ca-pied">`
       + `<div class="ca-bas">`
       + `<div class="ca-echelle" id="caEchelle"><i></i><span></span></div>`
-      + `<p class="ca-credit">Contours IGN et Natural Earth</p>`
-      + `</div></div>`,
+      + `<p class="ca-credit" id="caCredit">Contours IGN et Natural Earth</p>`
+      + `</div>`
+      + `<div class="ca-temps" id="caTemps" hidden>`
+      + `<button type="button" class="ca-jouer" id="caJouer" `
+      + `aria-label="Lire la chronologie">` + ico("lecture", "") + `</button>`
+      + `<div class="ca-piste" id="caPiste" role="slider" tabindex="0" `
+      + `aria-label="Instant de la chronologie de pluie" `
+      + `aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="">`
+      + `<i class="ca-graduation"></i><i class="ca-tete"></i></div>`
+      + `<b class="ca-heure" id="caHeure"></b>`
+      + `</div></div></div>`,
 
     brancher(bloc) {
       const cv = bloc.querySelector("#caToile");
@@ -1139,11 +1154,24 @@ export function vueCarte(ctx, rendre, majEtat) {
         barre.querySelector("span").textContent = `${e.km} km`;
       };
 
-      const main = Carte.poser(cv, vue, placer);
+      /* ---------- La couche de pluie ----------
+
+         Elle se glisse entre le fond et les traits. La carte ne sait pas ce
+         qu'elle peint là, et la couche ne sait rien du fond. */
+      let allume = Reglages.radar();
+      let hote = "", images = [], rang = 0, enLecture = false;
+
+      const couche = (c, v, l, h) => {
+        if (!allume || !images.length) return 0;
+        return Radar.peindre(c, v, l, h, hote, images[rang].chemin,
+          () => main.redessiner());
+      };
+
+      const main = Carte.poser(cv, vue, placer, couche);
       const revoir = () => { main.redessiner(); };
 
       // Le premier tracé attend que la toile ait sa taille.
-      requestAnimationFrame(() => { Carte.dessiner(cv, vue); placer(); });
+      requestAnimationFrame(() => { Carte.dessiner(cv, vue, couche); placer(); });
 
       const pas = d => {
         Object.assign(vue, Carte.borner({ ...vue, z: vue.z + d }));
@@ -1181,6 +1209,139 @@ export function vueCarte(ctx, rendre, majEtat) {
           if (a && em) em.textContent = `${Math.round(a.t)}°`;
         });
       });
+
+      /* ---------- La chronologie ----------
+
+         Deux heures d'images observées au pas de dix minutes, et l'extrapolation
+         du service quand il en publie. Elle ne se met pas en marche seule : une
+         carte s'ouvre sur ce qu'il pleut maintenant, non sur un film. */
+      const rangee = bloc.querySelector("#caTemps");
+      const piste = bloc.querySelector("#caPiste");
+      const jouer = bloc.querySelector("#caJouer");
+      const heure = bloc.querySelector("#caHeure");
+      const mot = bloc.querySelector("#caMot");
+      const credit = bloc.querySelector("#caCredit");
+      const pluie = bloc.querySelector("#caPluie");
+
+      const dire = t => {
+        mot.textContent = t || "";
+        mot.hidden = !t;
+      };
+
+      const poserRang = k => {
+        rang = Math.max(0, Math.min(images.length - 1, k));
+        const im = images[rang];
+        const part = images.length > 1 ? rang / (images.length - 1) : 1;
+        piste.style.setProperty("--cp", `${(part * 100).toFixed(2)}%`);
+        const dit = heureJour(new Date(im.t));
+        piste.setAttribute("aria-valuenow", String(rang));
+        piste.setAttribute("aria-valuetext", im.futur ? `${dit}, prévu` : dit);
+        piste.classList.toggle("ca-piste-futur", im.futur === true);
+        heure.textContent = dit;
+        heure.classList.toggle("ca-heure-futur", im.futur === true);
+        revoir();
+      };
+
+      /* Le pas de la piste : le rang le plus proche du doigt. La piste est un
+         curseur et non treize boutons : treize cibles sur trois cents points
+         feraient vingt-deux points chacune, la moitié de ce qu'un doigt vise. */
+      const versDoigt = x => {
+        const r = piste.getBoundingClientRect();
+        if (!r.width || images.length < 2) return;
+        const part = Math.max(0, Math.min(1, (x - r.left) / r.width));
+        poserRang(Math.round(part * (images.length - 1)));
+      };
+      let glisse = false;
+      piste.addEventListener("pointerdown", ev => {
+        /* La capture échoue si le pointeur n'est plus actif, ce qui arrive quand
+           un doigt se lève entre l'évènement et son traitement. L'échec ne doit
+           pas emporter le reste : le rang se pose quand même. */
+        try { piste.setPointerCapture(ev.pointerId); } catch { /* sans capture */ }
+        glisse = true; arreter(); versDoigt(ev.clientX);
+      });
+      piste.addEventListener("pointermove", ev => { if (glisse) versDoigt(ev.clientX); });
+      const lacher = () => { glisse = false; };
+      piste.addEventListener("pointerup", lacher);
+      piste.addEventListener("pointercancel", lacher);
+      piste.addEventListener("keydown", ev => {
+        const d = ev.key === "ArrowRight" ? 1 : ev.key === "ArrowLeft" ? -1 : 0;
+        if (d) { arreter(); poserRang(rang + d); ev.preventDefault(); return; }
+        if (ev.key === "Home") { arreter(); poserRang(0); ev.preventDefault(); }
+        if (ev.key === "End") { arreter(); poserRang(images.length - 1); ev.preventDefault(); }
+      });
+
+      function arreter() {
+        enLecture = false;
+        jouer.innerHTML = ico("lecture", "");
+        jouer.setAttribute("aria-label", "Lire la chronologie");
+      }
+
+      /* La lecture attend que l'image suivante soit entière avant de la montrer.
+         Une animation qui saute les images non chargées montre une pluie qui
+         bondit au lieu d'avancer. La dernière image tient plus longtemps :
+         c'est celle qu'on regarde. */
+      async function lire() {
+        enLecture = true;
+        jouer.innerHTML = ico("pause", "");
+        jouer.setAttribute("aria-label", "Arrêter la chronologie");
+        while (enLecture && cv.isConnected) {
+          const k = (rang + 1) % images.length;
+          const l = cv.clientWidth, h = cv.clientHeight;
+          await Radar.preparer(vue, l, h, hote, images[k].chemin);
+          if (!enLecture || !cv.isConnected) break;
+          poserRang(k);
+          await new Promise(t => setTimeout(t, k === images.length - 1 ? 1100 : 420));
+        }
+        if (!cv.isConnected) enLecture = false;
+      }
+      jouer.addEventListener("click", () => { if (enLecture) arreter(); else lire(); });
+
+      /* La mention des sources. Deux lignes plutôt qu'une : sur trois cent
+         quatre-vingt-dix points, les deux mentions bout à bout débordent la
+         largeur et passent sous les commandes. */
+      const mention = () => {
+        credit.innerHTML = (allume
+          ? `<span>Pluie <a href="https://www.rainviewer.com" target="_blank" `
+            + `rel="noopener noreferrer">RainViewer</a></span>`
+          : "")
+          + `<span>Contours IGN et Natural Earth</span>`;
+      };
+
+      /* L'index dit où sont les images et à quelle heure elles ont été prises.
+         Le service publie parfois aucune image extrapolée : la couche ne
+         l'invente pas et s'arrête alors à la dernière image observée. */
+      const lireIndex = async () => {
+        try {
+          const d = await Radar.charger();
+          if (!cv.isConnected) return;
+          hote = d.hote; images = d.images;
+          if (!images.length) { dire("Le radar n'a pas d'image."); return; }
+          dire("");
+          piste.setAttribute("aria-valuemax", String(images.length - 1));
+          piste.style.setProperty("--cn", String(images.length));
+          rangee.hidden = images.length < 2;
+          poserRang(Radar.rangCourant(images));
+        } catch {
+          if (!cv.isConnected) return;
+          dire("La pluie a besoin du réseau.");
+        }
+      };
+
+      /* L'interrupteur de la couche. Éteinte, elle ne charge rien et ne dit
+         rien : c'est le geste de qui veut lire le fond seul ou ménager son
+         réseau, et le choix se garde d'une visite à l'autre. */
+      pluie.addEventListener("click", () => {
+        allume = !allume;
+        Reglages.poserRadar(allume);
+        pluie.setAttribute("aria-checked", allume ? "true" : "false");
+        mention();
+        if (!allume) { arreter(); rangee.hidden = true; dire(""); revoir(); return; }
+        if (images.length) { rangee.hidden = images.length < 2; revoir(); }
+        else lireIndex();
+      });
+
+      mention();
+      if (allume) lireIndex();
 
       window.addEventListener("resize", revoir, { passive: true });
     },

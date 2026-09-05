@@ -1180,20 +1180,95 @@ button.rangee:active{background:var(--surface-2)}
 .ca-o svg{width:20px;height:20px}
 .ca-o:active{background:var(--surface-2)}
 
-/* L'échelle et la mention des sources, au pied de la carte. Une carte sans
-   échelle ne dit pas si l'averse est à dix kilomètres ou à cent. */
-.ca-bas{
+/* L'échelle, la mention des sources et la chronologie, au pied de la carte. Une
+   carte sans échelle ne dit pas si l'averse est à dix kilomètres ou à cent. */
+.ca-pied{
   position:absolute;left:var(--marge);right:var(--marge);bottom:var(--espace-base);
+  display:flex;flex-direction:column;gap:var(--espace-sm);
+}
+.ca-bas{
   display:flex;align-items:flex-end;justify-content:space-between;gap:var(--espace-md);
   pointer-events:none;
+}
+.ca-credit a{pointer-events:auto;color:inherit;text-decoration:underline}
+/* L'échelle et la mention se lisent sur la carte, dont la couleur n'est pas
+   connue : une couche de pluie peut y mettre du jaune comme du bleu sombre. La
+   gaine de texte, un halo de la couleur du fond de page, rend le contraste quel
+   que soit ce qu'il y a dessous, sans le pavé opaque d'une étiquette. */
+.ca-echelle,.ca-credit{
+  text-shadow:0 0 3px var(--fond),0 0 3px var(--fond),0 0 6px var(--fond);
 }
 .ca-echelle{display:flex;flex-direction:column;gap:2px;font-size:var(--texte-note)}
 .ca-echelle i{
   display:block;width:var(--eb,60px);height:6px;
   border:1px solid var(--etiquette-2);border-top:0;
+  box-shadow:0 0 0 1px var(--fond);
 }
 .ca-echelle span{color:var(--etiquette-2);font-variant-numeric:tabular-nums}
-.ca-credit{font-size:var(--texte-note);color:var(--etiquette-3);text-align:right}
+.ca-credit{
+  display:flex;flex-direction:column;align-items:flex-end;
+  font-size:var(--texte-note);color:var(--etiquette-3);text-align:right;
+  line-height:1.25;
+}
+
+/* La chronologie de la pluie. Elle est une commande de transport, non une
+   lecture au doigt comme celle du ruban : on y choisit un instant, on ne lit
+   pas une valeur. Elle se pose au pied de la carte, à portée du pouce. */
+.ca-temps{
+  display:flex;align-items:center;gap:var(--espace-sm);
+  padding:var(--espace-xs) var(--espace-sm);
+  border-radius:var(--rayon-md);background:var(--surface);
+  box-shadow:0 1px 4px rgba(0,0,0,.24);
+}
+.ca-jouer{
+  width:36px;height:36px;flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:var(--rayon-sm);color:var(--etiquette);
+}
+.ca-jouer svg{width:22px;height:22px}
+.ca-jouer:active{background:var(--surface-2)}
+
+/* La piste. Le trait porte une graduation par image, la tête marque l'instant
+   choisi. Sa cible tactile déborde le trait vers le haut et vers le bas :
+   un trait de deux points ne se vise pas au doigt. */
+.ca-piste{
+  position:relative;flex:1 1 auto;height:36px;touch-action:none;cursor:pointer;
+}
+.ca-graduation{
+  position:absolute;left:0;right:0;top:50%;height:3px;transform:translateY(-50%);
+  border-radius:2px;background:var(--separateur);
+  background-image:repeating-linear-gradient(to right,
+    var(--etiquette-3) 0 1px, transparent 1px calc(100% / max(var(--cn,13) - 1, 1)));
+}
+.ca-tete{
+  position:absolute;top:50%;left:var(--cp,100%);
+  width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;
+  background:var(--accent);border:2px solid var(--surface);
+  box-shadow:0 1px 3px rgba(0,0,0,.3);
+}
+/* Une image extrapolée n'est pas une observation : la tête se creuse pour le
+   dire, et l'heure écrite prend la même marque. */
+.ca-piste-futur .ca-tete{background:var(--surface);border-color:var(--accent)}
+.ca-heure{
+  flex:0 0 auto;min-width:3.4em;text-align:right;
+  font-size:var(--texte-note);font-weight:var(--graisse-semibold);
+  font-variant-numeric:tabular-nums;color:var(--etiquette);
+}
+.ca-heure-futur{color:var(--accent)}
+.ca-piste:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--rayon-sm)}
+
+/* Un mot quand la pluie manque : réseau coupé, ou service sans image. Il se
+   pose en tête de carte, là où rien d'autre ne se lit. */
+.ca-mot{
+  position:absolute;left:var(--marge);top:var(--espace-base);
+  max-width:60%;padding:var(--espace-xs) var(--espace-sm);
+  border-radius:var(--rayon-sm);background:var(--surface);
+  box-shadow:0 1px 4px rgba(0,0,0,.22);
+  font-size:var(--texte-note);color:var(--etiquette-2);
+}
+
+/* La couche allumée se dit sur son interrupteur. */
+.ca-o[aria-checked="true"]{background:var(--accent);color:#fff}
 
 /* Un écran de graphique n'est pas bridé à la largeur de lecture. Le ruban vit
    de sa densité de points par heure : quatre cent trente points de large en

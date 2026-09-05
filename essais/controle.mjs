@@ -2,6 +2,7 @@ import { chromium } from "playwright";
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
+import zlib from "node:zlib";
 import { fileURLToPath } from "node:url";
 
 const ICI = path.dirname(fileURLToPath(import.meta.url));
@@ -163,6 +164,74 @@ const servirBeauTemps = (u, route) => {
     body: JSON.stringify(lats.map((la, k) => journeesDe(la, lons[k]))) });
 };
 
+/* ---------- La charge du radar ----------
+
+   L'index du service, tel qu'il le rend : treize images observées au pas de dix
+   minutes sur les deux dernières heures, puis les images extrapolées quand il en
+   publie. Le champ était vide aux deux relevés du 5 septembre 2026 ; les deux
+   cas se servent, le contrôle éprouvant l'un et l'autre.
+
+   Les tuiles servies sont unies, d'une teinte tirée du chemin de l'image : la
+   toile lue au pixel dit alors quelle image est montrée, ce qu'une vraie tuile
+   de pluie ne permettrait pas. */
+const RADAR_PAS = 600;
+let radarFutur = 0;
+const radarIndex = () => {
+  const t0 = Math.floor(FIGE / 1000 / RADAR_PAS) * RADAR_PAS;
+  const past = [];
+  for (let k = 12; k >= 0; k--) {
+    const t = t0 - k * RADAR_PAS;
+    past.push({ time: t, path: `/v2/radar/obs${12 - k}` });
+  }
+  const nowcast = [];
+  for (let k = 1; k <= radarFutur; k++) {
+    nowcast.push({ time: t0 + k * RADAR_PAS, path: `/v2/radar/nc${k}` });
+  }
+  return { version: "2.0", generated: t0, host: "https://tilecache.rainviewer.com",
+           radar: { past, nowcast }, satellite: { infrared: [] } };
+};
+
+/* Une tuile PNG unie de deux cent cinquante-six points. Les canaux rouge et vert
+   portent le rang de l'image, le bleu la distingue d'un fond de carte. */
+const pngUni = (r, g, b, a, n = 64) => {
+  const brut = Buffer.alloc(n * (n * 4 + 1));
+  for (let y = 0; y < n; y++) {
+    const o = y * (n * 4 + 1);
+    for (let x = 0; x < n; x++) {
+      const p = o + 1 + x * 4;
+      brut[p] = r; brut[p + 1] = g; brut[p + 2] = b; brut[p + 3] = a;
+    }
+  }
+  const bloc = (type, data) => {
+    const l = Buffer.alloc(4); l.writeUInt32BE(data.length, 0);
+    const t = Buffer.from(type, "ascii");
+    const c = Buffer.alloc(4); c.writeUInt32BE(zlib.crc32(Buffer.concat([t, data])) >>> 0, 0);
+    return Buffer.concat([l, t, data, c]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(n, 0); ihdr.writeUInt32BE(n, 4);
+  ihdr[8] = 8; ihdr[9] = 6;
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    bloc("IHDR", ihdr),
+    bloc("IDAT", zlib.deflateSync(brut)),
+    bloc("IEND", Buffer.alloc(0)),
+  ]);
+};
+/* La teinte d'une image : son rang, lisible au pixel sur la toile.
+
+   Les observations sont pâles, entre 200 et 248 de rouge. Ce n'est pas un
+   caprice : une averse faible est peinte pâle par le service, et c'est le cas
+   qui met les traits en danger, une limite de département gris clair valant
+   presque la même clarté. Une nappe sombre ne l'éprouverait pas. */
+const teinteRadar = chemin => {
+  const m = /\/(obs|nc)(\d+)$/.exec(chemin || "");
+  if (!m) return null;
+  const k = Number(m[2]);
+  return m[1] === "obs" ? { r: 200 + k * 4, g: 202, b: 120 } : { r: 250, g: 60 + k * 10, b: 40 };
+};
+const appelsRadar = [];
+
 /* Même amorce, à un autre instant : les cas d'astres ne se rencontrent pas tous
    à neuf heures du matin. */
 const amorceA = (reglages, quand) => `{
@@ -312,6 +381,25 @@ const brancherRoutes = async c => {
     appelsAir.push(r.request().url());
     r.fulfill({ status: 200, contentType: "application/json",
       body: JSON.stringify(airDe(profilAir)) });
+  });
+  // L'index du radar et ses tuiles, sur deux domaines distincts.
+  await c.route(/api\.rainviewer\.com/, r => {
+    appelsRadar.push(r.request().url());
+    r.fulfill({ status: 200, contentType: "application/json",
+      body: JSON.stringify(radarIndex()) });
+  });
+  await c.route(/tilecache\.rainviewer\.com/, r => {
+    const u = r.request().url();
+    appelsRadar.push(u);
+    const m = /(\/v2\/radar\/[a-z0-9]+)\//.exec(u);
+    const t = teinteRadar(m && m[1]);
+    if (!t) { r.fulfill({ status: 404, body: "non" }); return; }
+    /* Le service sert ses tuiles avec l'en-tête d'origine ouverte, mesuré le
+       5 septembre 2026. Sans elle la toile serait souillée et ne se relirait
+       plus au pixel, ni ici ni pour le compte à rebours de pluie du lot 4b. */
+    r.fulfill({ status: 200, contentType: "image/png",
+      headers: { "Access-Control-Allow-Origin": "*" },
+      body: pngUni(t.r, t.g, t.b, 230) });
   });
 };
 
@@ -5848,6 +5936,373 @@ ok("les contours se décodent et tiennent dans leur fenêtre",
     return corse ? "" : "la Corse manque au contour";
   }) === "");
 await ctxCarte.close();
+
+/* ---------- La pluie sur la carte ---------- */
+
+console.log("\n--- La pluie sur la carte ---");
+
+/* La couche de pluie vient du service RainViewer, sans clé. Les tuiles d'essai
+   sont unies, d'une teinte qui porte le rang de l'image : la toile relue au
+   pixel dit alors quelle image est montrée.
+
+   La toile se relit parce que le service sert ses tuiles avec l'origine ouverte,
+   ce qui a été mesuré : sans cet en-tête la toile serait souillée et le lot 4b,
+   qui lit l'intensité au pixel, ne tiendrait pas non plus. */
+
+// La teinte la plus fréquente de la toile : c'est la couche, qui couvre tout.
+const teintePleine = `() => {
+  const cv = document.getElementById("caToile");
+  const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+  const c = new Map();
+  for (let i = 0; i < d.length; i += 4 * 53) {
+    const k = d[i] + "," + d[i + 1] + "," + d[i + 2];
+    c.set(k, (c.get(k) || 0) + 1);
+  }
+  let mieux = "", n = 0;
+  for (const [k, v] of c) if (v > n) { mieux = k; n = v; }
+  return mieux;
+}`;
+
+const ouvrirCarte = async (reglages, futur = 0) => {
+  radarFutur = futur;
+  const c = await nav.newContext({
+    viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+    locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+  });
+  await c.addInitScript(amorceGardee(reglages || FAIN, FIGE));
+  await brancherRoutes(c);
+  const p = await c.newPage();
+  await p.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+  await p.locator('[data-onglet="carte"]').click();
+  await p.waitForTimeout(900);
+  return [c, p];
+};
+
+const [ctxNappe, pgNappe] = await ouvrirCarte(FAIN, 2);
+
+/* Ce contrôle vient en tête de section et ne touche à rien : il regarde la carte
+   qu'on vient d'ouvrir. Toute commande envoyée d'abord, fût-ce une flèche,
+   arrêterait la lecture avant de la voir partir, et la garde ne tiendrait plus
+   rien. Une carte s'ouvre sur ce qu'il pleut maintenant, non sur un film. */
+ok("la chronologie ne se met pas en marche seule",
+  await pgNappe.evaluate(async () => {
+    const p = document.getElementById("caPiste");
+    const j = document.getElementById("caJouer");
+    const avant = p.getAttribute("aria-valuenow");
+    if (j.getAttribute("aria-label") !== "Lire la chronologie") {
+      return `le bouton dit « ${j.getAttribute("aria-label")} »`;
+    }
+    await new Promise(r => setTimeout(r, 1800));
+    return p.getAttribute("aria-valuenow") === avant ? ""
+      : `le rang a bougé seul de ${avant} à ${p.getAttribute("aria-valuenow")}`;
+  }) === "");
+
+ok("la chronologie porte les images du service",
+  await pgNappe.evaluate(() => {
+    const r = document.getElementById("caTemps");
+    const p = document.getElementById("caPiste");
+    if (!r || r.hidden) return "la chronologie ne paraît pas";
+    return p.getAttribute("aria-valuemax") === "14" ? ""
+      : `valeur maximale ${p.getAttribute("aria-valuemax")}`;
+  }) === "");
+
+/* Treize images observées et deux extrapolées : la carte s'ouvre sur la
+   treizième, non sur la quinzième. L'observé est ce qu'on sait. */
+ok("la carte s'ouvre sur la dernière image observée",
+  await pgNappe.evaluate(() => {
+    const p = document.getElementById("caPiste");
+    const h = document.getElementById("caHeure").textContent;
+    return `${p.getAttribute("aria-valuenow")}|${h}`;
+  }) === "12|09 h",
+  await pgNappe.evaluate(() => document.getElementById("caHeure").textContent));
+
+/* La couche est translucide : un trait recouvert par elle reste distinct du
+   reste, et compter les teintes ne dirait donc pas l'ordre du tracé. Ce qui le
+   dit est la distance. Un trait dessiné par-dessus la couche garde sa couleur ;
+   un trait recouvert par elle s'en approche à neuf dixièmes. Le contrôle relève
+   les traits pleins couche éteinte, puis mesure de quel côté ils penchent une
+   fois la couche allumée. */
+ok("la pluie se pose sous les traits, non dessus",
+  await pgNappe.evaluate(async () => {
+    const cv = document.getElementById("caToile");
+    const ctx = cv.getContext("2d");
+    const lu = () => ctx.getImageData(0, 0, cv.width, cv.height).data;
+    const dodo = m => new Promise(r => setTimeout(r, m));
+    const pluie = document.getElementById("caPluie");
+    const teinte = (d, i) => [d[i], d[i + 1], d[i + 2]];
+    const ecart = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]);
+    const dominante = d => {
+      const c = new Map();
+      for (let i = 0; i < d.length; i += 4 * 53) {
+        const k = `${d[i]},${d[i + 1]},${d[i + 2]}`;
+        c.set(k, (c.get(k) || 0) + 1);
+      }
+      let mieux = "", n = 0;
+      for (const [k, v] of c) if (v > n) { mieux = k; n = v; }
+      return mieux.split(",").map(Number);
+    };
+
+    pluie.click(); await dodo(500);          // couche éteinte
+    const a = lu();
+    const fond = dominante(a);
+    /* Les traits pleins seulement : un trait lissé sur son bord est à demi
+       transparent, et sa couleur dépend alors de ce qu'il y a dessous quel que
+       soit l'ordre du tracé. */
+    const traits = [];
+    for (let i = 0; i < a.length && traits.length < 300; i += 4) {
+      if (ecart(teinte(a, i), fond) > 40) traits.push(i);
+    }
+    if (traits.length < 40) return `${traits.length} traits pleins sans la couche`;
+
+    pluie.click(); await dodo(900);          // couche allumée
+    const b = lu();
+    const nappe = dominante(b);
+    if (ecart(nappe, fond) < 30) return "la couche ne couvre rien";
+    let dessous = 0;
+    for (const i of traits) {
+      const apres = teinte(b, i);
+      if (ecart(apres, teinte(a, i)) < ecart(apres, nappe)) dessous++;
+    }
+    return dessous > traits.length * 0.8 ? ""
+      : `${dessous} traits sur ${traits.length} gardent leur couleur`;
+  }) === "");
+
+/* Les couleurs de trait sont réglées sur le fond de la carte, et une couche
+   posée dessus peut être de n'importe quelle teinte : une limite de département
+   gris clair disparaît sous une averse pâle. La gaine, un trait plus large de la
+   couleur du fond glissé sous le trait, rend l'écart de clarté quel que soit ce
+   qu'il y a dessous. Le contrôle mesure cet écart dans une fenêtre de sept
+   points autour de chaque trait.
+
+   Le seuil vient de la carte elle-même, non d'une règle générale. Sur le fond nu
+   du thème clair, une limite de département se détache de son fond de cent
+   trente-six millièmes de clarté : c'est tout ce que le dessin offre, et rien ne
+   peut en demander plus. La nappe d'essai, pâle à dessein, n'en laisse que vingt
+   millièmes sans la gaine. Le seuil de cent dix millièmes tient entre les deux et
+   demande que la gaine rende les quatre cinquièmes de ce qui existe. */
+const gaineDit = await pgNappe.evaluate(async () => {
+    const cv = document.getElementById("caToile");
+    const ctx = cv.getContext("2d");
+    const dodo = m => new Promise(r => setTimeout(r, m));
+    const pluie = document.getElementById("caPluie");
+    const clarte = (d, i) =>
+      (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / 255;
+
+    pluie.click(); await dodo(500);          // couche éteinte
+    const a = ctx.getImageData(0, 0, cv.width, cv.height).data;
+    const c = new Map();
+    for (let i = 0; i < a.length; i += 4 * 53) {
+      const k = `${a[i]},${a[i + 1]},${a[i + 2]}`;
+      c.set(k, (c.get(k) || 0) + 1);
+    }
+    let dom = "", n = 0;
+    for (const [k, v] of c) if (v > n) { dom = k; n = v; }
+    const fond = dom.split(",").map(Number);
+    const loin = i => Math.abs(a[i] - fond[0]) + Math.abs(a[i + 1] - fond[1])
+      + Math.abs(a[i + 2] - fond[2]) > 40;
+    /* Les traits pleins, pris loin des bords de la toile pour que la fenêtre de
+       mesure tienne entière. */
+    const larg = cv.width;
+    const traits = [];
+    for (let y = 40; y < cv.height - 40 && traits.length < 250; y += 3) {
+      for (let x = 40; x < larg - 40 && traits.length < 250; x += 3) {
+        const i = (y * larg + x) * 4;
+        if (loin(i)) traits.push([x, y]);
+      }
+    }
+    if (traits.length < 40) return `${traits.length} traits pleins`;
+
+    pluie.click(); await dodo(900);          // couche allumée
+    const b = ctx.getImageData(0, 0, cv.width, cv.height).data;
+    const ecarts = traits.map(([x, y]) => {
+      let bas = 1, haut = 0;
+      for (let d = -7; d <= 7; d++) {
+        const v = clarte(b, (y * larg + x + d) * 4);
+        if (v < bas) bas = v;
+        if (v > haut) haut = v;
+      }
+      return haut - bas;
+    }).sort((p, q) => p - q);
+    const median = ecarts[Math.floor(ecarts.length / 2)];
+    return median >= 0.11 ? "" : `écart médian de ${median.toFixed(3)}`;
+});
+ok("un trait posé sur la couche garde son écart de clarté", gaineDit === "", gaineDit);
+
+ok("une image extrapolée se distingue d'une observation",
+  await pgNappe.evaluate(async () => {
+    const p = document.getElementById("caPiste");
+    const h = document.getElementById("caHeure");
+    if (p.classList.contains("ca-piste-futur")) return "l'observation se dit future";
+    p.focus();
+    p.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    p.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    await new Promise(r => setTimeout(r, 300));
+    if (!p.classList.contains("ca-piste-futur")) return "l'extrapolation ne se dit pas";
+    if (!h.classList.contains("ca-heure-futur")) return "l'heure ne porte pas la marque";
+    return h.textContent === "09:20" ? "" : `heure ${h.textContent}`;
+  }) === "");
+
+ok("la lecture avance d'image en image",
+  await pgNappe.evaluate(async () => {
+    const p = document.getElementById("caPiste");
+    const j = document.getElementById("caJouer");
+    p.dispatchEvent(new KeyboardEvent("keydown", { key: "Home", bubbles: true }));
+    await new Promise(r => setTimeout(r, 300));
+    const depart = Number(p.getAttribute("aria-valuenow"));
+    j.click();
+    if (j.getAttribute("aria-label") !== "Arrêter la chronologie") {
+      return "le bouton ne dit pas qu'il lit";
+    }
+    await new Promise(r => setTimeout(r, 1700));
+    const apres = Number(p.getAttribute("aria-valuenow"));
+    j.click();
+    await new Promise(r => setTimeout(r, 400));
+    const arrete = Number(p.getAttribute("aria-valuenow"));
+    await new Promise(r => setTimeout(r, 1400));
+    if (Number(p.getAttribute("aria-valuenow")) !== arrete) return "la lecture ne s'arrête pas";
+    return apres > depart ? "" : `le rang n'a pas avancé, ${depart} puis ${apres}`;
+  }) === "");
+
+/* Le doigt sur la piste choisit un instant. La piste est un curseur et non
+   treize boutons : treize cibles sur trois cents points feraient vingt-deux
+   points chacune, la moitié de ce qu'un doigt vise. */
+/* Le doigt est celui de Playwright, non un évènement fabriqué : la piste prend
+   le pointeur à l'appui, et un pointeur fabriqué ne se prend pas. */
+const boitePiste = await pgNappe.locator("#caPiste").boundingBox();
+const lirePiste = async () => ({
+  rang: await pgNappe.getAttribute("#caPiste", "aria-valuenow"),
+  teinte: await pgNappe.evaluate(`(${teintePleine})()`),
+});
+const poserDoigt = async part => {
+  await pgNappe.mouse.move(boitePiste.x + boitePiste.width * part,
+    boitePiste.y + boitePiste.height / 2);
+  await pgNappe.mouse.down();
+  await pgNappe.mouse.up();
+  await pgNappe.waitForTimeout(800);
+};
+await poserDoigt(0.98);
+const bout = await lirePiste();
+await poserDoigt(0.02);
+const debut = await lirePiste();
+ok("le doigt sur la piste change l'image montrée",
+  bout.rang !== debut.rang && bout.teinte !== debut.teinte,
+  `rangs ${debut.rang} et ${bout.rang}, teintes ${debut.teinte} et ${bout.teinte}`);
+
+ok("la mention du service paraît avec la couche",
+  await pgNappe.evaluate(async () => {
+    const c = document.getElementById("caCredit");
+    const p = document.getElementById("caPluie");
+    const dodo = m => new Promise(r => setTimeout(r, m));
+    const avec = c.textContent.includes("RainViewer")
+      && c.querySelector('a[href*="rainviewer.com"]') !== null;
+    p.click(); await dodo(300);
+    const sans = !c.textContent.includes("RainViewer");
+    p.click(); await dodo(600);
+    if (!avec) return "la mention manque quand la couche est allumée";
+    return sans ? "" : "la mention reste quand la couche est éteinte";
+  }) === "");
+
+await ctxNappe.close();
+
+/* Le contrat avec le service, relevé sur les adresses réellement émises.
+
+   Une seule image à l'ouverture : la dernière observée, douze tuiles, seize
+   kilooctets mesurés. Les douze autres images n'arrivent que si la chronologie
+   est mise en marche, et une tuile déjà vue ne se redemande pas. */
+appelsRadar.length = 0;
+const [ctxRad, pgRad] = await ouvrirCarte(FAIN, 0);
+const tuilesDe = () => appelsRadar.filter(u => u.includes("tilecache"));
+const cheminsDe = () => new Set(tuilesDe().map(u => /\/v2\/radar\/([a-z0-9]+)\//.exec(u)[1]));
+
+ok("l'ouverture ne charge qu'une image",
+  cheminsDe().size === 1 && [...cheminsDe()][0] === "obs12",
+  `${cheminsDe().size} images : ${[...cheminsDe()].join(", ")}`);
+
+ok("les tuiles se demandent en deux cent cinquante-six points",
+  tuilesDe().length > 0 && tuilesDe().every(u => /\/(obs|nc)\d+\/256\/\d+\/\d+\/\d+\/2\/1_1\.png$/.test(u)),
+  tuilesDe()[0] || "aucune tuile");
+
+/* Sans image extrapolée, la chronologie s'arrête à la dernière observation. Le
+   service en publiait aucune aux deux relevés du 5 septembre 2026 : la couche ne
+   l'invente pas. */
+ok("sans image extrapolée la chronologie s'arrête à maintenant",
+  await pgRad.evaluate(() => {
+    const p = document.getElementById("caPiste");
+    return `${p.getAttribute("aria-valuemax")}|${p.getAttribute("aria-valuenow")}`
+      + `|${p.classList.contains("ca-piste-futur")}`;
+  }) === "12|12|false");
+
+// Une tuile déjà vue ne se redemande pas : la chronologie parcourue deux fois
+// ne coûte pas deux fois.
+const avantAller = tuilesDe().length;
+await pgRad.evaluate(async () => {
+  const p = document.getElementById("caPiste");
+  for (const k of [0, 1, 0, 1, 0]) {
+    p.dispatchEvent(new KeyboardEvent("keydown", { key: k ? "ArrowRight" : "ArrowLeft", bubbles: true }));
+    await new Promise(r => setTimeout(r, 250));
+  }
+});
+await pgRad.waitForTimeout(400);
+const apresAller = tuilesDe().length;
+ok("une tuile déjà chargée ne se redemande pas",
+  apresAller - avantAller <= 24,
+  `${apresAller - avantAller} tuiles pour un aller-retour de deux images`);
+await ctxRad.close();
+
+/* La couche éteinte ne charge rien du tout : ni index, ni tuile. C'est le geste
+   de qui ménage son réseau, et il doit valoir quelque chose. */
+appelsRadar.length = 0;
+const [ctxEteint, pgEteint] = await ouvrirCarte({ ...FAIN, radar: false }, 0);
+ok("la couche éteinte ne demande rien au service",
+  appelsRadar.length === 0, `${appelsRadar.length} appels`);
+ok("la couche éteinte cache la chronologie",
+  await pgEteint.evaluate(() => {
+    const r = document.getElementById("caTemps");
+    const p = document.getElementById("caPluie");
+    return r.hidden && p.getAttribute("aria-checked") === "false";
+  }));
+/* Le choix se garde d'une visite à l'autre : rallumée ici, elle doit être
+   rallumée au prochain passage sur la carte. */
+ok("le choix de la couche se garde",
+  await pgEteint.evaluate(async () => {
+    document.getElementById("caPluie").click();
+    await new Promise(r => setTimeout(r, 500));
+    document.querySelector('[data-onglet="accueil"]').click();
+    await new Promise(r => setTimeout(r, 400));
+    document.querySelector('[data-onglet="carte"]').click();
+    await new Promise(r => setTimeout(r, 900));
+    return document.getElementById("caPluie").getAttribute("aria-checked") === "true"
+      && !document.getElementById("caTemps").hidden;
+  }));
+await ctxEteint.close();
+
+/* Sans réseau, la carte reste lisible et la pluie se tait en le disant. Le fond
+   est dessiné : c'est ce qui distingue cette carte d'une carte en tuiles, qui
+   n'aurait rien à montrer. */
+radarFutur = 0;
+const ctxSec = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+await ctxSec.addInitScript(amorceGardee(FAIN, FIGE));
+await brancherRoutes(ctxSec);
+await ctxSec.route(/rainviewer\.com/, r => r.abort());
+const pgSec = await ctxSec.newPage();
+await pgSec.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await pgSec.locator('[data-onglet="carte"]').click();
+await pgSec.waitForTimeout(900);
+ok("sans réseau la pluie le dit et la carte reste dessinée",
+  await pgSec.evaluate(() => {
+    const m = document.getElementById("caMot");
+    if (m.hidden || !/réseau/i.test(m.textContent)) return `mot : « ${m.textContent} »`;
+    if (!document.getElementById("caTemps").hidden) return "la chronologie paraît sans images";
+    const cv = document.getElementById("caToile");
+    const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+    const t = new Set();
+    for (let i = 0; i < d.length; i += 4 * 97) t.add(`${d[i]},${d[i + 1]},${d[i + 2]}`);
+    return t.size > 3 ? "" : "le fond n'est pas dessiné";
+  }) === "");
+await ctxSec.close();
 
 console.log("\n--- Mouvement réduit ---");
 const ctx2 = await nav.newContext({
