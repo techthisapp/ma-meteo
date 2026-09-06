@@ -6270,6 +6270,45 @@ ok("les tuiles se demandent en deux cent cinquante-six points",
   tuilesDe().length > 0 && tuilesDe().every(u => /\/(obs|nc)\d+\/256\/\d+\/\d+\/\d+\/2\/1_1\.png$/.test(u)),
   tuilesDe()[0] || "aucune tuile");
 
+/* Le service ne sert le radar que jusqu'au zoom sept. Au delà il rend une image
+   grise portant « Zoom Level Not Supported », la même pour toutes les
+   coordonnées, et la carte s'ouvre au zoom huit : la couche ne montrait rien.
+
+   Le défaut a vécu une journée entière en production. La mesure qui l'a laissé
+   passer ne regardait que le poids des tuiles : douze fois mille trois cent
+   soixante-dix octets font seize kilooctets, ce qui ressemblait à une vue de
+   pluie faible. Ce que le poids ne dit pas, deux tuiles éloignées le disent :
+   au delà de sept elles sont identiques à l'octet près. */
+const zoomsDe = () => [...new Set(tuilesDe()
+  .map(u => Number(/\/(?:obs|nc)\d+\/256\/(\d+)\//.exec(u)[1])))].sort((a, b) => a - b);
+ok("aucune tuile n'est demandée au delà du zoom que le service sert",
+  zoomsDe().length > 0 && Math.max(...zoomsDe()) <= 7,
+  `zooms demandés : ${zoomsDe().join(", ")}`);
+
+/* Au delà de sept, la couche continue de poser les tuiles de sept, agrandies.
+   Une carte de près doit rester couverte : sans cela, zoomer sur sa commune
+   effacerait la pluie. */
+ok("la couche couvre encore la carte au zoom le plus fort",
+  await pgRad.evaluate(async () => {
+    const R = await import("/src/radar.js");
+    const l = 390, h = 660;
+    const compte = z => R.tuilesVues({ lat: 48.85, lon: 2.35, z }, l, h);
+    const huit = compte(8), dix = compte(10);
+    if (!huit.length || !dix.length) return "aucune tuile";
+    if (huit.some(t => t.z > 7) || dix.some(t => t.z > 7)) return "zoom de tuile trop profond";
+    // Les tuiles agrandies doivent couvrir la vue entière, bords compris.
+    const couvre = ts => {
+      const x0 = Math.min(...ts.map(t => t.px)), x1 = Math.max(...ts.map(t => t.px + t.cote));
+      const y0 = Math.min(...ts.map(t => t.py)), y1 = Math.max(...ts.map(t => t.py + t.cote));
+      return x0 <= 0 && y0 <= 0 && x1 >= l && y1 >= h;
+    };
+    if (!couvre(huit)) return "le zoom huit laisse un bord nu";
+    if (!couvre(dix)) return "le zoom dix laisse un bord nu";
+    // Une tuile agrandie double de côté à chaque cran au delà de la borne.
+    return Math.abs(dix[0].cote - huit[0].cote * 4) < 1 ? ""
+      : `côtés ${huit[0].cote} et ${dix[0].cote}`;
+  }) === "");
+
 /* Sans image extrapolée, la chronologie s'arrête à la dernière observation. Le
    service en publiait aucune aux deux relevés du 5 septembre 2026 : la couche ne
    l'invente pas. */

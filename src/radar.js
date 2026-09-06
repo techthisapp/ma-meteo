@@ -5,26 +5,30 @@
    elles ont été prises ; les tuiles suivent la projection de Mercator, celle du
    fond dessiné, et se posent donc dessus sans transformation.
 
-   Deux mesures ont décidé de la forme, faites le 5 septembre 2026 sur une vue
-   de téléphone, trois cent quatre-vingt-dix points sur six cent soixante :
+   Deux mesures ont décidé de la forme, refaites le 6 septembre 2026 sur une vue
+   de téléphone de trois cent quatre-vingt-dix points sur six cent soixante, un
+   jour de pluie sur la France :
 
-   1. La taille de tuile. Une vue demande douze tuiles. En deux cent cinquante-
-      six points, la chronologie entière pèse de deux cents à six cent cinquante
-      kilooctets selon la pluie du moment ; en cinq cent douze, de quatre cents
-      kilooctets à un mégaoctet neuf. La couche est une nappe de couleur aux
-      bords déjà lissés, non du texte : la densité n'y ajoute rien de lisible.
-      Deux cent cinquante-six.
+   1. La taille de tuile. Deux cent cinquante-six. En cinq cent douze, la même
+      vue coûte de deux à trois fois plus, et la couche est une nappe de couleur
+      aux bords déjà lissés, non du texte : la densité n'y ajoute rien de
+      lisible.
 
    2. Le nombre d'images chargées à l'ouverture. Une seule, la dernière
-      observée, seize kilooctets, ce que coûte un écran de prévision. Les douze
-      autres n'arrivent que si la chronologie est mise en marche : ouvrir la
-      carte pour voir où il pleut ne doit pas payer une animation que personne
-      n'a demandée.
+      observée. Les douze autres n'arrivent que si la chronologie est mise en
+      marche : ouvrir la carte pour voir où il pleut ne doit pas payer une
+      animation que personne n'a demandée.
+
+   Ce que coûte une image, mesuré au zoom de tuile borné à sept : quarante-deux
+   kilooctets au zoom huit de la vue, celui de l'ouverture, et jusqu'à cent
+   trente-deux au zoom six, où la vue couvre le quart du pays. La chronologie
+   entière va donc de cent cinquante kilooctets à un mégaoctet sept selon le zoom
+   et la pluie du moment.
 
    Le schéma de couleur est celui du service, et il n'y en a qu'un : les neuf
    codes documentés rendent tous la même image, à l'octet près. */
 
-import { ZMIN, ZMAX, mx, my, echelle } from "./carte.js";
+import { ZMIN, mx, my, echelle } from "./carte.js";
 
 export const INDEX = "https://api.rainviewer.com/public/weather-maps.json";
 
@@ -32,6 +36,24 @@ export const INDEX = "https://api.rainviewer.com/public/weather-maps.json";
 export const GARDE = 5 * 60 * 1000;
 
 export const TAILLE = 256;
+
+/* Le zoom le plus profond que le service serve. Au delà, il rend une image
+   unique portant « Zoom Level Not Supported », grise et lisible, la même pour
+   toutes les coordonnées : 1370 octets en 256 points, 3269 en 512.
+
+   Relevé le 6 septembre 2026 sur les treize niveaux de zéro à douze, et sur deux
+   points éloignés par niveau : jusqu'à sept les deux tuiles diffèrent, à partir
+   de huit elles sont identiques à l'octet près. La mesure de la veille ne
+   regardait que le poids et n'avait donc rien vu : douze fois mille trois cent
+   soixante-dix octets font seize kilooctets, ce qui ressemblait à une vue de
+   pluie faible.
+
+   La carte, elle, va jusqu'à dix : ses contours sont embarqués et n'ont pas
+   cette borne. Au delà de sept, la couche continue donc de poser les tuiles de
+   sept, agrandies. L'image s'adoucit, ce qui est exact : le radar ne sait pas
+   plus fin. */
+export const ZMAX_TUILE = 7;
+
 export const SCHEMA = 2;
 /* Lissage et neige montrée. Sans lissage, la nappe paraît en damier de pixels
    de un kilomètre, ce qui donne à une averse une précision qu'elle n'a pas. */
@@ -85,9 +107,15 @@ export function rangCourant(images) {
 
 /* Les tuiles que la vue recouvre. Le zoom d'une tuile est entier, celui de la
    vue ne l'est pas pendant un pincement : la tuile se pose alors à l'échelle,
-   et la carte reste juste au lieu de sauter d'un cran à l'autre. */
+   et la carte reste juste au lieu de sauter d'un cran à l'autre.
+
+   Le même mécanisme sert la borne du service. Au delà de sept, le zoom de tuile
+   s'arrête à sept et la tuile s'agrandit d'autant : quatre tuiles de cinq cent
+   douze points à l'écran au zoom huit, deux de deux mille quarante-huit au zoom
+   dix. Une vue de près coûte donc moins qu'une vue de loin, l'inverse d'une
+   carte ordinaire. */
 export function tuilesVues(vue, l, h) {
-  const z = Math.max(ZMIN, Math.min(ZMAX, Math.round(vue.z)));
+  const z = Math.max(ZMIN, Math.min(ZMAX_TUILE, Math.round(vue.z)));
   const n = Math.pow(2, z);
   const cote = echelle(vue.z) / n;
   const cx = mx(vue.lon) * n, cy = my(vue.lat) * n;

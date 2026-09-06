@@ -74,27 +74,15 @@ const PALETTE = [
   [0.71, [0, 175, 150], 215], [0.79, [225, 200, 70], 235],
   [0.86, [228, 120, 55], 242], [0.92, [214, 62, 60], 248],
 ];
-function tuilePluie(im, taille, z, tx, ty) {
-  const n = taille;
+/* Le PNG. Une fonction rend la couleur de chaque point. */
+function png(n, teinteDe) {
   const brut = Buffer.alloc(n * (n * 4 + 1));
-  const N = Math.pow(2, z);
-  const decal = im * 0.0035;   // la masse avance vers l'est d'image en image
   for (let y = 0; y < n; y++) {
-    const wy = (ty + y / n) / N;
     const o = y * (n * 4 + 1);
     for (let x = 0; x < n; x++) {
-      const wx = (tx + x / n) / N - decal;
-      const u = wx * 360 - 180, v = (0.5 - wy) * 360;
-      const a = Math.sin(u * 1.7 + v * 0.9) * Math.cos(v * 1.3 - u * 0.6);
-      const b = Math.sin(u * 4.1 - v * 2.7) * 0.45;
-      const c = Math.cos(u * 0.8 + v * 2.2) * 0.35;
-      const val = (a + b + c + 1.8) / 3.6;
-      let t = [0, 0, 0], al = 0;
-      for (const [seuil, teinte, alpha] of PALETTE) {
-        if (val >= seuil) { t = teinte; al = alpha; }
-      }
+      const [r, g, b, a] = teinteDe(x, y);
       const p = o + 1 + x * 4;
-      brut[p] = t[0]; brut[p + 1] = t[1]; brut[p + 2] = t[2]; brut[p + 3] = al;
+      brut[p] = r; brut[p + 1] = g; brut[p + 2] = b; brut[p + 3] = a;
     }
   }
   const bloc = (type, data) => {
@@ -111,6 +99,29 @@ function tuilePluie(im, taille, z, tx, ty) {
     bloc("IHDR", ihdr), bloc("IDAT", zlib.deflateSync(brut)),
     bloc("IEND", Buffer.alloc(0)),
   ]);
+}
+
+/* La tuile de refus du service : un aplat gris uni. Elle n'a pas à porter le
+   texte de la vraie, seule sa présence compte. */
+const tuileRefus = taille => png(taille, () => [128, 128, 128, 200]);
+
+function tuilePluie(im, taille, z, tx, ty) {
+  const N = Math.pow(2, z);
+  const decal = im * 0.0035;   // la masse avance vers l'est d'image en image
+  return png(taille, (x, y) => {
+    const wy = (ty + y / taille) / N;
+    const wx = (tx + x / taille) / N - decal;
+    const u = wx * 360 - 180, v = (0.5 - wy) * 360;
+    const a = Math.sin(u * 1.7 + v * 0.9) * Math.cos(v * 1.3 - u * 0.6);
+    const b = Math.sin(u * 4.1 - v * 2.7) * 0.45;
+    const c = Math.cos(u * 0.8 + v * 2.2) * 0.35;
+    const val = (a + b + c + 1.8) / 3.6;
+    let t = [0, 0, 0], al = 0;
+    for (const [seuil, teinte, alpha] of PALETTE) {
+      if (val >= seuil) { t = teinte; al = alpha; }
+    }
+    return [t[0], t[1], t[2], al];
+  });
 }
 
 for (const theme of ["light", "dark"]) {
@@ -190,6 +201,13 @@ for (const theme of ["light", "dark"]) {
     const m = /\/v2\/radar\/o(\d+)\/(\d+)\/(\d+)\/(\d+)\/(\d+)\//.exec(r.request().url());
     if (!m) { r.fulfill({ status: 404, body: "non" }); return; }
     const [, im, taille, z, tx, ty] = m.map(Number);
+    /* Le service ne sert le radar que jusqu'au zoom sept, mesuré le 6 septembre
+       2026 : au delà il rend une image grise unique portant « Zoom Level Not
+       Supported ». La capture le refuse de même, sans quoi elle montrerait une
+       pluie que l'application ne recevrait pas. */
+    if (z > 7) { r.fulfill({ status: 200, contentType: "image/png",
+      headers: { "Access-Control-Allow-Origin": "*" },
+      body: tuileRefus(taille) }); return; }
     r.fulfill({ status: 200, contentType: "image/png",
       headers: { "Access-Control-Allow-Origin": "*" },
       body: tuilePluie(im, taille, z, tx, ty) });

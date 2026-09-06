@@ -61,6 +61,14 @@ case "$N" in
   15) # Retirer la gaine des traits sous la couche.
      perl -0pi -e 's/    if \(posees\) \{\n      ctx\.strokeStyle = c\.fond \|\| "#eef2f6";/    if (false) {\n      ctx.strokeStyle = c.fond || "#eef2f6";/' src/carte.js
      ATTENDU="un trait posé sur la couche garde son écart de clarté" ;;
+  16) # Demander les tuiles au zoom de la vue, que le service ne sert pas.
+     perl -0pi -e 's/  const z = Math\.max\(ZMIN, Math\.min\(ZMAX_TUILE, Math\.round\(vue\.z\)\)\);/  const z = Math.max(ZMIN, Math.min(10, Math.round(vue.z)));/' src/radar.js
+     ATTENDU="aucune tuile n.est demandée au delà du zoom que le service sert" ;;
+  17) # Abandonner la carte au zoom le plus fort au lieu d'agrandir les tuiles.
+     # La borne est posée à neuf pour que la faute n'atteigne que le zoom le plus
+     # fort : à huit, celui de l'ouverture, elle emporterait toute la section.
+     perl -0pi -e 's/  const z = Math\.max\(ZMIN, Math\.min\(ZMAX_TUILE, Math\.round\(vue\.z\)\)\);/  if (vue.z > 9) return [];\n  const z = Math.max(ZMIN, Math.min(ZMAX_TUILE, Math.round(vue.z)));/' src/radar.js
+     ATTENDU="la couche couvre encore la carte au zoom le plus fort" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
