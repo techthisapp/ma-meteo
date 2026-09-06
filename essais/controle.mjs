@@ -232,6 +232,46 @@ const teinteRadar = chemin => {
 };
 const appelsRadar = [];
 
+/* ---------- La charge de la pluie dans l'heure ----------
+
+   Le produit de Météo-France, tel qu'il le rend : neuf échéances, pas de cinq
+   minutes sur la première demi-heure puis de dix, relevé le 6 septembre 2026.
+   Les profils font varier ce qu'il y a à dire, l'intensité étant ordinale de
+   zéro à quatre et zéro voulant dire « pas de valeur ». */
+const PLUIE_PAS = [5, 10, 15, 20, 25, 30, 40, 50, 60];
+const PLUIE_PROFILS = {
+  sec:      { dispo: 1, i: [1, 1, 1, 1, 1, 1, 1, 1, 1] },
+  debut:    { dispo: 1, i: [1, 1, 1, 2, 3, 3, 1, 1, 1] },
+  encours:  { dispo: 1, i: [2, 2, 1, 1, 1, 1, 1, 1, 1] },
+  sansfin:  { dispo: 1, i: [2, 2, 3, 3, 3, 2, 2, 2, 2] },
+  indispo:  { dispo: 0, i: [1, 1, 1, 1, 1, 1, 1, 1, 1] },
+  // Une averse suivie d'échéances muettes : la fin n'est pas connue.
+  muet:     { dispo: 1, i: [2, 2, 0, 0, 0, 0, 0, 0, 0] },
+  /* Un trou entre le sec et la pluie : la source ne dit rien de ce qui se passe
+     entre les deux, et ce qu'il y a derrière le trou ne s'annonce donc pas. */
+  secmuet:  { dispo: 1, i: [1, 1, 0, 0, 2, 3, 1, 1, 1] },
+};
+let profilPluie = "sec";
+const appelsPluie = [];
+const pluieCorps = (profil, base) => {
+  const p = PLUIE_PROFILS[profil] || PLUIE_PROFILS.sec;
+  return {
+    update_time: new Date(base - 5 * 60000).toISOString(),
+    type: "Feature",
+    geometry: { type: "Point", coordinates: [4.31, 47.51] },
+    properties: {
+      altitude: 251, name: "Millery", french_department: "21",
+      rain_product_available: p.dispo, timezone: "Europe/Paris", confidence: 0,
+      forecast: PLUIE_PAS.map((m, k) => ({
+        time: new Date(base + m * 60000).toISOString(),
+        rain_intensity: p.i[k],
+        rain_intensity_description: ["Pas de valeur", "Temps sec", "Pluie faible",
+          "Pluie modérée", "Pluie forte"][p.i[k]],
+      })),
+    },
+  };
+};
+
 /* Même amorce, à un autre instant : les cas d'astres ne se rencontrent pas tous
    à neuf heures du matin. */
 const amorceA = (reglages, quand) => `{
@@ -381,6 +421,14 @@ const brancherRoutes = async c => {
     appelsAir.push(r.request().url());
     r.fulfill({ status: 200, contentType: "application/json",
       body: JSON.stringify(airDe(profilAir)) });
+  });
+  /* La pluie dans l'heure, sur le même service que la vigilance et donc posée
+     après elle : Playwright essaie la dernière route posée en premier, et celle
+     de la vigilance happerait ce chemin. */
+  await c.route(/webservice\.meteofrance\.com\/v3\/nowcast\/rain/, r => {
+    appelsPluie.push(r.request().url());
+    r.fulfill({ status: 200, contentType: "application/json",
+      body: JSON.stringify(pluieCorps(profilPluie, FIGE)) });
   });
   // L'index du radar et ses tuiles, sur deux domaines distincts.
   await c.route(/api\.rainviewer\.com/, r => {
@@ -6303,6 +6351,260 @@ ok("sans réseau la pluie le dit et la carte reste dessinée",
     return t.size > 3 ? "" : "le fond n'est pas dessiné";
   }) === "");
 await ctxSec.close();
+
+/* ---------- La pluie dans l'heure ---------- */
+
+console.log("\n--- La pluie dans l'heure ---");
+
+/* Le produit « pluie dans l'heure » de Météo-France, sur le service qui porte
+   déjà la vigilance. Il devait être l'extrapolation de RainViewer, lue au pixel
+   dans les tuiles ; ce champ était vide aux trois relevés des 5 et 6 septembre,
+   et une fonction ne se bâtit pas sur ce qu'une source ne sert pas. */
+const avecPluie = async profil => {
+  profilPluie = profil;
+  const c = await nav.newContext({
+    viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+    locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+  });
+  await c.addInitScript(amorceGardee(FAIN, FIGE));
+  await brancherRoutes(c);
+  const p = await c.newPage();
+  await p.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+  await p.waitForTimeout(700);
+  const dit = await p.evaluate(() => {
+    const e = document.querySelector(".pp");
+    if (!e) return null;
+    return {
+      phrase: e.querySelector(".pp-tete b").textContent,
+      barres: [...e.querySelectorAll(".pp-b")].map(b => ({
+        x: b.style.getPropertyValue("--x"), h: b.style.getPropertyValue("--h"),
+        eau: b.classList.contains("pp-b-eau"),
+      })),
+      lu: e.querySelector(".pp-g").getAttribute("aria-label"),
+      /* Ce qui reste dans la première vue quand la vigilance et la pluie
+         proche paraissent ensemble. */
+      vue: (() => {
+        const b = x => (x ? Math.round(x.getBoundingClientRect().bottom) : null);
+        const o = document.getElementById("onglets");
+        return {
+          deg: b(document.querySelector("#ecran .bd-deg")),
+          vg: b(document.querySelector("#ecran .vg")),
+          graphe: b(e.querySelector(".pp-g")),
+          pli: o ? Math.round(o.getBoundingClientRect().top) : null,
+        };
+      })(),
+      /* La place du panneau dans l'écran : après la vigilance, avant le bloc du
+         jour. C'est la seule chose de l'écran qui se démente en vingt minutes. */
+      apres: (() => {
+        const l = [...document.querySelectorAll(".ecran-corps > .section")];
+        const k = l.indexOf(e);
+        return k > 0 ? (l[k - 1].classList.contains("vg") ? "vigilance" : l[k - 1].dataset.bloc)
+          : "rien";
+      })(),
+      avant: (() => {
+        const l = [...document.querySelectorAll(".ecran-corps > .section")];
+        const k = l.indexOf(e);
+        return k >= 0 && l[k + 1] ? l[k + 1].dataset.bloc : null;
+      })(),
+    };
+  });
+  await c.close();
+  profilPluie = "sec";
+  return dit;
+};
+
+const ppSec = await avecPluie("sec");
+ok("une heure entièrement sèche ne dit rien", ppSec === null,
+  ppSec && ppSec.phrase);
+
+const ppDebut = await avecPluie("debut");
+ok("une pluie qui commence se dit avec son délai et sa force",
+  ppDebut && ppDebut.phrase === "Pluie modérée dans 20 minutes, pendant 20 minutes environ.",
+  ppDebut && ppDebut.phrase);
+/* La force annoncée est la plus forte de l'épisode, non celle de sa première
+   échéance : une averse qui commence faible et devient modérée se dit modérée. */
+ok("la force annoncée est celle de tout l'épisode",
+  ppDebut && /modérée/.test(ppDebut.phrase), ppDebut && ppDebut.phrase);
+
+/* Les deux panneaux d'horloge courte tiennent ensemble dans la première vue,
+   avec le grand chiffre. Ce qui en sort, ce sont les quatre mesures du jour :
+   elles résument une journée, quand la vigilance et la pluie de vingt minutes
+   sont deux faits qui se démentent dans l'heure. Mesuré le 6 septembre 2026 sur
+   une vigilance orange à deux phénomènes : le graphe finit cent soixante-seize
+   points au-dessus de la barre d'onglets, les mesures quatre-vingt-seize points
+   en dessous. La garde de la vigilance seule reste entière et sert toujours :
+   sa charge est une heure sèche, et un panneau bavard la ferait tomber. */
+ok("la vigilance, la pluie proche et le grand chiffre tiennent dans la première vue",
+  ppDebut && ppDebut.vue.deg < ppDebut.vue.pli
+  && ppDebut.vue.vg < ppDebut.vue.pli
+  && ppDebut.vue.graphe < ppDebut.vue.pli,
+  ppDebut && `chiffre ${ppDebut.vue.deg}, vigilance ${ppDebut.vue.vg}, `
+    + `graphe ${ppDebut.vue.graphe}, pli ${ppDebut.vue.pli}`);
+
+ok("le panneau vient après la vigilance et avant le bloc du jour",
+  ppDebut && ppDebut.apres === "vigilance" && ppDebut.avant === "jour",
+  ppDebut && `précédé de ${ppDebut.apres}, suivi de ${ppDebut.avant}`);
+
+/* Les échéances ne sont pas également espacées : cinq minutes puis dix. Les
+   ranger à intervalle constant mentirait sur la durée. */
+ok("le graphe pose chaque échéance à son heure et non à son rang",
+  ppDebut && ppDebut.barres.length === 9
+  && (() => {
+    const x = ppDebut.barres.map(b => parseFloat(b.x));
+    if (x[0] !== 0 || Math.abs(x[8] - 100) > 0.01) return false;
+    const ecarts = x.slice(1).map((v, k) => v - x[k]);
+    // Les six premiers pas valent cinq minutes, les deux derniers dix.
+    return Math.abs(ecarts[0] - ecarts[4]) < 0.01
+      && ecarts[6] > ecarts[0] * 1.8 && ecarts[7] > ecarts[0] * 1.8;
+  })(),
+  ppDebut && ppDebut.barres.map(b => b.x).join(" "));
+
+ok("seules les échéances mouillées portent la couleur de l'eau",
+  ppDebut && ppDebut.barres.map(b => (b.eau ? 1 : 0)).join("") === "000111000",
+  ppDebut && ppDebut.barres.map(b => (b.eau ? 1 : 0)).join(""));
+
+ok("le graphe se lit sans le voir",
+  ppDebut && /pluie modérée de \d\d[ :]/i.test(ppDebut.lu), ppDebut && ppDebut.lu);
+
+const ppEnCours = await avecPluie("encours");
+ok("une pluie en cours se dit par sa fin",
+  ppEnCours && ppEnCours.phrase === "Pluie faible, qui s'arrête dans 15 minutes.",
+  ppEnCours && ppEnCours.phrase);
+
+const ppSansFin = await avecPluie("sansfin");
+ok("une pluie sans accalmie ne s'invente pas de fin",
+  ppSansFin && ppSansFin.phrase === "Pluie modérée, sans accalmie dans l'heure.",
+  ppSansFin && ppSansFin.phrase);
+
+/* Le drapeau de disponibilité fait foi. Mesuré le 6 septembre 2026 : Ajaccio,
+   Briançon et Gaillard rendent neuf échéances toutes à « Temps sec » avec le
+   drapeau à zéro, le radar ne couvrant pas ces reliefs.
+
+   La garde se lit sur la fonction et non sur l'écran, et c'est voulu. Un produit
+   indisponible rend du temps sec, l'encart se tait sur une heure sèche, et une
+   faute qui ignorerait le drapeau ne changerait donc rien de visible sur les cas
+   observés. Ce que le drapeau protège est le contrat du module : ne rien
+   conclure d'une lecture qu'il ne couvre pas, quelles que soient les valeurs
+   qu'elle porte. Une charge indisponible portant de la pluie n'a pas été
+   observée et ne se fabrique donc pas en réponse de service ; elle se pose ici,
+   directement sur la fonction, là où elle ne prétend rien de la source. */
+const ppIndispo = await avecPluie("indispo");
+ok("un produit indisponible ne dit rien à l'écran", ppIndispo === null,
+  ppIndispo && ppIndispo.phrase);
+
+const [ctxDrapeau, pgDrapeau] = await ctxReponse(METEO_NUE, FAIN);
+ok("une lecture non couverte ne conclut rien, quelles que soient ses valeurs",
+  await pgDrapeau.evaluate(async () => {
+    const M = await import("/src/pluieproche.js");
+    const t0 = Date.now();
+    const pas = [0, 5, 10, 15, 20, 25, 30, 40, 50]
+      .map((m, k) => ({ t: t0 + m * 60000, i: k < 2 ? 1 : 3 }));
+    const couvert = M.evenement({ dispo: true, pas }, t0);
+    const nu = M.evenement({ dispo: false, pas }, t0);
+    if (!couvert) return "la même lecture couverte ne dit rien non plus";
+    return nu === null ? "" : `non couverte : ${M.phrase(nu, t0)}`;
+  }) === "");
+await ctxDrapeau.close();
+
+/* Le rang zéro n'est pas du temps sec : c'est l'absence de valeur. Une averse
+   suivie d'échéances muettes ne s'arrête pas, on ignore quand elle s'arrête. */
+const ppMuet = await avecPluie("muet");
+ok("une échéance sans valeur n'invente pas une fin de pluie",
+  ppMuet && ppMuet.phrase === "Pluie faible, sans accalmie dans l'heure.",
+  ppMuet && ppMuet.phrase);
+
+/* Un trou avant la pluie : la source ne dit rien de ce qui se passe entre les
+   deux, et une averse annoncée derrière un trou serait une averse dont on ignore
+   si elle a déjà commencé. La lecture s'arrête au trou. */
+const ppSecMuet = await avecPluie("secmuet");
+ok("une échéance sans valeur arrête la lecture avant la pluie qui suit",
+  ppSecMuet === null, ppSecMuet && ppSecMuet.phrase);
+
+/* La source n'est demandée qu'une fois par chargement : le produit se refait
+   toutes les cinq minutes, et la garde évite qu'un aller-retour entre deux
+   écrans redemande à chaque fois. */
+appelsPluie.length = 0;
+profilPluie = "debut";
+const ctxPP = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+await ctxPP.addInitScript(amorceGardee(FAIN, FIGE));
+await brancherRoutes(ctxPP);
+const pgPP = await ctxPP.newPage();
+await pgPP.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await pgPP.waitForTimeout(700);
+const appelsUn = appelsPluie.length;
+for (const cle of ["temps", "semaine", "accueil", "carte", "accueil"]) {
+  await pgPP.locator(`[data-onglet="${cle}"]`).click();
+  await pgPP.waitForTimeout(350);
+}
+ok("changer d'écran ne redemande pas la pluie",
+  appelsUn === 1 && appelsPluie.length === 1,
+  `${appelsUn} à l'ouverture, ${appelsPluie.length} après cinq changements d'écran`);
+
+/* La garde du cache se lit sur la fonction. Le produit ne se demande qu'au
+   chargement de la prévision, et non à chaque écran : une faute qui viderait le
+   cache ne changerait donc rien au parcours ci-dessus. Ce que le cache protège
+   est le retour sur un lieu déjà lu, qui relance un chargement complet. */
+const avantCache = appelsPluie.length;
+const deuxLectures = await pgPP.evaluate(async () => {
+  const M = await import("/src/pluieproche.js");
+  const a = await M.charger(47.5, 4.3);
+  const b = await M.charger(47.5, 4.3);
+  return a !== null && b !== null;
+});
+await pgPP.waitForTimeout(300);
+ok("un lieu déjà lu ne redemande pas le produit",
+  deuxLectures && appelsPluie.length === avantCache,
+  `${appelsPluie.length - avantCache} appels pour deux lectures du même lieu`);
+ok("le jeton du service est celui de la vigilance, écrit à un seul endroit",
+  appelsPluie[0] && appelsPluie[0].includes("token=__Wj7dVSTjV9YGu1guveLyDq0g7S7TfTjaHBTPTpO0kj8__"),
+  appelsPluie[0]);
+await ctxPP.close();
+profilPluie = "sec";
+
+/* Un produit muet ne prive pas l'écran de son temps qu'il fait, comme un
+   bulletin de vigilance manquant ne l'en prive pas. */
+const ctxPPmuet = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+await ctxPPmuet.addInitScript(amorceGardee(FAIN, FIGE));
+await brancherRoutes(ctxPPmuet);
+await ctxPPmuet.route(/nowcast\/rain/, r => r.abort());
+const pgPPmuet = await ctxPPmuet.newPage();
+await pgPPmuet.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await pgPPmuet.waitForTimeout(700);
+ok("un produit muet ne prive pas l'écran de son temps qu'il fait",
+  await pgPPmuet.evaluate(() =>
+    !document.querySelector(".pp")
+    && document.querySelector(".bd-deg") !== null
+    && document.querySelector('[data-bloc="jour"]') !== null));
+await ctxPPmuet.close();
+
+/* Le délai s'arrondit au pas de cinq minutes, celui de la source. Écrire « dans
+   23 minutes » donnerait à un radar une précision de chronomètre.
+
+   La garde se lit sur la fonction : les échéances de la charge tombent sur le
+   quart d'heure de l'horloge figée, et l'arrondi n'y change donc rien. Elle
+   demande deux écarts qui ne tombent pas sur le pas de cinq. */
+const [ctxRond, pgRond] = await ctxReponse(METEO_NUE, FAIN);
+ok("le délai s'arrondit au pas de la source",
+  await pgRond.evaluate(async () => {
+    const M = await import("/src/pluieproche.js");
+    const t0 = Date.now();
+    const a = M.minutesJusqua(t0 + 23 * 60000, t0);
+    const b = M.minutesJusqua(t0 + 22 * 60000, t0);
+    const c = M.minutesJusqua(t0 + 7 * 60000, t0);
+    return `${a}|${b}|${c}`;
+  }) === "25|20|5",
+  await pgRond.evaluate(async () => {
+    const M = await import("/src/pluieproche.js");
+    const t0 = Date.now();
+    return [23, 22, 7].map(m => M.minutesJusqua(t0 + m * 60000, t0)).join("|");
+  }));
+await ctxRond.close();
 
 console.log("\n--- Mouvement réduit ---");
 const ctx2 = await nav.newContext({

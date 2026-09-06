@@ -29,6 +29,7 @@ import * as Ensemble from "./ensemble.js";
 import * as Air from "./air.js";
 import * as Parapluie from "./parapluie.js";
 import * as Reponse from "./reponse.js";
+import * as Pluie from "./pluieproche.js";
 
 const $ = id => document.getElementById(id);
 
@@ -50,6 +51,7 @@ const ctx = {};
    priver l'écran de son temps qu'il fait. Le contexte la porte aussi, la
    feuille du détail lisant le même bulletin que le panneau. */
 let vigilance = null;
+let pluieProche = null;
 
 /* ---------- État de l'application ---------- */
 
@@ -269,6 +271,76 @@ function panneauVigilance() {
     + `</span></button></div>`;
 }
 
+/* La pluie dans l'heure.
+
+   Elle vient juste après la vigilance et avant tout le reste : c'est la seule
+   chose de l'écran qui se démente en vingt minutes, et la seule qu'on lise la
+   main sur la poignée.
+
+   Elle se tait quand il n'y a rien à dire, et se tait aussi là où le produit
+   n'est pas disponible. Une heure entièrement sèche annoncée à chaque ouverture
+   cesse d'être lue, et l'application dit déjà le temps qu'il fait juste en
+   dessous ; une heure sans radar annoncée au sec serait fausse.
+
+   Le graphe porte les neuf échéances de la source, non un tracé continu : le pas
+   est de cinq minutes puis de dix, et une courbe lissée donnerait à ces neuf
+   points une continuité qu'ils n'ont pas. */
+function panneauPluieProche() {
+  const l = pluieProche;
+  if (!l || !l.dispo) return "";
+  const ev = Pluie.evenement(l);
+  if (!ev) return "";
+  const dit = Pluie.phrase(ev);
+  if (!dit) return "";
+
+  const pas = l.pas.filter(x => x.t >= Date.now() - 5 * 60000);
+  if (pas.length < 2) return "";
+  const t0 = pas[0].t, t1 = pas[pas.length - 1].t;
+  const etendue = Math.max(1, t1 - t0);
+
+  /* Chaque échéance porte sa hauteur et sa place, la place venant de l'heure et
+     non du rang : les pas ne sont pas égaux, et les ranger à intervalle constant
+     mentirait sur la durée. */
+  const barres = pas.map(x => {
+    /* Une échéance sèche garde un talon visible : le graphe porte neuf moments,
+       et un moment sans pluie doit se voir comme un moment, non comme un trou.
+       L'échéance sans valeur, elle, reste au ras : elle n'est pas un moment sec,
+       elle est un moment qu'on ne connaît pas. */
+    const h = [4, 20, 48, 74, 100][Math.max(0, Math.min(4, x.i))];
+    return `<i class="pp-b${estPluieRang(x.i) ? " pp-b-eau" : ""}" `
+      + `style="--x:${(((x.t - t0) / etendue) * 100).toFixed(2)}%;--h:${h}%"></i>`;
+  }).join("");
+
+  const finPlage = heureJour(new Date(t1));
+  return `<div class="section pp">`
+    + `<div class="carte pp-c">`
+    + `<p class="pp-tete">${ico("goutte", "pp-ic")}<b>${esc(dit)}</b></p>`
+    + `<div class="pp-g" role="img" aria-label="${esc(resumeGraphe(pas))}">${barres}</div>`
+    + `<p class="pp-axe"><span>maintenant</span><span>${esc(finPlage)}</span></p>`
+    + `</div></div>`;
+}
+
+const estPluieRang = i => Pluie.estPluie(i);
+
+/* Le graphe se lit aussi sans le voir : la description dit les épisodes, non les
+   neuf valeurs, une liste de neuf intensités ne s'écoutant pas. */
+function resumeGraphe(pas) {
+  const bouts = [];
+  let debut = null;
+  for (let k = 0; k < pas.length; k++) {
+    const eau = Pluie.estPluie(pas[k].i);
+    if (eau && debut === null) debut = k;
+    if (!eau && debut !== null) { bouts.push([debut, k - 1]); debut = null; }
+  }
+  if (debut !== null) bouts.push([debut, pas.length - 1]);
+  if (!bouts.length) return "Aucune pluie dans l'heure";
+  return enumerer(bouts.map(([a, b]) => {
+    const nom = Pluie.nomDe(Math.max(...pas.slice(a, b + 1).map(x => x.i))).toLowerCase();
+    return a === b ? `${nom} vers ${heureJour(new Date(pas[a].t))}`
+      : `${nom} de ${heureJour(new Date(pas[a].t))} à ${heureJour(new Date(pas[b].t))}`;
+  }));
+}
+
 /* Le prochain lever ou coucher du Soleil, calculé sur l'appareil. Il n'entre
    dans la liste que s'il tombe dans les heures qui viennent : au-delà, ce n'est
    plus un fait de la journée mais une donnée d'almanach, et l'écran du soleil
@@ -464,6 +536,7 @@ function ecranAccueil() {
 
     corps += `<div class="ecran-corps">`
       + panneauVigilance()
+      + panneauPluieProche()
       + bloc("jour", "Aujourd'hui",
         (mesures.length ? `<div class="bd-mesures">`
           + mesures.map(([n, v, e, c, voie]) =>
@@ -933,6 +1006,7 @@ async function charger() {
   lireVigilance();
   lireEnsemble(g);
   lireAir(g);
+  lirePluieProche(g);
   /* Le journal de justesse note ce qui vient d'être servi. Il n'affiche rien et
      ne conditionne rien : il est appelé après le rendu, une charge en échec ne
      lui donnant du reste rien à noter. */
@@ -964,6 +1038,19 @@ async function lireAir(g) {
   const mien = generation;
   const d = await Air.charger({ lat: g.lat, lon: g.lon });
   if (mien !== generation || !d) return;
+  rendre();
+  if (vueCourante) rendreFeuille();
+}
+
+/* La pluie dans l'heure, gardée pour le rendu qui est synchrone. Comme la
+   vigilance et l'air, elle se lit après la prévision et sans la retarder : un
+   produit muet ne doit pas priver l'écran de son temps qu'il fait. */
+async function lirePluieProche(g) {
+  const mien = generation;
+  const d = await Pluie.charger(g.lat, g.lon);
+  if (mien !== generation) return;
+  pluieProche = d;
+  ctx.pluieProche = d;
   rendre();
   if (vueCourante) rendreFeuille();
 }

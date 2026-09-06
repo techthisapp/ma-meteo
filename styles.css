@@ -1030,6 +1030,36 @@ button.rangee:active{background:var(--surface-2)}
    porte jamais seule l'information : le titre et chaque ligne écrivent le
    niveau en toutes lettres. */
 
+/* La pluie dans l'heure. Un liseré à gauche comme le panneau de vigilance, à la
+   couleur de l'eau : les deux sont des faits d'horloge courte, et se lisent au
+   même endroit dans le même gabarit. */
+.pp-c{
+  display:flex;flex-direction:column;gap:var(--espace-xs);
+  padding:var(--espace-md) var(--espace-base);
+  box-shadow:inset 3px 0 0 var(--ic-pluie);
+}
+.pp-tete{display:flex;align-items:center;gap:var(--espace-md)}
+.pp-ic{width:24px;height:24px;flex:0 0 auto;color:var(--ic-pluie)}
+.pp-tete b{font-size:var(--texte-corps);font-weight:var(--graisse-semibold)}
+
+/* Le graphe. Chaque échéance est posée à sa place dans le temps et non à son
+   rang : le pas est de cinq minutes puis de dix, et des barres à intervalle
+   constant mentiraient sur la durée. */
+.pp-g{
+  position:relative;height:32px;
+  border-bottom:1px solid var(--filet);
+}
+.pp-b{
+  position:absolute;bottom:0;left:var(--x);transform:translateX(-50%);
+  width:9px;height:var(--h);border-radius:2px 2px 0 0;
+  background:var(--filet);
+}
+.pp-b-eau{background:var(--ic-pluie)}
+.pp-axe{
+  display:flex;justify-content:space-between;
+  font-size:var(--texte-note);color:var(--etiquette-3);
+}
+
 .vg{--vg:var(--v2)}
 .vg-jaune{--vg:var(--v2)}
 .vg-orange{--vg:var(--v3)}
@@ -1236,7 +1266,7 @@ button.rangee:active{background:var(--surface-2)}
 }
 .ca-graduation{
   position:absolute;left:0;right:0;top:50%;height:3px;transform:translateY(-50%);
-  border-radius:2px;background:var(--separateur);
+  border-radius:2px;background:var(--filet);
   background-image:repeating-linear-gradient(to right,
     var(--etiquette-3) 0 1px, transparent 1px calc(100% / max(var(--cn,13) - 1, 1)));
 }

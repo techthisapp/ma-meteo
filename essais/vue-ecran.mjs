@@ -161,6 +161,19 @@ for (const theme of ["light", "dark"]) {
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
   });
   await ctx.route(/data\.gouv\.fr|webservice\.meteofrance\.com/, r => r.abort());
+  /* La pluie dans l'heure. Elle se sert après la coupure du service, dont
+     l'expression happerait ce chemin : Playwright essaie la dernière route posée
+     en premier. Le profil se choisit par la variable, l'écran ne montrant rien
+     quand l'heure est sèche. */
+  await ctx.route(/webservice\.meteofrance\.com\/v3\/nowcast\/rain/, r => {
+    const i = (process.env.PLUIEPROCHE || "1,1,1,2,3,3,1,1,1").split(",").map(Number);
+    r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      update_time: new Date(FIGE - 3e5).toISOString(),
+      properties: { name: "Millery", rain_product_available: 1,
+        forecast: [5, 10, 15, 20, 25, 30, 40, 50, 60].map((m, k) => ({
+          time: new Date(FIGE + m * 60000).toISOString(), rain_intensity: i[k],
+          rain_intensity_description: "x" })) } }) });
+  });
   /* Le radar. Les tuiles sont fabriquées ici plutôt que demandées au service :
      l'horloge de la capture est figée au 18 août, et les images du service
      portent l'heure du jour où l'on capture. La nappe est une somme d'ondes en

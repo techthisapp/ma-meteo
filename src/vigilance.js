@@ -21,7 +21,10 @@
    lire ne se remplace pas par un message d'erreur sur l'écran d'accueil. */
 
 const SERVICE = "https://webservice.meteofrance.com/v3/warning/full";
-const JETON = "__Wj7dVSTjV9YGu1guveLyDq0g7S7TfTjaHBTPTpO0kj8__";
+/* Le jeton du service, non celui de la vigilance : il ouvre aussi la pluie dans
+   l'heure, que `pluieproche.js` lit ici plutôt que de la recopier. Un jeton
+   écrit à deux endroits finit par diverger. */
+export const JETON = "__Wj7dVSTjV9YGu1guveLyDq0g7S7TfTjaHBTPTpO0kj8__";
 const CARTE = "https://vigilance.meteofrance.fr/fr";
 
 /* Les neuf phénomènes de la vigilance, avec le symbole qui les porte dans
