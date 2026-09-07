@@ -189,56 +189,91 @@ function pres(lignes, x, y, seuil) {
 const g1 = await lire("departements", SOURCES.departements);
 const anneauxFr = lignesDe(g1, true);
 
-/* Le contour du pays et les limites intérieures ne se dessinent pas du même
-   trait : l'un est une côte ou une frontière, l'autre une ligne administrative.
-   Un segment partagé par deux départements est intérieur, un segment vu une
-   seule fois est extérieur. Le partage se lit sur les coordonnées d'origine :
-   la simplification, faite département par département, ne rendrait plus les
-   mêmes points de part et d'autre. */
-const cleSeg = (a, b) => {
-  const p = `${a[0].toFixed(6)},${a[1].toFixed(6)}`;
-  const q = `${b[0].toFixed(6)},${b[1].toFixed(6)}`;
-  return p < q ? `${p}|${q}` : `${q}|${p}`;
-};
-const vus = new Map();
-for (const l of anneauxFr) {
-  for (let i = 1; i < l.length; i++) {
-    const c = cleSeg(l[i - 1], l[i]);
-    vus.set(c, (vus.get(c) || 0) + 1);
+/* La topologie des départements.
+
+   Un anneau de département se découpe en arcs. Deux départements voisins
+   partagent leurs arcs communs, stockés une seule fois. Chaque département garde
+   la suite d'arcs qui referme chacun de ses anneaux, avec le sens de parcours.
+
+   Cette forme sert deux besoins d'un seul jeu de points. Le tracé lit les arcs :
+   un arc porté par un seul département est une côte ou une frontière, un arc
+   porté par deux est une limite intérieure. Le remplissage lit les suites : la
+   teinte d'un département épouse exactement son trait, parce que les deux
+   viennent des mêmes points.
+
+   Mesuré le 7 septembre 2026 : 818 arcs et 6818 points, contre 10344 points
+   quand les lignes intérieures étaient stockées à part. */
+
+// Les points se quantifient d'abord : deux voisins doivent partager les mêmes.
+const qp = ([x, y]) => `${Math.round(x / PAS)},${Math.round(y / PAS)}`;
+const depsBruts = [];
+for (const f of g1.features) {
+  const g = f.geometry;
+  const polys = g.type === "Polygon" ? [g.coordinates] : g.coordinates;
+  // Seul l'anneau extérieur compte : aucun département n'a de trou.
+  const rings = polys.map(p => p[0].map(qp)).filter(r => r.length >= 4);
+  if (rings.length) depsBruts.push({ code: f.properties.code, rings });
+}
+
+/* Dans combien d'anneaux chaque point paraît. Un point de jonction est celui
+   dont le compte diffère de celui de son voisin : c'est là que deux
+   départements cessent de se suivre. */
+const compte = new Map();
+for (const d of depsBruts) {
+  for (const r of d.rings) {
+    for (const p of new Set(r)) compte.set(p, (compte.get(p) || 0) + 1);
   }
 }
 
-/* Chaque anneau se coupe en suites d'un même genre. Une suite intérieure est
-   parcourue deux fois, une par département voisin : la seconde est écartée par
-   sa clé, laquelle ne dépend pas du sens de parcours. */
-const dejaVues = new Set();
-const contour = [], interieur = [];
-const cleSuite = suite => {
-  const t = suite.map(([x, y]) => `${x.toFixed(6)},${y.toFixed(6)}`);
-  const env = t.slice().reverse();
-  return (t.join(";") < env.join(";") ? t : env).join(";");
+const arcs = new Map();          // clé de l'arc vers son rang
+const usage = [];                // nombre de départements qui portent l'arc
+const cleArc = pts => pts.join(";");
+const poserArc = a => {
+  const c = cleArc(a), ci = cleArc(a.slice().reverse());
+  if (arcs.has(c)) { usage[arcs.get(c)]++; return arcs.get(c); }
+  if (arcs.has(ci)) { usage[arcs.get(ci)]++; return ~arcs.get(ci); }
+  const i = arcs.size;
+  arcs.set(c, i);
+  usage[i] = 1;
+  return i;
 };
-for (const l of anneauxFr) {
-  let cur = [l[0]], dedansAvant = null;
-  for (let i = 1; i < l.length; i++) {
-    const int = (vus.get(cleSeg(l[i - 1], l[i])) || 0) > 1;
-    if (dedansAvant !== null && int !== dedansAvant) {
-      (dedansAvant ? interieur : contour).push(cur);
-      cur = [l[i - 1]];
-    }
-    cur.push(l[i]);
-    dedansAvant = int;
+
+const departements = [];
+for (const d of depsBruts) {
+  const anneaux = [];
+  for (const r of d.rings) {
+    const n = r.length - 1;      // le dernier point répète le premier
+    const jonction = i => compte.get(r[i]) !== compte.get(r[(i + 1) % n])
+      || compte.get(r[i]) !== compte.get(r[(i - 1 + n) % n]);
+    let depart = 0;
+    while (depart < n && !jonction(depart)) depart++;
+    if (depart === n) { anneaux.push([poserArc(r.slice(0, n + 1))]); continue; }
+    const suite = [];
+    let i = depart;
+    do {
+      const a = [r[i]];
+      let j = (i + 1) % n;
+      a.push(r[j]);
+      while (!jonction(j)) { j = (j + 1) % n; a.push(r[j]); }
+      suite.push(poserArc(a));
+      i = j;
+    } while (i !== depart);
+    anneaux.push(suite);
   }
-  if (cur.length >= 2) (dedansAvant ? interieur : contour).push(cur);
+  departements.push({ code: d.code, anneaux });
 }
-const dedupe = suites => suites.filter(s => {
-  const c = cleSuite(s);
-  if (dejaVues.has(c)) return false;
-  dejaVues.add(c);
-  return true;
+
+// Les arcs simplifiés, dans l'ordre de leur rang.
+const arcsPts = [...arcs.keys()].map(c => {
+  const brut = c.split(";").map(t => t.split(",").map(Number).map(v => v * PAS));
+  return simplifier(brut, TOL_FR);
 });
-const fr = dedupe(contour).map(l => simplifier(l, TOL_FR));
-const frInt = dedupe(interieur).map(l => simplifier(l, TOL_FR));
+
+/* Le tracé garde ses deux couches, dérivées de l'usage des arcs. Un arc porté
+   par un seul département est une côte ou une frontière ; un arc porté par deux
+   est une ligne administrative, dessinée d'un trait plus faible. */
+const fr = arcsPts.filter((_, i) => usage[i] === 1);
+const frInt = arcsPts.filter((_, i) => usage[i] > 1);
 
 /* Ce qui double la France est retiré de l'Europe : les points à l'intérieur du
    territoire, et ceux qui longent la côte ou la frontière. */
@@ -253,16 +288,32 @@ const europeDe = async (nom, url, avecAnneaux) => {
 const terre = await europeDe("terre", SOURCES.terre, true);
 const bornes = await europeDe("bornes", SOURCES.bornes, false);
 
-const eFr = encoder(fr), eFrInt = encoder(frInt);
+const eArcs = encoder(arcsPts);
 const eTerre = encoder(terre), eBornes = encoder(bornes);
 const poids = s => zlib.gzipSync(Buffer.from(s)).length;
+
+/* L'index des départements : pour chacun, le nombre d'anneaux, puis pour chaque
+   anneau le nombre d'arcs, puis les rangs signés. Un rang négatif se lit
+   `~rang` et veut dire que l'arc se parcourt à l'envers. */
+const octetsIndex = [];
+varint(departements.length, octetsIndex);
+for (const d of departements) {
+  varint(d.anneaux.length, octetsIndex);
+  for (const a of d.anneaux) {
+    varint(a.length, octetsIndex);
+    for (const r of a) varint(r, octetsIndex);
+  }
+}
+const indexB64 = Buffer.from(octetsIndex).toString("base64");
+const codesTxt = departements.map(d => d.code).join(",");
+const usageUn = usage.filter(u => u === 1).length;
 
 /* Le premier morceau n'a pas de « plus » devant lui : un plus unaire en tête
    ferait un nombre de la chaîne, et la suite se concaténerait à « NaN ». */
 const decoupe = s => (s.match(/.{1,96}/g) || [])
   .map((l, i) => `  ${i ? "+ " : ""}"${l}"`).join("\n");
 
-const sortie = `/* Les contours de la carte, dessinés et non chargés.
+const sortie = `/* Les contours de la carte, dessinés à partir de points embarqués.
 
    Fabriqué par \`outils/contours.mjs\`, à relancer seulement si les contours
    changent. Deux sources publiques : les départements d'après ADMIN EXPRESS de
@@ -275,13 +326,19 @@ const sortie = `/* Les contours de la carte, dessinés et non chargés.
    cents kilooctets à un mégaoctet par écran, à chaque déplacement. Toute la
    prévision horaire de l'application en pèse cinq.
 
-   Ce fichier pèse ${eFr.b64.length + eFrInt.b64.length + eTerre.b64.length + eBornes.b64.length} octets de données, une fois pour toutes, et se sert avec
-   la coque hors ligne.
+   Ce fichier pèse ${eArcs.b64.length + indexB64.length + eTerre.b64.length + eBornes.b64.length} octets de données, une fois pour toutes, et se sert
+   avec la coque hors ligne.
 
    Les coordonnées sont des entiers au pas de ${PAS} degré, encodés en différences
    successives sur des entiers de longueur variable, puis en base 64. Le pas vaut
    cent cinquante mètres en longitude à cette latitude, soit un pixel et demi au
    zoom le plus fort que la carte accepte.
+
+   Les limites des départements forment une topologie. Deux départements voisins
+   partagent leurs arcs communs, stockés une seule fois, et chaque département
+   garde la suite d'arcs qui referme chacun de ses anneaux. Le tracé et le
+   remplissage lisent donc les mêmes points : la teinte d'un département épouse
+   exactement son trait.
 
    Ce qui doublait la France a été retiré de l'Europe : les deux sources ne
    s'accordent pas au mètre près, et sans cette coupe la côte et les frontières
@@ -290,16 +347,19 @@ const sortie = `/* Les contours de la carte, dessinés et non chargés.
 // Le pas de la grille, en degrés.
 export const PAS = ${PAS};
 
-/* Le contour du pays, ${eFr.lignes} morceaux, ${eFr.points} points : la côte et la frontière,
-   c'est-à-dire les segments qu'un seul département porte. */
-const CONTOUR =
-${decoupe(eFr.b64)};
+/* Les arcs des limites de départements, ${eArcs.lignes} arcs, ${eArcs.points} points. ${usageUn} ne
+   sont portés que par un département : ce sont la côte et la frontière. */
+const ARCS =
+${decoupe(eArcs.b64)};
 
-/* Les limites entre départements, ${eFrInt.lignes} morceaux, ${eFrInt.points} points : les segments que
-   deux départements partagent. Elles se dessinent d'un trait plus faible, une
-   ligne administrative n'étant pas une côte. */
-const DEPARTEMENTS =
-${decoupe(eFrInt.b64)};
+/* Pour chaque département, le nombre d'anneaux, puis pour chaque anneau le
+   nombre d'arcs et leurs rangs signés. Un rang négatif se lit \`~rang\` et veut
+   dire que l'arc se parcourt à l'envers. */
+const INDEX =
+${decoupe(indexB64)};
+
+// Les codes des ${departements.length} départements, dans l'ordre de l'index.
+const CODES = "${codesTxt}";
 
 /* Les côtes d'Europe autour de la France, ${eTerre.lignes} morceaux, ${eTerre.points} points. */
 const TERRE =
@@ -312,14 +372,18 @@ ${decoupe(eBornes.b64)};
 /* Décodage. Chaque ligne devient un tableau plat de longitudes et de latitudes
    alternées, en degrés : c'est la forme que le tracé consomme, sans objet
    intermédiaire par point. */
-function decoder(b64) {
+function lecteur(b64) {
   const bin = atob(b64);
   let i = 0;
-  const suivant = () => {
+  return () => {
     let v = 0, d = 0, b;
     do { b = bin.charCodeAt(i++); v |= (b & 0x7f) << d; d += 7; } while (b & 0x80);
     return (v & 1) ? -(v >>> 1) : (v >>> 1);
   };
+}
+
+function decoder(b64) {
+  const suivant = lecteur(b64);
   const lignes = [];
   const n = suivant();
   for (let k = 0; k < n; k++) {
@@ -335,26 +399,95 @@ function decoder(b64) {
   return lignes;
 }
 
-/* Les quatre couches, décodées une seule fois. Le décodage de ${eFr.points + eFrInt.points + eTerre.points + eBornes.points} points
-   prend quelques millisecondes, et la carte se redessine à chaque geste : le
-   refaire à chaque image serait le seul calcul lourd du tracé. */
+/* Les couches, décodées une seule fois. Le décodage de ${eArcs.points + eTerre.points + eBornes.points} points prend
+   quelques millisecondes, et la carte se redessine à chaque geste : le refaire à
+   chaque image serait le seul calcul lourd du tracé. */
+let jeu = null;
+function charger() {
+  if (jeu) return jeu;
+  const arcs = decoder(ARCS);
+  const suivant = lecteur(INDEX);
+  const codes = CODES.split(",");
+  const deps = new Map();
+  const usage = new Int8Array(arcs.length);
+  const n = suivant();
+  for (let k = 0; k < n; k++) {
+    const anneaux = [];
+    const na = suivant();
+    for (let a = 0; a < na; a++) {
+      const nr = suivant();
+      const suite = new Int32Array(nr);
+      for (let r = 0; r < nr; r++) {
+        const v = suivant();
+        suite[r] = v;
+        const rang = v < 0 ? ~v : v;
+        if (usage[rang] < 2) usage[rang]++;
+      }
+      anneaux.push(suite);
+    }
+    deps.set(codes[k], anneaux);
+  }
+  jeu = { arcs, deps, usage,
+    terre: decoder(TERRE), bornes: decoder(BORNES) };
+  return jeu;
+}
+
+/* Les quatre couches du tracé. Le contour porte les arcs qu'un seul département
+   touche, les limites intérieures ceux que deux départements partagent. */
 let couches = null;
 export function contours() {
   if (!couches) {
+    const j = charger();
     couches = {
-      contour: decoder(CONTOUR),
-      departements: decoder(DEPARTEMENTS),
-      terre: decoder(TERRE),
-      bornes: decoder(BORNES),
+      contour: j.arcs.filter((_, i) => j.usage[i] === 1),
+      departements: j.arcs.filter((_, i) => j.usage[i] > 1),
+      terre: j.terre,
+      bornes: j.bornes,
     };
   }
   return couches;
 }
+
+/* Les anneaux d'un département, en tableaux plats de longitudes et de latitudes.
+   Le premier point de chaque arc répète le dernier du précédent : il se saute,
+   sans quoi le tracé reviendrait sur lui-même à chaque jonction. */
+const anneauxCache = new Map();
+export function anneauxDe(code) {
+  if (anneauxCache.has(code)) return anneauxCache.get(code);
+  const j = charger();
+  const suites = j.deps.get(code);
+  if (!suites) { anneauxCache.set(code, null); return null; }
+  const out = suites.map(suite => {
+    const pts = [];
+    for (const v of suite) {
+      const a = j.arcs[v < 0 ? ~v : v];
+      const m = a.length / 2;
+      if (v < 0) {
+        for (let k = m - 1; k >= 0; k--) {
+          if (k === m - 1 && pts.length) continue;
+          pts.push(a[k * 2], a[k * 2 + 1]);
+        }
+      } else {
+        for (let k = 0; k < m; k++) {
+          if (k === 0 && pts.length) continue;
+          pts.push(a[k * 2], a[k * 2 + 1]);
+        }
+      }
+    }
+    return Float64Array.from(pts);
+  });
+  anneauxCache.set(code, out);
+  return out;
+}
+
+// Les codes des départements portés par le fichier.
+export const codesDepartements = () => [...charger().deps.keys()];
 `;
 
 fs.writeFileSync(new URL("../src/geographie.js", import.meta.url), sortie);
-console.log(`Contour : ${eFr.lignes} lignes, ${eFr.points} points, ${eFr.b64.length} octets, ${poids(eFr.b64)} compressés`);
-console.log(`Départ. : ${eFrInt.lignes} lignes, ${eFrInt.points} points, ${eFrInt.b64.length} octets, ${poids(eFrInt.b64)} compressés`);
+console.log(`Arcs    : ${eArcs.lignes} arcs, ${eArcs.points} points, ${eArcs.b64.length} octets, ${poids(eArcs.b64)} compressés`);
+console.log(`  dont ${usageUn} portés par un seul département, ${eArcs.lignes - usageUn} partagés`);
+console.log(`Index   : ${departements.length} départements, ${indexB64.length} octets, ${poids(indexB64)} compressés`);
 console.log(`Terre   : ${eTerre.lignes} lignes, ${eTerre.points} points, ${eTerre.b64.length} octets, ${poids(eTerre.b64)} compressés`);
 console.log(`Bornes  : ${eBornes.lignes} lignes, ${eBornes.points} points, ${eBornes.b64.length} octets, ${poids(eBornes.b64)} compressés`);
 console.log(`src/geographie.js écrit, ${fs.statSync(new URL("../src/geographie.js", import.meta.url)).size} octets`);

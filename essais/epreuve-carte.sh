@@ -6,10 +6,14 @@ cd "$(dirname "$0")/.."
 N="$1"
 SAUVE=/tmp/epreuve-carte
 rm -rf "$SAUVE"; mkdir -p "$SAUVE/src"
-cp src/carte.js src/vues.js src/app.js "$SAUVE/src/"
+cp src/carte.js src/vues.js src/app.js src/geographie.js src/vigilance.js "$SAUVE/src/"
 cp styles.css "$SAUVE/"
 
-restaurer() { cp "$SAUVE/src/carte.js" "$SAUVE/src/vues.js" "$SAUVE/src/app.js" src/; cp "$SAUVE/styles.css" .; }
+restaurer() {
+  cp "$SAUVE/src/carte.js" "$SAUVE/src/vues.js" "$SAUVE/src/app.js" \
+     "$SAUVE/src/geographie.js" "$SAUVE/src/vigilance.js" src/
+  cp "$SAUVE/styles.css" .
+}
 trap restaurer EXIT
 
 case "$N" in
@@ -46,12 +50,29 @@ case "$N" in
   11) # Laisser le nom du repère déborder du bord droit.
      perl -0pi -e 's/            b\.classList\.toggle\("ca-r-gauche", p\.x \+ 26 \+ large > l - 8\);/            b.classList.toggle("ca-r-gauche", false);/' src/vues.js
      ATTENDU="un repère près du bord droit porte son nom à gauche" ;;
+  12) # Lire tous les arcs à l'endroit : l'anneau ne se referme plus.
+     perl -0pi -e 's/      if \(v < 0\) \{/      if (false) {/' src/geographie.js
+     ATTENDU="la topologie rend un anneau fermé par département" ;;
+  13) # Décaler les points de l'anneau : la teinte quitte le trait.
+     perl -0pi -e 's/    return Float64Array\.from\(pts\);/    return Float64Array.from(pts.map((x, i) => (i % 2 ? x : x + 0.001)));/' src/geographie.js
+     ATTENDU="le trait et la teinte partagent leurs points" ;;
+  14) # Une seule teinte pour tous les niveaux.
+     perl -0pi -e 's/    const teinte = c\[`vg\$\{rang\}`\];/    const teinte = c.vg2;/' src/carte.js
+     ATTENDU="la couche de vigilance teinte les départements en alerte" ;;
+  15) # Accepter tous les sous-domaines, massifs et zones côtières compris.
+     perl -0pi -e 's/!\/\^\(\\d\{2\}\|2A\|2B\)\$\/\.test\(id\)/false/' src/vigilance.js
+     ATTENDU="les massifs et les zones côtières n'entrent pas dans la table" ;;
+  16) # Laisser la mention de Météo-France quand la couche est éteinte.
+     perl -0pi -e 's/\(vigiAllume \? `<span>Vigilance Météo-France<\/span>` : ""\)/`<span>Vigilance Météo-France<\/span>`/' src/vues.js
+     ATTENDU="la mention de Météo-France paraît avec la couche de vigilance" ;;
   *) echo "faute inconnue"; exit 2 ;;
 esac
 
 if diff -q "$SAUVE/src/carte.js" src/carte.js >/dev/null \
   && diff -q "$SAUVE/src/vues.js" src/vues.js >/dev/null \
   && diff -q "$SAUVE/src/app.js" src/app.js >/dev/null \
+  && diff -q "$SAUVE/src/geographie.js" src/geographie.js >/dev/null \
+  && diff -q "$SAUVE/src/vigilance.js" src/vigilance.js >/dev/null \
   && diff -q "$SAUVE/styles.css" styles.css >/dev/null; then
   echo "FAUTE $N NON APPLIQUÉE"; exit 3
 fi

@@ -281,3 +281,56 @@ export async function lire(dep) {
    bulletin du nouveau département et sert celui de l'ancien s'il y revient. Un
    `oublier()` vidait tout à chaque chargement d'écran, ce qui redemandait le
    même bulletin à la source sans rien en apprendre. */
+
+/* ---------- La vigilance de tout le pays ----------
+
+   Un seul appel rend le niveau de chaque département. Mesuré le 7 septembre
+   2026 : 1181 octets compressés pour 201 sous-domaines, dont les 96
+   départements métropolitains. Les autres sous-domaines sont des massifs et des
+   zones côtières, que la carte ne dessine pas.
+
+   Ce chemin diffère de celui du bulletin détaillé. Le bulletin porte les plages
+   horaires d'un seul département ; celui-ci porte le niveau maximal de chacun,
+   sans les heures. La carte n'a besoin que du niveau. */
+const NATIONAL = "https://webservice.meteofrance.com/v3/warning/currentphenomenons";
+
+let paysGarde = null;
+
+/* Le niveau le plus élevé d'un sous-domaine, tous phénomènes confondus. Un
+   sous-domaine sans phénomène lisible reste au vert. */
+const niveauMax = x => {
+  const l = x && Array.isArray(x.phenomenons_max_color) ? x.phenomenons_max_color : [];
+  const v = l.map(p => Number(p.phenomenon_max_color_id)).filter(Number.isFinite);
+  return v.length ? Math.max(...v) : 1;
+};
+
+export function lirePays(d) {
+  const s = d && d.subdomains_phenomenons_max_color;
+  if (!Array.isArray(s) || !s.length) return null;
+  const niveaux = new Map();
+  for (const x of s) {
+    const id = x && x.domain_id;
+    /* Seuls les départements entrent : deux caractères, chiffres ou 2A et 2B.
+       Les massifs commencent par MAS et les zones côtières portent quatre
+       chiffres. La carte ne dessine ni les uns ni les autres. */
+    if (typeof id !== "string" || !/^(\d{2}|2A|2B)$/.test(id)) continue;
+    niveaux.set(id, niveauMax(x));
+  }
+  return niveaux.size ? { niveaux, maj: horodate(d.update_time) } : null;
+}
+
+/* La garde suit la publication, comme celle du bulletin détaillé : le niveau
+   change aux mêmes heures. */
+export async function pays(fetcheur = fetch) {
+  const t = Date.now();
+  if (paysGarde && t < paysGarde.exp) return paysGarde.d;
+  let d = null;
+  try {
+    const r = await fetcheur(`${NATIONAL}?domain=FRA&depth=1&token=${JETON}`);
+    if (r.ok) d = lirePays(await r.json());
+  } catch { d = null; }
+  paysGarde = { d, exp: jusqua(d ? { update_time: d.maj / 1000 } : null, t) };
+  return d;
+}
+
+export function oublierPays() { paysGarde = null; }

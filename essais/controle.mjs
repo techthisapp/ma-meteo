@@ -262,6 +262,10 @@ const REPLI_PROFILS = {
 };
 let profilRepli = "sec";
 const appelsRepli = [];
+/* La vigilance de tout le pays. Trois teintes et un vert, plus un massif et une
+   zone côtière que la carte ne dessine pas. */
+const PAYS_NIVEAUX = { "29": 2, "44": 3, "33": 4, "21": 1 };
+const appelsPays = [];
 /* Les heures s'écrivent dans le fuseau de Paris, celui du navigateur d'essai.
    Les construire dans le fuseau du conteneur les décalerait de deux heures, et
    les cinq pas tomberaient tous dans le passé. */
@@ -461,6 +465,24 @@ const brancherRoutes = async c => {
     appelsAir.push(r.request().url());
     r.fulfill({ status: 200, contentType: "application/json",
       body: JSON.stringify(airDe(profilAir)) });
+  });
+  /* La vigilance de tout le pays, pour la couche de la carte. Elle se sert sur
+     le même service que le bulletin détaillé et donc après lui. Quelques
+     départements en jaune, en orange et un en rouge, de quoi éprouver les trois
+     teintes ; le reste du pays reste au vert et ne paraît pas dans la table. */
+  await c.route(/warning\/currentphenomenons/, r => {
+    appelsPays.push(r.request().url());
+    r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      update_time: Math.floor(FIGE / 1000), domain_id: "FRA",
+      subdomains_phenomenons_max_color: [
+        ...Object.entries(PAYS_NIVEAUX).map(([d, n]) => ({ domain_id: d,
+          phenomenons_max_color: [{ phenomenon_id: "1", phenomenon_max_color_id: n }] })),
+        /* Un massif et une zone côtière, que la source rend aussi et que la
+           carte ne dessine pas. */
+        { domain_id: "MAS21", phenomenons_max_color: [{ phenomenon_id: "8", phenomenon_max_color_id: 3 }] },
+        { domain_id: "0610", phenomenons_max_color: [{ phenomenon_id: "9", phenomenon_max_color_id: 4 }] },
+      ],
+    })});
   });
   /* La pluie dans l'heure, sur le même service que la vigilance et donc posée
      après elle : Playwright essaie la dernière route posée en premier, et celle
@@ -6111,6 +6133,117 @@ const cadreDit = await pgCarte.evaluate(async () => {
       : `après l'appui sur l'onglet, échelle ${lu()} au lieu de ${france}`;
 });
 ok("un appui sur l'onglet ramène le cadrage sur la France", cadreDit === "", cadreDit);
+
+/* ---------- La vigilance sur la carte ----------
+
+   Un seul appel rend le niveau de chaque département. Mesuré le 7 septembre
+   2026 : 1181 octets compressés pour 201 sous-domaines, dont les 96 départements
+   métropolitains. Les autres sont des massifs et des zones côtières, que la
+   carte ne dessine pas.
+
+   Les anneaux de remplissage viennent de la même topologie que les traits : la
+   teinte épouse donc exactement le trait, sans décalage à fort zoom. */
+
+ok("la topologie rend un anneau fermé par département",
+  await pgCarte.evaluate(async () => {
+    const G = await import("/src/geographie.js");
+    const codes = G.codesDepartements();
+    if (codes.length !== 96) return `${codes.length} départements`;
+    for (const c of ["21", "2A", "2B", "75", "29"]) {
+      const a = G.anneauxDe(c);
+      if (!a || !a.length) return `${c} sans anneau`;
+      for (const r of a) {
+        if (r.length < 8) return `${c} : anneau de ${r.length / 2} points`;
+        const dx = Math.abs(r[0] - r[r.length - 2]);
+        const dy = Math.abs(r[1] - r[r.length - 1]);
+        if (dx > 1e-9 || dy > 1e-9) return `${c} : anneau non fermé`;
+      }
+    }
+    return G.anneauxDe("ZZ") === null ? "" : "un code inconnu rend un anneau";
+  }) === "");
+
+/* Le trait et la teinte viennent des mêmes points : les arcs du contour et des
+   limites intérieures sont ceux que les anneaux enchaînent. */
+ok("le trait et la teinte partagent leurs points",
+  await pgCarte.evaluate(async () => {
+    const G = await import("/src/geographie.js");
+    const c = G.contours();
+    const dansTrait = new Set();
+    for (const l of [...c.contour, ...c.departements]) {
+      for (let i = 0; i < l.length; i += 2) {
+        dansTrait.add(`${l[i].toFixed(6)},${l[i + 1].toFixed(6)}`);
+      }
+    }
+    for (const code of ["21", "44", "33"]) {
+      for (const r of G.anneauxDe(code)) {
+        for (let i = 0; i < r.length; i += 2) {
+          if (!dansTrait.has(`${r[i].toFixed(6)},${r[i + 1].toFixed(6)}`)) {
+            return `${code} : un point d'anneau manque au trait`;
+          }
+        }
+      }
+    }
+    return "";
+  }) === "");
+
+ok("la couche de vigilance teinte les départements en alerte",
+  await pgCarte.evaluate(async () => {
+    const cv = document.getElementById("caToile");
+    const ctx = cv.getContext("2d");
+    const C = await import("/src/carte.js");
+    const dodo = m => new Promise(r => setTimeout(r, m));
+    /* La pluie s'éteint : sa nappe couvre tout et masquerait la teinte. */
+    const pluie = document.getElementById("caPluie");
+    if (pluie.getAttribute("aria-checked") === "true") { pluie.click(); await dodo(500); }
+    await dodo(600);
+    const vue = { lat: 47.5, lon: 4.3, z: 8 };
+    const lire = (la, lo) => {
+      const cadre = cv.getBoundingClientRect();
+      const p = C.surEcran({ lat: 46.4, lon: 2.2, z: 5.13 }, la, lo, cv.clientWidth, cv.clientHeight);
+      const d = ctx.getImageData(Math.round(p.x * 2), Math.round(p.y * 2), 1, 1).data;
+      return `${d[0]},${d[1]},${d[2]}`;
+    };
+    // Un point dans le Finistère, un dans la Loire-Atlantique, un en Gironde,
+    // et un en Côte-d'Or qui reste au vert.
+    const t = {
+      f29: lire(48.3, -4.0), f44: lire(47.4, -1.6),
+      f33: lire(44.8, -0.6), f21: lire(47.3, 4.8),
+    };
+    if (t.f29 === t.f21) return `Finistère et Côte-d'Or de la même teinte, ${t.f29}`;
+    if (t.f44 === t.f29) return `deux niveaux de la même teinte, ${t.f44}`;
+    if (t.f33 === t.f44) return `deux niveaux de la même teinte, ${t.f33}`;
+    return "";
+  }) === "");
+
+/* Un massif et une zone côtière paraissent dans la source. La carte ne dessine
+   que les départements, et un identifiant qui n'en est pas un ne doit pas
+   entrer dans la table. */
+ok("les massifs et les zones côtières n'entrent pas dans la table",
+  await pgCarte.evaluate(async () => {
+    const V = await import("/src/vigilance.js");
+    const d = V.lirePays({ update_time: 1, subdomains_phenomenons_max_color: [
+      { domain_id: "29", phenomenons_max_color: [{ phenomenon_id: "1", phenomenon_max_color_id: 3 }] },
+      { domain_id: "MAS21", phenomenons_max_color: [{ phenomenon_id: "8", phenomenon_max_color_id: 4 }] },
+      { domain_id: "0610", phenomenons_max_color: [{ phenomenon_id: "9", phenomenon_max_color_id: 4 }] },
+      { domain_id: "2A", phenomenons_max_color: [{ phenomenon_id: "1", phenomenon_max_color_id: 2 }] },
+    ] });
+    if (!d) return "rien lu";
+    const codes = [...d.niveaux.keys()].sort();
+    return codes.join(",") === "29,2A" ? "" : `codes retenus : ${codes.join(",")}`;
+  }) === "");
+
+ok("la mention de Météo-France paraît avec la couche de vigilance",
+  await pgCarte.evaluate(async () => {
+    const c = document.getElementById("caCredit");
+    const v = document.getElementById("caVigi");
+    const dodo = m => new Promise(r => setTimeout(r, m));
+    const avec = /Vigilance Météo-France/.test(c.textContent);
+    v.click(); await dodo(400);
+    const sans = !/Vigilance Météo-France/.test(c.textContent);
+    v.click(); await dodo(600);
+    if (!avec) return "la mention manque quand la couche est allumée";
+    return sans ? "" : "la mention reste quand la couche est éteinte";
+  }) === "");
 
 /* Les contours embarqués : quatre couches, et une boîte qui tient dans la
    fenêtre que la carte peut montrer. Un contour hors fenêtre serait des octets

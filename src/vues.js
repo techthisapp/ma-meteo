@@ -1107,6 +1107,9 @@ export function vueCarte(ctx, rendre, majEtat) {
       + `<button type="button" class="ca-o" id="caPluie" role="switch" `
       + `aria-checked="${Reglages.radar() ? "true" : "false"}" `
       + `aria-label="Couche de pluie">` + ico("goutte", "") + `</button>`
+      + `<button type="button" class="ca-o" id="caVigi" role="switch" `
+      + `aria-checked="${Reglages.vigicarte() ? "true" : "false"}" `
+      + `aria-label="Couche de vigilance">` + ico("alerte", "") + `</button>`
       + `<button type="button" class="ca-o" id="caPlus" aria-label="Zoomer">`
       + ico("plus", "") + `</button>`
       + `<button type="button" class="ca-o" id="caMoins" aria-label="Dézoomer">`
@@ -1181,7 +1184,17 @@ export function vueCarte(ctx, rendre, majEtat) {
           () => main.redessiner());
       };
 
-      const main = Carte.poser(cv, vue, placer, couche);
+      /* La vigilance se peint sous la pluie : elle teinte le fond, la pluie se
+         pose dessus. Le vert ne se teinte pas, une vigilance verte n'étant pas
+         une vigilance. */
+      let vigiAllume = Reglages.vigicarte();
+      let vigiNiveaux = null;
+      const coucheVigi = (c, v, l, h) => {
+        if (!vigiAllume || !vigiNiveaux) return 0;
+        return Carte.peindreDepartements(cv, c, v, l, h, vigiNiveaux);
+      };
+
+      const main = Carte.poser(cv, vue, placer, [coucheVigi, couche]);
       const revoir = () => { main.redessiner(); };
 
       /* Le premier tracé attend que la toile ait sa taille. Le cadrage
@@ -1191,7 +1204,7 @@ export function vueCarte(ctx, rendre, majEtat) {
         if (vue.z === null) {
           Object.assign(vue, Carte.vueSur(Carte.FRANCE, cv.clientWidth, cv.clientHeight));
         }
-        Carte.dessiner(cv, vue, couche);
+        Carte.dessiner(cv, vue, [coucheVigi, couche]);
         placer();
       });
 
@@ -1326,6 +1339,7 @@ export function vueCarte(ctx, rendre, majEtat) {
           ? `<span>Pluie <a href="https://www.rainviewer.com" target="_blank" `
             + `rel="noopener noreferrer">RainViewer</a></span>`
           : "")
+          + (vigiAllume ? `<span>Vigilance Météo-France</span>` : "")
           + `<span>Contours IGN et Natural Earth</span>`;
       };
 
@@ -1362,8 +1376,31 @@ export function vueCarte(ctx, rendre, majEtat) {
         else lireIndex();
       });
 
+      /* La vigilance de tout le pays, une lecture de mille deux cents octets. Un
+         département au vert ne paraît pas dans la table : la couche ne teinte
+         que ce qui est en vigilance. */
+      const vigi = bloc.querySelector("#caVigi");
+      const lireVigi = async () => {
+        try {
+          const d = await Vig.pays();
+          if (!cv.isConnected || !d) return;
+          const t = new Map();
+          for (const [code, niveau] of d.niveaux) if (niveau >= 2) t.set(code, niveau);
+          vigiNiveaux = t;
+          revoir();
+        } catch { /* la carte se lit sans la vigilance */ }
+      };
+      vigi.addEventListener("click", () => {
+        vigiAllume = !vigiAllume;
+        Reglages.poserVigicarte(vigiAllume);
+        vigi.setAttribute("aria-checked", vigiAllume ? "true" : "false");
+        mention();
+        if (vigiAllume && !vigiNiveaux) lireVigi(); else revoir();
+      });
+
       mention();
       if (allume) lireIndex();
+      if (vigiAllume) lireVigi();
 
       window.addEventListener("resize", revoir, { passive: true });
     },

@@ -172,6 +172,21 @@ for (const theme of ["light", "dark"]) {
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
   });
   await ctx.route(/data\.gouv\.fr|webservice\.meteofrance\.com/, r => r.abort());
+  /* La vigilance de tout le pays, pour la couche de la carte. Quelques
+     départements en jaune, en orange et un en rouge, de quoi voir les trois
+     teintes. La route vient après la coupure du service. */
+  await ctx.route(/warning\/currentphenomenons/, r => {
+    const niveaux = { "29": 2, "22": 2, "56": 2, "35": 2, "44": 3, "85": 3,
+      "17": 3, "33": 4, "40": 2, "64": 2, "13": 3, "83": 2, "06": 2 };
+    r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      update_time: Math.floor(FIGE / 1000),
+      domain_id: "FRA",
+      subdomains_phenomenons_max_color: Object.entries(niveaux).map(([d, n]) => ({
+        domain_id: d,
+        phenomenons_max_color: [{ phenomenon_id: "1", phenomenon_max_color_id: n }],
+      })),
+    })});
+  });
   /* La pluie dans l'heure. Elle se sert après la coupure du service, dont
      l'expression happerait ce chemin : Playwright essaie la dernière route posée
      en premier. Le profil se choisit par la variable, l'écran ne montrant rien

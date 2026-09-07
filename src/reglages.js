@@ -25,6 +25,7 @@ const DEFAUT = {
   biais: 0,            // ressenti personnel, en degrés, borné
   pollensMuets: [],    // pollens dont on ne veut pas être averti
   radar: true,         // la couche de pluie sur la carte
+  vigicarte: true,     // la couche de vigilance sur la carte
 };
 
 let etat = { ...DEFAUT };
@@ -256,6 +257,12 @@ export function poserCiel(e) {
    ménager son réseau. Le choix se garde d'une visite à l'autre. */
 export const radar = () => etat.radar !== false;
 export function poserRadar(v) { poser({ radar: v === true }); }
+
+/* La vigilance sur la carte. Allumée au départ : elle ne coûte qu'une lecture de
+   mille deux cents octets, et c'est la seule vue nationale de l'alerte que
+   l'application propose. */
+export const vigicarte = () => etat.vigicarte !== false;
+export function poserVigicarte(v) { poser({ vigicarte: v === true }); }
 
 /* Les instants d'alerte. `null` rend la valeur par défaut du module du
    parapluie, qui la porte avec les seuils : les nombres du rappel vivent au

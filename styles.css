@@ -1162,6 +1162,12 @@ button.rangee:active{background:var(--surface-2)}
   --ca-contour:#7c8b9c;
   --ca-dep:#c3ccd6;
   --ca-etranger:#cfd7e0;
+  /* Les trois niveaux de vigilance qui se teintent. Le vert n'en est pas un :
+     teinter tout le pays en vert ferait du bruit sans rien apprendre. Les
+     teintes sont pâles, la carte devant rester lisible sous elles. */
+  --ca-vg2:#f2e3a8;
+  --ca-vg3:#f3c98d;
+  --ca-vg4:#eba9a0;
 }
 @media (prefers-color-scheme:dark){
   .ca{
@@ -1169,6 +1175,9 @@ button.rangee:active{background:var(--surface-2)}
     --ca-contour:#7b8ea3;
     --ca-dep:#2b3542;
     --ca-etranger:#28313d;
+    --ca-vg2:#4a4326;
+    --ca-vg3:#573a1f;
+    --ca-vg4:#5a2e2a;
   }
 }
 

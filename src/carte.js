@@ -17,7 +17,7 @@
    bouge que sous le doigt. C'est ce qui la distingue des trois autres toiles du
    dépôt, le feu, le relief et le temps, qui animent une matière. */
 
-import { contours } from "./geographie.js";
+import { contours, anneauxDe } from "./geographie.js";
 
 /* Les bornes de zoom. Cinq montre le pays entier sur un téléphone, dix montre
    une commune et ses alentours. Au delà, le pas de la grille des contours, cent
@@ -95,6 +95,7 @@ const couleurs = cv => {
   return {
     fond: v("--ca-fond"), contour: v("--ca-contour"),
     departements: v("--ca-dep"), etranger: v("--ca-etranger"),
+    vg2: v("--ca-vg2"), vg3: v("--ca-vg3"), vg4: v("--ca-vg4"),
   };
 };
 
@@ -110,10 +111,11 @@ const TRAITS = [
   ["contour", "contour", 1.1],
 ];
 
-/* Le tracé. Une couche peut se glisser entre le fond et les traits : c'est la
-   place de la pluie, qui doit couvrir le fond sans couvrir les frontières. La
-   carte ne sait pas ce qu'elle peint là, et la couche ne sait rien du fond. */
-export function dessiner(cv, vue, couche) {
+/* Le tracé. Des couches se glissent entre le fond et les traits : c'est la place
+   de la vigilance et de la pluie, qui couvrent le fond sans couvrir les
+   frontières. Elles se peignent dans l'ordre reçu. Le module de la carte ne sait
+   pas ce qu'il peint là, et les couches ne savent rien du fond. */
+export function dessiner(cv, vue, nappes) {
   const ctx = cv.getContext("2d");
   const dpr = window.devicePixelRatio || 1;
   const l = cv.clientWidth || 320, h = cv.clientHeight || 320;
@@ -126,9 +128,12 @@ export function dessiner(cv, vue, couche) {
   ctx.fillStyle = c.fond || "#eef2f6";
   ctx.fillRect(0, 0, l, h);
 
-  /* La couche rend ce qu'elle a posé. Zéro veut dire fond nu, et les traits se
-     suffisent alors à eux-mêmes. */
-  const posees = couche ? couche(ctx, vue, l, h) || 0 : 0;
+  /* Chaque couche rend ce qu'elle a posé. Zéro partout veut dire fond nu, et les
+     traits se suffisent alors à eux-mêmes. */
+  let posees = 0;
+  for (const f of [].concat(nappes || [])) {
+    if (typeof f === "function") posees += f(ctx, vue, l, h) || 0;
+  }
 
   const jeux = couches();
   const e = echelle(vue.z);
@@ -193,6 +198,42 @@ export function borner(vue) {
   };
 }
 
+/* Le remplissage des départements.
+
+   Les anneaux viennent de la même topologie que les traits : la teinte épouse
+   donc exactement le trait, sans décalage à fort zoom.
+
+   `teintes` associe un code de département à un rang de niveau. Un département
+   absent de la table reste au fond nu : le vert n'est pas une vigilance, et
+   teinter tout le pays en vert ferait du bruit sans rien apprendre. */
+export function peindreDepartements(cv, ctx, vue, l, h, teintes) {
+  if (!teintes || !teintes.size) return 0;
+  const c = couleurs(cv);
+  const e = echelle(vue.z);
+  const cx = mx(vue.lon), cy = my(vue.lat);
+  let posees = 0;
+  for (const [code, rang] of teintes) {
+    const teinte = c[`vg${rang}`];
+    if (!teinte) continue;
+    const anneaux = anneauxDe(code);
+    if (!anneaux) continue;
+    ctx.fillStyle = teinte;
+    ctx.beginPath();
+    for (const a of anneaux) {
+      const n = a.length / 2;
+      for (let i = 0; i < n; i++) {
+        const px = (mx(a[i * 2]) - cx) * e + l / 2;
+        const py = (my(a[i * 2 + 1]) - cy) * e + h / 2;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+    }
+    ctx.fill();
+    posees++;
+  }
+  return posees;
+}
+
 /* La vue qui fait tenir des bornes dans un cadre, avec une marge.
 
    Le zoom se calcule au lieu d'être écrit en dur. Un téléphone en portrait, le
@@ -220,7 +261,7 @@ export function vueSur(b, l, h, marge = 0.06) {
    Le tracé est appelé au plus une fois par image : un doigt qui glisse produit
    des dizaines d'évènements par seconde, et redessiner à chacun ferait le même
    travail plusieurs fois pour la même image. */
-export function poser(cv, vue, surVue, couche) {
+export function poser(cv, vue, surVue, nappes) {
   const points = new Map();
   let depart = null;
   let attendu = null;
@@ -230,7 +271,7 @@ export function poser(cv, vue, surVue, couche) {
     if (attendu !== null) return;
     attendu = requestAnimationFrame(() => {
       attendu = null;
-      dessiner(cv, vue, couche);
+      dessiner(cv, vue, nappes);
       if (surVue) surVue(vue);
     });
   };
