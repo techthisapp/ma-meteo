@@ -290,10 +290,10 @@ function panneauPluieProche() {
   if (!l || !l.dispo) return "";
   const ev = Pluie.evenement(l);
   if (!ev) return "";
-  const dit = Pluie.phrase(ev);
+  const dit = Pluie.phrase(ev, Date.now(), l.pasMinutes);
   if (!dit) return "";
 
-  const pas = l.pas.filter(x => x.t >= Date.now() - 5 * 60000);
+  const pas = l.pas.filter(x => x.t >= Date.now() - (l.pasMinutes || 5) * 60000);
   if (pas.length < 2) return "";
   const t0 = pas[0].t, t1 = pas[pas.length - 1].t;
   const etendue = Math.max(1, t1 - t0);

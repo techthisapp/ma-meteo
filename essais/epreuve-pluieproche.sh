@@ -62,6 +62,21 @@ case "$N" in
   15) # Arrondir le délai à la minute.
      perl -0pi -e 's/  Math\.max\(0, Math\.round\(\(t - maintenant\) \/ 60000 \/ 5\) \* 5\);/  Math.max(0, Math.round((t - maintenant) \/ 60000));/' src/pluieproche.js
      ATTENDU="le délai s.arrondit au pas de la source" ;;
+  16) # Ne jamais partir sur le repli.
+     perl -0pi -e 's/  if \(!d \|\| !d\.dispo\) d = await chargerRepli\(lat, lon, fetcheur\);/  if (false) d = await chargerRepli(lat, lon, fetcheur);/' src/pluieproche.js
+     ATTENDU="sans couverture radar, le repli prend le relais" ;;
+  17) # Partir sur le repli même là où le radar couvre.
+     perl -0pi -e 's/  if \(!d \|\| !d\.dispo\) d = await chargerRepli\(lat, lon, fetcheur\);/  d = await chargerRepli(lat, lon, fetcheur);/' src/pluieproche.js
+     ATTENDU="avec couverture radar, le repli ne part pas" ;;
+  18) # Annoncer le repli au pas de cinq minutes.
+     perl -0pi -e 's/  return \{ dispo: true, nom: null, maj: null, pas, source: "repli", pasMinutes: PAS_REPLI \};/  return { dispo: true, nom: null, maj: null, pas, source: "repli", pasMinutes: PAS_MF };/' src/pluieproche.js
+     ATTENDU="le repli annonce au pas du quart d.heure" ;;
+  19) # Prendre la lame d'eau du quart d'heure pour un taux horaire.
+     perl -0pi -e 's/    const taux = mm \* parHeure;/    const taux = mm;/' src/pluieproche.js
+     ATTENDU="la lame d.eau du repli devient un rang d.intensité" ;;
+  20) # Demander au repli plus de pas que l'heure n'en porte.
+     perl -0pi -e 's/const REPLI_PAS = 5;/const REPLI_PAS = 9;/' src/pluieproche.js
+     ATTENDU="le graphe du repli porte ses cinq pas" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

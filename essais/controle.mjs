@@ -253,6 +253,38 @@ const PLUIE_PROFILS = {
 };
 let profilPluie = "sec";
 const appelsPluie = [];
+/* Le repli, servi par Open-Meteo là où le radar de Météo-France ne couvre pas.
+   Les valeurs sont des lames d'eau en millimètres par quart d'heure. */
+const REPLI_PROFILS = {
+  sec:     [0, 0, 0, 0, 0],
+  debut:   [0, 0, 0.9, 1.4, 0],
+  encours: [0.5, 0, 0, 0, 0],
+};
+let profilRepli = "sec";
+const appelsRepli = [];
+/* Les heures s'écrivent dans le fuseau de Paris, celui du navigateur d'essai.
+   Les construire dans le fuseau du conteneur les décalerait de deux heures, et
+   les cinq pas tomberaient tous dans le passé. */
+const heureParis = t => {
+  const f = new Intl.DateTimeFormat("fr-CA", { timeZone: "Europe/Paris",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hour12: false });
+  const p = Object.fromEntries(f.formatToParts(new Date(t)).map(x => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day}T${p.hour === "24" ? "00" : p.hour}:${p.minute}`;
+};
+/* Le nombre de pas rendus suit celui qui est demandé, comme le fait la source.
+   Une charge qui rendrait toujours cinq pas masquerait une demande trop large. */
+const repliCorps = (profil, base, u) => {
+  const v = REPLI_PROFILS[profil] || REPLI_PROFILS.sec;
+  const n = Number(new URL(u).searchParams.get("forecast_minutely_15")) || v.length;
+  const t0 = Math.floor(base / 900000) * 900000;
+  const suite = Array.from({ length: n }, (_, k) => (k < v.length ? v[k] : 0));
+  return { minutely_15: {
+    time: suite.map((_, k) => heureParis(t0 + k * 900000)),
+    precipitation: suite,
+  } };
+};
+
 const pluieCorps = (profil, base) => {
   const p = PLUIE_PROFILS[profil] || PLUIE_PROFILS.sec;
   return {
@@ -339,6 +371,14 @@ const brancherRoutes = async c => {
     const u = route.request().url();
     const d = JSON.parse(JSON.stringify(METEO));
     // Le classement des lieux : la colonne d'ensoleillement n'est demandée que là.
+    /* Le repli de la pluie dans l'heure passe par le même hôte que la prévision.
+       Il se reconnaît à sa colonne, demandée nulle part ailleurs. */
+    if (u.includes("minutely_15")) {
+      appelsRepli.push(u);
+      route.fulfill({ status: 200, contentType: "application/json",
+        body: JSON.stringify(repliCorps(profilRepli, FIGE, u)) });
+      return;
+    }
     if (u.includes("sunshine_duration")) { servirBeauTemps(u, route); return; }
     // Aperçu des communes suivies : un tableau, un élément par couple de coordonnées.
     if (u.includes("current=")) {
@@ -4819,6 +4859,14 @@ const ctxJeton = async (patch, quand, reglages) => {
   await c.route(/https:\/\/api\.open-meteo\.com/, route => {
     const u = route.request().url();
     const d = patch();
+    /* Le repli de la pluie dans l'heure passe par le même hôte que la prévision.
+       Il se reconnaît à sa colonne, demandée nulle part ailleurs. */
+    if (u.includes("minutely_15")) {
+      appelsRepli.push(u);
+      route.fulfill({ status: 200, contentType: "application/json",
+        body: JSON.stringify(repliCorps(profilRepli, FIGE, u)) });
+      return;
+    }
     if (u.includes("sunshine_duration")) { servirBeauTemps(u, route); return; }
     if (u.includes("current=")) {
       route.fulfill({ status: 200, contentType: "application/json", body: "[]" }); return;
@@ -5217,6 +5265,14 @@ const ctxReponse = async (patch, reglages, ensemble) => {
   await c.route(/https:\/\/api\.open-meteo\.com/, route => {
     const u = route.request().url();
     const d = patch();
+    /* Le repli de la pluie dans l'heure passe par le même hôte que la prévision.
+       Il se reconnaît à sa colonne, demandée nulle part ailleurs. */
+    if (u.includes("minutely_15")) {
+      appelsRepli.push(u);
+      route.fulfill({ status: 200, contentType: "application/json",
+        body: JSON.stringify(repliCorps(profilRepli, FIGE, u)) });
+      return;
+    }
     if (u.includes("sunshine_duration")) { servirBeauTemps(u, route); return; }
     if (u.includes("current=")) {
       route.fulfill({ status: 200, contentType: "application/json", body: "[]" }); return;
@@ -6665,6 +6721,95 @@ ok("une échéance sans valeur n'invente pas une fin de pluie",
 const ppSecMuet = await avecPluie("secmuet");
 ok("une échéance sans valeur arrête la lecture avant la pluie qui suit",
   ppSecMuet === null, ppSecMuet && ppSecMuet.phrase);
+
+/* ---------- Le repli, là où le radar ne couvre pas ----------
+
+   Le drapeau de disponibilité fait basculer sur une colonne d'Open-Meteo, au pas
+   du quart d'heure. Sans ce repli, la Corse et les reliefs n'ont aucun compte à
+   rebours. Mesuré le 7 septembre 2026 : 247 octets pour huit pas. */
+
+const avecRepli = async (profil, mf = "indispo", quand = FIGE) => {
+  profilPluie = mf;
+  profilRepli = profil;
+  appelsRepli.length = 0;
+  const c = await nav.newContext({
+    viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+    locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+  });
+  await c.addInitScript(amorceGardee(FAIN, quand));
+  await brancherRoutes(c);
+  const p = await c.newPage();
+  await p.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+  await p.waitForTimeout(800);
+  const dit = await p.evaluate(() => {
+    const e = document.querySelector(".pp");
+    if (!e) return null;
+    return { phrase: e.querySelector(".pp-tete b").textContent,
+      barres: [...e.querySelectorAll(".pp-b")].length };
+  });
+  const appels = appelsRepli.length;
+  await c.close();
+  profilPluie = "sec"; profilRepli = "sec";
+  return { dit, appels };
+};
+
+const repliDebut = await avecRepli("debut");
+ok("sans couverture radar, le repli prend le relais",
+  repliDebut.appels === 1 && repliDebut.dit !== null,
+  `${repliDebut.appels} appels au repli, panneau ${repliDebut.dit ? "présent" : "absent"}`);
+
+ok("le repli dit ce qui arrive",
+  repliDebut.dit && repliDebut.dit.phrase === "Pluie modérée dans 30 minutes, pendant 30 minutes environ.",
+  repliDebut.dit && repliDebut.dit.phrase);
+
+/* Le repli travaille au quart d'heure. Écrire « dans 25 minutes » sur une source
+   qui ne sait rien de plus fin qu'un quart d'heure donnerait une précision
+   qu'elle n'a pas.
+
+   L'horloge est décalée de sept minutes hors de la grille du quart d'heure. Sur
+   une horloge posée sur la grille, les cinq pas tombent tous sur des multiples
+   de quinze, et les deux arrondis donnent le même chiffre. */
+const repliDecale = await avecRepli("debut", "indispo", FIGE + 7 * 60000);
+ok("le repli annonce au pas du quart d'heure",
+  repliDecale.dit && /dans 30 minutes/.test(repliDecale.dit.phrase),
+  repliDecale.dit && repliDecale.dit.phrase);
+
+/* Cinq pas de quinze minutes couvrent l'heure, contre neuf échéances pour le
+   radar. Le graphe porte ce que la source donne. */
+ok("le graphe du repli porte ses cinq pas",
+  repliDebut.dit && repliDebut.dit.barres === 5,
+  repliDebut.dit && `${repliDebut.dit.barres} barres`);
+
+/* La lame d'eau devient le même rang ordinal que celui de Météo-France : la
+   classification usuelle place la pluie modérée entre 2,5 et 7,6 millimètres par
+   heure, soit entre 0,6 et 1,9 par quart d'heure. */
+const [ctxRang, pgRang] = await ctxReponse(METEO_NUE, FAIN);
+ok("la lame d'eau du repli devient un rang d'intensité",
+  await pgRang.evaluate(async () => {
+    const M = await import("/src/pluieproche.js");
+    const corps = mm => ({ minutely_15: {
+      time: ["2026-08-18T09:00", "2026-08-18T09:15"], precipitation: [mm, 0] } });
+    const rang = mm => M.lireRepli(corps(mm)).pas[0].i;
+    const attendu = [[0, 1], [0.05, 1], [0.2, 2], [0.5, 2], [0.7, 3], [1.5, 3], [2.5, 4]];
+    for (const [mm, r] of attendu) {
+      if (rang(mm) !== r) return `${mm} mm donne le rang ${rang(mm)} au lieu de ${r}`;
+    }
+    return "";
+  }) === "");
+await ctxRang.close();
+
+/* Le repli ne part que là où le radar manque. Ailleurs, il coûterait une requête
+   pour rien. */
+const repliInutile = await avecRepli("debut", "debut");
+ok("avec couverture radar, le repli ne part pas",
+  repliInutile.appels === 0 && repliInutile.dit
+  && repliInutile.dit.phrase === "Pluie modérée dans 20 minutes, pendant 20 minutes environ.",
+  `${repliInutile.appels} appels, phrase « ${repliInutile.dit && repliInutile.dit.phrase} »`);
+
+/* Une heure sèche reste muette, quelle que soit la source qui l'a lue. */
+const repliSec = await avecRepli("sec");
+ok("une heure sèche reste muette avec le repli", repliSec.dit === null,
+  repliSec.dit && repliSec.dit.phrase);
 
 /* La source n'est demandée qu'une fois par chargement : le produit se refait
    toutes les cinq minutes, et la garde évite qu'un aller-retour entre deux

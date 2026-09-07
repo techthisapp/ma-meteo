@@ -24,6 +24,24 @@ import { JETON } from "./vigilance.js";
 
 const SERVICE = "https://webservice.meteofrance.com/v3/nowcast/rain";
 
+/* Le repli, là où le radar de Météo-France ne couvre pas. Mesuré le 7 septembre
+   2026 sur Ajaccio, Briançon et Gaillard, les trois points relevés sans
+   couverture : 247 octets pour huit pas de quinze minutes, 282 pour vingt-quatre.
+
+   La colonne vient d'un modèle et non d'un radar. Elle est donc plus grossière,
+   au pas du quart d'heure au lieu de cinq minutes. Sans elle, la Corse et les
+   reliefs n'ont aucun compte à rebours. */
+const REPLI = "https://api.open-meteo.com/v1/forecast";
+const REPLI_PAS = 5;          // cinq pas de quinze minutes couvrent l'heure
+export const PAS_MF = 5;      // minutes, pas de la source de Météo-France
+export const PAS_REPLI = 15;  // minutes, pas du repli
+
+/* Les bornes d'intensité du repli, en millimètres par heure. Ce sont celles de
+   la classification usuelle des pluies : faible en dessous de 2,5, modérée
+   jusqu'à 7,6, forte au delà. Le seuil d'entrée est celui que l'application
+   emploie déjà sur la série horaire, un dixième de millimètre. */
+export const SEUILS_REPLI = { lame: 0.1, moderee: 2.5, forte: 7.6 };
+
 /* Le produit se refait toutes les cinq minutes. Le garder trois est sans risque
    et évite qu'un aller-retour entre deux écrans redemande à chaque fois. */
 export const GARDE = 3 * 60 * 1000;
@@ -65,9 +83,44 @@ export function lire(d) {
     nom: p.name || null,
     maj: Date.parse(d.update_time) || null,
     pas,
+    source: "meteofrance",
+    pasMinutes: PAS_MF,
   };
 }
 
+/* La lecture du repli. Une lame d'eau en millimètres par pas de quinze minutes
+   devient le même rang ordinal que celui de Météo-France, pour que la phrase se
+   lise pareil quelle que soit la source qui l'a nourrie. */
+export function lireRepli(d) {
+  const m = d && d.minutely_15;
+  if (!m || !Array.isArray(m.time) || !Array.isArray(m.precipitation)) return null;
+  const parHeure = 60 / PAS_REPLI;
+  const pas = m.time.map((t, k) => {
+    const mm = m.precipitation[k];
+    if (!Number.isFinite(mm)) return { t: Date.parse(`${t}:00`), i: 0 };
+    const taux = mm * parHeure;
+    const i = mm < SEUILS_REPLI.lame ? 1
+      : taux < SEUILS_REPLI.moderee ? 2
+        : taux < SEUILS_REPLI.forte ? 3 : 4;
+    return { t: Date.parse(`${t}:00`), i };
+  }).filter(x => Number.isFinite(x.t));
+  if (pas.length < 2) return null;
+  return { dispo: true, nom: null, maj: null, pas, source: "repli", pasMinutes: PAS_REPLI };
+}
+
+async function chargerRepli(lat, lon, fetcheur) {
+  const u = `${REPLI}?latitude=${lat}&longitude=${lon}`
+    + `&timezone=${encodeURIComponent("Europe/Paris")}`
+    + `&minutely_15=precipitation&forecast_minutely_15=${REPLI_PAS}`;
+  try {
+    const r = await fetcheur(u);
+    if (!r.ok) return null;
+    return lireRepli(await r.json());
+  } catch { return null; }
+}
+
+/* Le produit de Météo-France d'abord, le repli ensuite. Le repli part quand le
+   radar ne couvre pas le point, et quand le service reste muet. */
 export async function charger(lat, lon, fetcheur = fetch) {
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
   const k = cle(lat, lon);
@@ -78,6 +131,7 @@ export async function charger(lat, lon, fetcheur = fetch) {
     const r = await fetcheur(`${SERVICE}?lat=${lat}&lon=${lon}&token=${JETON}`);
     if (r.ok) d = lire(await r.json());
   } catch { d = null; }
+  if (!d || !d.dispo) d = await chargerRepli(lat, lon, fetcheur);
   gardes.set(k, { d, exp: Date.now() + GARDE });
   return d;
 }
@@ -97,7 +151,10 @@ export function oublier() { gardes.clear(); }
    échéance : une averse qui commence faible et devient forte se dit forte. */
 export function evenement(l, maintenant = Date.now()) {
   if (!l || !l.dispo) return null;
-  const pas = l.pas.filter(x => x.t >= maintenant - 5 * 60000);
+  /* La tolérance vers le passé vaut un pas de la source. Un pas de quinze
+     minutes déjà entamé porte encore l'état du moment présent. */
+  const marge = (l.pasMinutes || PAS_MF) * 60000;
+  const pas = l.pas.filter(x => x.t >= maintenant - marge);
   if (pas.length < 2) return null;
 
   /* Trois états et non deux. Le rang zéro n'est pas du temps sec : c'est
@@ -137,11 +194,12 @@ export function evenement(l, maintenant = Date.now()) {
   return { genre: "debut", force, t: pas[debut].t, fin: apres < 0 ? null : pas[apres].t };
 }
 
-/* Les minutes qui restent, arrondies au pas de cinq : la source travaille au
-   pas de cinq minutes, et écrire « dans 23 minutes » donnerait à un radar une
-   précision de chronomètre. */
-export const minutesJusqua = (t, maintenant = Date.now()) =>
-  Math.max(0, Math.round((t - maintenant) / 60000 / 5) * 5);
+/* Les minutes qui restent, arrondies au pas de la source. Le radar de
+   Météo-France travaille au pas de cinq minutes, le repli au pas de quinze.
+   Écrire « dans 23 minutes » donnerait à l'un comme à l'autre une précision de
+   chronomètre. */
+export const minutesJusqua = (t, maintenant = Date.now(), pas = PAS_MF) =>
+  Math.max(0, Math.round((t - maintenant) / 60000 / pas) * pas);
 
 export function delaiTxt(min) {
   if (min <= 0) return "à l'instant";
@@ -152,18 +210,18 @@ export function delaiTxt(min) {
 /* La phrase. Elle dit ce qui change, et l'heure de fin ne s'ajoute que lorsque
    la source la connaît : une averse qui déborde l'heure n'a pas de fin connue,
    et en inventer une serait mentir sur ce qu'on sait. */
-export function phrase(ev, maintenant = Date.now()) {
+export function phrase(ev, maintenant = Date.now(), pas = PAS_MF) {
   if (!ev) return null;
   const nom = nomDe(ev.force);
   if (ev.genre === "encore") return `${nom}, sans accalmie dans l'heure.`;
   if (ev.genre === "fin") {
-    const m = minutesJusqua(ev.t, maintenant);
+    const m = minutesJusqua(ev.t, maintenant, pas);
     return m <= 0 ? `${nom}, qui s'arrête à l'instant.`
       : `${nom}, qui s'arrête ${delaiTxt(m)}.`;
   }
-  const m = minutesJusqua(ev.t, maintenant);
+  const m = minutesJusqua(ev.t, maintenant, pas);
   const debut = m <= 0 ? `${nom} à l'instant` : `${nom} ${delaiTxt(m)}`;
   if (ev.fin === null) return `${debut}.`;
-  const duree = Math.max(5, Math.round((ev.fin - ev.t) / 60000 / 5) * 5);
+  const duree = Math.max(pas, Math.round((ev.fin - ev.t) / 60000 / pas) * pas);
   return `${debut}, pendant ${duree} minutes environ.`;
 }
