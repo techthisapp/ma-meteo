@@ -44,7 +44,8 @@ const REGLAGES = { commune: "Fain-lès-Moutiers", codePostal: "21500",
   ] : [],
   /* La nappe de la carte : la variable NAPPE la pose avant le chargement, la
      capture n'ayant pas à passer par le panneau pour la choisir. */
-  ...(process.env.NAPPE ? { nappe: process.env.NAPPE } : {}) };
+  ...(process.env.NAPPE ? { nappe: process.env.NAPPE } : {}),
+  ...(process.env.VENT ? { ventcarte: true } : {}) };
 
 /* Deux journées par point, comme la source les rend pour plusieurs couples de
    coordonnées : le soleil monte vers le nord, la pluie tombe à l'ouest. */
@@ -336,6 +337,45 @@ for (const theme of ["light", "dark"]) {
   }
   /* La carte s'ouvre au zoom par défaut : la variable permet de la reculer de
      quelques crans pour voir le pays entier. */
+  /* Mesure du coût de la couche de vent : la cadence d'images du navigateur,
+     couche allumée puis éteinte. La différence est ce que les particules
+     coûtent. */
+  if (process.env.MESURE === "vent") {
+    const cadence = async () => pg.evaluate(() => new Promise(res => {
+      const t = [];
+      let n = 0, avant = performance.now();
+      const pas = () => {
+        const m = performance.now();
+        t.push(m - avant); avant = m;
+        if (++n < 120) requestAnimationFrame(pas);
+        else {
+          const tries = t.slice(10).sort((a, b) => a - b);
+          res({ median: tries[Math.floor(tries.length / 2)],
+                pire: tries[tries.length - 1] });
+        }
+      };
+      requestAnimationFrame(pas);
+    }));
+    const avec = await cadence();
+    await pg.locator("#caCouches").click();
+    await pg.waitForTimeout(200);
+    await pg.locator("#caVent").click();
+    await pg.waitForTimeout(600);
+    const sans = await cadence();
+    const n = await pg.evaluate(async () => {
+      const V = await import("/src/vent.js");
+      const cv = document.getElementById("caToileVent");
+      return Math.round(cv.clientWidth * cv.clientHeight * V.DENSITE);
+    });
+    console.log(`particules ${n}`);
+    console.log(`vent allumé : image médiane ${avec.median.toFixed(2)} ms, pire ${avec.pire.toFixed(2)} ms`);
+    console.log(`vent éteint : image médiane ${sans.median.toFixed(2)} ms, pire ${sans.pire.toFixed(2)} ms`);
+    await pg.locator("#caVent").click();
+    await pg.waitForTimeout(400);
+    await pg.locator("#caCouches").click();
+    await pg.waitForTimeout(200);
+  }
+
   /* Le panneau des couches, ouvert pour la capture qui le montre. */
   if (process.env.PANNEAU) {
     await pg.locator("#caCouches").click();

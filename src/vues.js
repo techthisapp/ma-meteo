@@ -6,6 +6,7 @@ import { nombreFr, hhmm, heureTxt, jourCourt, jourLong, esc, departementDe,
 import * as P from "./previsions.js";
 import { ico, icoTemps, icoCiel, tempsDe, couleurT, teinteT } from "./icones.js";
 import * as Ruban from "./ruban.js";
+import { ECHELLES } from "./ruban.js";
 import { liste, moments, TRANCHES } from "./ecritures.js";
 import * as Reglages from "./reglages.js";
 import * as Astres from "./astres.js";
@@ -21,6 +22,7 @@ import * as Air from "./air.js";
 import * as Carte from "./carte.js";
 import * as Radar from "./radar.js";
 import * as NappeCarte from "./nappe.js";
+import * as Vent from "./vent.js";
 import * as Vig from "./vigilance.js";
 import { SEUILS } from "./conseils.js";
 
@@ -1112,6 +1114,7 @@ export function vueCarte(ctx, rendre, majEtat) {
     corps: `<div class="ca-cadre">`
       + `<canvas class="ca" id="caToile" role="img" `
       + `aria-label="Carte de ${esc(g.commune || "la position")} et de ses alentours"></canvas>`
+      + `<canvas class="ca-vent" id="caToileVent" aria-hidden="true"></canvas>`
       + `<div class="ca-reperes" id="caReperes"></div>`
       + `<div class="ca-outils">`
       + `<button type="button" class="ca-o" id="caCouches" aria-expanded="false" `
@@ -1135,15 +1138,21 @@ export function vueCarte(ctx, rendre, majEtat) {
       + ico("interdit", "") + `<span>Aucune</span></button>`
       + `</div>`
       + `<p class="ca-p-titre">Par-dessus</p>`
+      + `<button type="button" class="ca-ch" id="caVent" role="switch" `
+      + `aria-checked="${Reglages.ventcarte() ? "true" : "false"}">`
+      + ico("vent", "") + `<span>Vent</span></button>`
       + `<button type="button" class="ca-ch" id="caVigi" role="switch" `
       + `aria-checked="${Reglages.vigicarte() ? "true" : "false"}">`
       + ico("alerte", "") + `<span>Vigilance</span></button>`
       + `</div>`
       + `<p class="ca-mot" id="caMot" role="status" hidden></p>`
       + `<div class="ca-pied">`
+      + `<div class="ca-legendes" id="caLegendes">`
       + `<div class="ca-legende" id="caLegende" hidden>`
       + `<i class="ca-rampe" id="caRampe"></i>`
       + `<div class="ca-graduations" id="caGrads"></div>`
+      + `</div>`
+      + `<div class="ca-legende ca-lv" id="caLegVent" hidden></div>`
       + `</div>`
       + `<div class="ca-bas">`
       + `<div class="ca-echelle" id="caEchelle"><i></i><span></span></div>`
@@ -1218,6 +1227,31 @@ export function vueCarte(ctx, rendre, majEtat) {
         if (choisie !== "temp" || !mesures) return 0;
         return Carte.peindreNappe(c, v, l, h,
           NappeCarte.couche(mesures.temp, teinteT), { opacite: 0.62 });
+      };
+
+      /* Le vent, sur sa propre toile posée devant celle de la carte. Il ne
+         couvre pas le fond, il n'entre donc pas dans le choix exclusif des
+         nappes : il se coche à part et se pose sur ce qui est dessous.
+
+         Sa toile est séparée parce que les deux tracés n'ont pas la même
+         cadence. La carte se refait à la demande, les particules trente fois
+         par seconde ; les mêler ferait redessiner tout le fond à chaque
+         image. */
+      const cvVent = bloc.querySelector("#caToileVent");
+      let ventAllume = Reglages.ventcarte();
+      const etatVent = () => ({
+        vue,
+        emprise: { S: NappeCarte.S, N: NappeCarte.N, O: NappeCarte.O, E: NappeCarte.E },
+        couleur: getComputedStyle(cv).getPropertyValue("--ca-vent").trim() || "#7c8b9c",
+        champ: !mesures ? null : (la, lo) => {
+          const vitesse = NappeCarte.valeurA(mesures.vent, la, lo);
+          const direction = NappeCarte.valeurA(mesures.dir, la, lo);
+          return vitesse === null || direction === null ? null : { vitesse, direction };
+        },
+      });
+      const poserVent = () => {
+        if (ventAllume && mesures) Vent.poser(cvVent, etatVent);
+        else Vent.poser(null);
       };
 
       /* La vigilance. Le vert ne se teinte pas, une vigilance verte n'étant pas
@@ -1387,8 +1421,10 @@ export function vueCarte(ctx, rendre, majEtat) {
           ? `<span>Pluie <a href="https://www.rainviewer.com" target="_blank" `
             + `rel="noopener noreferrer">RainViewer</a></span>`
           : "")
-          + (choisie === "temp"
-            ? `<span>Température <a href="https://open-meteo.com" target="_blank" `
+          + (choisie === "temp" || ventAllume
+            ? `<span>${choisie === "temp" && ventAllume ? "Température et vent"
+              : choisie === "temp" ? "Température" : "Vent"} `
+              + `<a href="https://open-meteo.com" target="_blank" `
               + `rel="noopener noreferrer">Open-Meteo</a></span>`
             : "")
           + (vigiAllume ? `<span>Vigilance Météo-France</span>` : "")
@@ -1403,15 +1439,28 @@ export function vueCarte(ctx, rendre, majEtat) {
       const legende = bloc.querySelector("#caLegende");
       const rampeEl = bloc.querySelector("#caRampe");
       const grads = bloc.querySelector("#caGrads");
+      const legVent = bloc.querySelector("#caLegVent");
       const poserLegende = () => {
         const n = NAPPES_CARTE.find(x => x.cle === choisie);
         legende.hidden = choisie !== "temp";
-        if (legende.hidden) return;
-        const arrets = [-5, 5, 15, 25, 35];
-        rampeEl.style.background = `linear-gradient(to right, ${
-          arrets.map((v, i) => `${couleurT(v)} ${(i / (arrets.length - 1) * 100).toFixed(0)}%`).join(", ")})`;
-        grads.innerHTML = arrets.map(v => `<span>${v}°</span>`).join("");
-        legende.setAttribute("aria-label", `Échelle de ${n.nom.toLowerCase()}, de -5 à 35 degrés`);
+        if (!legende.hidden) {
+          const arrets = [-5, 5, 15, 25, 35];
+          rampeEl.style.background = `linear-gradient(to right, ${
+            arrets.map((v, i) => `${couleurT(v)} ${(i / (arrets.length - 1) * 100).toFixed(0)}%`).join(", ")})`;
+          grads.innerHTML = arrets.map(v => `<span>${v}°</span>`).join("");
+          legende.setAttribute("aria-label", `Échelle de ${n.nom.toLowerCase()}, de -5 à 35 degrés`);
+        }
+        /* Le vent ne porte pas de couleur : sa force se lit à la longueur des
+           traînées. La légende montre donc trois traînées et les nomme, avec
+           les mots de l'échelle du ruban. */
+        legVent.hidden = !ventAllume;
+        if (legVent.hidden) return;
+        const rep = ECHELLES.v.filter(([v]) => v === 12 || v === 30 || v === 50);
+        legVent.innerHTML = rep.map(([v, nom]) =>
+          `<span class="ca-lv-r"><i style="width:${Vent.longueurTrace(v).toFixed(1)}px"></i>`
+          + `${esc(nom.toLowerCase())}</span>`).join("");
+        legVent.setAttribute("aria-label",
+          `Vent moyen : ${rep.map(([v, nom]) => `${nom.toLowerCase()} ${v} kilomètres par heure`).join(", ")}`);
       };
 
       /* L'index dit où sont les images et à quelle heure elles ont été prises.
@@ -1444,6 +1493,7 @@ export function vueCarte(ctx, rendre, majEtat) {
           mesures = d;
           dire("");
           revoir();
+          poserVent();
         } catch {
           if (cv.isConnected) dire("La nappe a besoin du réseau.");
         }
@@ -1499,6 +1549,20 @@ export function vueCarte(ctx, rendre, majEtat) {
          et le refermer par son propre bouton demanderait de viser deux fois. */
       cv.addEventListener("pointerdown", () => montrer(false), { passive: true });
 
+      /* L'interrupteur du vent. Éteint au départ : la couche anime une toile en
+         permanence, ce qui se paie en batterie. Allumé, il lit la grille si elle
+         n'est pas déjà là, celle-là même que la nappe de température emploie. */
+      const ventB = bloc.querySelector("#caVent");
+      ventB.addEventListener("click", async () => {
+        ventAllume = !ventAllume;
+        Reglages.poserVentcarte(ventAllume);
+        ventB.setAttribute("aria-checked", ventAllume ? "true" : "false");
+        mention();
+        poserLegende();
+        if (ventAllume && !mesures) await lireMesures();
+        poserVent();
+      });
+
       /* La vigilance de tout le pays, une lecture de mille deux cents octets. Un
          département au vert ne paraît pas dans la table : la couche ne teinte
          que ce qui est en vigilance. */
@@ -1524,7 +1588,7 @@ export function vueCarte(ctx, rendre, majEtat) {
       mention();
       poserLegende();
       if (allume) lireIndex();
-      if (choisie === "temp") lireMesures();
+      if (choisie === "temp" || ventAllume) lireMesures();
       if (vigiAllume) lireVigi();
 
       window.addEventListener("resize", revoir, { passive: true });

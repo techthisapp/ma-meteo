@@ -1153,15 +1153,27 @@ button.rangee:active{background:var(--surface-2)}
 /* La toile ne rend pas la main au défilement : sans cela, un glissement
    vertical ferait défiler la page sous la carte au lieu de la déplacer. */
 .ca{display:block;width:100%;height:100%;touch-action:none;background:var(--ca-fond)}
+/* La toile du vent se pose devant celle de la carte. Deux toiles parce que les
+   deux tracés n'ont pas la même cadence : la carte se refait à la demande, les
+   particules trente fois par seconde. Elle ne prend aucun geste, la toile de
+   dessous les prend tous. */
+.ca-vent{
+  position:absolute;inset:0;width:100%;height:100%;
+  pointer-events:none;
+}
 
 /* Les couleurs de la carte. Le fond est plus sourd que celui des cartes de
    l'application : c'est un fond de plan, la pluie viendra dessus, et deux
    surfaces également claires ne laisseraient rien voir. */
-.ca{
+/* Les couleurs vivent sur le cadre et non sur la toile : la toile en hérite, et
+   la légende, qui est à côté d'elle, les lit aussi. */
+.ca-cadre{
   --ca-fond:#e9eef3;
   --ca-contour:#7c8b9c;
   --ca-dep:#c3ccd6;
   --ca-etranger:#cfd7e0;
+  /* L'encre des particules de vent. */
+  --ca-vent:#5b6a7c;
   /* Les trois niveaux de vigilance qui se teintent. Le vert n'en est pas un :
      teinter tout le pays en vert ferait du bruit sans rien apprendre. Les
      teintes sont pâles, la carte devant rester lisible sous elles. */
@@ -1170,11 +1182,12 @@ button.rangee:active{background:var(--surface-2)}
   --ca-vg4:#eba9a0;
 }
 @media (prefers-color-scheme:dark){
-  .ca{
+  .ca-cadre{
     --ca-fond:#0f151c;
     --ca-contour:#7b8ea3;
     --ca-dep:#2b3542;
     --ca-etranger:#28313d;
+    --ca-vent:#b8c6d6;
     --ca-vg2:#4a4326;
     --ca-vg3:#573a1f;
     --ca-vg4:#5a2e2a;
@@ -1256,13 +1269,22 @@ button.rangee:active{background:var(--surface-2)}
 .ca-ch:active{background:var(--surface-2)}
 .ca-ch[aria-checked="true"]{background:var(--accent);color:#fff}
 
-/* L'échelle de la nappe. Une rampe de couleur sans chiffres ne se lit pas. */
+/* L'échelle de la nappe. Une rampe de couleur sans chiffres ne se lit pas, et
+   des traînées sans repère de longueur ne disent pas une force. */
+.ca-legendes{display:flex;flex-direction:column;gap:var(--espace-xs);align-items:flex-start}
 .ca-legende{
-  align-self:flex-start;max-width:200px;width:60%;
+  max-width:200px;
   padding:var(--espace-xs) var(--espace-sm);
   border-radius:var(--rayon-sm);background:var(--surface);
   box-shadow:0 1px 4px rgba(0,0,0,.2);
 }
+#caLegende{width:60%;min-width:180px}
+.ca-lv{display:flex;gap:var(--espace-md);max-width:none}
+.ca-lv-r{
+  display:flex;align-items:center;gap:5px;
+  font-size:var(--texte-note);color:var(--etiquette-2);
+}
+.ca-lv-r i{flex:none;height:1.6px;background:var(--ca-vent);border-radius:var(--rayon-plein)}
 .ca-rampe{display:block;height:8px;border-radius:var(--rayon-plein)}
 .ca-graduations{
   display:flex;justify-content:space-between;

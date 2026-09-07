@@ -26,6 +26,7 @@ const DEFAUT = {
   pollensMuets: [],    // pollens dont on ne veut pas être averti
   radar: true,         // ancien réglage de la couche de pluie, repris par `nappe`
   vigicarte: true,     // la couche de vigilance sur la carte
+  ventcarte: false,    // les particules de vent sur la carte
   // `nappe` n'a pas de valeur par défaut : son absence est ce qui déclenche la
   // reprise de l'ancien réglage de pluie.
 };
@@ -273,6 +274,12 @@ export function poserNappe(v) { poser({ nappe: NAPPES.includes(v) ? v : null });
    l'application propose. */
 export const vigicarte = () => etat.vigicarte !== false;
 export function poserVigicarte(v) { poser({ vigicarte: v === true }); }
+
+/* Le vent sur la carte. Éteint au départ, à la différence des deux autres
+   couches : il anime une toile en permanence, ce qui se paie en batterie, et il
+   répond à une question qu'on ne se pose pas tous les jours. */
+export const ventcarte = () => etat.ventcarte === true;
+export function poserVentcarte(v) { poser({ ventcarte: v === true }); }
 
 /* Les instants d'alerte. `null` rend la valeur par défaut du module du
    parapluie, qui la porte avec les seuils : les nombres du rappel vivent au

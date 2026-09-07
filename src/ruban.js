@@ -132,7 +132,7 @@ const bornes = (t, unite = "") =>
 /* Les échelles nommées. Chaque entrée est une borne basse et le mot qui vaut
    à partir d'elle. Le mot sert deux fois : écrit dans le tracé sur sa ligne,
    et accolé au chiffre de tête pour dire ce que ce chiffre vaut. */
-const ECHELLES = {
+export const ECHELLES = {
   uv: [[0, "Faible"], [3, "Modéré"], [6, "Élevé"], [8, "Très élevé"], [11, "Extrême"]],
   v: [[0, "Calme"], [12, "Léger"], [30, "Modéré"], [50, "Fort"], [75, "Violent"]],
   hum: [[0, "Air sec"], [40, "Confortable"], [70, "Humide"], [90, "Saturé"]],
