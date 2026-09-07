@@ -1086,7 +1086,15 @@ export function vueCarte(ctx, rendre, majEtat) {
     ...suivies.filter(l => l.lat !== g.lat || l.lon !== g.lon)
       .map(l => ({ nom: l.commune || "Commune", lat: l.lat, lon: l.lon, ici: false }))];
 
-  const vue = { lat: g.lat, lon: g.lon, z: Carte.ZDEFAUT };
+  /* Le cadrage vit dans le contexte et survit aux rendus. Chaque source qui
+     arrive déclenche un rendu, et sans cette mémoire la carte reviendrait à son
+     cadrage d'ouverture pendant qu'on la déplace.
+
+     Un appui sur l'onglet La carte efface ce cadrage, que l'onglet change ou
+     qu'on appuie de nouveau dessus. La carte s'ouvre alors sur la France
+     entière : elle sert d'abord à voir où il pleut, et la réponse est régionale
+     avant d'être locale. Le bouton de retour ramène ensuite sur la commune. */
+  const vue = ctx.cadreCarte || (ctx.cadreCarte = { lat: g.lat, lon: g.lon, z: null });
 
   return {
     titre: "La carte",
@@ -1147,6 +1155,12 @@ export function vueCarte(ctx, rendre, majEtat) {
           if (!dehors) {
             b.style.setProperty("--rx", `${p.x.toFixed(1)}px`);
             b.style.setProperty("--ry", `${p.y.toFixed(1)}px`);
+            /* Un repère près du bord droit porte son nom à gauche du point.
+               Sinon le nom sort du cadre et se coupe, ce qu'on voit dès que la
+               carte montre la France entière. */
+            const nom = b.querySelector(".ca-r-nom");
+            const large = nom ? nom.offsetWidth : 0;
+            b.classList.toggle("ca-r-gauche", p.x + 26 + large > l - 8);
           }
         });
         const e = Carte.echelleBarre(vue, cv.clientWidth);
@@ -1170,8 +1184,16 @@ export function vueCarte(ctx, rendre, majEtat) {
       const main = Carte.poser(cv, vue, placer, couche);
       const revoir = () => { main.redessiner(); };
 
-      // Le premier tracé attend que la toile ait sa taille.
-      requestAnimationFrame(() => { Carte.dessiner(cv, vue, couche); placer(); });
+      /* Le premier tracé attend que la toile ait sa taille. Le cadrage
+         d'ouverture aussi : il fait tenir la France dans le cadre, et la
+         largeur du cadre décide du zoom. */
+      requestAnimationFrame(() => {
+        if (vue.z === null) {
+          Object.assign(vue, Carte.vueSur(Carte.FRANCE, cv.clientWidth, cv.clientHeight));
+        }
+        Carte.dessiner(cv, vue, couche);
+        placer();
+      });
 
       const pas = d => {
         Object.assign(vue, Carte.borner({ ...vue, z: vue.z + d }));

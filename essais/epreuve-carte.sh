@@ -6,10 +6,10 @@ cd "$(dirname "$0")/.."
 N="$1"
 SAUVE=/tmp/epreuve-carte
 rm -rf "$SAUVE"; mkdir -p "$SAUVE/src"
-cp src/carte.js src/vues.js "$SAUVE/src/"
+cp src/carte.js src/vues.js src/app.js "$SAUVE/src/"
 cp styles.css "$SAUVE/"
 
-restaurer() { cp "$SAUVE/src/carte.js" "$SAUVE/src/vues.js" src/; cp "$SAUVE/styles.css" .; }
+restaurer() { cp "$SAUVE/src/carte.js" "$SAUVE/src/vues.js" "$SAUVE/src/app.js" src/; cp "$SAUVE/styles.css" .; }
 trap restaurer EXIT
 
 case "$N" in
@@ -34,11 +34,24 @@ case "$N" in
   7) # Ne pas ramener la carte sur le lieu courant.
      perl -0pi -e 's/        Object\.assign\(vue, Carte\.borner\(\{ lat: g\.lat, lon: g\.lon, z: Carte\.ZDEFAUT \}\)\);\n        revoir\(\);/        revoir();/' src/vues.js
      ATTENDU="le retour ramène la carte sur le lieu courant" ;;
+  8) # Ouvrir la carte sur la commune au lieu de la France.
+     perl -0pi -e 's/          Object\.assign\(vue, Carte\.vueSur\(Carte\.FRANCE, cv\.clientWidth, cv\.clientHeight\)\);/          Object.assign(vue, Carte.borner({ lat: g.lat, lon: g.lon, z: Carte.ZDEFAUT }));/' src/vues.js
+     ATTENDU="la carte s'ouvre sur la France entière" ;;
+  9) # Ne pas effacer le cadrage quand on appuie sur l'onglet.
+     perl -0pi -e 's/  if \(nom === "carte"\) ctx\.cadreCarte = null;/  if (false) ctx.cadreCarte = null;/' src/app.js
+     ATTENDU="un appui sur l'onglet ramène le cadrage sur la France" ;;
+  10) # Refaire le cadrage à chaque rendu.
+     perl -0pi -e 's/  const vue = ctx\.cadreCarte \|\| \(ctx\.cadreCarte = \{ lat: g\.lat, lon: g\.lon, z: null \}\);/  const vue = (ctx.cadreCarte = { lat: g.lat, lon: g.lon, z: null });/' src/vues.js
+     ATTENDU="le cadrage tient à travers un changement de commune" ;;
+  11) # Laisser le nom du repère déborder du bord droit.
+     perl -0pi -e 's/            b\.classList\.toggle\("ca-r-gauche", p\.x \+ 26 \+ large > l - 8\);/            b.classList.toggle("ca-r-gauche", false);/' src/vues.js
+     ATTENDU="un repère près du bord droit porte son nom à gauche" ;;
   *) echo "faute inconnue"; exit 2 ;;
 esac
 
 if diff -q "$SAUVE/src/carte.js" src/carte.js >/dev/null \
   && diff -q "$SAUVE/src/vues.js" src/vues.js >/dev/null \
+  && diff -q "$SAUVE/src/app.js" src/app.js >/dev/null \
   && diff -q "$SAUVE/styles.css" styles.css >/dev/null; then
   echo "FAUTE $N NON APPLIQUÉE"; exit 3
 fi

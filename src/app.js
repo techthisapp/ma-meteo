@@ -727,6 +727,10 @@ function rendre() {
 function poserOnglet(nom) {
   if (!ONGLETS.some(o => o[0] === nom)) return;
   const change = nom !== onglet;
+  /* Un appui sur La carte efface le cadrage gardé, que l'onglet change ou qu'on
+     appuie de nouveau dessus. La carte s'ouvre alors sur la France entière. Sur
+     les autres écrans, l'appui répété n'a rien à défaire. */
+  if (nom === "carte") ctx.cadreCarte = null;
   onglet = nom;
   for (const b of $("onglets").children) {
     const actif = b.dataset.onglet === onglet;

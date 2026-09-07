@@ -1194,6 +1194,14 @@ button.rangee:active{background:var(--surface-2)}
   font-size:var(--texte-note);font-weight:var(--graisse-medium);
 }
 .ca-r-nom em{font-style:normal;font-weight:var(--graisse-semibold)}
+/* Un repère près du bord droit porte son nom à gauche du point. L'ancrage passe
+   de la gauche à la droite, sans quoi le point cesserait de tomber sur le
+   lieu. */
+.ca-r-gauche{
+  left:auto;right:calc(100% - var(--rx));
+  flex-direction:row-reverse;
+  transform:translate(11px,-11px);
+}
 
 /* Les commandes, en colonne à droite. Le pincement suffit au doigt ; les deux
    boutons servent au clavier et à qui tient son téléphone d'une main. */

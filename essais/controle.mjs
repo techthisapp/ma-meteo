@@ -5841,20 +5841,87 @@ ok("l'écran de la carte ne défile pas",
     document.documentElement.scrollHeight <= window.innerHeight + 1),
   await pgCarte.evaluate(() =>
     `${document.documentElement.scrollHeight} contre ${window.innerHeight}`));
-ok("le lieu courant ouvre la carte en son centre",
+/* La carte s'ouvre sur la France entière depuis le 7 septembre 2026. Elle sert
+   d'abord à voir où il pleut, et la réponse est régionale avant d'être locale.
+   Le cadrage se calcule au lieu d'être écrit en dur : un téléphone en portrait
+   et le même en paysage n'ont pas le même rapport de côtés. */
+const franceDit = await pgCarte.evaluate(async () => {
+    const C = await import("/src/carte.js");
+    const cv = document.getElementById("caToile");
+    if (!cv) return "aucune toile";
+    const l = cv.clientWidth, h = cv.clientHeight;
+    const vue = C.vueSur(C.FRANCE, l, h);
+    // Les quatre coins de la France tombent dans le cadre.
+    for (const [la, lo] of [[C.FRANCE.n, C.FRANCE.o], [C.FRANCE.n, C.FRANCE.e],
+      [C.FRANCE.s, C.FRANCE.o], [C.FRANCE.s, C.FRANCE.e]]) {
+      const p = C.surEcran(vue, la, lo, l, h);
+      if (p.x < 0 || p.y < 0 || p.x > l || p.y > h) {
+        return `coin ${la},${lo} hors du cadre`;
+      }
+    }
+    /* Et le cadrage vaut celui que la carte s'est donné : sans quoi le contrôle
+       vérifierait un calcul que l'écran n'emploie pas. */
+    const ici = document.querySelector(".ca-r-ici");
+    if (!ici) return "aucun repère de lieu courant";
+    /* La mesure porte sur le point, non sur la boîte : le nom bascule à gauche
+       du point près du bord droit, et la boîte change alors de bord d'ancrage. */
+    const b = cv.getBoundingClientRect();
+    const pt = ici.querySelector(".ca-r-pt").getBoundingClientRect();
+    const attendu = C.surEcran(vue, 47.5, 4.3, l, h);
+    const dx = (pt.left + pt.width / 2) - (b.left + attendu.x);
+    const dy = (pt.top + pt.height / 2) - (b.top + attendu.y);
+    return Math.abs(dx) < 3 && Math.abs(dy) < 3 ? ""
+      : `le repère est à ${dx.toFixed(1)}, ${dy.toFixed(1)} de sa place`;
+});
+ok("la carte s'ouvre sur la France entière", franceDit === "", franceDit);
+
+/* Un repère près du bord droit porte son nom à gauche du point. Le cas se voit
+   dès l'ouverture depuis que la carte montre la France entière.
+
+   Le contrôle amène le repère au bord en déplaçant la carte, puis lit ce que
+   l'application en a fait. Poser la classe lui-même reviendrait à éprouver la
+   feuille de style et non la règle. */
+await pgCarte.locator("#caIci").click();
+await pgCarte.waitForTimeout(400);
+const cadreBord = await pgCarte.locator("#caToile").boundingBox();
+{
+  const y = cadreBord.y + cadreBord.height / 2 + 200;
+  const x = cadreBord.x + cadreBord.width / 2;
+  await pgCarte.mouse.move(x, y);
+  await pgCarte.mouse.down();
+  await pgCarte.mouse.move(x + cadreBord.width / 2 - 30, y, { steps: 8 });
+  await pgCarte.mouse.up();
+  await pgCarte.waitForTimeout(500);
+}
+ok("un repère près du bord droit porte son nom à gauche",
   await pgCarte.evaluate(() => {
     const cv = document.getElementById("caToile");
-    const r = document.querySelector(".ca-r-ici");
-    if (!cv || !r) return "un élément manque";
-    const b = cv.getBoundingClientRect(), p = r.getBoundingClientRect();
-    const dx = (p.left + 11) - (b.left + b.width / 2);
-    const dy = (p.top + 11) - (b.top + b.height / 2);
-    return Math.abs(dx) < 2 && Math.abs(dy) < 2 ? "" : `écart ${dx.toFixed(1)}, ${dy.toFixed(1)}`;
+    const l = cv.clientWidth;
+    const cadre = cv.getBoundingClientRect();
+    const b = document.querySelector(".ca-r-ici");
+    if (!b || b.hidden) return "le repère du lieu courant n'est plus visible";
+    const pt = b.querySelector(".ca-r-pt").getBoundingClientRect();
+    const x = pt.left + pt.width / 2 - cadre.left;
+    if (x < l - 60) return `le repère est à ${x.toFixed(0)} sur ${l}, trop loin du bord`;
+    if (!b.classList.contains("ca-r-gauche")) return "le nom n'a pas basculé";
+    const boite = b.getBoundingClientRect();
+    const debord = boite.right - cadre.left - l;
+    return debord <= 0 ? "" : `le nom déborde de ${debord.toFixed(0)} points`;
   }) === "");
+await pgCarte.locator("#caIci").click();
+await pgCarte.waitForTimeout(400);
+
 ok("chaque lieu suivi porte son repère",
   await pgCarte.locator(".ca-r").count() === 3
   && await pgCarte.locator(".ca-r-ici").count() === 1,
   `${await pgCarte.locator(".ca-r").count()} repères`);
+
+/* Ce qui suit part d'un cadrage centré sur la commune, que le bouton de retour
+   donne. La carte s'ouvre sur la France entière depuis le 7 septembre 2026, et
+   ces contrôles portent sur le zoom, le masquage et le glissement, non sur le
+   cadrage d'ouverture, lequel a sa propre garde plus haut. */
+await pgCarte.locator("#caIci").click();
+await pgCarte.waitForTimeout(400);
 
 /* Le zoom se mesure sur l'écartement de deux repères, non sur le libellé de
    l'échelle : celui-ci reste le même d'un cran à l'autre quand la barre change
@@ -5862,8 +5929,14 @@ ok("chaque lieu suivi porte son repère",
 const ecartReperes = () => pgCarte.evaluate(() => {
   const r = [...document.querySelectorAll(".ca-r")].filter(x => !x.hidden);
   if (r.length < 2) return null;
-  const b = r.map(x => x.getBoundingClientRect());
-  return Math.round(Math.hypot(b[0].left - b[1].left, b[0].top - b[1].top));
+  /* La mesure porte sur le point, non sur la boîte du repère : le nom bascule
+     à gauche du point près du bord droit, et le bord de la boîte changerait de
+     place sans que le lieu ait bougé. */
+  const c = r.map(x => {
+    const b = x.querySelector(".ca-r-pt").getBoundingClientRect();
+    return [b.left + b.width / 2, b.top + b.height / 2];
+  });
+  return Math.round(Math.hypot(c[0][0] - c[1][0], c[0][1] - c[1][1]));
 });
 const ecartAvant = await ecartReperes();
 await pgCarte.locator("#caPlus").click();
@@ -5947,6 +6020,7 @@ ok("le retour ramène la carte sur le lieu courant",
 /* Un appui sur le repère d'un lieu suivi bascule la commune, comme une rangée
    de la liste des lieux. */
 const nomAvant = await txtDe(pgCarte, "#navLieuNom");
+const echelleAvant = (await txtDe(pgCarte, "#caEchelle span")).trim();
 /* Cinq secondes suffisent : un repère qui ne paraît pas est une faute, et
    l'attente par défaut de trente secondes ferait durer la suite d'autant à
    chaque contrôle d'une fonction cassée. */
@@ -5956,6 +6030,32 @@ await pgCarte.waitForTimeout(1200);
 const nomApres = await txtDe(pgCarte, "#navLieuNom");
 ok("un appui sur un repère bascule la commune",
   nomAvant !== nomApres && nomApres.length > 1, `${nomAvant} puis ${nomApres}`);
+
+/* Le changement de commune relance une lecture complète, donc plusieurs rendus.
+   Le cadrage doit tenir : on vient de toucher un point de la carte, et la carte
+   n'a aucune raison de sauter ailleurs. */
+ok("le cadrage tient à travers un changement de commune",
+  (await txtDe(pgCarte, "#caEchelle span")).trim() === echelleAvant,
+  `${echelleAvant} puis ${(await txtDe(pgCarte, "#caEchelle span")).trim()}`);
+/* Le cadrage garde sa place d'un rendu à l'autre, et un appui sur l'onglet La
+   carte le ramène sur la France. Sans cette mémoire, chaque source qui arrive
+   ferait revenir la carte à son cadrage d'ouverture pendant qu'on la déplace. */
+const cadreDit = await pgCarte.evaluate(async () => {
+    const lu = () => document.querySelector("#caEchelle span").textContent;
+    const onglet = document.querySelector('[data-onglet="carte"]');
+    const dodo = m => new Promise(r => setTimeout(r, m));
+    // Un appui sur l'onglet déjà actif ramène le cadrage sur la France.
+    onglet.click(); await dodo(700);
+    const france = lu();
+    for (let k = 0; k < 3; k++) document.getElementById("caPlus").click();
+    await dodo(500);
+    if (lu() === france) return "le zoom n'a pas changé l'échelle";
+    onglet.click(); await dodo(700);
+    return lu() === france ? ""
+      : `après l'appui sur l'onglet, échelle ${lu()} au lieu de ${france}`;
+});
+ok("un appui sur l'onglet ramène le cadrage sur la France", cadreDit === "", cadreDit);
+
 /* Les contours embarqués : quatre couches, et une boîte qui tient dans la
    fenêtre que la carte peut montrer. Un contour hors fenêtre serait des octets
    servis pour une côte que personne ne verra. */
@@ -6122,12 +6222,12 @@ ok("la pluie se pose sous les traits, non dessus",
    qu'il y a dessous. Le contrôle mesure cet écart dans une fenêtre de sept
    points autour de chaque trait.
 
-   Le seuil vient de la carte elle-même, non d'une règle générale. Sur le fond nu
-   du thème clair, une limite de département se détache de son fond de cent
-   trente-six millièmes de clarté : c'est tout ce que le dessin offre, et rien ne
-   peut en demander plus. La nappe d'essai, pâle à dessein, n'en laisse que vingt
-   millièmes sans la gaine. Le seuil de cent dix millièmes tient entre les deux et
-   demande que la gaine rende les quatre cinquièmes de ce qui existe. */
+   Le seuil vient de la carte elle-même. Le contrôle mesure d'abord l'écart sur
+   la carte nue, au cadrage où il se trouve, puis le même écart sous la couche,
+   et demande que la gaine en rende les sept dixièmes. L'épaisseur des traits
+   suit le zoom : un seuil écrit en dur ne vaudrait que pour un cadrage. Sans la
+   gaine, la nappe d'essai, pâle à dessein, ne laisse qu'un cinquième de
+   l'écart. */
 const gaineDit = await pgNappe.evaluate(async () => {
     const cv = document.getElementById("caToile");
     const ctx = cv.getContext("2d");
@@ -6160,19 +6260,26 @@ const gaineDit = await pgNappe.evaluate(async () => {
     }
     if (traits.length < 40) return `${traits.length} traits pleins`;
 
-    pluie.click(); await dodo(900);          // couche allumée
-    const b = ctx.getImageData(0, 0, cv.width, cv.height).data;
-    const ecarts = traits.map(([x, y]) => {
+    /* La référence se mesure sur la carte nue, au cadrage où l'on est, plutôt
+       que d'être écrite en dur. L'épaisseur des traits suit le zoom, et un
+       seuil fixe vaudrait pour un seul cadrage. */
+    const fenetre = (d, x, y) => {
       let bas = 1, haut = 0;
-      for (let d = -7; d <= 7; d++) {
-        const v = clarte(b, (y * larg + x + d) * 4);
+      for (let k = -7; k <= 7; k++) {
+        const v = clarte(d, (y * larg + x + k) * 4);
         if (v < bas) bas = v;
         if (v > haut) haut = v;
       }
       return haut - bas;
-    }).sort((p, q) => p - q);
-    const median = ecarts[Math.floor(ecarts.length / 2)];
-    return median >= 0.11 ? "" : `écart médian de ${median.toFixed(3)}`;
+    };
+    const median = l => l.slice().sort((p, q) => p - q)[Math.floor(l.length / 2)];
+    const nu = median(traits.map(([x, y]) => fenetre(a, x, y)));
+
+    pluie.click(); await dodo(900);          // couche allumée
+    const b = ctx.getImageData(0, 0, cv.width, cv.height).data;
+    const avec = median(traits.map(([x, y]) => fenetre(b, x, y)));
+    return avec >= nu * 0.7 ? ""
+      : `écart de ${avec.toFixed(3)} sous la couche contre ${nu.toFixed(3)} sur la carte nue`;
 });
 ok("un trait posé sur la couche garde son écart de clarté", gaineDit === "", gaineDit);
 

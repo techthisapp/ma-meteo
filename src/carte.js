@@ -180,12 +180,34 @@ export function dessiner(cv, vue, couche) {
    fenêtre des contours : sans cela, un glissement appuyé emmène la carte au
    milieu de l'Atlantique, où il n'y a rien à voir et d'où rien ne ramène. */
 export const BORNES = { o: -7, e: 13, s: 40, n: 53 };
+
+/* La France métropolitaine, Corse comprise. Ces bornes servent au cadrage
+   d'ouverture de la carte. */
+export const FRANCE = { o: -5.15, e: 9.56, s: 41.33, n: 51.09 };
+
 export function borner(vue) {
   return {
     z: Math.max(ZMIN, Math.min(ZMAX, vue.z)),
     lat: Math.max(BORNES.s, Math.min(BORNES.n, vue.lat)),
     lon: Math.max(BORNES.o, Math.min(BORNES.e, vue.lon)),
   };
+}
+
+/* La vue qui fait tenir des bornes dans un cadre, avec une marge.
+
+   Le zoom se calcule au lieu d'être écrit en dur. Un téléphone en portrait, le
+   même en paysage et une tablette n'ont pas le même rapport de côtés : un zoom
+   fixe couperait la Bretagne sur l'un et laisserait du vide sur l'autre. */
+export function vueSur(b, l, h, marge = 0.06) {
+  const x0 = mx(b.o), x1 = mx(b.e);
+  const y0 = my(b.n), y1 = my(b.s);
+  const dx = Math.max(1e-9, x1 - x0), dy = Math.max(1e-9, y1 - y0);
+  const e = Math.min(l / dx, h / dy) * (1 - marge);
+  return borner({
+    z: Math.log2(Math.max(1, e) / TUILE),
+    lat: latDe((y0 + y1) / 2),
+    lon: lonDe((x0 + x1) / 2),
+  });
 }
 
 /* Le geste. Un doigt déplace, deux doigts zooment autour de leur milieu, un
