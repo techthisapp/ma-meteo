@@ -17,7 +17,7 @@
    bouge que sous le doigt. C'est ce qui la distingue des trois autres toiles du
    dépôt, le feu, le relief et le temps, qui animent une matière. */
 
-import { contours, anneauxDe } from "./geographie.js";
+import { contours, anneauxDe, codesDepartements } from "./geographie.js";
 
 /* Les bornes de zoom. Cinq montre le pays entier sur un téléphone, dix montre
    une commune et ses alentours. Au delà, le pas de la grille des contours, cent
@@ -96,6 +96,9 @@ const couleurs = cv => {
     fond: v("--ca-fond"), contour: v("--ca-contour"),
     departements: v("--ca-dep"), etranger: v("--ca-etranger"),
     vg2: v("--ca-vg2"), vg3: v("--ca-vg3"), vg4: v("--ca-vg4"),
+    /* Les couleurs vives des niveaux, celles des symboles du panneau de
+       vigilance : le liseré est un trait, il prend la couleur du trait. */
+    vt2: v("--v2"), vt3: v("--v3"), vt4: v("--v4"),
   };
 };
 
@@ -129,10 +132,20 @@ export function dessiner(cv, vue, nappes) {
   ctx.fillRect(0, 0, l, h);
 
   /* Chaque couche rend ce qu'elle a posé. Zéro partout veut dire fond nu, et les
-     traits se suffisent alors à eux-mêmes. */
-  let posees = 0;
-  for (const f of [].concat(nappes || [])) {
-    if (typeof f === "function") posees += f(ctx, vue, l, h) || 0;
+     traits se suffisent alors à eux-mêmes.
+
+     Une couche dit aussi si elle veut la gaine des traits, sous la forme
+     `{ peindre, gaine: false }`. Une couche pâle et tachetée comme la pluie la
+     demande, une nappe de couleur continue la refuse : un liseré clair le long
+     des quatre-vingt-seize limites ferait lire une mosaïque de départements là
+     où la donnée est continue et ignore les départements. */
+  let posees = 0, gainees = 0;
+  for (const n of [].concat(nappes || [])) {
+    const f = typeof n === "function" ? n : n && n.peindre;
+    if (typeof f !== "function") continue;
+    const k = f(ctx, vue, l, h) || 0;
+    posees += k;
+    if (typeof n === "function" || n.gaine !== false) gainees += k;
   }
 
   const jeux = couches();
@@ -168,7 +181,7 @@ export function dessiner(cv, vue, nappes) {
        large de la couleur du fond, glissé sous le trait, rend le contraste quel
        que soit ce qu'il y a dessous. Il ne se paie que quand la couche est là,
        et le chemin ne se construit qu'une fois pour les deux passes. */
-    if (posees) {
+    if (gainees) {
       ctx.strokeStyle = c.fond || "#eef2f6";
       ctx.globalAlpha = 0.9;
       ctx.lineWidth = epais * gros + 3;
@@ -206,18 +219,21 @@ export function borner(vue) {
    `teintes` associe un code de département à un rang de niveau. Un département
    absent de la table reste au fond nu : le vert n'est pas une vigilance, et
    teinter tout le pays en vert ferait du bruit sans rien apprendre. */
-export function peindreDepartements(cv, ctx, vue, l, h, teintes) {
+export function peindreDepartements(cv, ctx, vue, l, h, teintes, style = {}) {
   if (!teintes || !teintes.size) return 0;
   const c = couleurs(cv);
   const e = echelle(vue.z);
   const cx = mx(vue.lon), cy = my(vue.lat);
   let posees = 0;
   for (const [code, rang] of teintes) {
-    const teinte = c[`vg${rang}`];
+    const teinte = c[`${style.trait ? "vt" : "vg"}${rang}`];
     if (!teinte) continue;
     const anneaux = anneauxDe(code);
     if (!anneaux) continue;
     ctx.fillStyle = teinte;
+    ctx.strokeStyle = teinte;
+    ctx.lineWidth = 2.4;
+    ctx.lineJoin = "round";
     ctx.beginPath();
     for (const a of anneaux) {
       const n = a.length / 2;
@@ -228,10 +244,99 @@ export function peindreDepartements(cv, ctx, vue, l, h, teintes) {
       }
       ctx.closePath();
     }
-    ctx.fill();
+    /* Deux façons de dire la même alerte. Le remplissage quand la carte laisse
+       voir son fond, le liseré quand une nappe pleine le couvre : une teinte
+       posée sous une nappe opaque ne se verrait pas, et une teinte posée dessus
+       fausserait la couleur qu'on y lit. */
+    if (style.trait) ctx.stroke(); else ctx.fill();
     posees++;
   }
   return posees;
+}
+
+/* La nappe de valeurs.
+
+   La grille source est régulière en degrés, la carte est en Mercator : une
+   simple mise à l'échelle décalerait la nappe du fond de plusieurs kilomètres au
+   nord du pays. La trame intermédiaire est donc échantillonnée en Mercator, une
+   ligne tous les quelques pixels de monde, et le navigateur fait le reste de
+   l'étalement en agrandissant l'image.
+
+   Peindre point par point sur toute la toile coûterait deux cent mille couleurs
+   composées à chaque tracé, et le tracé se refait à chaque glissement. La trame
+   en coûte mille deux cent quatre-vingts.
+
+   `teinte` rend le nombre de degrés de roue d'une valeur, ou `null` : la rampe
+   vit dans `icones.js`, où le ruban et la table de la semaine la prennent déjà. */
+const TRAME = 64;
+let tramePot = null;
+
+export function peindreNappe(ctx, vue, l, h, couche, style = {}) {
+  if (!couche) return 0;
+  const { S, N, O, E, cols, valeurA, teinte } = couche;
+  const sat = style.sat ?? 0.54, clarte = style.clarte ?? 0.47;
+  if (!tramePot) tramePot = document.createElement("canvas");
+  if (tramePot.width !== cols || tramePot.height !== TRAME) {
+    tramePot.width = cols;
+    tramePot.height = TRAME;
+  }
+  const tc = tramePot.getContext("2d");
+  const img = tc.createImageData(cols, TRAME);
+  const yS = my(S), yN = my(N);
+  let vus = 0;
+  for (let k = 0; k < TRAME; k++) {
+    /* La ligne k porte la latitude dont l'ordonnée de Mercator tombe à sa
+       hauteur : c'est ce qui aligne la nappe sur le fond. */
+    const lat = latDe(yN + ((yS - yN) * k) / (TRAME - 1));
+    for (let c = 0; c < cols; c++) {
+      const v = valeurA(lat, O + ((E - O) * c) / (cols - 1));
+      const t = v === null ? null : teinte(v);
+      const p = (k * cols + c) * 4;
+      if (t === null) { img.data[p + 3] = 0; continue; }
+      const [r, g, b] = deTeinte(t, sat, clarte);
+      img.data[p] = r; img.data[p + 1] = g; img.data[p + 2] = b; img.data[p + 3] = 255;
+      vus++;
+    }
+  }
+  if (!vus) return 0;
+  tc.putImageData(img, 0, 0);
+  const e = echelle(vue.z);
+  const cx = mx(vue.lon), cy = my(vue.lat);
+  const x0 = (mx(O) - cx) * e + l / 2, x1 = (mx(E) - cx) * e + l / 2;
+  const y0 = (yN - cy) * e + h / 2, y1 = (yS - cy) * e + h / 2;
+  ctx.save();
+  /* La nappe s'arrête au pays. Son emprise est un rectangle, et un rectangle de
+     couleur posé sur la mer et sur les pays voisins donnerait un bord droit là
+     où il n'y a pas de frontière. Le chemin de découpe est celui des anneaux des
+     départements, ceux-là mêmes qui portent la teinte de la vigilance. */
+  ctx.beginPath();
+  for (const code of codesDepartements()) {
+    for (const a of anneauxDe(code)) {
+      const n = a.length / 2;
+      for (let i = 0; i < n; i++) {
+        const px = (mx(a[i * 2]) - cx) * e + l / 2;
+        const py = (my(a[i * 2 + 1]) - cy) * e + h / 2;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+    }
+  }
+  ctx.clip();
+  ctx.globalAlpha = style.opacite ?? 0.55;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(tramePot, x0, y0, x1 - x0, y1 - y0);
+  ctx.restore();
+  return 1;
+}
+
+/* Une teinte de roue en composantes, à saturation et clarté données : celles de
+   la rampe écrite, que la nappe partage avec le ruban. */
+function deTeinte(t, sat, clarte) {
+  const k = n => (n + t / 30) % 12;
+  const a = sat * Math.min(clarte, 1 - clarte);
+  const f = n => clarte - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
 }
 
 /* La vue qui fait tenir des bornes dans un cadre, avec une marge.

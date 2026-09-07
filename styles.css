@@ -1226,6 +1226,48 @@ button.rangee:active{background:var(--surface-2)}
 }
 .ca-o svg{width:20px;height:20px}
 .ca-o:active{background:var(--surface-2)}
+.ca-o[aria-expanded="true"]{background:var(--accent);color:#fff}
+
+/* Le panneau des couches, ancré sous son bouton. Il porte des noms et non des
+   icônes seules : une goutte et un thermomètre alignés ne disent pas ce qu'ils
+   allument, et la liste s'allongera. */
+.ca-panneau{
+  position:absolute;right:calc(var(--marge) + var(--touche) + var(--espace-xs));
+  top:var(--espace-base);
+  min-width:168px;padding:var(--espace-sm);
+  display:flex;flex-direction:column;gap:2px;
+  border-radius:var(--rayon-md);background:var(--surface);
+  box-shadow:0 4px 16px rgba(0,0,0,.26);
+}
+.ca-p-titre{
+  padding:var(--espace-xs) var(--espace-sm) 2px;
+  font-size:var(--texte-note);color:var(--etiquette-2);
+  text-transform:uppercase;letter-spacing:.04em;
+}
+.ca-p-titre + *{margin-top:0}
+.ca-ch{
+  width:100%;
+  display:flex;align-items:center;gap:var(--espace-sm);
+  min-height:var(--touche);padding:0 var(--espace-sm);
+  border-radius:var(--rayon-sm);color:var(--etiquette);
+  font-size:var(--texte-corps);text-align:left;
+}
+.ca-ch svg{width:18px;height:18px;flex:none}
+.ca-ch:active{background:var(--surface-2)}
+.ca-ch[aria-checked="true"]{background:var(--accent);color:#fff}
+
+/* L'échelle de la nappe. Une rampe de couleur sans chiffres ne se lit pas. */
+.ca-legende{
+  align-self:flex-start;max-width:200px;width:60%;
+  padding:var(--espace-xs) var(--espace-sm);
+  border-radius:var(--rayon-sm);background:var(--surface);
+  box-shadow:0 1px 4px rgba(0,0,0,.2);
+}
+.ca-rampe{display:block;height:8px;border-radius:var(--rayon-plein)}
+.ca-graduations{
+  display:flex;justify-content:space-between;
+  font-size:var(--texte-note);color:var(--etiquette-2);
+}
 
 /* L'échelle, la mention des sources et la chronologie, au pied de la carte. Une
    carte sans échelle ne dit pas si l'averse est à dix kilomètres ou à cent. */
@@ -1315,7 +1357,6 @@ button.rangee:active{background:var(--surface-2)}
 }
 
 /* La couche allumée se dit sur son interrupteur. */
-.ca-o[aria-checked="true"]{background:var(--accent);color:#fff}
 
 /* Un écran de graphique n'est pas bridé à la largeur de lecture. Le ruban vit
    de sa densité de points par heure : quatre cent trente points de large en

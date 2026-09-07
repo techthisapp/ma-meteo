@@ -367,6 +367,27 @@ const appelsAir = [];
    veut un autre air le pose avant d'ouvrir sa page et le remet ensuite. */
 let profilAir = "base";
 
+/* La grille des nappes de la carte : 380 points, quatre colonnes. La température
+   descend du sud au nord et monte vers l'est, ce qui donne une nappe dont
+   l'ordre se vérifie ; le vent et l'indice ultraviolet suivent le même
+   principe. */
+let appelsGrille = [];
+function grilleCorps(u) {
+  const q = new URL(u).searchParams;
+  const lats = decodeURIComponent(q.get("latitude")).split(",").map(Number);
+  const lons = decodeURIComponent(q.get("longitude")).split(",").map(Number);
+  return lats.map((la, k) => {
+    const lo = lons[k];
+    return { latitude: la, longitude: lo, current: {
+      time: "2026-08-18T09:00", interval: 900,
+      temperature_2m: Math.round((32 - (la - 41) * 1.6 + lo * 0.25) * 10) / 10,
+      wind_speed_10m: Math.round((6 + (la - 41) * 2.2) * 10) / 10,
+      wind_direction_10m: Math.round((200 + lo * 4) % 360),
+      uv_index: Math.round((7 - (la - 41) * 0.35) * 100) / 100,
+    } };
+  });
+}
+
 const brancherRoutes = async c => {
   /* L'ensemble se sert avant la prévision : son domaine porte le même nom à un
      préfixe près, et la route de la prévision le happerait. Playwright essaie la
@@ -384,6 +405,14 @@ const brancherRoutes = async c => {
       return;
     }
     if (u.includes("sunshine_duration")) { servirBeauTemps(u, route); return; }
+    /* La grille des nappes de la carte se reconnaît à ses colonnes : la
+       direction du vent n'est demandée nulle part ailleurs. */
+    if (u.includes("current=") && u.includes("wind_direction_10m")) {
+      appelsGrille.push(u);
+      route.fulfill({ status: 200, contentType: "application/json",
+        body: JSON.stringify(grilleCorps(u)) });
+      return;
+    }
     // Aperçu des communes suivies : un tableau, un élément par couple de coordonnées.
     if (u.includes("current=")) {
       const lats = decodeURIComponent(new URL(u).searchParams.get("latitude")).split(",");
@@ -4890,6 +4919,14 @@ const ctxJeton = async (patch, quand, reglages) => {
       return;
     }
     if (u.includes("sunshine_duration")) { servirBeauTemps(u, route); return; }
+    /* La grille des nappes de la carte se reconnaît à ses colonnes : la
+       direction du vent n'est demandée nulle part ailleurs. */
+    if (u.includes("current=") && u.includes("wind_direction_10m")) {
+      appelsGrille.push(u);
+      route.fulfill({ status: 200, contentType: "application/json",
+        body: JSON.stringify(grilleCorps(u)) });
+      return;
+    }
     if (u.includes("current=")) {
       route.fulfill({ status: 200, contentType: "application/json", body: "[]" }); return;
     }
@@ -5296,6 +5333,14 @@ const ctxReponse = async (patch, reglages, ensemble) => {
       return;
     }
     if (u.includes("sunshine_duration")) { servirBeauTemps(u, route); return; }
+    /* La grille des nappes de la carte se reconnaît à ses colonnes : la
+       direction du vent n'est demandée nulle part ailleurs. */
+    if (u.includes("current=") && u.includes("wind_direction_10m")) {
+      appelsGrille.push(u);
+      route.fulfill({ status: 200, contentType: "application/json",
+        body: JSON.stringify(grilleCorps(u)) });
+      return;
+    }
     if (u.includes("current=")) {
       route.fulfill({ status: 200, contentType: "application/json", body: "[]" }); return;
     }
@@ -6194,7 +6239,9 @@ ok("la couche de vigilance teinte les départements en alerte",
     const dodo = m => new Promise(r => setTimeout(r, m));
     /* La pluie s'éteint : sa nappe couvre tout et masquerait la teinte. */
     const pluie = document.getElementById("caPluie");
-    if (pluie.getAttribute("aria-checked") === "true") { pluie.click(); await dodo(500); }
+    if (pluie.getAttribute("aria-checked") === "true") {
+      document.getElementById("caSansNappe").click(); await dodo(500);
+    }
     await dodo(600);
     const vue = { lat: 47.5, lon: 4.3, z: 8 };
     const lire = (la, lo) => {
@@ -6379,7 +6426,7 @@ ok("la pluie se pose sous les traits, non dessus",
       return mieux.split(",").map(Number);
     };
 
-    pluie.click(); await dodo(500);          // couche éteinte
+    document.getElementById("caSansNappe").click(); await dodo(500);  // couche éteinte
     const a = lu();
     const fond = dominante(a);
     /* Les traits pleins seulement : un trait lissé sur son bord est à demi
@@ -6425,7 +6472,7 @@ const gaineDit = await pgNappe.evaluate(async () => {
     const clarte = (d, i) =>
       (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / 255;
 
-    pluie.click(); await dodo(500);          // couche éteinte
+    document.getElementById("caSansNappe").click(); await dodo(500);  // couche éteinte
     const a = ctx.getImageData(0, 0, cv.width, cv.height).data;
     const c = new Map();
     for (let i = 0; i < a.length; i += 4 * 53) {
@@ -6539,7 +6586,7 @@ ok("la mention du service paraît avec la couche",
     const dodo = m => new Promise(r => setTimeout(r, m));
     const avec = c.textContent.includes("RainViewer")
       && c.querySelector('a[href*="rainviewer.com"]') !== null;
-    p.click(); await dodo(300);
+    document.getElementById("caSansNappe").click(); await dodo(300);
     const sans = !c.textContent.includes("RainViewer");
     p.click(); await dodo(600);
     if (!avec) return "la mention manque quand la couche est allumée";
@@ -6686,6 +6733,213 @@ ok("sans réseau la pluie le dit et la carte reste dessinée",
     return t.size > 3 ? "" : "le fond n'est pas dessiné";
   }) === "");
 await ctxSec.close();
+
+/* ---------- Les nappes de la carte ----------
+
+   Une grille de 380 points, une valeur par point, une couleur étalée entre les
+   points. Mesuré le 7 septembre 2026 : 13 840 octets compressés pour quatre
+   colonnes, et une adresse de 5977 octets, ce qui borne le pas à soixante
+   kilomètres, le service refusant au delà.
+
+   Les nappes sont exclusives entre elles : ce sont des étalements de couleur sur
+   toute la surface, et deux superposés ne se liraient ni l'un ni l'autre. */
+
+console.log("\n--- Les nappes de la carte ---");
+
+appelsGrille.length = 0;
+const [ctxNap, pgNap] = await ouvrirCarte(FAIN, 0);
+
+ok("la nappe ne demande rien tant qu'elle n'est pas choisie",
+  appelsGrille.length === 0, `${appelsGrille.length} appels`);
+
+ok("le panneau des couches s'ouvre et se ferme",
+  await pgNap.evaluate(async () => {
+    const b = document.getElementById("caCouches");
+    const p = document.getElementById("caPanneau");
+    const dodo = m => new Promise(r => setTimeout(r, m));
+    if (!p.hidden) return "le panneau est ouvert à l'arrivée";
+    b.click(); await dodo(200);
+    if (p.hidden) return "l'appui n'ouvre pas le panneau";
+    if (b.getAttribute("aria-expanded") !== "true") return "le bouton ne dit pas qu'il est ouvert";
+    document.getElementById("caToile").dispatchEvent(
+      new PointerEvent("pointerdown", { bubbles: true }));
+    await dodo(200);
+    return p.hidden ? "" : "un appui sur la carte ne referme pas le panneau";
+  }) === "");
+
+ok("une seule nappe à la fois",
+  await pgNap.evaluate(async () => {
+    const dodo = m => new Promise(r => setTimeout(r, m));
+    const lu = id => document.getElementById(id).getAttribute("aria-checked");
+    if (lu("caPluie") !== "true") return "la pluie n'est pas celle du départ";
+    document.getElementById("caTemp").click(); await dodo(900);
+    if (lu("caTemp") !== "true") return "la température ne se marque pas";
+    if (lu("caPluie") !== "false") return "la pluie reste marquée sous la température";
+    if (!document.getElementById("caTemps").hidden) return "la chronologie reste sous la température";
+    return "";
+  }) === "");
+
+ok("la nappe choisie demande sa grille une seule fois",
+  appelsGrille.length === 1, `${appelsGrille.length} appels`);
+
+/* La charge d'essai fait descendre la température du sud au nord. La nappe se
+   lit donc au pixel : le sud du pays doit être plus chaud, donc plus rouge, que
+   le nord. La rampe va du bleu au rouge, c'est l'écart des composantes qui
+   parle, non leur valeur. */
+const nappeDit = await pgNap.evaluate(async () => {
+    const cv = document.getElementById("caToile");
+    const ctx = cv.getContext("2d");
+    const C = await import("/src/carte.js");
+    /* La rampe encode la valeur dans la teinte, du bleu 214 au rouge 8 : c'est
+       elle qui se lit, non les composantes. Le fond gris de la carte n'a pas de
+       teinte, sa saturation le dit. */
+    const teinte = (r, g, b) => {
+      const [x, y, z] = [r, g, b].map(v => v / 255);
+      const mx = Math.max(x, y, z), mn = Math.min(x, y, z), d = mx - mn;
+      if (d < 1e-6) return { h: null, s: 0 };
+      let h = mx === x ? ((y - z) / d) % 6 : mx === y ? (z - x) / d + 2 : (x - y) / d + 4;
+      h *= 60; if (h < 0) h += 360;
+      return { h, s: d / (1 - Math.abs(mx + mn - 1)) };
+    };
+    const lire = (la, lo) => {
+      const p = C.surEcran({ lat: 46.4, lon: 2.2, z: 5.13 }, la, lo, cv.clientWidth, cv.clientHeight);
+      const d = ctx.getImageData(Math.round(p.x * 2), Math.round(p.y * 2), 1, 1).data;
+      return teinte(d[0], d[1], d[2]);
+    };
+    const sud = lire(43.6, 1.4), nord = lire(50.3, 3.0);
+    if (sud.h === null || nord.h === null) return "un point du pays n'est pas teinté";
+    if (!(sud.h < nord.h - 4)) {
+      return `le sud n'est pas plus chaud : teintes ${sud.h.toFixed(0)} et ${nord.h.toFixed(0)}`;
+    }
+    /* La nappe s'arrête au pays : un point en pleine mer rend la même couleur
+       nappe allumée et nappe éteinte. Le comparer à une teinte écrite d'avance
+       ne dirait rien, le fond de la carte étant lui-même bleuté. */
+    const dodo = m => new Promise(r => setTimeout(r, m));
+    const cru = (la, lo) => {
+      const p = C.surEcran({ lat: 46.4, lon: 2.2, z: 5.13 }, la, lo, cv.clientWidth, cv.clientHeight);
+      const d = ctx.getImageData(Math.round(p.x * 2), Math.round(p.y * 2), 1, 1).data;
+      return `${d[0]},${d[1]},${d[2]}`;
+    };
+    const merAvec = cru(44.0, -4.5);
+    document.getElementById("caSansNappe").click(); await dodo(500);
+    const merSans = cru(44.0, -4.5);
+    const terreSans = cru(43.6, 1.4);
+    document.getElementById("caTemp").click(); await dodo(700);
+    if (merAvec !== merSans) return `la nappe déborde en mer : ${merAvec} contre ${merSans}`;
+    return terreSans === cru(43.6, 1.4) ? "la nappe ne change rien sur terre" : "";
+  });
+ok("la nappe étale la valeur de ses points", nappeDit === "", nappeDit);
+
+ok("la mention de la source paraît avec la nappe",
+  await pgNap.evaluate(async () => {
+    const c = document.getElementById("caCredit");
+    const dodo = m => new Promise(r => setTimeout(r, m));
+    const avec = /Température/.test(c.textContent)
+      && c.querySelector('a[href*="open-meteo.com"]') !== null;
+    document.getElementById("caSansNappe").click(); await dodo(300);
+    const sans = !/Température/.test(c.textContent);
+    document.getElementById("caTemp").click(); await dodo(600);
+    if (!avec) return "la mention manque quand la nappe est allumée";
+    return sans ? "" : "la mention reste quand la nappe est éteinte";
+  }) === "");
+
+ok("la légende porte la rampe et ses graduations",
+  await pgNap.evaluate(async () => {
+    const l = document.getElementById("caLegende");
+    const dodo = m => new Promise(r => setTimeout(r, m));
+    if (l.hidden) return "la légende manque sous la nappe";
+    const g = [...document.querySelectorAll("#caGrads span")].map(x => x.textContent);
+    if (g.length < 3) return `${g.length} graduations`;
+    if (!/°/.test(g[0])) return `graduation sans unité : ${g[0]}`;
+    const fond = getComputedStyle(document.getElementById("caRampe")).backgroundImage;
+    if (!/gradient/.test(fond)) return "la rampe n'est pas un dégradé";
+    document.getElementById("caSansNappe").click(); await dodo(400);
+    const partie = document.getElementById("caLegende").hidden;
+    document.getElementById("caTemp").click(); await dodo(600);
+    return partie ? "" : "la légende reste sans nappe";
+  }) === "");
+
+/* La vigilance ne peut pas teinter le fond sous une nappe qui le couvre. Elle
+   passe alors en liseré par-dessus : le bord du département porte la couleur du
+   niveau, son intérieur garde celle de la nappe. */
+ok("la vigilance passe en liseré sous une nappe pleine",
+  await pgNap.evaluate(async () => {
+    const cv = document.getElementById("caToile");
+    const ctx = cv.getContext("2d");
+    const C = await import("/src/carte.js");
+    const G = await import("/src/geographie.js");
+    const dodo = m => new Promise(r => setTimeout(r, m));
+    await dodo(400);
+    const vue = { lat: 46.4, lon: 2.2, z: 5.13 };
+    const ecran = (la, lo) => C.surEcran(vue, la, lo, cv.clientWidth, cv.clientHeight);
+    const px = p => ctx.getImageData(Math.round(p.x * 2), Math.round(p.y * 2), 1, 1).data;
+    /* Deux mesures, et la seconde est celle qui compte. Le bord de la Gironde,
+       en vigilance rouge dans la charge, porte la couleur du niveau. Et
+       l'intérieur du département garde la couleur de la nappe : il se compare à
+       un point de même latitude en Dordogne, que rien ne signale, où la nappe
+       vaut à peu de chose près la même valeur. Un remplissage passerait la
+       première mesure, il ne passe pas la seconde. */
+    const anneau = G.anneauxDe("33")[0];
+    let borde = false;
+    for (let i = 0; i < anneau.length; i += 2) {
+      const d = px(ecran(anneau[i + 1], anneau[i]));
+      if (d[0] > 150 && d[0] - d[2] > 70) { borde = true; break; }
+    }
+    if (!borde) return "aucun point du bord ne porte la couleur du niveau";
+    const dedans = px(ecran(44.8, -0.6)), voisin = px(ecran(44.8, 0.6));
+    const ecart = Math.abs(dedans[0] - voisin[0]) + Math.abs(dedans[1] - voisin[1])
+      + Math.abs(dedans[2] - voisin[2]);
+    return ecart < 24 ? ""
+      : `l'intérieur du département ne porte pas la nappe, écart ${ecart}`;
+  }) === "");
+
+/* Le choix se garde d'une visite à l'autre, comme celui de la pluie. */
+ok("le choix de nappe se garde",
+  await pgNap.evaluate(async () => {
+    const dodo = m => new Promise(r => setTimeout(r, m));
+    document.querySelector('[data-onglet="accueil"]').click(); await dodo(400);
+    document.querySelector('[data-onglet="carte"]').click(); await dodo(900);
+    const t = document.getElementById("caTemp").getAttribute("aria-checked");
+    const r = JSON.parse(localStorage.getItem("mameteo.reglages.v1") || "{}");
+    if (t !== "true") return "la température n'est pas rendue au retour";
+    return r.nappe === "temp" ? "" : `réglage gardé : ${JSON.stringify(r.nappe)}`;
+  }) === "");
+
+/* La grille se lit dans l'ordre demandé, du sud au nord et d'ouest en est, et
+   l'interpolation rend la valeur d'un point quelconque. Hors de l'emprise, elle
+   ne rend rien : une nappe qui prolongerait sa dernière valeur jusqu'au bord de
+   la vue inventerait une donnée. */
+ok("la nappe interpole entre ses points et s'arrête à son emprise",
+  await pgNap.evaluate(async () => {
+    const N = await import("/src/nappe.js");
+    const p = N.points();
+    if (p.length !== N.COLS * N.RANGS) return `${p.length} points`;
+    const champ = new Float32Array(p.length);
+    for (let i = 0; i < p.length; i++) champ[i] = p[i][0];   // la latitude elle-même
+    const m = N.valeurA(champ, 46.0, 2.0);
+    if (Math.abs(m - 46.0) > 0.01) return `interpolation fausse : ${m}`;
+    if (N.valeurA(champ, 60, 2) !== null) return "une valeur est rendue hors emprise";
+    if (N.valeurA(champ, 46, 30) !== null) return "une valeur est rendue hors emprise";
+    return "";
+  }) === "");
+
+/* La grille est gardée un quart d'heure, la cadence du produit. Les bascules des
+   contrôles précédents ont éteint et rallumé la nappe plusieurs fois : aucune
+   n'a redemandé la grille. */
+ok("rallumer la nappe ne redemande pas la grille",
+  appelsGrille.length === 1, `${appelsGrille.length} appels`);
+
+await ctxNap.close();
+
+/* Un réglage écrit par la version d'avant ne porte qu'un booléen de pluie. Il se
+   reprend : pluie éteinte veut dire aucune nappe. */
+appelsGrille.length = 0;
+const [ctxAncienRadar, pgAncienRadar] = await ouvrirCarte({ ...FAIN, radar: false }, 0);
+ok("un ancien réglage de pluie se reprend en choix de nappe",
+  await pgAncienRadar.evaluate(() =>
+    document.getElementById("caPluie").getAttribute("aria-checked") === "false"
+    && document.getElementById("caSansNappe").getAttribute("aria-checked") === "true"));
+await ctxAncienRadar.close();
 
 /* ---------- La pluie dans l'heure ---------- */
 

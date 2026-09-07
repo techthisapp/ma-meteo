@@ -106,6 +106,11 @@ const D = {
   capuche: '<path d="M5 20.4V13a7 7 0 0 1 14 0v7.4"/>'
     + '<path d="M8.6 20.4a3.4 3.4 0 0 1 6.8 0"/>'
     + '<path d="M9.4 7.4a5.6 5.6 0 0 1 5.2 0"/>',
+  /* Trois feuilles empilées : le choix des couches de la carte. */
+  couches: '<path d="M12 3.4 3 8l9 4.6L21 8z" stroke-linejoin="round"/>'
+    + '<path d="M3 12.4 12 17l9-4.6"/><path d="M3 16.6 12 21.2l9-4.6"/>',
+  /* Le cercle barré : aucune nappe. */
+  interdit: '<circle cx="12" cy="12" r="8.4"/><path d="M6 18 18 6"/>',
 };
 
 /* Le ciel clair et les éclaircies ne se dessinent pas de la même façon selon
@@ -161,8 +166,13 @@ const rampe = (arrets, v) => {
   return h;
 };
 
+/* La teinte nue, en degrés de roue, et la couleur écrite. La nappe de la carte
+   peint des milliers de points et compose ses couleurs elle-même : elle prend la
+   teinte, et la rampe n'est écrite qu'ici. */
+export const teinteT = t => rampe(ARRETS_T, t);
+
 export const couleurT = t => {
-  const h = rampe(ARRETS_T, t);
+  const h = teinteT(t);
   return h === null ? "var(--etiquette-3)" : `hsl(${h.toFixed(0)} 54% 47%)`;
 };
 
@@ -171,7 +181,9 @@ export const couleurT = t => {
    pas, la rampe s'arrête donc au rouge. */
 const ARRETS_UV = [[0, 132], [3, 54], [6, 32], [8, 14], [11, 0]];
 
+export const teinteUV = v => rampe(ARRETS_UV, v);
+
 export const couleurUV = v => {
-  const h = rampe(ARRETS_UV, v);
+  const h = teinteUV(v);
   return h === null ? "var(--etiquette-3)" : `hsl(${h.toFixed(0)} 62% 46%)`;
 };

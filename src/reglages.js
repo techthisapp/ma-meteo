@@ -24,8 +24,10 @@ const DEFAUT = {
   jetonsPris: [],      // jetons de parapluie déjà pris, par date et instant
   biais: 0,            // ressenti personnel, en degrés, borné
   pollensMuets: [],    // pollens dont on ne veut pas être averti
-  radar: true,         // la couche de pluie sur la carte
+  radar: true,         // ancien réglage de la couche de pluie, repris par `nappe`
   vigicarte: true,     // la couche de vigilance sur la carte
+  // `nappe` n'a pas de valeur par défaut : son absence est ce qui déclenche la
+  // reprise de l'ancien réglage de pluie.
 };
 
 let etat = { ...DEFAUT };
@@ -252,11 +254,19 @@ export function poserCiel(e) {
   poser({ ciel: e });
 }
 
-/* La couche de pluie de la carte. Allumée au départ : c'est ce que la carte a
-   de plus utile, et l'éteindre est le geste de qui veut lire le fond seul ou
-   ménager son réseau. Le choix se garde d'une visite à l'autre. */
-export const radar = () => etat.radar !== false;
-export function poserRadar(v) { poser({ radar: v === true }); }
+/* La nappe de la carte. Une seule à la fois : ce sont trois étalements de
+   couleur sur toute la surface, et deux superposés ne se liraient ni l'un ni
+   l'autre. La pluie est celle du départ, c'est ce que la carte a de plus utile.
+
+   Un réglage écrit par la version d'avant ne porte qu'un booléen de pluie : il
+   se reprend, la pluie éteinte devenant l'absence de nappe. */
+export const NAPPES = ["pluie", "temp"];
+export const nappe = () => {
+  if (NAPPES.includes(etat.nappe)) return etat.nappe;
+  if (etat.nappe === null) return null;
+  return etat.radar === false ? null : "pluie";
+};
+export function poserNappe(v) { poser({ nappe: NAPPES.includes(v) ? v : null }); }
 
 /* La vigilance sur la carte. Allumée au départ : elle ne coûte qu'une lecture de
    mille deux cents octets, et c'est la seule vue nationale de l'alerte que

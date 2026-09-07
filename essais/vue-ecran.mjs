@@ -41,7 +41,10 @@ const REGLAGES = { commune: "Fain-lès-Moutiers", codePostal: "21500",
     { commune: "Fain-lès-Moutiers", codePostal: "21500", lat: 47.5, lon: 4.3 },
     { commune: "Troyes", codePostal: "10000", lat: 48.3, lon: 4.07 },
     { commune: "Autun", codePostal: "71400", lat: 46.95, lon: 4.3 },
-  ] : [] };
+  ] : [],
+  /* La nappe de la carte : la variable NAPPE la pose avant le chargement, la
+     capture n'ayant pas à passer par le panneau pour la choisir. */
+  ...(process.env.NAPPE ? { nappe: process.env.NAPPE } : {}) };
 
 /* Deux journées par point, comme la source les rend pour plusieurs couples de
    coordonnées : le soleil monte vers le nord, la pluie tombe à l'ouest. */
@@ -159,6 +162,23 @@ for (const theme of ["light", "dark"]) {
       const lons = decodeURIComponent(q.get("longitude")).split(",").map(Number);
       route.fulfill({ status: 200, contentType: "application/json",
         body: JSON.stringify(lats.map((la, k) => journeesDe(la, lons[k]))) });
+      return;
+    }
+    /* La grille des nappes de la carte, reconnue à sa colonne de direction du
+       vent. La température descend du sud au nord et monte vers l'est. */
+    if (u.includes("current=") && u.includes("wind_direction_10m")) {
+      const q = new URL(u).searchParams;
+      const lats = decodeURIComponent(q.get("latitude")).split(",").map(Number);
+      const lons = decodeURIComponent(q.get("longitude")).split(",").map(Number);
+      route.fulfill({ status: 200, contentType: "application/json",
+        body: JSON.stringify(lats.map((la, k) => ({
+          latitude: la, longitude: lons[k], current: {
+            time: "2026-08-18T09:00", interval: 900,
+            temperature_2m: Math.round((32 - (la - 41) * 1.6 + lons[k] * 0.25) * 10) / 10,
+            wind_speed_10m: Math.round((6 + (la - 41) * 2.2) * 10) / 10,
+            wind_direction_10m: Math.round((200 + lons[k] * 4) % 360),
+            uv_index: Math.round((7 - (la - 41) * 0.35) * 100) / 100,
+          } }))) });
       return;
     }
     if (u.includes("current=")) {
@@ -316,6 +336,11 @@ for (const theme of ["light", "dark"]) {
   }
   /* La carte s'ouvre au zoom par défaut : la variable permet de la reculer de
      quelques crans pour voir le pays entier. */
+  /* Le panneau des couches, ouvert pour la capture qui le montre. */
+  if (process.env.PANNEAU) {
+    await pg.locator("#caCouches").click();
+    await pg.waitForTimeout(400);
+  }
   if (process.env.DEZOOM) {
     for (let k = 0; k < Number(process.env.DEZOOM); k++) {
       await pg.locator("#caMoins").click();

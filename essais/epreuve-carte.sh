@@ -6,12 +6,14 @@ cd "$(dirname "$0")/.."
 N="$1"
 SAUVE=/tmp/epreuve-carte
 rm -rf "$SAUVE"; mkdir -p "$SAUVE/src"
-cp src/carte.js src/vues.js src/app.js src/geographie.js src/vigilance.js "$SAUVE/src/"
+cp src/carte.js src/vues.js src/app.js src/geographie.js src/vigilance.js \
+   src/nappe.js src/reglages.js "$SAUVE/src/"
 cp styles.css "$SAUVE/"
 
 restaurer() {
   cp "$SAUVE/src/carte.js" "$SAUVE/src/vues.js" "$SAUVE/src/app.js" \
-     "$SAUVE/src/geographie.js" "$SAUVE/src/vigilance.js" src/
+     "$SAUVE/src/geographie.js" "$SAUVE/src/vigilance.js" \
+     "$SAUVE/src/nappe.js" "$SAUVE/src/reglages.js" src/
   cp "$SAUVE/styles.css" .
 }
 trap restaurer EXIT
@@ -65,6 +67,42 @@ case "$N" in
   16) # Laisser la mention de Météo-France quand la couche est éteinte.
      perl -0pi -e 's/\(vigiAllume \? `<span>Vigilance Météo-France<\/span>` : ""\)/`<span>Vigilance Météo-France<\/span>`/' src/vues.js
      ATTENDU="la mention de Météo-France paraît avec la couche de vigilance" ;;
+  17) # Charger la grille des nappes dès l'ouverture, nappe ou pas.
+     perl -0pi -e 's/      if \(allume\) lireIndex\(\);/      if (allume) lireIndex();\n      lireMesures();/' src/vues.js
+     ATTENDU="la nappe ne demande rien tant qu'elle n'est pas choisie" ;;
+  18) # Laisser le panneau ouvert quand on appuie sur la carte.
+     perl -0pi -e 's/      cv\.addEventListener\("pointerdown", \(\) => montrer\(false\), \{ passive: true \}\);//' src/vues.js
+     ATTENDU="le panneau des couches s'ouvre et se ferme" ;;
+  19) # Ne pas décocher les autres nappes : deux nappes marquées à la fois.
+     perl -0pi -e 's/        for \(const \[cle, el\] of rangs\) el\.setAttribute\("aria-checked", cle === c \? "true" : "false"\);/        for (const [cle, el] of rangs) if (cle === c) el.setAttribute("aria-checked", "true");/' src/vues.js
+     ATTENDU="une seule nappe à la fois" ;;
+  20) # Redemander la grille à chaque choix, garde ignorée.
+     perl -0pi -e 's/  if \(garde && t < garde\.exp\) return garde\.d;//' src/nappe.js
+     ATTENDU="rallumer la nappe ne redemande pas la grille" ;;
+  21) # Une seule couleur pour toute la nappe.
+     perl -0pi -e 's/      const t = v === null \? null : teinte\(v\);/      const t = v === null ? null : teinte(20);/' src/carte.js
+     ATTENDU="la nappe étale la valeur de ses points" ;;
+  22) # Laisser la nappe déborder du pays.
+     perl -0pi -e 's/  ctx\.clip\(\);\n  ctx\.globalAlpha = style\.opacite/  ctx.globalAlpha = style.opacite/' src/carte.js
+     ATTENDU="la nappe étale la valeur de ses points" ;;
+  23) # Écrire la mention de la source même sans la nappe.
+     perl -0pi -e 's/          \+ \(choisie === "temp"\n            \? `<span>Température <a href="https:\/\/open-meteo\.com" target="_blank" `\n              \+ `rel="noopener noreferrer">Open-Meteo<\/a><\/span>`\n            : ""\)/          + `<span>Température <a href="https:\/\/open-meteo.com" target="_blank" ` + `rel="noopener noreferrer">Open-Meteo<\/a><\/span>`/' src/vues.js
+     ATTENDU="la mention de la source paraît avec la nappe" ;;
+  24) # Laisser la légende en place sans nappe.
+     perl -0pi -e 's/        legende\.hidden = choisie !== "temp";/        legende.hidden = false;/' src/vues.js
+     ATTENDU="la légende porte la rampe et ses graduations" ;;
+  25) # Remplir le département même sous une nappe pleine.
+     perl -0pi -e 's/    if \(style\.trait\) ctx\.stroke\(\); else ctx\.fill\(\);/    ctx.fill();/' src/carte.js
+     ATTENDU="la vigilance passe en liseré sous une nappe pleine" ;;
+  26) # Ne pas garder le choix de nappe.
+     perl -0pi -e 's/export function poserNappe\(v\) \{ poser\(\{ nappe: NAPPES\.includes\(v\) \? v : null \}\); \}/export function poserNappe() { }/' src/reglages.js
+     ATTENDU="le choix de nappe se garde" ;;
+  27) # Prolonger la nappe hors de son emprise.
+     perl -0pi -e 's/  if \(x < 0 \|\| y < 0 \|\| x > COLS - 1 \|\| y > RANGS - 1\) return null;//' src/nappe.js
+     ATTENDU="la nappe interpole entre ses points et s'arrête à son emprise" ;;
+  28) # Jeter l'ancien réglage de pluie au lieu de le reprendre.
+     perl -0pi -e 's/  return etat\.radar === false \? null : "pluie";/  return "pluie";/' src/reglages.js
+     ATTENDU="un ancien réglage de pluie se reprend en choix de nappe" ;;
   *) echo "faute inconnue"; exit 2 ;;
 esac
 
@@ -73,6 +111,8 @@ if diff -q "$SAUVE/src/carte.js" src/carte.js >/dev/null \
   && diff -q "$SAUVE/src/app.js" src/app.js >/dev/null \
   && diff -q "$SAUVE/src/geographie.js" src/geographie.js >/dev/null \
   && diff -q "$SAUVE/src/vigilance.js" src/vigilance.js >/dev/null \
+  && diff -q "$SAUVE/src/nappe.js" src/nappe.js >/dev/null \
+  && diff -q "$SAUVE/src/reglages.js" src/reglages.js >/dev/null \
   && diff -q "$SAUVE/styles.css" styles.css >/dev/null; then
   echo "FAUTE $N NON APPLIQUÉE"; exit 3
 fi

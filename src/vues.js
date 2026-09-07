@@ -4,7 +4,7 @@
 import { nombreFr, hhmm, heureTxt, jourCourt, jourLong, esc, departementDe,
   heureJour } from "./horloge.js";
 import * as P from "./previsions.js";
-import { ico, icoTemps, icoCiel, tempsDe, couleurT } from "./icones.js";
+import { ico, icoTemps, icoCiel, tempsDe, couleurT, teinteT } from "./icones.js";
 import * as Ruban from "./ruban.js";
 import { liste, moments, TRANCHES } from "./ecritures.js";
 import * as Reglages from "./reglages.js";
@@ -20,6 +20,7 @@ import * as BeauTemps from "./beautemps.js";
 import * as Air from "./air.js";
 import * as Carte from "./carte.js";
 import * as Radar from "./radar.js";
+import * as NappeCarte from "./nappe.js";
 import * as Vig from "./vigilance.js";
 import { SEUILS } from "./conseils.js";
 
@@ -1061,6 +1062,15 @@ export function vueLune() {
 
 /* ---------- La carte ---------- */
 
+/* Les nappes de la carte, exclusives entre elles. Ce sont des étalements de
+   couleur sur toute la surface : deux superposés ne se liraient ni l'un ni
+   l'autre. La vigilance n'entre pas dans cette liste, elle ne teinte que les
+   départements en alerte et se pose sous la nappe. */
+const NAPPES_CARTE = [
+  { cle: "pluie", id: "caPluie", nom: "Pluie", ico: "goutte" },
+  { cle: "temp", id: "caTemp", nom: "Température", ico: "thermo" },
+];
+
 /* Le fond est dessiné, non chargé en tuiles : la mesure et ses raisons sont dans
    `carte.js` et dans `geographie.js`. Cet écran ne fait que poser la toile, les
    repères et les quelques commandes autour.
@@ -1104,12 +1114,9 @@ export function vueCarte(ctx, rendre, majEtat) {
       + `aria-label="Carte de ${esc(g.commune || "la position")} et de ses alentours"></canvas>`
       + `<div class="ca-reperes" id="caReperes"></div>`
       + `<div class="ca-outils">`
-      + `<button type="button" class="ca-o" id="caPluie" role="switch" `
-      + `aria-checked="${Reglages.radar() ? "true" : "false"}" `
-      + `aria-label="Couche de pluie">` + ico("goutte", "") + `</button>`
-      + `<button type="button" class="ca-o" id="caVigi" role="switch" `
-      + `aria-checked="${Reglages.vigicarte() ? "true" : "false"}" `
-      + `aria-label="Couche de vigilance">` + ico("alerte", "") + `</button>`
+      + `<button type="button" class="ca-o" id="caCouches" aria-expanded="false" `
+      + `aria-controls="caPanneau" aria-label="Couches de la carte">`
+      + ico("couches", "") + `</button>`
       + `<button type="button" class="ca-o" id="caPlus" aria-label="Zoomer">`
       + ico("plus", "") + `</button>`
       + `<button type="button" class="ca-o" id="caMoins" aria-label="Dézoomer">`
@@ -1117,8 +1124,27 @@ export function vueCarte(ctx, rendre, majEtat) {
       + `<button type="button" class="ca-o" id="caIci" aria-label="Revenir sur le lieu courant">`
       + ico("cible", "") + `</button>`
       + `</div>`
+      + `<div class="ca-panneau" id="caPanneau" hidden>`
+      + `<p class="ca-p-titre" id="caPnTitre">Nappe</p>`
+      + `<div role="radiogroup" aria-labelledby="caPnTitre">`
+      + NAPPES_CARTE.map(n => `<button type="button" class="ca-ch" id="${n.id}" `
+        + `role="radio" aria-checked="${Reglages.nappe() === n.cle ? "true" : "false"}">`
+        + ico(n.ico, "") + `<span>${n.nom}</span></button>`).join("")
+      + `<button type="button" class="ca-ch" id="caSansNappe" role="radio" `
+      + `aria-checked="${Reglages.nappe() === null ? "true" : "false"}">`
+      + ico("interdit", "") + `<span>Aucune</span></button>`
+      + `</div>`
+      + `<p class="ca-p-titre">Par-dessus</p>`
+      + `<button type="button" class="ca-ch" id="caVigi" role="switch" `
+      + `aria-checked="${Reglages.vigicarte() ? "true" : "false"}">`
+      + ico("alerte", "") + `<span>Vigilance</span></button>`
+      + `</div>`
       + `<p class="ca-mot" id="caMot" role="status" hidden></p>`
       + `<div class="ca-pied">`
+      + `<div class="ca-legende" id="caLegende" hidden>`
+      + `<i class="ca-rampe" id="caRampe"></i>`
+      + `<div class="ca-graduations" id="caGrads"></div>`
+      + `</div>`
       + `<div class="ca-bas">`
       + `<div class="ca-echelle" id="caEchelle"><i></i><span></span></div>`
       + `<p class="ca-credit" id="caCredit">Contours IGN et Natural Earth</p>`
@@ -1171,11 +1197,12 @@ export function vueCarte(ctx, rendre, majEtat) {
         barre.querySelector("span").textContent = `${e.km} km`;
       };
 
-      /* ---------- La couche de pluie ----------
+      /* ---------- Les couches ----------
 
-         Elle se glisse entre le fond et les traits. La carte ne sait pas ce
-         qu'elle peint là, et la couche ne sait rien du fond. */
-      let allume = Reglages.radar();
+         Elles se glissent entre le fond et les traits. La carte ne sait pas ce
+         qu'elle peint là, et les couches ne savent rien du fond. */
+      let choisie = Reglages.nappe();
+      let allume = choisie === "pluie";
       let hote = "", images = [], rang = 0, enLecture = false;
 
       const couche = (c, v, l, h) => {
@@ -1184,17 +1211,39 @@ export function vueCarte(ctx, rendre, majEtat) {
           () => main.redessiner());
       };
 
-      /* La vigilance se peint sous la pluie : elle teinte le fond, la pluie se
-         pose dessus. Le vert ne se teinte pas, une vigilance verte n'étant pas
-         une vigilance. */
-      let vigiAllume = Reglages.vigicarte();
-      let vigiNiveaux = null;
-      const coucheVigi = (c, v, l, h) => {
-        if (!vigiAllume || !vigiNiveaux) return 0;
-        return Carte.peindreDepartements(cv, c, v, l, h, vigiNiveaux);
+      /* La nappe de température : une grille de points, une couleur étalée entre
+         eux. La rampe est celle du ruban et de la table de la semaine. */
+      let mesures = null;
+      const coucheTemp = (c, v, l, h) => {
+        if (choisie !== "temp" || !mesures) return 0;
+        return Carte.peindreNappe(c, v, l, h,
+          NappeCarte.couche(mesures.temp, teinteT), { opacite: 0.62 });
       };
 
-      const main = Carte.poser(cv, vue, placer, [coucheVigi, couche]);
+      /* La vigilance. Le vert ne se teinte pas, une vigilance verte n'étant pas
+         une vigilance.
+
+         Elle se peint de deux façons. En fond sous la pluie, laquelle est
+         tachetée et laisse voir ce qu'il y a dessous. En liseré par-dessus une
+         nappe pleine, qui couvrirait un fond teinté : une alerte doit rester
+         visible quelle que soit la couche choisie. */
+      let vigiAllume = Reglages.vigicarte();
+      let vigiNiveaux = null;
+      const vigiEnTrait = () => choisie === "temp";
+      const coucheVigiFond = (c, v, l, h) => {
+        if (!vigiAllume || !vigiNiveaux || vigiEnTrait()) return 0;
+        return Carte.peindreDepartements(cv, c, v, l, h, vigiNiveaux);
+      };
+      const coucheVigiTrait = (c, v, l, h) => {
+        if (!vigiAllume || !vigiNiveaux || !vigiEnTrait()) return 0;
+        return Carte.peindreDepartements(cv, c, v, l, h, vigiNiveaux, { trait: true });
+      };
+
+      /* L'ordre de tracé, écrit une fois : la pose du geste et le premier tracé
+         prennent la même liste. */
+      const COUCHES = [coucheVigiFond, { peindre: coucheTemp, gaine: false },
+        couche, { peindre: coucheVigiTrait, gaine: false }];
+      const main = Carte.poser(cv, vue, placer, COUCHES);
       const revoir = () => { main.redessiner(); };
 
       /* Le premier tracé attend que la toile ait sa taille. Le cadrage
@@ -1204,7 +1253,7 @@ export function vueCarte(ctx, rendre, majEtat) {
         if (vue.z === null) {
           Object.assign(vue, Carte.vueSur(Carte.FRANCE, cv.clientWidth, cv.clientHeight));
         }
-        Carte.dessiner(cv, vue, [coucheVigi, couche]);
+        Carte.dessiner(cv, vue, COUCHES);
         placer();
       });
 
@@ -1256,7 +1305,6 @@ export function vueCarte(ctx, rendre, majEtat) {
       const heure = bloc.querySelector("#caHeure");
       const mot = bloc.querySelector("#caMot");
       const credit = bloc.querySelector("#caCredit");
-      const pluie = bloc.querySelector("#caPluie");
 
       const dire = t => {
         mot.textContent = t || "";
@@ -1339,8 +1387,31 @@ export function vueCarte(ctx, rendre, majEtat) {
           ? `<span>Pluie <a href="https://www.rainviewer.com" target="_blank" `
             + `rel="noopener noreferrer">RainViewer</a></span>`
           : "")
+          + (choisie === "temp"
+            ? `<span>Température <a href="https://open-meteo.com" target="_blank" `
+              + `rel="noopener noreferrer">Open-Meteo</a></span>`
+            : "")
           + (vigiAllume ? `<span>Vigilance Météo-France</span>` : "")
           + `<span>Contours IGN et Natural Earth</span>`;
+      };
+
+      /* La légende. Une rampe de couleur sans échelle ne se lit pas : deux
+         teintes voisines ne disent rien si l'on ne sait pas à quels degrés elles
+         répondent. Les graduations sont celles de la rampe écrite, non celles de
+         la vue : une échelle qui bougerait au glissement ferait changer de
+         couleur des lieux qui n'ont pas changé de température. */
+      const legende = bloc.querySelector("#caLegende");
+      const rampeEl = bloc.querySelector("#caRampe");
+      const grads = bloc.querySelector("#caGrads");
+      const poserLegende = () => {
+        const n = NAPPES_CARTE.find(x => x.cle === choisie);
+        legende.hidden = choisie !== "temp";
+        if (legende.hidden) return;
+        const arrets = [-5, 5, 15, 25, 35];
+        rampeEl.style.background = `linear-gradient(to right, ${
+          arrets.map((v, i) => `${couleurT(v)} ${(i / (arrets.length - 1) * 100).toFixed(0)}%`).join(", ")})`;
+        grads.innerHTML = arrets.map(v => `<span>${v}°</span>`).join("");
+        legende.setAttribute("aria-label", `Échelle de ${n.nom.toLowerCase()}, de -5 à 35 degrés`);
       };
 
       /* L'index dit où sont les images et à quelle heure elles ont été prises.
@@ -1363,18 +1434,70 @@ export function vueCarte(ctx, rendre, majEtat) {
         }
       };
 
-      /* L'interrupteur de la couche. Éteinte, elle ne charge rien et ne dit
-         rien : c'est le geste de qui veut lire le fond seul ou ménager son
-         réseau, et le choix se garde d'une visite à l'autre. */
-      pluie.addEventListener("click", () => {
-        allume = !allume;
-        Reglages.poserRadar(allume);
-        pluie.setAttribute("aria-checked", allume ? "true" : "false");
+      /* La grille de mesures, une lecture pour les trois nappes. Elle ne part
+         que si une nappe qui en vit est allumée. */
+      const lireMesures = async () => {
+        try {
+          const d = await NappeCarte.charger();
+          if (!cv.isConnected) return;
+          if (!d) { dire("La nappe a besoin du réseau."); return; }
+          mesures = d;
+          dire("");
+          revoir();
+        } catch {
+          if (cv.isConnected) dire("La nappe a besoin du réseau.");
+        }
+      };
+
+      /* Le choix de nappe. Une seule à la fois, ou aucune : ce sont des
+         étalements de couleur sur toute la surface. Le choix se garde d'une
+         visite à l'autre, et une nappe éteinte ne demande rien à sa source. */
+      const rangs = new Map(NAPPES_CARTE.map(n => [n.cle, bloc.querySelector(`#${n.id}`)]));
+      const sans = bloc.querySelector("#caSansNappe");
+
+      const poserChoix = c => {
+        choisie = c;
+        allume = c === "pluie";
+        Reglages.poserNappe(c);
+        for (const [cle, el] of rangs) el.setAttribute("aria-checked", cle === c ? "true" : "false");
+        sans.setAttribute("aria-checked", c === null ? "true" : "false");
         mention();
-        if (!allume) { arreter(); rangee.hidden = true; dire(""); revoir(); return; }
-        if (images.length) { rangee.hidden = images.length < 2; revoir(); }
-        else lireIndex();
+        poserLegende();
+        if (!allume) { arreter(); rangee.hidden = true; }
+        if (c === "pluie") {
+          dire("");
+          if (images.length) { rangee.hidden = images.length < 2; revoir(); } else lireIndex();
+          return;
+        }
+        if (c === "temp") {
+          if (mesures) revoir(); else lireMesures();
+          return;
+        }
+        dire("");
+        revoir();
+      };
+
+      for (const [cle, el] of rangs) el.addEventListener("click", () => poserChoix(cle));
+      sans.addEventListener("click", () => poserChoix(null));
+
+      /* Le panneau des couches. Quatre interrupteurs empilés dans la colonne
+         auraient pris la moitié de la hauteur du cadre, et chaque couche à venir
+         en aurait pris un de plus. Un bouton ouvre la liste, la liste porte les
+         noms : une icône seule ne dit pas ce qu'elle allume. */
+      const ouvrir = bloc.querySelector("#caCouches");
+      const panneau = bloc.querySelector("#caPanneau");
+      const montrer = v => {
+        panneau.hidden = !v;
+        ouvrir.setAttribute("aria-expanded", v ? "true" : "false");
+      };
+      ouvrir.addEventListener("click", e => {
+        e.stopPropagation();
+        montrer(panneau.hidden);
       });
+      panneau.addEventListener("click", e => e.stopPropagation());
+      /* Un appui sur la carte referme le panneau : il couvre le coin de la vue,
+         et le refermer par son propre bouton demanderait de viser deux fois. */
+      cv.addEventListener("pointerdown", () => montrer(false), { passive: true });
 
       /* La vigilance de tout le pays, une lecture de mille deux cents octets. Un
          département au vert ne paraît pas dans la table : la couche ne teinte
@@ -1399,7 +1522,9 @@ export function vueCarte(ctx, rendre, majEtat) {
       });
 
       mention();
+      poserLegende();
       if (allume) lireIndex();
+      if (choisie === "temp") lireMesures();
       if (vigiAllume) lireVigi();
 
       window.addEventListener("resize", revoir, { passive: true });
