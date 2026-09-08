@@ -1285,6 +1285,7 @@ button.rangee:active{background:var(--surface-2)}
   font-size:var(--texte-note);color:var(--etiquette-2);
 }
 .ca-lv-r i{flex:none;height:1.6px;background:var(--ca-vent);border-radius:var(--rayon-plein)}
+.ca-l-titre{display:block;font-size:var(--texte-note);color:var(--etiquette-2);margin-bottom:3px}
 .ca-rampe{display:block;height:8px;border-radius:var(--rayon-plein)}
 .ca-graduations{
   display:flex;justify-content:space-between;

@@ -4,7 +4,8 @@
 import { nombreFr, hhmm, heureTxt, jourCourt, jourLong, esc, departementDe,
   heureJour } from "./horloge.js";
 import * as P from "./previsions.js";
-import { ico, icoTemps, icoCiel, tempsDe, couleurT, teinteT } from "./icones.js";
+import { ico, icoTemps, icoCiel, tempsDe, couleurT, teinteT,
+  couleurUV, teinteUV } from "./icones.js";
 import * as Ruban from "./ruban.js";
 import { ECHELLES } from "./ruban.js";
 import { liste, moments, TRANCHES } from "./ecritures.js";
@@ -1069,8 +1070,13 @@ export function vueLune() {
    l'autre. La vigilance n'entre pas dans cette liste, elle ne teinte que les
    départements en alerte et se pose sous la nappe. */
 const NAPPES_CARTE = [
-  { cle: "pluie", id: "caPluie", nom: "Pluie", ico: "goutte" },
-  { cle: "temp", id: "caTemp", nom: "Température", ico: "thermo" },
+  { cle: "pluie", id: "caPluie", nom: "Pluie", ico: "goutte", porte: "maintenant" },
+  { cle: "temp", id: "caTemp", nom: "Température", ico: "thermo", porte: "maintenant",
+    champ: "temp", teinte: teinteT, sat: 0.54, clarte: 0.47,
+    arrets: [-5, 5, 15, 25, 35], unite: "°", couleur: couleurT },
+  { cle: "uv", id: "caUV", nom: "Indice UV", ico: "soleil", porte: "maximum du jour",
+    champ: "uv", teinte: teinteUV, sat: 0.62, clarte: 0.46,
+    arrets: [0, 3, 6, 8, 11], unite: "", couleur: couleurUV },
 ];
 
 /* Le fond est dessiné, non chargé en tuiles : la mesure et ses raisons sont dans
@@ -1149,6 +1155,7 @@ export function vueCarte(ctx, rendre, majEtat) {
       + `<div class="ca-pied">`
       + `<div class="ca-legendes" id="caLegendes">`
       + `<div class="ca-legende" id="caLegende" hidden>`
+      + `<b class="ca-l-titre" id="caLegTitre"></b>`
       + `<i class="ca-rampe" id="caRampe"></i>`
       + `<div class="ca-graduations" id="caGrads"></div>`
       + `</div>`
@@ -1220,13 +1227,17 @@ export function vueCarte(ctx, rendre, majEtat) {
           () => main.redessiner());
       };
 
-      /* La nappe de température : une grille de points, une couleur étalée entre
-         eux. La rampe est celle du ruban et de la table de la semaine. */
+      /* Les nappes de valeurs : une grille de points, une couleur étalée entre
+         eux. Les rampes sont celles du ruban et de la table de la semaine, et la
+         table des nappes dit laquelle va avec quel champ : le tracé ne connaît
+         pas les grandeurs, il connaît une valeur et une teinte. */
       let mesures = null;
-      const coucheTemp = (c, v, l, h) => {
-        if (choisie !== "temp" || !mesures) return 0;
+      const coucheValeur = (c, v, l, h) => {
+        const n = NAPPES_CARTE.find(x => x.cle === choisie && x.champ);
+        if (!n || !mesures) return 0;
         return Carte.peindreNappe(c, v, l, h,
-          NappeCarte.couche(mesures.temp, teinteT), { opacite: 0.62 });
+          NappeCarte.couche(mesures[n.champ], n.teinte),
+          { opacite: 0.62, sat: n.sat, clarte: n.clarte });
       };
 
       /* Le vent, sur sa propre toile posée devant celle de la carte. Il ne
@@ -1263,7 +1274,7 @@ export function vueCarte(ctx, rendre, majEtat) {
          visible quelle que soit la couche choisie. */
       let vigiAllume = Reglages.vigicarte();
       let vigiNiveaux = null;
-      const vigiEnTrait = () => choisie === "temp";
+      const vigiEnTrait = () => NAPPES_CARTE.some(n => n.cle === choisie && n.champ);
       const coucheVigiFond = (c, v, l, h) => {
         if (!vigiAllume || !vigiNiveaux || vigiEnTrait()) return 0;
         return Carte.peindreDepartements(cv, c, v, l, h, vigiNiveaux);
@@ -1275,7 +1286,7 @@ export function vueCarte(ctx, rendre, majEtat) {
 
       /* L'ordre de tracé, écrit une fois : la pose du geste et le premier tracé
          prennent la même liste. */
-      const COUCHES = [coucheVigiFond, { peindre: coucheTemp, gaine: false },
+      const COUCHES = [coucheVigiFond, { peindre: coucheValeur, gaine: false },
         couche, { peindre: coucheVigiTrait, gaine: false }];
       const main = Carte.poser(cv, vue, placer, COUCHES);
       const revoir = () => { main.redessiner(); };
@@ -1421,12 +1432,16 @@ export function vueCarte(ctx, rendre, majEtat) {
           ? `<span>Pluie <a href="https://www.rainviewer.com" target="_blank" `
             + `rel="noopener noreferrer">RainViewer</a></span>`
           : "")
-          + (choisie === "temp" || ventAllume
-            ? `<span>${choisie === "temp" && ventAllume ? "Température et vent"
-              : choisie === "temp" ? "Température" : "Vent"} `
-              + `<a href="https://open-meteo.com" target="_blank" `
-              + `rel="noopener noreferrer">Open-Meteo</a></span>`
-            : "")
+          + (() => {
+            /* Deux couches de la même source ne la nomment qu'une fois. */
+            const n = NAPPES_CARTE.find(x => x.cle === choisie && x.champ);
+            const noms = [n && n.nom, ventAllume ? "vent" : null].filter(Boolean);
+            if (!noms.length) return "";
+            const brut = noms.length === 2 ? `${noms[0]} et ${noms[1]}` : noms[0];
+            const dit = brut.charAt(0).toUpperCase() + brut.slice(1);
+            return `<span>${dit} <a href="https://open-meteo.com" target="_blank" `
+              + `rel="noopener noreferrer">Open-Meteo</a></span>`;
+          })()
           + (vigiAllume ? `<span>Vigilance Météo-France</span>` : "")
           + `<span>Contours IGN et Natural Earth</span>`;
       };
@@ -1438,17 +1453,23 @@ export function vueCarte(ctx, rendre, majEtat) {
          couleur des lieux qui n'ont pas changé de température. */
       const legende = bloc.querySelector("#caLegende");
       const rampeEl = bloc.querySelector("#caRampe");
+      const titreLeg = bloc.querySelector("#caLegTitre");
       const grads = bloc.querySelector("#caGrads");
       const legVent = bloc.querySelector("#caLegVent");
       const poserLegende = () => {
-        const n = NAPPES_CARTE.find(x => x.cle === choisie);
-        legende.hidden = choisie !== "temp";
-        if (!legende.hidden) {
-          const arrets = [-5, 5, 15, 25, 35];
+        const n = NAPPES_CARTE.find(x => x.cle === choisie && x.champ);
+        legende.hidden = !n;
+        if (n) {
+          const a = n.arrets;
           rampeEl.style.background = `linear-gradient(to right, ${
-            arrets.map((v, i) => `${couleurT(v)} ${(i / (arrets.length - 1) * 100).toFixed(0)}%`).join(", ")})`;
-          grads.innerHTML = arrets.map(v => `<span>${v}°</span>`).join("");
-          legende.setAttribute("aria-label", `Échelle de ${n.nom.toLowerCase()}, de -5 à 35 degrés`);
+            a.map((v, i) => `${n.couleur(v)} ${(i / (a.length - 1) * 100).toFixed(0)}%`).join(", ")})`;
+          /* La légende dit sur quoi la nappe porte : la température vaut pour
+             l'instant, l'indice ultraviolet pour la journée. Deux registres sous
+             le même sélecteur, et rien d'autre ne les distingue. */
+          titreLeg.textContent = `${n.nom}, ${n.porte}`;
+          grads.innerHTML = a.map(v => `<span>${v}${n.unite}</span>`).join("");
+          legende.setAttribute("aria-label",
+            `Échelle de ${n.nom.toLowerCase()}, ${n.porte}, de ${a[0]} à ${a[a.length - 1]}`);
         }
         /* Le vent ne porte pas de couleur : sa force se lit à la longueur des
            traînées. La légende montre donc trois traînées et les nomme, avec
@@ -1519,7 +1540,7 @@ export function vueCarte(ctx, rendre, majEtat) {
           if (images.length) { rangee.hidden = images.length < 2; revoir(); } else lireIndex();
           return;
         }
-        if (c === "temp") {
+        if (NAPPES_CARTE.some(n => n.cle === c && n.champ)) {
           if (mesures) revoir(); else lireMesures();
           return;
         }
@@ -1588,7 +1609,7 @@ export function vueCarte(ctx, rendre, majEtat) {
       mention();
       poserLegende();
       if (allume) lireIndex();
-      if (choisie === "temp" || ventAllume) lireMesures();
+      if (NAPPES_CARTE.some(n => n.cle === choisie && n.champ) || ventAllume) lireMesures();
       if (vigiAllume) lireVigi();
 
       window.addEventListener("resize", revoir, { passive: true });

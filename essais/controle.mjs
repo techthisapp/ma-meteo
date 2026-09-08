@@ -378,13 +378,22 @@ function grilleCorps(u) {
   const lons = decodeURIComponent(q.get("longitude")).split(",").map(Number);
   return lats.map((la, k) => {
     const lo = lons[k];
-    return { latitude: la, longitude: lo, current: {
-      time: "2026-08-18T09:00", interval: 900,
-      temperature_2m: Math.round((32 - (la - 41) * 1.6 + lo * 0.25) * 10) / 10,
-      wind_speed_10m: Math.round((6 + (la - 41) * 2.2) * 10) / 10,
-      wind_direction_10m: Math.round((200 + lo * 4) % 360),
-      uv_index: Math.round((7 - (la - 41) * 0.35) * 100) / 100,
-    } };
+    return {
+      latitude: la, longitude: lo,
+      current: {
+        time: "2026-08-18T09:00", interval: 900,
+        temperature_2m: Math.round((32 - (la - 41) * 1.6 + lo * 0.25) * 10) / 10,
+        wind_speed_10m: Math.round((6 + (la - 41) * 2.2) * 10) / 10,
+        wind_direction_10m: Math.round((200 + lo * 4) % 360),
+      },
+      /* L'indice ultraviolet se prend sur la journée, non sur l'instant : deux
+         dates sont rendues, et la lecture doit retenir celle du jour. La valeur
+         de la veille est volontairement très différente. */
+      daily: {
+        time: ["2026-08-17", "2026-08-18"],
+        uv_index_max: [1, Math.round((8 - (la - 41) * 0.42) * 100) / 100],
+      },
+    };
   });
 }
 
@@ -6921,6 +6930,106 @@ ok("la nappe interpole entre ses points et s'arrête à son emprise",
     if (N.valeurA(champ, 60, 2) !== null) return "une valeur est rendue hors emprise";
     if (N.valeurA(champ, 46, 30) !== null) return "une valeur est rendue hors emprise";
     return "";
+  }) === "");
+
+/* ---------- L'indice ultraviolet ----------
+
+   Il se prend sur la journée, non sur l'instant. Mesuré le 7 septembre 2026 à
+   23 h 15 sur les 380 points : l'indice du moment vaut zéro partout, quand le
+   maximum du jour va de 0,95 à 6,7. Une nappe entièrement à zéro la moitié du
+   temps n'apprend rien, et les quatre mesures de l'accueil appliquent déjà cette
+   règle. */
+ok("la nappe d'indice ultraviolet retient la journée en cours",
+  await pgNap.evaluate(async () => {
+    const N = await import("/src/nappe.js");
+    if (N.rangDuJour(["2026-08-17", "2026-08-18"], "2026-08-18") !== 1) return "la date du jour n'est pas trouvée";
+    if (N.rangDuJour(["2026-08-17", "2026-08-18"], "2026-09-01") !== 0) return "une date absente ne retombe pas sur la première";
+    /* La date locale est celle de l'appareil, non celle du temps universel : le
+       service ignore le fuseau automatique sur une requête à plusieurs
+       coordonnées, et la journée serait décalée de deux heures en été. */
+    const t = new Date("2026-08-18T00:30:00+02:00");
+    if (N.dateLocale(t) !== "2026-08-18") return `date locale ${N.dateLocale(t)}`;
+    /* La lecture retient bien la valeur du jour : la charge d'essai porte 1 la
+       veille et huit et quelques le jour même. */
+    const faux = N.points().map(([la, lo]) => ({
+      current: { time: "2026-08-18T09:00", temperature_2m: 20, wind_speed_10m: 10, wind_direction_10m: 200 },
+      daily: { time: ["2026-08-17", "2026-08-18"], uv_index_max: [1, 8 - (la - 41) * 0.42] },
+    }));
+    const d = N.lire(faux, "2026-08-18");
+    return d.uv[0] > 7 ? "" : `valeur retenue ${d.uv[0]}`;
+  }) === "");
+
+ok("la grille demande la colonne de journée et deux journées",
+  await pgNap.evaluate(async () => {
+    const N = await import("/src/nappe.js");
+    const u = new URL(N.adresse());
+    const q = u.searchParams;
+    if (q.get("daily") !== "uv_index_max") return `daily ${q.get("daily")}`;
+    if (q.get("forecast_days") !== "2") return `forecast_days ${q.get("forecast_days")}`;
+    /* L'indice n'est pas demandé deux fois : il a quitté les colonnes de
+       l'instant en même temps qu'il entrait dans celles de la journée. */
+    return /uv_index/.test(q.get("current")) ? "l'indice reste demandé sur l'instant" : "";
+  }) === "");
+
+/* La charge d'essai fait descendre l'indice du sud au nord, comme la
+   température, mais avec sa propre rampe : c'est bien la valeur d'UV qui est
+   peinte, non celle qui était là avant. */
+const uvDit = await pgNap.evaluate(async () => {
+  const dodo = m => new Promise(r => setTimeout(r, m));
+  document.getElementById("caCouches").click(); await dodo(200);
+  document.getElementById("caUV").click(); await dodo(900);
+  const cv = document.getElementById("caToile");
+  const ctx = cv.getContext("2d");
+  const C = await import("/src/carte.js");
+  const teinte = (r, g, b) => {
+    const [x, y, z] = [r, g, b].map(v => v / 255);
+    const mx = Math.max(x, y, z), mn = Math.min(x, y, z), d = mx - mn;
+    if (d < 1e-6) return null;
+    let h = mx === x ? ((y - z) / d) % 6 : mx === y ? (z - x) / d + 2 : (x - y) / d + 4;
+    h *= 60; if (h < 0) h += 360;
+    return h;
+  };
+  const lire = (la, lo) => {
+    const p = C.surEcran({ lat: 46.4, lon: 2.2, z: 5.13 }, la, lo, cv.clientWidth, cv.clientHeight);
+    const d = ctx.getImageData(Math.round(p.x * 2), Math.round(p.y * 2), 1, 1).data;
+    return teinte(d[0], d[1], d[2]);
+  };
+  if (document.getElementById("caTemp").getAttribute("aria-checked") !== "false") {
+    return "la température reste marquée sous l'indice";
+  }
+  const sud = lire(43.6, 1.4), nord = lire(50.3, 3.0);
+  if (sud === null || nord === null) return "un point du pays n'est pas teinté";
+  if (!(sud < nord - 4)) {
+    return `le sud n'est pas plus exposé : teintes ${sud.toFixed(0)} et ${nord.toFixed(0)}`;
+  }
+  /* L'ordre ne suffit pas à dire quelle rampe a servi : celle de la température
+     décroît elle aussi. La teinte peinte est donc comparée à celle que la rampe
+     de l'indice donne pour la valeur de la charge, laquelle descend de huit au
+     sud du domaine à raison de 0,42 par degré de latitude. */
+  const I = await import("/src/icones.js");
+  for (const [la, teintePeinte] of [[43.6, sud], [50.3, nord]]) {
+    const attendue = I.teinteUV(8 - (la - 41) * 0.42);
+    if (Math.abs(teintePeinte - attendue) > 20) {
+      return `teinte ${teintePeinte.toFixed(0)} là où la rampe de l'indice donne ${attendue.toFixed(0)}`;
+    }
+  }
+  return "";
+});
+ok("la nappe d'indice ultraviolet teinte selon sa propre rampe", uvDit === "", uvDit);
+
+ok("la légende dit sur quoi la nappe porte",
+  await pgNap.evaluate(async () => {
+    const dodo = m => new Promise(r => setTimeout(r, m));
+    const t = () => document.getElementById("caLegTitre").textContent;
+    const uv = t();
+    if (!/maximum du jour/.test(uv)) return `légende de l'indice : ${uv}`;
+    document.getElementById("caTemp").click(); await dodo(900);
+    const temp = t();
+    if (!/maintenant/.test(temp)) return `légende de la température : ${temp}`;
+    /* Les graduations suivent la nappe : celles de l'indice sont les seuils de
+       l'Organisation mondiale de la santé, celles de la température des degrés. */
+    const g = [...document.querySelectorAll("#caGrads span")].map(x => x.textContent);
+    return g.some(x => /°/.test(x)) ? "" : `graduations ${g.join(", ")}`;
   }) === "");
 
 /* La grille est gardée un quart d'heure, la cadence du produit. Les bascules des

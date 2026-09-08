@@ -261,7 +261,7 @@ export function poserCiel(e) {
 
    Un réglage écrit par la version d'avant ne porte qu'un booléen de pluie : il
    se reprend, la pluie éteinte devenant l'absence de nappe. */
-export const NAPPES = ["pluie", "temp"];
+export const NAPPES = ["pluie", "temp", "uv"];
 export const nappe = () => {
   if (NAPPES.includes(etat.nappe)) return etat.nappe;
   if (etat.nappe === null) return null;

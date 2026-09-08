@@ -173,12 +173,16 @@ for (const theme of ["light", "dark"]) {
       const lons = decodeURIComponent(q.get("longitude")).split(",").map(Number);
       route.fulfill({ status: 200, contentType: "application/json",
         body: JSON.stringify(lats.map((la, k) => ({
-          latitude: la, longitude: lons[k], current: {
+          latitude: la, longitude: lons[k],
+          current: {
             time: "2026-08-18T09:00", interval: 900,
             temperature_2m: Math.round((32 - (la - 41) * 1.6 + lons[k] * 0.25) * 10) / 10,
             wind_speed_10m: Math.round((6 + (la - 41) * 2.2) * 10) / 10,
             wind_direction_10m: Math.round((200 + lons[k] * 4) % 360),
-            uv_index: Math.round((7 - (la - 41) * 0.35) * 100) / 100,
+          },
+          daily: {
+            time: ["2026-08-17", "2026-08-18"],
+            uv_index_max: [1, Math.round((8 - (la - 41) * 0.42) * 100) / 100],
           } }))) });
       return;
     }

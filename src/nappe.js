@@ -24,9 +24,23 @@ export const RANGS = Math.round((N - S) / PAS_LAT) + 1;  // 19
 const SERVICE = "https://api.open-meteo.com/v1/forecast";
 
 /* Les colonnes des trois nappes, demandées ensemble. Une couche allumée après
-   l'autre ne coûte alors rien de plus : le service rend les trois grandeurs pour
-   le même prix d'adresse, et la lecture est gardée. */
-export const COLONNES = ["temperature_2m", "wind_speed_10m", "wind_direction_10m", "uv_index"];
+   l'autre ne coûte alors rien de plus : le service rend les grandeurs pour le
+   même prix d'adresse, et la lecture est gardée.
+
+   L'indice ultraviolet fait exception et se prend sur la journée, non sur
+   l'instant. Mesuré le 7 septembre 2026 à 23 h 15 : l'indice du moment vaut zéro
+   sur les 380 points, quand le maximum du jour va de 0,95 à 6,7. Une nappe
+   entièrement à zéro la moitié du temps n'apprend rien, et l'accueil applique
+   déjà cette règle à ses quatre mesures.
+
+   La journée demandée est celle du temps universel, le service ignorant le
+   fuseau automatique sur une requête à plusieurs coordonnées. Deux journées sont
+   donc lues et la lecture retient celle qui porte la date locale : entre minuit
+   et deux heures du matin en été, la première serait celle qui vient de finir.
+   Le surcoût mesuré est de 2348 octets compressés, 15 633 contre 13 285. */
+export const COLONNES = ["temperature_2m", "wind_speed_10m", "wind_direction_10m"];
+export const COLONNES_JOUR = ["uv_index_max"];
+export const JOURS = 2;
 
 /* Le produit se refait au quart d'heure, ce que le service annonce lui-même par
    son champ `interval`. La garde suit cette cadence. */
@@ -48,6 +62,8 @@ export function adresse() {
   q.set("latitude", p.map(x => x[0].toFixed(2)).join(","));
   q.set("longitude", p.map(x => x[1].toFixed(2)).join(","));
   q.set("current", COLONNES.join(","));
+  q.set("daily", COLONNES_JOUR.join(","));
+  q.set("forecast_days", String(JOURS));
   return `${SERVICE}?${q}`;
 }
 
@@ -55,7 +71,19 @@ export function adresse() {
    coordonnées rendues sont celles de la grille du modèle, non celles qui ont été
    demandées : la valeur se pose sur la maille demandée, l'écart valant moins
    d'un demi-pas de modèle. */
-export function lire(d) {
+/* La date locale, celle de l'appareil, au format que le service emploie. */
+export const dateLocale = (t = new Date()) =>
+  `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+
+/* Le rang de la journée en cours dans les dates rendues. À défaut, la première :
+   une valeur de la veille vaut mieux que rien, et l'écart est d'une nuit. */
+export function rangDuJour(dates, aujourdhui = dateLocale()) {
+  if (!Array.isArray(dates)) return 0;
+  const k = dates.indexOf(aujourdhui);
+  return k >= 0 ? k : 0;
+}
+
+export function lire(d, aujourdhui = dateLocale()) {
   if (!Array.isArray(d) || d.length !== COLS * RANGS) return null;
   const n = COLS * RANGS;
   const out = {
@@ -68,7 +96,10 @@ export function lire(d) {
     out.temp[i] = Number.isFinite(c.temperature_2m) ? c.temperature_2m : NaN;
     out.vent[i] = Number.isFinite(c.wind_speed_10m) ? c.wind_speed_10m : NaN;
     out.dir[i] = Number.isFinite(c.wind_direction_10m) ? c.wind_direction_10m : NaN;
-    out.uv[i] = Number.isFinite(c.uv_index) ? c.uv_index : NaN;
+    const j = d[i].daily;
+    const k = j ? rangDuJour(j.time, aujourdhui) : 0;
+    const uv = j && Array.isArray(j.uv_index_max) ? j.uv_index_max[k] : null;
+    out.uv[i] = Number.isFinite(uv) ? uv : NaN;
     if (!out.maj && typeof c.time === "string") out.maj = c.time;
   }
   return out;

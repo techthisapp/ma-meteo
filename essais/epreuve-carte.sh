@@ -86,10 +86,18 @@ case "$N" in
      perl -0pi -e 's/  ctx\.clip\(\);\n  ctx\.globalAlpha = style\.opacite/  ctx.globalAlpha = style.opacite/' src/carte.js
      ATTENDU="la nappe étale la valeur de ses points" ;;
   23) # Écrire la mention de la source même sans la nappe.
-     perl -0pi -e 's/          \+ \(choisie === "temp"\n            \? `<span>Température <a href="https:\/\/open-meteo\.com" target="_blank" `\n              \+ `rel="noopener noreferrer">Open-Meteo<\/a><\/span>`\n            : ""\)/          + `<span>Température <a href="https:\/\/open-meteo.com" target="_blank" ` + `rel="noopener noreferrer">Open-Meteo<\/a><\/span>`/' src/vues.js
+     python3 - <<'PYFAUTE'
+import io
+p = "src/vues.js"
+s = io.open(p, encoding="utf-8").read()
+a = """            const noms = [n && n.nom, ventAllume ? "vent" : null].filter(Boolean);"""
+b = """            const noms = [n ? n.nom : "Température", ventAllume ? "vent" : null].filter(Boolean);"""
+assert s.count(a) == 1
+io.open(p, "w", encoding="utf-8").write(s.replace(a, b))
+PYFAUTE
      ATTENDU="la mention de la source paraît avec la nappe" ;;
   24) # Laisser la légende en place sans nappe.
-     perl -0pi -e 's/        legende\.hidden = choisie !== "temp";/        legende.hidden = false;/' src/vues.js
+     perl -0pi -e 's/        legende\.hidden = !n;/        legende.hidden = false;/' src/vues.js
      ATTENDU="la légende porte la rampe et ses graduations" ;;
   25) # Remplir le département même sous une nappe pleine.
      perl -0pi -e 's/    if \(style\.trait\) ctx\.stroke\(\); else ctx\.fill\(\);/    ctx.fill();/' src/carte.js
@@ -103,6 +111,19 @@ case "$N" in
   28) # Jeter l'ancien réglage de pluie au lieu de le reprendre.
      perl -0pi -e 's/  return etat\.radar === false \? null : "pluie";/  return "pluie";/' src/reglages.js
      ATTENDU="un ancien réglage de pluie se reprend en choix de nappe" ;;
+  29) # Prendre l'indice de l'instant au lieu du maximum du jour.
+     perl -0pi -e 's/    const uv = j && Array\.isArray\(j\.uv_index_max\) \? j\.uv_index_max\[k\] : null;/    const uv = c.uv_index;/' src/nappe.js
+     perl -0pi -e 's/export const COLONNES = \["temperature_2m", "wind_speed_10m", "wind_direction_10m"\];/export const COLONNES = ["temperature_2m", "wind_speed_10m", "wind_direction_10m", "uv_index"];/' src/nappe.js
+     ATTENDU="la grille demande la colonne de journée et deux journées" ;;
+  30) # Prendre toujours la première journée rendue, celle du temps universel.
+     perl -0pi -e 's/  const k = dates\.indexOf\(aujourdhui\);\n  return k >= 0 \? k : 0;/  return 0;/' src/nappe.js
+     ATTENDU="la nappe d'indice ultraviolet retient la journée en cours" ;;
+  31) # Peindre l'indice avec la rampe de la température.
+     perl -0pi -e 's/    champ: "uv", teinte: teinteUV, sat: 0\.62, clarte: 0\.46,/    champ: "uv", teinte: teinteT, sat: 0.62, clarte: 0.46,/' src/vues.js
+     ATTENDU="la nappe d'indice ultraviolet teinte selon sa propre rampe" ;;
+  32) # Ne pas dire sur quoi la nappe porte.
+     perl -0pi -e 's/          titreLeg\.textContent = `\$\{n\.nom\}, \$\{n\.porte\}`;/          titreLeg.textContent = n.nom;/' src/vues.js
+     ATTENDU="la légende dit sur quoi la nappe porte" ;;
   *) echo "faute inconnue"; exit 2 ;;
 esac
 
