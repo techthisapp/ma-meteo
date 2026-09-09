@@ -647,3 +647,10 @@ export const versCardinal = d => {
   const c = cardinal(d);
   return /^[aeiou]/.test(c) ? `à l'${c}` : `au ${c}`;
 };
+
+/* La provenance d'une masse : « elle vient du sud-ouest », « elle vient de
+   l'est ». Troisième forme du même mot, pour une troisième phrase. */
+export const duCardinal = d => {
+  const c = cardinal(d);
+  return /^[aeiou]/.test(c) ? `de l'${c}` : `du ${c}`;
+};

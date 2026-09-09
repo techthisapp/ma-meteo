@@ -30,6 +30,8 @@ import * as Air from "./air.js";
 import * as Parapluie from "./parapluie.js";
 import * as Reponse from "./reponse.js";
 import * as Pluie from "./pluieproche.js";
+import * as Deplacement from "./deplacement.js";
+import * as Radar from "./radar.js";
 
 const $ = id => document.getElementById(id);
 
@@ -52,6 +54,7 @@ const ctx = {};
    feuille du détail lisant le même bulletin que le panneau. */
 let vigilance = null;
 let pluieProche = null;
+let deplacement = null;
 
 /* ---------- État de l'application ---------- */
 
@@ -312,9 +315,14 @@ function panneauPluieProche() {
   }).join("");
 
   const finPlage = heureJour(new Date(t1));
+  /* Le sens d'arrivée, quand la mesure a abouti. Il tient sous la phrase, en
+     ligne effacée : il précise ce que la phrase annonce, il ne l'annonce pas. */
+  const venue = Deplacement.phrase(deplacement);
+
   return `<div class="section pp">`
     + `<div class="carte pp-c">`
     + `<p class="pp-tete">${ico("goutte", "pp-ic")}<b>${esc(dit)}</b></p>`
+    + (venue ? `<p class="pp-venue">${esc(venue)}</p>` : "")
     + `<div class="pp-g" role="img" aria-label="${esc(resumeGraphe(pas))}">${barres}</div>`
     + `<p class="pp-axe"><span>maintenant</span><span>${esc(finPlage)}</span></p>`
     + `</div></div>`;
@@ -1057,6 +1065,29 @@ async function lirePluieProche(g) {
   ctx.pluieProche = d;
   rendre();
   if (vueCourante) rendreFeuille();
+  lireDeplacement(g);
+}
+
+/* D'où vient la pluie. La mesure ne part que si le panneau a quelque chose à
+   dire : elle coûte l'index du radar et deux tuiles, une soixantaine de
+   kilooctets, et les jours secs elle ne coûte rien du tout.
+
+   Elle ne dit jamais quand la pluie arrive. Cette réponse est celle du produit
+   de Météo-France, juste au-dessus dans le même panneau, et deux réponses à la
+   même question finiraient par se contredire. */
+async function lireDeplacement(g) {
+  deplacement = null;
+  if (!pluieProche || !pluieProche.dispo || !Pluie.evenement(pluieProche)) return;
+  const mien = generation;
+  try {
+    const idx = await Radar.charger();
+    if (mien !== generation || !idx || !idx.images) return;
+    const observees = idx.images.filter(x => !x.futur);
+    const d = await Deplacement.lire(g.lat, g.lon, idx.hote, observees);
+    if (mien !== generation || !d) return;
+    deplacement = d;
+    rendre();
+  } catch { /* la pluie se lit sans son sens d'arrivée */ }
 }
 
 /* Le relevé peut avoir abouti alors que l'interface adresse était muette : la

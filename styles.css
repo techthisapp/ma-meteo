@@ -1271,6 +1271,12 @@ button.rangee:active{background:var(--surface-2)}
 
 /* L'échelle de la nappe. Une rampe de couleur sans chiffres ne se lit pas, et
    des traînées sans repère de longueur ne disent pas une force. */
+/* Le sens d'arrivée de la pluie, sous la phrase du panneau. */
+.pp-venue{
+  margin-top:2px;
+  font-size:var(--texte-note);color:var(--etiquette-2);
+}
+
 .ca-legendes{display:flex;flex-direction:column;gap:var(--espace-xs);align-items:flex-start}
 .ca-legende{
   max-width:200px;

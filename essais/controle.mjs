@@ -202,6 +202,11 @@ const pngUni = (r, g, b, a, n = 64) => {
       brut[p] = r; brut[p + 1] = g; brut[p + 2] = b; brut[p + 3] = a;
     }
   }
+  return enPng(brut, n);
+};
+
+/* L'enveloppe PNG, partagée par la tuile unie et la tuile à motif. */
+function enPng(brut, n) {
   const bloc = (type, data) => {
     const l = Buffer.alloc(4); l.writeUInt32BE(data.length, 0);
     const t = Buffer.from(type, "ascii");
@@ -217,7 +222,39 @@ const pngUni = (r, g, b, a, n = 64) => {
     bloc("IDAT", zlib.deflateSync(brut)),
     bloc("IEND", Buffer.alloc(0)),
   ]);
+}
+/* La tuile de la mesure de déplacement, celle qui contient la commune au zoom
+   cinq. Elle porte un fond de la teinte de son rang, comme les autres, et des
+   taches qui se déplacent d'une image à l'autre : deux points vers l'est et un
+   vers le nord par pas de dix minutes, ce qui fait, sur les trois pas que la
+   mesure compare, un déplacement de 243 degrés de provenance à environ
+   quarante kilomètres par heure. C'est le cas réel relevé le 8 septembre 2026.
+
+   Sans structure qui se déplace, une tuile unie ne porte aucune forme à suivre
+   et la corrélation ne dirait rien. */
+const TACHES = [[40, 60], [150, 90], [90, 180], [200, 200], [60, 120], [180, 40]];
+const DEP_PAS = { dx: 2, dy: -1 };
+
+const pngMotif = (r, g, b, a, rang, n = 256) => {
+  const brut = Buffer.alloc(n * (n * 4 + 1));
+  const dx = DEP_PAS.dx * rang, dy = DEP_PAS.dy * rang;
+  for (let y = 0; y < n; y++) {
+    const o = y * (n * 4 + 1);
+    for (let x = 0; x < n; x++) {
+      const p = o + 1 + x * 4;
+      let tache = false;
+      for (const [tx, ty] of TACHES) {
+        if (Math.hypot(x - (tx + dx), y - (ty + dy)) < 26) { tache = true; break; }
+      }
+      brut[p] = tache ? 250 : r;
+      brut[p + 1] = tache ? 40 : g;
+      brut[p + 2] = tache ? 30 : b;
+      brut[p + 3] = a;
+    }
+  }
+  return enPng(brut, n);
 };
+
 /* La teinte d'une image : son rang, lisible au pixel sur la toile.
 
    Les observations sont pâles, entre 200 et 248 de rouge. Ce n'est pas un
@@ -228,7 +265,9 @@ const teinteRadar = chemin => {
   const m = /\/(obs|nc)(\d+)$/.exec(chemin || "");
   if (!m) return null;
   const k = Number(m[2]);
-  return m[1] === "obs" ? { r: 200 + k * 4, g: 202, b: 120 } : { r: 250, g: 60 + k * 10, b: 40 };
+  return m[1] === "obs"
+    ? { r: 200 + k * 4, g: 202, b: 120, rang: k }
+    : { r: 250, g: 60 + k * 10, b: 40, rang: k };
 };
 const appelsRadar = [];
 
@@ -545,9 +584,13 @@ const brancherRoutes = async c => {
     /* Le service sert ses tuiles avec l'en-tête d'origine ouverte, mesuré le
        5 septembre 2026. Sans elle la toile serait souillée et ne se relirait
        plus au pixel, ni ici ni pour le compte à rebours de pluie du lot 4b. */
+    /* La tuile de la mesure de déplacement porte un motif qui se déplace ; les
+       autres restent unies, les contrôles de la couche lisant leur teinte. */
+    const z = /\/256\/(\d+)\/(\d+)\/(\d+)\//.exec(u);
+    const mesure = z && z[1] === "5" && z[2] === "16" && z[3] === "11";
     r.fulfill({ status: 200, contentType: "image/png",
       headers: { "Access-Control-Allow-Origin": "*" },
-      body: pngUni(t.r, t.g, t.b, 230) });
+      body: mesure ? pngMotif(t.r, t.g, t.b, 230, t.rang) : pngUni(t.r, t.g, t.b, 230) });
   });
 };
 
@@ -7456,6 +7499,149 @@ ok("une échéance sans valeur n'invente pas une fin de pluie",
 const ppSecMuet = await avecPluie("secmuet");
 ok("une échéance sans valeur arrête la lecture avant la pluie qui suit",
   ppSecMuet === null, ppSecMuet && ppSecMuet.phrase);
+
+/* ---------- Le sens d'arrivée de la pluie ----------
+
+   Le service radar publie son champ extrapolé vide, relevé les 5, 6, 7 et 8
+   septembre 2026 : rien ne se prévoit à partir des images. Ce qui se mesure est
+   le passé, le déplacement de la masse entre deux images observées.
+
+   La charge d'essai porte des taches qui se déplacent de deux points vers l'est
+   et un vers le nord par pas de dix minutes, sur la tuile de zoom cinq qui
+   contient la commune. Sur les trois pas que la mesure compare, cela fait une
+   provenance de 243 degrés à environ quarante kilomètres par heure, ce qui est
+   le cas réel relevé le 8 septembre. */
+
+console.log("\n--- Le sens d'arrivée de la pluie ---");
+
+profilPluie = "debut";
+appelsRadar.length = 0;
+const ctxDep = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+await ctxDep.addInitScript(amorceGardee(FAIN, FIGE));
+await brancherRoutes(ctxDep);
+const pgDep = await ctxDep.newPage();
+await pgDep.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await pgDep.waitForTimeout(1400);
+
+const venueDit = await pgDep.evaluate(() => {
+  const e = document.querySelector(".pp-venue");
+  return e ? e.textContent.trim() : "";
+});
+ok("le panneau dit d'où vient la pluie",
+  /vient du sud-ouest/.test(venueDit) && /\d+ km\/h/.test(venueDit), venueDit);
+
+/* La phrase dit d'où et à quelle allure, jamais quand : l'heure d'arrivée est
+   celle du produit de Météo-France, juste au-dessus dans le même panneau, et
+   deux réponses à la même question finiraient par se contredire. */
+ok("le sens d'arrivée ne dit pas d'heure",
+  !/\d+\s*h|dans \d+ min/.test(venueDit), venueDit);
+
+ok("la mesure retrouve le déplacement de la charge",
+  await pgDep.evaluate(async () => {
+    const D = await import("/src/deplacement.js");
+    const R = await import("/src/radar.js");
+    const idx = await R.charger();
+    const obs = idx.images.filter(x => !x.futur);
+    D.oublier();
+    const d = await D.mesurer(47.5, 4.3, idx.hote, obs);
+    if (!d) return "aucune mesure";
+    if (Math.abs(d.provenance - 243) > 12) return `provenance ${d.provenance.toFixed(0)}°`;
+    if (d.kmh < 30 || d.kmh > 60) return `vitesse ${d.kmh.toFixed(0)} km/h`;
+    if (d.minutes !== 30) return `écart de ${d.minutes} minutes`;
+    return "";
+  }) === "");
+
+/* La tuile de la mesure est celle qui contient la commune au zoom cinq, non
+   celle de la vue : le déplacement est une grandeur régionale, et une vue serrée
+   verrait la masse sortir du cadre entre deux images. */
+ok("la mesure lit deux tuiles de zoom cinq et pas davantage",
+  await pgDep.evaluate(() => {
+    const t = new Set(performance.getEntriesByType("resource")
+      .map(e => e.name)
+      .filter(n => n.includes("tilecache.rainviewer.com"))
+      .map(n => (/\/256\/(\d+)\/(\d+)\/(\d+)\//.exec(n) || []).slice(1).join("/")));
+    return [...t].includes("5/16/11") ? "" : `tuiles vues : ${[...t].join(", ")}`;
+  }) === "");
+/* Les refus se lisent sur la fonction : une tuile sans pluie ne porte aucune
+   forme à suivre, et deux images sans rapport ne doivent pas rendre une
+   direction. Une direction inventée serait pire que pas de direction. */
+ok("la mesure se tait quand elle ne sait pas",
+  await pgDep.evaluate(async () => {
+    const D = await import("/src/deplacement.js");
+    const T = D.SCHEMA_TUILE.TAILLE;
+    const images = [
+      { t: 1000000, chemin: "/a" }, { t: 1600000, chemin: "/b" },
+      { t: 2200000, chemin: "/c" }, { t: 2800000, chemin: "/d" },
+    ];
+    const vide = () => new Uint8ClampedArray(T * T * 4);
+    const sec = await D.mesurer(47.5, 4.3, "https://x", images, () => Promise.resolve(vide()));
+    if (sec !== null) return "une tuile sans pluie rend une direction";
+
+    /* Deux bruits sans forme commune : la corrélation reste au ras et la
+       fonction doit se taire. */
+    let graine = 1;
+    const bruit = () => {
+      const d = new Uint8ClampedArray(T * T * 4);
+      let x = ++graine * 7919;
+      for (let i = 0; i < T * T; i++) {
+        x = (x * 1103515245 + 12345) & 0x7fffffff;
+        const v = (x >> 16) & 255;
+        d[i * 4] = v; d[i * 4 + 1] = v; d[i * 4 + 2] = v; d[i * 4 + 3] = 255;
+      }
+      return d;
+    };
+    const bruite = await D.mesurer(47.5, 4.3, "https://x", images, () => Promise.resolve(bruit()));
+    if (bruite !== null) return "deux bruits sans rapport rendent une direction";
+
+    /* Une pluie qui ne bouge pas se dit comme telle, et non par une direction :
+       une averse immobile dure, c'est un fait utile. */
+    const stagne = D.phrase({ kmh: 4, provenance: 200 });
+    if (!/bouge peu/.test(stagne)) return `phrase d'une pluie immobile : ${stagne}`;
+    return "";
+  }) === "");
+
+/* La mesure est gardée dix minutes, la cadence du radar : deux lectures de suite
+   ne redemandent pas les tuiles. */
+ok("une seconde lecture ne redemande pas les tuiles",
+  await pgDep.evaluate(async () => {
+    const D = await import("/src/deplacement.js");
+    const R = await import("/src/radar.js");
+    const idx = await R.charger();
+    const obs = idx.images.filter(x => !x.futur);
+    D.oublier();
+    let n = 0;
+    const compte = u => { n++; return D.chargerTuile(u); };
+    const a = await D.lire(47.5, 4.3, idx.hote, obs, compte);
+    const apres = n;
+    const b = await D.lire(47.5, 4.3, idx.hote, obs, compte);
+    if (!a || !b) return "la mesure ne rend rien";
+    return n === apres ? "" : `${n - apres} tuiles redemandées à la seconde lecture`;
+  }) === "");
+
+await ctxDep.close();
+
+/* Les jours secs, le panneau se tait et la mesure ne part pas : elle coûte
+   l'index du radar et deux tuiles, une soixantaine de kilooctets. */
+profilPluie = "sec";
+appelsRadar.length = 0;
+const ctxDepSec = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+await ctxDepSec.addInitScript(amorceGardee(FAIN, FIGE));
+await brancherRoutes(ctxDepSec);
+const pgDepSec = await ctxDepSec.newPage();
+await pgDepSec.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await pgDepSec.waitForTimeout(1200);
+const venuesSeches = await pgDepSec.locator(".pp-venue").count();
+ok("sur un temps sec, rien n'est demandé au radar",
+  appelsRadar.length === 0 && venuesSeches === 0,
+  `${appelsRadar.length} appels au radar, ${venuesSeches} lignes de venue`);
+await ctxDepSec.close();
+profilPluie = "sec";
 
 /* ---------- Le repli, là où le radar ne couvre pas ----------
 

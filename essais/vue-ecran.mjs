@@ -111,7 +111,11 @@ const tuileRefus = taille => png(taille, () => [128, 128, 128, 200]);
 
 function tuilePluie(im, taille, z, tx, ty) {
   const N = Math.pow(2, z);
-  const decal = im * 0.0035;   // la masse avance vers l'est d'image en image
+  /* La masse avance vers l'est d'image en image. Le pas vaut deux points de
+     zoom cinq par image de dix minutes, soit une quarantaine de kilomètres par
+     heure : c'est l'allure d'une masse pluvieuse ordinaire, et la mesure du sens
+     d'arrivée la retrouve. */
+  const decal = im * 0.00024;
   return png(taille, (x, y) => {
     const wy = (ty + y / taille) / N;
     const wx = (tx + x / taille) / N - decal;
