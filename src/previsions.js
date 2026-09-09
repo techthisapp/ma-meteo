@@ -114,6 +114,82 @@ function fondre(fond, dessus) {
   return out;
 }
 
+/* ---------- Le temps sensible, apaisé quand un seul modèle le voit ----------
+
+   Défaut relevé sur téléphone le 9 septembre 2026 à Paris, à 7 h 43 : l'écran
+   annonçait « Bruine » et peignait la pluie, quand rien ne tombait et que trois
+   autres applications donnaient « très nuageux ». La source disait la même chose
+   que l'écran : AROME rendait le code 51, bruine légère, avec deux dixièmes de
+   millimètre, là où le modèle global rendait le code 2 et zéro millimètre.
+
+   L'application force AROME sur les trois premiers jours ; elle affichait donc
+   fidèlement une bruine que ce seul modèle voyait. Deux écrans se contredisaient
+   du même coup : le ciel disait « Bruine » et la voie de pluie disait « aucune ».
+
+   Mesuré le 9 septembre sur huit villes et soixante-douze heures :
+
+   | Grandeur | Valeur |
+   |---|---|
+   | Heures qu'AROME annonce pluvieuses | 27 |
+   | Dont le modèle global ne voit rien du tout | 15 |
+   | Lame d'AROME sur ces heures | médiane 0,1 mm, maximum 0,6 mm |
+   | Heures où le global annonce une pluie qu'AROME ne voit pas | 8 |
+
+   Ces désaccords portent donc tous sur des pluies très faibles. La règle : un
+   code de bruine ou de pluie faible ne s'écrit que si la lame atteint le seuil
+   de gêne, ou si les deux modèles voient de l'eau. Sinon le temps sensible
+   redevient l'état du ciel, que la couverture nuageuse donne.
+
+   Ce qui n'est pas touché : la lame d'eau, la probabilité, le graphe de la voie
+   de pluie et le rappel de parapluie. Seul le mot change, et il change partout à
+   la fois, la règle s'appliquant à la charge et non à un écran. */
+
+/* Le seuil au delà duquel un seul modèle suffit à faire dire qu'il pleut. C'est
+   celui de la gêne du rappel de parapluie : une bruine en dessous ne trempe
+   personne, et l'application ne parle déjà pas d'elle. */
+export const SEUIL_DIT = 0.5;
+
+/* La bruine et la pluie faible s'apaisent. La neige, la grêle, les averses
+   fortes et les orages ne s'apaisent jamais : ils changent la nature de la
+   journée, et une neige de deux dixièmes se voit. */
+const CODES_APAISABLES = new Set([51, 53, 55, 56, 57, 61, 80]);
+
+/* Le code de ciel qui correspond à une couverture. Les bornes sont celles de
+   l'échelle nommée du ruban, dégagé jusqu'à vingt-cinq pour cent, éclaircies
+   jusqu'à soixante, couvert au delà. */
+export function codeCiel(nua) {
+  if (!Number.isFinite(nua)) return 3;
+  if (nua < 25) return 0;
+  if (nua < 60) return 2;
+  return 3;
+}
+
+export function apaiser(code, mm, mmAutre, nua) {
+  if (!CODES_APAISABLES.has(code)) return code;
+  if ((mm ?? 0) >= SEUIL_DIT) return code;
+  // Une seule voix : rien à confronter, le code est celui qu'on a.
+  if (mmAutre === null || mmAutre === undefined) return code;
+  if (mmAutre > 0) return code;
+  return codeCiel(nua);
+}
+
+/* La passe sur la charge. Elle ne fait rien tant que les deux séries sont le
+   même objet, c'est-à-dire tant qu'AROME n'a pas été fondu : sans seconde voix,
+   il n'y a pas de désaccord, seulement un modèle qu'on croit. */
+export function apaiserCharge(c) {
+  const h = c?.hourly, b = c?.horaireSecours;
+  if (!h || !b || h === b) return c;
+  if (!Array.isArray(h.weather_code) || !Array.isArray(b.precipitation)) return c;
+  const rang = new Map(b.time.map((t, k) => [t, k]));
+  h.weather_code = h.weather_code.map((code, i) => {
+    const j = rang.get(h.time[i]);
+    const autre = j === undefined ? null : b.precipitation[j];
+    return apaiser(code, h.precipitation ? h.precipitation[i] : 0, autre,
+      h.cloud_cover ? h.cloud_cover[i] : null);
+  });
+  return c;
+}
+
 /* Une réponse à plusieurs modèles porte ses colonnes suffixées du nom du modèle,
    une réponse à un seul les porte nues. Les deux formes sont acceptées : le
    comportement réel n'a jamais pu être observé, le chemin de l'API étant fermé
@@ -164,7 +240,10 @@ async function prendre(url, essais) {
 
 export async function charger({ lat, lon }) {
   if (lat === null || lat === undefined) { charge = null; return null; }
-  const cle = `${lat},${lon}|${JOURS}j|${JOURS_AROME}a|${PASSE_H}p|${COLONNES}c`;
+  /* La clé porte aussi la règle de lecture du temps sensible : une charge
+     écrite avant elle porte les codes bruts, et la servir ferait reparaître la
+     bruine qu'un seul modèle voit jusqu'à la fin de l'heure. */
+  const cle = `${lat},${lon}|${JOURS}j|${JOURS_AROME}a|${PASSE_H}p|${COLONNES}c|apaise1`;
   try {
     const c = JSON.parse(localStorage.getItem(CACHE) || "null");
     if (c && c.cle === cle && c.h === heureCle() && Date.now() - c.t < TTL) {
@@ -205,6 +284,7 @@ export async function charger({ lat, lon }) {
         for (const serie of separerModeles(av.hourly, AROME)) {
           charge.hourly = fondre(charge.hourly, serie);
         }
+        apaiserCharge(charge);
       }
     }
     heureCharge = heureCle();
@@ -393,10 +473,10 @@ export function serieHoraire(depart = 0, duree = 24, minimum = 8) {
     return out.map(v => (v === null ? 0 : v));
   };
 
-  /* La lame de secours vient d'AROME, qui ne porte que sur trois jours. Au delà
-     de sa portée elle n'existe pas, et la compter pour zéro ferait dire aux deux
-     modèles qu'ils se contredisent alors qu'un seul parle. La série de secours
-     s'arrête donc là où AROME s'arrête. */
+  /* La lame de secours est celle du modèle global, gardée à côté de la série
+     fondue. Elle ne s'étend que sur la portée d'AROME : au delà, les deux voix
+     se confondent, et les compter comme deux ferait dire aux modèles qu'ils
+     s'accordent là où un seul parle. */
   const secours = (colonne, defaut) => {
     const b = charge.horaireSecours;
     if (!Array.isArray(b?.[colonne]) || !Array.isArray(b?.time)) return null;

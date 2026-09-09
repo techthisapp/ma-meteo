@@ -436,6 +436,11 @@ function grilleCorps(u) {
   });
 }
 
+/* Le désaccord entre modèles sur la pluie, posé par les contextes qui
+   l'éprouvent : AROME annonce une bruine à cette heure, le modèle global reste
+   sec. C'est le défaut du 9 septembre 2026 à Paris. */
+let bruineArome = null;
+
 const brancherRoutes = async c => {
   /* L'ensemble se sert avant la prévision : son domaine porte le même nom à un
      préfixe près, et la route de la prévision le happerait. Playwright essaie la
@@ -471,7 +476,22 @@ const brancherRoutes = async c => {
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(tab) });
       return;
     }
-    if (u.includes("models=meteofrance_arome")) { route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ hourly: d.hourly }) }); return; }
+    if (u.includes("models=meteofrance_arome")) {
+      /* AROME sert la même série que le modèle global, sauf quand un contexte
+         demande un désaccord : le profil pose alors une bruine que le modèle
+         global ne voit pas, ce qui est le défaut relevé le 9 septembre. */
+      const a = JSON.parse(JSON.stringify({ hourly: d.hourly }));
+      if (bruineArome) {
+        const k = a.hourly.time.indexOf(bruineArome.heure);
+        if (k >= 0) {
+          a.hourly.weather_code[k] = bruineArome.code;
+          a.hourly.precipitation[k] = bruineArome.mm;
+          a.hourly.cloud_cover[k] = 100;
+        }
+      }
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(a) });
+      return;
+    }
     if (u.includes("hourly=")) { route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ hourly: d.hourly }) }); return; }
     delete d.hourly;
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
@@ -3121,7 +3141,10 @@ ok("l'évapotranspiration est demandée en horaire et en quotidien",
 ok("la signature des colonnes entre dans la clé du cache",
   await pg.evaluate(() => {
     const c = JSON.parse(localStorage.getItem("mameteo.previsions.v1") || "null");
-    return c && /\|[0-9a-z]+c$/.test(c.cle) ? "" : `clé ${c ? c.cle : "absente"}`;
+    /* La clé porte la signature des colonnes, puis le jeton de la règle de
+       lecture du temps sensible : deux raisons distinctes de ne pas servir une
+       charge écrite par une version d'avant. */
+    return c && /\|[0-9a-z]+c\|apaise1$/.test(c.cle) ? "" : `clé ${c ? c.cle : "absente"}`;
   }) === "");
 await pg.locator("#feuille-fermer").click();
 await pg.waitForTimeout(400);
@@ -5987,6 +6010,97 @@ ok("un air dégradé le matin repousse l'aération après lui",
 ok("le pire moment ne se répète pas quand c'est le moment présent",
   aereSale.air.length === 1 && aereBase.air.length === 2,
   `${aereSale.air.length} rangées d'air sur air dégradé, ${aereBase.air.length} sinon`);
+
+/* ---------- Le temps sensible, apaisé quand un seul modèle le voit ----------
+
+   Défaut relevé sur téléphone le 9 septembre 2026 à Paris, à 7 h 43 : l'écran
+   annonçait « Bruine » et peignait la pluie, quand rien ne tombait et que trois
+   autres applications donnaient « très nuageux ». AROME rendait le code 51 avec
+   deux dixièmes de millimètre, le modèle global le code 2 avec zéro. L'écran du
+   temps disait « Pluie : aucune » au même instant : deux réponses à la même
+   question, sur deux écrans.
+
+   Mesuré le 9 septembre sur huit villes et soixante-douze heures : sur
+   vingt-sept heures qu'AROME annonce pluvieuses, quinze ont zéro millimètre chez
+   le modèle global, avec une lame médiane d'un dixième et six dixièmes au plus.
+   Le désaccord porte donc toujours sur des pluies très faibles. */
+
+console.log("\n--- Le temps sensible et le désaccord entre modèles ---");
+
+bruineArome = { heure: "2026-08-18T09:00", code: 51, mm: 0.2 };
+const ctxBruine = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+await ctxBruine.addInitScript(amorceGardee(FAIN, FIGE));
+await brancherRoutes(ctxBruine);
+const pgBruine = await ctxBruine.newPage();
+await pgBruine.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await pgBruine.waitForTimeout(900);
+
+ok("la règle se lit sur ses quatre cas",
+  await pgBruine.evaluate(async () => {
+    const P = await import("/src/previsions.js");
+    /* Le cas du défaut : bruine faible qu'un seul modèle voit, sous un ciel
+       couvert. Le mot redevient l'état du ciel. */
+    if (P.apaiser(51, 0.2, 0, 100) !== 3) return `bruine sous ciel couvert : ${P.apaiser(51, 0.2, 0, 100)}`;
+    if (P.apaiser(51, 0.2, 0, 30) !== 2) return `bruine sous éclaircies : ${P.apaiser(51, 0.2, 0, 30)}`;
+    // Les deux modèles voient de l'eau : le code reste.
+    if (P.apaiser(51, 0.2, 0.1, 100) !== 51) return "une pluie que les deux voient est effacée";
+    // Une lame au-dessus du seuil de gêne : un seul modèle suffit.
+    if (P.apaiser(61, 0.8, 0, 100) !== 61) return "une pluie franche est effacée";
+    // Une seule voix, au delà de la portée d'AROME : rien à confronter.
+    if (P.apaiser(51, 0.2, null, 100) !== 51) return "un code est effacé sans seconde voix";
+    // La neige et l'orage ne s'apaisent jamais.
+    if (P.apaiser(71, 0.2, 0, 100) !== 71) return "une neige est effacée";
+    if (P.apaiser(95, 0.2, 0, 100) !== 95) return "un orage est effacé";
+    return "";
+  }) === "");
+
+/* Le défaut tel qu'il s'est produit, rejoué de bout en bout : AROME annonce une
+   bruine à l'heure en cours, le modèle global reste sec. L'accueil ne doit pas
+   écrire « Bruine », et la lame d'eau ne doit pas bouger pour autant. */
+const bruineDit = await pgBruine.evaluate(async () => {
+  const t = document.querySelector("#ecran .bd-libelle, #ecran .bd-t b, #ecran .bd-ciel-mot");
+  const P = await import("/src/previsions.js");
+  const s = P.serieHoraire(0, 3, 1);
+  const c = document.querySelector("#ecran");
+  return {
+    ecran: c ? c.textContent.slice(0, 400) : "",
+    code: s ? s.code[0] : null,
+    mm: s ? s.mm[0] : null,
+    libelle: t ? t.textContent : null,
+  };
+});
+ok("une bruine que le modèle global ne voit pas ne s'écrit pas",
+  bruineDit.code === 3 && !/Bruine/.test(bruineDit.ecran),
+  `code ${bruineDit.code}, écran « ${bruineDit.ecran.replace(/\s+/g, " ").slice(0, 120)} »`);
+
+ok("la lame d'eau n'est pas touchée par la règle",
+  bruineDit.mm === 0.2, `lame ${bruineDit.mm}`);
+
+await ctxBruine.close();
+
+/* Une pluie que les deux modèles voient reste écrite : la règle ne fait pas
+   taire la pluie, elle fait taire le désaccord. */
+bruineArome = { heure: "2026-08-18T09:00", code: 61, mm: 1.4 };
+const ctxVraie = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+await ctxVraie.addInitScript(amorceGardee(FAIN, FIGE));
+await brancherRoutes(ctxVraie);
+const pgVraie = await ctxVraie.newPage();
+await pgVraie.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await pgVraie.waitForTimeout(900);
+ok("une pluie franche d'un seul modèle reste écrite",
+  await pgVraie.evaluate(async () => {
+    const P = await import("/src/previsions.js");
+    const s = P.serieHoraire(0, 3, 1);
+    return s && s.code[0] === 61 ? "" : `code ${s && s.code[0]}`;
+  }) === "");
+await ctxVraie.close();
+bruineArome = null;
 
 /* ---------- La carte ---------- */
 
