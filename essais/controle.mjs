@@ -7158,6 +7158,51 @@ ok("le panneau des couches s'ouvre et se ferme",
     return p.hidden ? "" : "un appui sur la carte ne referme pas le panneau";
   }) === "");
 
+/* Le panneau en tuiles, posé le 10 septembre 2026. En liste, sept entrées
+   prenaient la moitié du cadre ; en tuiles de trois par rangée, neuf tiennent
+   dans un tiers. Le nom reste sur chaque tuile, et la légende garde le nom
+   entier quand la tuile porte un nom court. */
+const tuiles = await pgNap.evaluate(async () => {
+  const dodo = m => new Promise(r => setTimeout(r, m));
+  const p = document.getElementById("caPanneau");
+  if (p.hidden) { document.getElementById("caCouches").click(); await dodo(200); }
+  const cadre = document.querySelector(".ca-cadre").getBoundingClientRect();
+  const pan = p.getBoundingClientRect();
+  const ch = [...p.querySelectorAll(".ca-ch")].map(b => {
+    const r = b.getBoundingClientRect();
+    const svg = b.querySelector("svg"), sp = b.querySelector("span");
+    return { id: b.id, top: Math.round(r.top), left: Math.round(r.left),
+      nom: sp ? sp.textContent.trim() : "",
+      icoSous: !!(svg && sp && svg.getBoundingClientRect().bottom <= sp.getBoundingClientRect().top + 1) };
+  });
+  document.getElementById("caToile").dispatchEvent(
+    new PointerEvent("pointerdown", { bubbles: true }));
+  await dodo(200);
+  return { hauteurCadre: cadre.height, hauteur: pan.height, gauche: pan.left,
+    droite: pan.right, largeurEcran: window.innerWidth, tuiles: ch };
+});
+
+/* Quatre rangées de 56 points, titres compris : 239 points sur les 742 du
+   cadre d'un téléphone, la liste en prenait 350. */
+ok("le panneau ouvert tient dans un tiers du cadre",
+  tuiles.hauteur <= tuiles.hauteurCadre / 3,
+  `${Math.round(tuiles.hauteur)} sur ${Math.round(tuiles.hauteurCadre)}`);
+
+ok("les tuiles vont par trois sur une rangée",
+  (() => {
+    const t = tuiles.tuiles.slice(0, 4);
+    return t[0].top === t[1].top && t[1].top === t[2].top && t[3].top > t[2].top
+      && t[0].left < t[1].left && t[1].left < t[2].left;
+  })(), tuiles.tuiles.slice(0, 4).map(t => `${t.id}@${t.left},${t.top}`).join(" "));
+
+ok("chaque tuile porte son nom sous son icône",
+  tuiles.tuiles.every(t => t.nom.length > 0 && t.icoSous),
+  tuiles.tuiles.filter(t => !t.nom || !t.icoSous).map(t => t.id).join(" "));
+
+ok("le panneau reste dans l'écran",
+  tuiles.gauche >= 0 && tuiles.droite <= tuiles.largeurEcran,
+  `de ${Math.round(tuiles.gauche)} à ${Math.round(tuiles.droite)} sur ${tuiles.largeurEcran}`);
+
 ok("une seule nappe à la fois",
   await pgNap.evaluate(async () => {
     const dodo = m => new Promise(r => setTimeout(r, m));
@@ -7472,6 +7517,17 @@ const airCarteDit = await pgNap.evaluate(async () => {
 });
 ok("la nappe de la qualité de l'air teinte selon sa propre rampe",
   airCarteDit === "", airCarteDit);
+
+/* La tuile dit « Air », la légende dit « Qualité de l'air » : le nom court
+   n'est que pour tenir dans une tuile de trois par rangée. */
+ok("la légende garde le nom entier quand la tuile porte le court",
+  await pgNap.evaluate(() => {
+    const tuile = document.querySelector("#caAir span").textContent.trim();
+    const leg = document.getElementById("caLegTitre").textContent.trim();
+    if (tuile !== "Air") return `tuile « ${tuile} »`;
+    if (!/^Qualité de l'air, /.test(leg)) return `légende « ${leg} »`;
+    return "";
+  }) === "");
 
 /* Elle vit sur son propre service : allumer cette nappe ne redemande pas la
    grille de la prévision. Et sa grille à elle est gardée trois heures, la

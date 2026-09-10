@@ -1081,7 +1081,8 @@ const NAPPES_CARTE = [
   /* La qualité de l'air vient d'un second service sur la même grille, d'où la
      source nommée : les trois autres nappes se partagent une seule lecture,
      celle-ci a la sienne, sa garde et sa mention. */
-  { cle: "air", id: "caAir", nom: "Qualité de l'air", ico: "brume", porte: "maintenant",
+  /* `tuile` est le nom court du panneau ; la légende garde le nom entier. */
+  { cle: "air", id: "caAir", nom: "Qualité de l'air", tuile: "Air", ico: "brume", porte: "maintenant",
     champ: "aqi", source: "air", teinte: teinteAQI, sat: 0.58, clarte: 0.46,
     arrets: [0, 20, 40, 60, 80], unite: "", couleur: couleurAQI,
     credit: "Qualité de l'air Copernicus" },
@@ -1141,23 +1142,28 @@ export function vueCarte(ctx, rendre, majEtat) {
       + `<button type="button" class="ca-o" id="caIci" aria-label="Revenir sur le lieu courant">`
       + ico("cible", "") + `</button>`
       + `</div>`
+      /* Le panneau en tuiles, trois par rangée, l'icône au-dessus du nom : neuf
+         entrées tiennent dans un tiers du cadre, là où sept en prenaient la
+         moitié en liste. Chaque tuile garde son nom, voir `styles.css`. */
       + `<div class="ca-panneau" id="caPanneau" hidden>`
       + `<p class="ca-p-titre" id="caPnTitre">Nappe</p>`
-      + `<div role="radiogroup" aria-labelledby="caPnTitre">`
+      + `<div class="ca-grille" role="radiogroup" aria-labelledby="caPnTitre">`
       + NAPPES_CARTE.map(n => `<button type="button" class="ca-ch" id="${n.id}" `
         + `role="radio" aria-checked="${Reglages.nappe() === n.cle ? "true" : "false"}">`
-        + ico(n.ico, "") + `<span>${n.nom}</span></button>`).join("")
+        + ico(n.ico, "") + `<span>${n.tuile || n.nom}</span></button>`).join("")
       + `<button type="button" class="ca-ch" id="caSansNappe" role="radio" `
       + `aria-checked="${Reglages.nappe() === null ? "true" : "false"}">`
       + ico("interdit", "") + `<span>Aucune</span></button>`
       + `</div>`
-      + `<p class="ca-p-titre">Par-dessus</p>`
+      + `<p class="ca-p-titre" id="caPnTitre2">Par-dessus</p>`
+      + `<div class="ca-grille" role="group" aria-labelledby="caPnTitre2">`
       + `<button type="button" class="ca-ch" id="caVent" role="switch" `
       + `aria-checked="${Reglages.ventcarte() ? "true" : "false"}">`
       + ico("vent", "") + `<span>Vent</span></button>`
       + `<button type="button" class="ca-ch" id="caVigi" role="switch" `
       + `aria-checked="${Reglages.vigicarte() ? "true" : "false"}">`
       + ico("alerte", "") + `<span>Vigilance</span></button>`
+      + `</div>`
       + `</div>`
       + `<p class="ca-mot" id="caMot" role="status" hidden></p>`
       + `<div class="ca-pied">`
