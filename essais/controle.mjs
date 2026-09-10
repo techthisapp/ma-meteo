@@ -441,6 +441,45 @@ function grilleCorps(u) {
    sec. C'est le défaut du 9 septembre 2026 à Paris. */
 let bruineArome = null;
 
+/* Une retouche de la série servie, à une heure donnée. Elle sert aux charges
+   discordantes : un code de pluie sans lame ni risque, un risque sans lame, une
+   lame sans risque. Ce sont les situations où deux écrans se mettent à dire deux
+   choses, et la charge d'essai ordinaire, propre et cohérente avec elle-même,
+   n'en porte aucune. Elle vaut pour les deux modèles : c'est une situation
+   météorologique, non un désaccord. */
+let retoucheGlobal = null;
+
+/* Le modèle fin muet : la source n'a plus qu'une voix. C'est le cas au delà de
+   sa portée, trois jours, et celui d'un modèle momentanément indisponible. */
+let aromeMuet = false;
+
+function retoucher(hourly) {
+  if (!retoucheGlobal) return hourly;
+  const k = hourly.time.indexOf(retoucheGlobal.heure);
+  if (k < 0) return hourly;
+  for (const [c, v] of Object.entries(retoucheGlobal)) {
+    if (c === "heure" || !Array.isArray(hourly[c])) continue;
+    hourly[c][k] = v;
+  }
+  return hourly;
+}
+
+/* L'ouverture d'une page. L'attente d'un réseau au repos a tenu une suite
+   entière trois fois : une requête qui traîne, et neuf minutes de contrôles
+   perdues. Le repli borne l'attente et se compte, pour que le masquage se voie
+   plutôt que de passer inaperçu. */
+let repliesOuverture = 0;
+const ouvrirPage = async (p, url = "http://localhost:8137/") => {
+  try {
+    await p.goto(url, { waitUntil: "networkidle", timeout: 15000 });
+  } catch {
+    repliesOuverture++;
+    await p.goto(url, { waitUntil: "domcontentloaded" });
+    await p.waitForTimeout(1200);
+  }
+  return p;
+};
+
 const brancherRoutes = async c => {
   /* L'ensemble se sert avant la prévision : son domaine porte le même nom à un
      préfixe près, et la route de la prévision le happerait. Playwright essaie la
@@ -477,10 +516,11 @@ const brancherRoutes = async c => {
       return;
     }
     if (u.includes("models=meteofrance_arome")) {
+      if (aromeMuet) { route.fulfill({ status: 500, body: "non" }); return; }
       /* AROME sert la même série que le modèle global, sauf quand un contexte
          demande un désaccord : le profil pose alors une bruine que le modèle
          global ne voit pas, ce qui est le défaut relevé le 9 septembre. */
-      const a = JSON.parse(JSON.stringify({ hourly: d.hourly }));
+      const a = JSON.parse(JSON.stringify({ hourly: retoucher(d.hourly) }));
       if (bruineArome) {
         const k = a.hourly.time.indexOf(bruineArome.heure);
         if (k >= 0) {
@@ -492,7 +532,11 @@ const brancherRoutes = async c => {
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(a) });
       return;
     }
-    if (u.includes("hourly=")) { route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ hourly: d.hourly }) }); return; }
+    if (u.includes("hourly=")) {
+      route.fulfill({ status: 200, contentType: "application/json",
+        body: JSON.stringify({ hourly: retoucher(d.hourly) }) });
+      return;
+    }
     delete d.hourly;
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
   });
@@ -631,7 +675,7 @@ pg.on("console", m => {
   if (m.type() === "error" && !/ERR_FAILED|ERR_ABORTED/.test(m.text())) erreurs.push("console: " + m.text());
 });
 
-await pg.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await ouvrirPage(pg);
 await pg.waitForTimeout(900);
 
 let n = 0, ko = 0;
@@ -2918,6 +2962,18 @@ console.log("\n--- La coque hors ligne ---");
   const morts = [...coque].filter(f => f.startsWith("src/") && !vus.has(f));
   ok("elle ne porte aucun module que l'application n'importe plus",
     morts.length === 0, morts.join(", "));
+
+  /* La reprise du temps sensible et la table des seuils portent sur les mêmes
+     règles : la lame retenue, le risque écrit, la couverture du ciel couvert.
+     Le défaut de bruine du 10 septembre venait d'un chiffre écrit deux fois qui
+     avait cessé de dire la même chose des deux côtés. La table les reprend
+     donc de `previsions.js` au lieu de les réécrire, et cette garde le tient :
+     un nombre en dur à l'une de ces trois entrées la fait tomber. */
+  const sc = lu("src/conseils.js");
+  const durs = ["lame", "risque", "couvert"]
+    .filter(k => new RegExp(`^\\s*${k}:\\s*[0-9]`, "m").test(sc));
+  ok("les seuils que la reprise du ciel partage ne sont écrits qu'une fois",
+    durs.length === 0, durs.join(", ") || "lame, risque, couvert repris");
 }
 
 console.log("\n--- Design system ---");
@@ -3157,7 +3213,7 @@ const ctxVide = await nav.newContext({
   locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
 });
 const pgVide = await ctxVide.newPage();
-await pgVide.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await ouvrirPage(pgVide);
 await pgVide.waitForTimeout(500);
 ok("l'état vide porte un symbole, un titre, une phrase et une action",
   await pgVide.locator(".etat-vide > svg").count() === 1
@@ -3189,7 +3245,7 @@ await brancherRoutes(ctxSuivi);
 const pgSuivi = await ctxSuivi.newPage();
 const erreursSuivi = [];
 pgSuivi.on("pageerror", e => erreursSuivi.push(String(e)));
-await pgSuivi.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await ouvrirPage(pgSuivi);
 await pgSuivi.waitForTimeout(2000);
 ok("le relevé silencieux suit l'appareil",
   (await pgSuivi.locator("#navLieuNom").innerText()) === "Grenoble",
@@ -3217,7 +3273,7 @@ await ctxRefus.addInitScript(amorce({
 }));
 await brancherRoutes(ctxRefus);
 const pgRefus = await ctxRefus.newPage();
-await pgRefus.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await ouvrirPage(pgRefus);
 await pgRefus.waitForTimeout(1500);
 ok("sans autorisation, le dernier relevé reste servi",
   (await pgRefus.locator("#navLieuNom").innerText()) === "Ailleurs",
@@ -3247,7 +3303,7 @@ await brancherRoutes(ctxAnonyme);
 const pgAnonyme = await ctxAnonyme.newPage();
 const erreursAnonyme = [];
 pgAnonyme.on("pageerror", e => erreursAnonyme.push(String(e)));
-await pgAnonyme.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await ouvrirPage(pgAnonyme);
 await pgAnonyme.waitForTimeout(1800);
 ok("une position sans nom se nomme seule",
   (await pgAnonyme.locator("#navLieuNom").innerText()) === "Grenoble",
@@ -3277,7 +3333,7 @@ await ctxVert.addInitScript(amorce({
 }));
 await brancherRoutes(ctxVert);
 const pgVert = await ctxVert.newPage();
-await pgVert.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await ouvrirPage(pgVert);
 await pgVert.waitForTimeout(1600);
 ok("sans vigilance, aucun panneau", await pgVert.locator("#ecran .vg").count() === 0);
 ok("sans vigilance, aucune rangée d'accès",
@@ -3336,7 +3392,7 @@ await ctxCalme.route(/webservice\.meteofrance\.com/, r => r.fulfill({
   status: 200, contentType: "application/json",
   body: JSON.stringify({ domain_id: "21", timelaps: [] }) }));
 const pgCalme = await ctxCalme.newPage();
-await pgCalme.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await ouvrirPage(pgCalme);
 await pgCalme.waitForTimeout(1600);
 ok("sur un temps calme, aucune ligne à savoir",
   await pgCalme.locator("#ecran .cj-l").count() === 0
@@ -3390,7 +3446,7 @@ pgCourt.on("request", r => {
   // écartée d'ici, le contrat éprouvé étant celui de la prévision servie.
   if (r.url().startsWith("https://api.open-meteo.com")) urls.push(r.url());
 });
-await pgCourt.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await ouvrirPage(pgCourt);
 await pgCourt.waitForTimeout(1400);
 
 /* Le contrat avec la source. Les heures portent sur les sept jours, c'est
@@ -3448,7 +3504,7 @@ await ctxVieux.addInitScript(`localStorage.setItem("mameteo.previsions.v1", JSON
 }));`);
 await brancherRoutes(ctxVieux);
 const pgVieux = await ctxVieux.newPage();
-await pgVieux.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await ouvrirPage(pgVieux);
 await pgVieux.waitForTimeout(1600);
 ok("une charge gardée sous une autre forme n'est pas servie", await pgVieux.evaluate(async () => {
   const P = await import("/src/previsions.js");
@@ -3497,7 +3553,7 @@ await ctxCouvert.route(/api\.open-meteo\.com/, route => {
 await ctxCouvert.route(/api-adresse\.data\.gouv\.fr|object\.files\.data\.gouv\.fr|webservice\.meteofrance\.com/,
   r => r.abort());
 const pgCouvert = await ctxCouvert.newPage();
-await pgCouvert.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await ouvrirPage(pgCouvert);
 await pgCouvert.waitForTimeout(1600);
 /* Le raccord du motif, mesuré en ligne. Fermée, la couche n'a plus de bord dans
    le cadre : c'est donc dans son corps qu'il faut chercher la couture, et une
@@ -3718,7 +3774,7 @@ await ctxRouge.route(/webservice\.meteofrance\.com/, r => {
   })});
 });
 const pgRouge = await ctxRouge.newPage();
-await pgRouge.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await ouvrirPage(pgRouge);
 await pgRouge.waitForTimeout(1500);
 const teteRouge = await pgRouge.locator("#ecran .vg-txt").innerText();
 ok("le mot vigilance ne s'écrit qu'une fois, même au rouge",
@@ -3765,7 +3821,7 @@ const ctxVigilance = async servir => {
   await c.route(/webservice\.meteofrance\.com/, r =>
     servir(r, new URL(r.request().url()).searchParams.get("echeance") === "J1"));
   const pg = await c.newPage();
-  await pg.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+  await ouvrirPage(pg);
   await pg.waitForTimeout(1500);
   return { c, pg };
 };
@@ -3979,7 +4035,7 @@ await ctxSerein.route(/api\.open-meteo\.com/, route => {
 await ctxSerein.route(/api-adresse\.data\.gouv\.fr|object\.files\.data\.gouv\.fr|webservice\.meteofrance\.com/,
   r => r.abort());
 const pgSerein = await ctxSerein.newPage();
-await pgSerein.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await ouvrirPage(pgSerein);
 await pgSerein.waitForTimeout(1400);
 await pgSerein.locator('[data-onglet="temps"]').click();
 await pgSerein.waitForTimeout(600);
@@ -4056,7 +4112,7 @@ await ctxFrais.route(/api\.open-meteo\.com/, route => {
 await ctxFrais.route(/api-adresse\.data\.gouv\.fr|object\.files\.data\.gouv\.fr|webservice\.meteofrance\.com/,
   r => r.abort());
 const pgFrais = await ctxFrais.newPage();
-await pgFrais.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await ouvrirPage(pgFrais);
 await pgFrais.waitForTimeout(1400);
 
 const bascule = (await pgFrais.locator(".conseils .cj-l").allInnerTexts())
@@ -4109,7 +4165,7 @@ await ctxDecale.route(/api\.open-meteo\.com/, route => {
 });
 await ctxDecale.route(/data\.gouv\.fr|webservice\.meteofrance\.com/, r => r.abort());
 const pgDecale = await ctxDecale.newPage();
-await pgDecale.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await ouvrirPage(pgDecale);
 await pgDecale.waitForTimeout(1500);
 ok("la même heure la veille se cherche par son horodatage, non par son rang",
   await pgDecale.evaluate(async () => {
@@ -4152,7 +4208,7 @@ await ctxPareil.route(/api\.open-meteo\.com/, route => {
 });
 await ctxPareil.route(/data\.gouv\.fr|webservice\.meteofrance\.com/, r => r.abort());
 const pgPareil = await ctxPareil.newPage();
-await pgPareil.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await ouvrirPage(pgPareil);
 await pgPareil.waitForTimeout(1500);
 ok("un écart de quatre degrés avec la veille ne s'écrit pas",
   !(await pgPareil.locator("#ecran .cj-l").allInnerTexts()).some(x => /qu'hier/.test(x)),
@@ -4186,7 +4242,7 @@ const pageA = async (quand, patch, faire) => {
   await c.route(/api-adresse\.data\.gouv\.fr|object\.files\.data\.gouv\.fr|webservice\.meteofrance\.com/,
     r => r.abort());
   const pg = await c.newPage();
-  await pg.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+  await ouvrirPage(pg);
   await pg.waitForTimeout(1500);
   await faire(pg);
   await c.close();
@@ -4490,7 +4546,7 @@ const appelsScPage = [];
 pgSc.on("request", r => {
   if (r.url().startsWith("https://ensemble-api.open-meteo.com")) appelsScPage.push(r.url());
 });
-await pgSc.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await ouvrirPage(pgSc);
 await pgSc.waitForTimeout(1800);
 
 /* La requête. Un modèle, sept jours, deux grandeurs, et la seule commune
@@ -4752,7 +4808,7 @@ await ctxFourch.route(/https:\/\/api\.open-meteo\.com/, route => {
   route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
 });
 const pgFourch = await ctxFourch.newPage();
-await pgFourch.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await ouvrirPage(pgFourch);
 await pgFourch.waitForTimeout(1600);
 const cjF = await pgFourch.locator("#ecran .cj-l").allInnerTexts();
 ok("la fourchette des scénarios s'écrit là où elle a de la matière",
@@ -4820,7 +4876,7 @@ await ctxDesac.route(/ensemble-api\.open-meteo\.com/, r => {
   r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(e) });
 });
 const pgDesac = await ctxDesac.newPage();
-await pgDesac.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await ouvrirPage(pgDesac);
 await pgDesac.waitForTimeout(1600);
 const cjD = await pgDesac.locator("#ecran .cj-l").allInnerTexts();
 const ligneD = cjD.find(x => /ne s'accordent pas/.test(x)) || "";
@@ -4853,7 +4909,7 @@ await ctxMuet.addInitScript(amorce(FAIN));
 await brancherRoutes(ctxMuet);
 await ctxMuet.route(/ensemble-api\.open-meteo\.com/, r => r.abort());
 const pgMuet = await ctxMuet.newPage();
-await pgMuet.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await ouvrirPage(pgMuet);
 await pgMuet.waitForTimeout(1500);
 await pgMuet.locator('[data-onglet="temps"]').click();
 await pgMuet.waitForTimeout(700);
@@ -5013,7 +5069,7 @@ const ctxJeton = async (patch, quand, reglages) => {
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
   });
   const p = await c.newPage();
-  await p.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+  await ouvrirPage(p);
   await p.waitForTimeout(1400);
   return [c, p];
 };
@@ -5433,7 +5489,7 @@ const ctxReponse = async (patch, reglages, ensemble) => {
   const p = await c.newPage();
   const urls = [];
   p.on("request", r => urls.push(r.url()));
-  await p.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+  await ouvrirPage(p);
   await p.waitForTimeout(1500);
   return [c, p, urls];
 };
@@ -6035,7 +6091,7 @@ const ctxBruine = await nav.newContext({
 await ctxBruine.addInitScript(amorceGardee(FAIN, FIGE));
 await brancherRoutes(ctxBruine);
 const pgBruine = await ctxBruine.newPage();
-await pgBruine.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await ouvrirPage(pgBruine);
 await pgBruine.waitForTimeout(900);
 
 ok("la règle se lit sur ses quatre cas",
@@ -6091,7 +6147,7 @@ const ctxVraie = await nav.newContext({
 await ctxVraie.addInitScript(amorceGardee(FAIN, FIGE));
 await brancherRoutes(ctxVraie);
 const pgVraie = await ctxVraie.newPage();
-await pgVraie.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await ouvrirPage(pgVraie);
 await pgVraie.waitForTimeout(900);
 ok("une pluie franche d'un seul modèle reste écrite",
   await pgVraie.evaluate(async () => {
@@ -6101,6 +6157,99 @@ ok("une pluie franche d'un seul modèle reste écrite",
   }) === "");
 await ctxVraie.close();
 bruineArome = null;
+
+/* ---------- Les charges discordantes ----------
+
+   Le défaut du 9 septembre a traversé sept cent dix-neuf contrôles parce
+   qu'aucune charge d'essai ne portait de désaccord : elles sont toutes propres
+   et cohérentes avec elles-mêmes, quand une source réelle ne l'est pas toujours.
+
+   Ces charges portent donc ce qui se contredit : un code de pluie sans lame ni
+   risque, un risque sans lame, une lame sans risque. L'invariant est le même
+   pour toutes : le mot écrit dans le ciel et les chiffres écrits en dessous
+   disent la même chose. */
+
+console.log("\n--- Les charges discordantes ---");
+
+/* Ce que l'accueil montre du temps qu'il fait : le mot du ciel, la tuile de
+   pluie, et ce que la série porte à l'heure en cours. */
+const litAccueil = `async () => {
+  const P = await import("/src/previsions.js");
+  const s = P.serieHoraire(0, 3, 1);
+  const tuile = document.querySelector('#ecran .bd-m[data-detail="mm"]');
+  return {
+    mot: (document.querySelector("#ecran .bd-ciel") || {}).textContent || "",
+    tuile: tuile ? tuile.textContent.replace(/\\s+/g, " ").trim() : "",
+    mm: s ? s.mm[0] : null,
+    pb: s ? s.pb[0] : null,
+    code: s ? s.code[0] : null,
+  };
+}`;
+
+const MOTS_PLUIE = /Pluie|Bruine|Averse|Orage|Neige|Grésil/i;
+
+const ouvrirDiscordante = async (sansModeleFin = false) => {
+  aromeMuet = sansModeleFin;
+  const c = await nav.newContext({
+    viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+    locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+  });
+  await c.addInitScript(amorceGardee(FAIN, FIGE));
+  await brancherRoutes(c);
+  const p = await c.newPage();
+  await p.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+  await p.waitForTimeout(900);
+  /* La lecture est une chaîne : elle s'évalue comme expression, il faut donc
+     l'appeler. */
+  const dit = await p.evaluate(`(${litAccueil})()`);
+  await c.close();
+  aromeMuet = false;
+  return dit;
+};
+
+/* Un code de pluie sans lame et sans risque : la source se contredit elle-même,
+   et le mot ne tient à rien. C'est le cas relevé sur le modèle global le
+   9 septembre, une heure sur six annoncées pluvieuses. */
+retoucheGlobal = { heure: "2026-08-18T09:00", weather_code: 61, precipitation: 0,
+  precipitation_probability: 0, cloud_cover: 20 };
+/* Sans le modèle fin, la source n'a qu'une voix : il n'y a pas de désaccord à
+   trancher, seulement un code qui ne tient à rien. */
+const sansRien = await ouvrirDiscordante(true);
+ok("un code de pluie sans lame ni risque ne s'écrit pas",
+  !MOTS_PLUIE.test(sansRien.mot),
+  `mot « ${sansRien.mot} », ${sansRien.mm} mm, ${sansRien.pb} %`);
+
+/* Un risque franc sans lame : le mot ne dit pas qu'il pleut, mais la tuile doit
+   porter le risque, faute de quoi l'écran ne dirait rien de ce qui menace. */
+retoucheGlobal = { heure: "2026-08-18T09:00", weather_code: 1, precipitation: 0,
+  precipitation_probability: 80, cloud_cover: 40 };
+const risqueSeul = await ouvrirDiscordante();
+ok("un risque sans lame se dit en risque et non en pluie",
+  !MOTS_PLUIE.test(risqueSeul.mot) && /%/.test(risqueSeul.tuile),
+  `mot « ${risqueSeul.mot} », tuile « ${risqueSeul.tuile} »`);
+
+/* Une lame franche sans risque annoncé : le mot dit la pluie, et la tuile porte
+   des millimètres. Une tuile qui dirait « 0 % de risque » sous trois
+   millimètres serait le défaut du 9 septembre à l'envers. */
+retoucheGlobal = { heure: "2026-08-18T09:00", weather_code: 61, precipitation: 3,
+  precipitation_probability: 0, cloud_cover: 90 };
+const lameSeule = await ouvrirDiscordante();
+ok("une lame franche sans risque se dit en millimètres",
+  MOTS_PLUIE.test(lameSeule.mot) && /mm/.test(lameSeule.tuile),
+  `mot « ${lameSeule.mot} », tuile « ${lameSeule.tuile} »`);
+
+/* L'invariant, sur les trois charges à la fois : ce que le ciel écrit et ce que
+   les chiffres portent ne se contredisent jamais. */
+const accord = d => {
+  if (!MOTS_PLUIE.test(d.mot)) return true;
+  return (d.mm ?? 0) >= 0.1 || (d.pb ?? 0) >= 5;
+};
+ok("le mot du ciel et les chiffres ne se contredisent pas",
+  [sansRien, risqueSeul, lameSeule].every(accord),
+  [sansRien, risqueSeul, lameSeule].filter(d => !accord(d))
+    .map(d => `« ${d.mot} » avec ${d.mm} mm et ${d.pb} %`).join(" ; "));
+
+retoucheGlobal = null;
 
 /* ---------- La carte ---------- */
 
@@ -6522,7 +6671,7 @@ const ouvrirCarte = async (reglages, futur = 0) => {
   await c.addInitScript(amorceGardee(reglages || FAIN, FIGE));
   await brancherRoutes(c);
   const p = await c.newPage();
-  await p.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+  await ouvrirPage(p);
   await p.locator('[data-onglet="carte"]').click();
   await p.waitForTimeout(900);
   return [c, p];
@@ -6884,7 +7033,7 @@ await ctxSec.addInitScript(amorceGardee(FAIN, FIGE));
 await brancherRoutes(ctxSec);
 await ctxSec.route(/rainviewer\.com/, r => r.abort());
 const pgSec = await ctxSec.newPage();
-await pgSec.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await ouvrirPage(pgSec);
 await pgSec.locator('[data-onglet="carte"]').click();
 await pgSec.waitForTimeout(900);
 ok("sans réseau la pluie le dit et la carte reste dessinée",
@@ -7433,7 +7582,7 @@ const ctxVentFige = await nav.newContext({
 await ctxVentFige.addInitScript(amorceGardee({ ...FAIN, ventcarte: true, nappe: null }, FIGE));
 await brancherRoutes(ctxVentFige);
 const pgVentFige = await ctxVentFige.newPage();
-await pgVentFige.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await ouvrirPage(pgVentFige);
 await pgVentFige.locator('[data-onglet="carte"]').click();
 await pgVentFige.waitForTimeout(1200);
 ok("le mouvement réduit fige les particules sans les effacer",
@@ -7463,7 +7612,7 @@ const avecPluie = async profil => {
   await c.addInitScript(amorceGardee(FAIN, FIGE));
   await brancherRoutes(c);
   const p = await c.newPage();
-  await p.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+  await ouvrirPage(p);
   await p.waitForTimeout(700);
   const dit = await p.evaluate(() => {
     const e = document.querySelector(".pp");
@@ -7637,7 +7786,7 @@ const ctxDep = await nav.newContext({
 await ctxDep.addInitScript(amorceGardee(FAIN, FIGE));
 await brancherRoutes(ctxDep);
 const pgDep = await ctxDep.newPage();
-await pgDep.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await ouvrirPage(pgDep);
 await pgDep.waitForTimeout(1400);
 
 const venueDit = await pgDep.evaluate(() => {
@@ -7748,7 +7897,7 @@ const ctxDepSec = await nav.newContext({
 await ctxDepSec.addInitScript(amorceGardee(FAIN, FIGE));
 await brancherRoutes(ctxDepSec);
 const pgDepSec = await ctxDepSec.newPage();
-await pgDepSec.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await ouvrirPage(pgDepSec);
 await pgDepSec.waitForTimeout(1200);
 const venuesSeches = await pgDepSec.locator(".pp-venue").count();
 ok("sur un temps sec, rien n'est demandé au radar",
@@ -7774,7 +7923,7 @@ const avecRepli = async (profil, mf = "indispo", quand = FIGE) => {
   await c.addInitScript(amorceGardee(FAIN, quand));
   await brancherRoutes(c);
   const p = await c.newPage();
-  await p.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+  await ouvrirPage(p);
   await p.waitForTimeout(800);
   const dit = await p.evaluate(() => {
     const e = document.querySelector(".pp");
@@ -7858,7 +8007,7 @@ const ctxPP = await nav.newContext({
 await ctxPP.addInitScript(amorceGardee(FAIN, FIGE));
 await brancherRoutes(ctxPP);
 const pgPP = await ctxPP.newPage();
-await pgPP.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await ouvrirPage(pgPP);
 await pgPP.waitForTimeout(700);
 const appelsUn = appelsPluie.length;
 for (const cle of ["temps", "semaine", "accueil", "carte", "accueil"]) {
@@ -7900,7 +8049,7 @@ await ctxPPmuet.addInitScript(amorceGardee(FAIN, FIGE));
 await brancherRoutes(ctxPPmuet);
 await ctxPPmuet.route(/nowcast\/rain/, r => r.abort());
 const pgPPmuet = await ctxPPmuet.newPage();
-await pgPPmuet.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await ouvrirPage(pgPPmuet);
 await pgPPmuet.waitForTimeout(700);
 ok("un produit muet ne prive pas l'écran de son temps qu'il fait",
   await pgPPmuet.evaluate(() =>
@@ -7952,7 +8101,7 @@ await ctx2.route(/api\.open-meteo\.com/, route => {
   route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
 });
 const pg2 = await ctx2.newPage();
-await pg2.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+await ouvrirPage(pg2);
 await pg2.waitForTimeout(600);
 ok("les transitions sont neutralisées", await pg2.evaluate(() =>
   parseFloat(getComputedStyle(document.querySelector(".nav")).transitionDuration) < 0.001));
@@ -7961,6 +8110,10 @@ await ctx2.close();
 console.log("\n--- Erreurs de page ---");
 ok("aucune erreur de page", erreurs.length === 0, erreurs.slice(0,3).join(" ~ "));
 
+if (repliesOuverture) {
+  console.log(`\n${repliesOuverture} ouverture(s) de page repliées sur le chargement du document,`
+    + " le réseau n'étant pas revenu au repos dans les quinze secondes.");
+}
 console.log(`\n${n - ko} contrôles sur ${n}${ko ? `, ${ko} en échec` : ", tous vérifiés"}.`);
 await nav.close(); serveur.close();
 process.exit(ko ? 1 : 0);

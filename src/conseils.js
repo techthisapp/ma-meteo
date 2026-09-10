@@ -22,33 +22,36 @@
    que la section annonçait, sur le même écran. */
 
 import { nombreFr, heureTxt, esc } from "./horloge.js";
-import { plagesDe, divergencePluie } from "./previsions.js";
+import { plagesDe, divergencePluie, SEUIL_LAME, SEUIL_RISQUE, SEUIL_COUVERT }
+  from "./previsions.js";
 import { POLLENS, DEGRADE, niveauDe, etatPollen } from "./air.js";
 import { ico } from "./icones.js";
 
 export const SEUILS = {
-  lame: 0.1,          // millimètres, seuil de mention unique
-  risque: 5,          // pour cent, seuil de mention unique
-  gel: 1,             // degrés
-  rafale: 40,         // kilomètres par heure
-  ventMoyen: 25,      // kilomètres par heure
-  chaleur: 30,        // degrés
-  humidite: 90,       // pour cent
-  humiditeHeures: 4,  // heures consécutives
-  humiditeTmin: 10,   // degrés
-  humiditeTmax: 26,   // degrés
-  uv: 7,              // indice
-  alerteLame: 15,     // millimètres, alerte du bandeau
-  risqueSeul: 40,     // pour cent, seuil d'une ligne de risque à elle seule
-  couvert: 60,        // pour cent de couverture, seuil du ciel couvert
-  tenue: 3,           // heures, durée qu'une bascule de ciel doit tenir
-  bascule: 6,         // degrés, écart qui vaut un refroidissement ou un réchauffement
-  veille: 5,          // degrés, écart avec la même heure la veille qui mérite d'être dit
-  fourchette: 5,      // degrés, étendue des scénarios sur un maximum qui mérite d'être dite
-  desaccord: 4,       // degrés, écart entre modèles qui vaut d'être signalé
-  ressenti: 5,        // degrés, écart entre le ressenti et la température
-  pression: 6,        // hectopascals, variation qui annonce un changement
-  astreProche: 3,     // heures, au-delà desquelles un lever ou un coucher n'est plus un fait
+  /* Ces trois-là sont repris de `previsions.js`, qui les emploie aussi pour la
+     reprise du temps sensible. La valeur n'est écrite qu'une fois. */
+  lame: SEUIL_LAME,       // millimètres, seuil de mention unique
+  risque: SEUIL_RISQUE,   // pour cent, seuil de mention unique
+  gel: 1,                 // degrés
+  rafale: 40,             // kilomètres par heure
+  ventMoyen: 25,          // kilomètres par heure
+  chaleur: 30,            // degrés
+  humidite: 90,           // pour cent
+  humiditeHeures: 4,      // heures consécutives
+  humiditeTmin: 10,       // degrés
+  humiditeTmax: 26,       // degrés
+  uv: 7,                  // indice
+  alerteLame: 15,         // millimètres, alerte du bandeau
+  risqueSeul: 40,         // pour cent, seuil d'une ligne de risque à elle seule
+  couvert: SEUIL_COUVERT, // pour cent de couverture, seuil du ciel couvert
+  tenue: 3,               // heures, durée qu'une bascule de ciel doit tenir
+  bascule: 6,             // degrés, écart qui vaut un refroidissement ou un réchauffement
+  veille: 5,              // degrés, écart avec la même heure la veille qui mérite d'être dit
+  fourchette: 5,          // degrés, étendue des scénarios sur un maximum qui mérite d'être dite
+  desaccord: 4,           // degrés, écart entre modèles qui vaut d'être signalé
+  ressenti: 5,            // degrés, écart entre le ressenti et la température
+  pression: 6,            // hectopascals, variation qui annonce un changement
+  astreProche: 3,         // heures, au-delà desquelles un lever ou un coucher n'est plus un fait
 };
 
 const ORAGE = [95, 96, 99];

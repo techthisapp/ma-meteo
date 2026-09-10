@@ -154,19 +154,37 @@ export const SEUIL_DIT = 0.5;
    journée, et une neige de deux dixièmes se voit. */
 const CODES_APAISABLES = new Set([51, 53, 55, 56, 57, 61, 80]);
 
+/* Trois seuils que la reprise du ciel partage avec les conseils : la lame que la
+   voie de pluie retient, le risque qu'elle écrit, la couverture qui fait un ciel
+   couvert. Ils vivent ici parce que ce module est en dessous de `conseils.js`
+   dans l'ordre des imports, et `SEUILS` les reprend au lieu de les réécrire :
+   deux valeurs pour la même règle finiraient par diverger. */
+export const SEUIL_LAME = 0.1;
+export const SEUIL_RISQUE = 5;
+export const SEUIL_COUVERT = 60;
+
+/* La borne du ciel dégagé n'appartient qu'à cette échelle : les codes 0, 2 et 3
+   du ruban ne servent nulle part ailleurs. */
+export const SEUIL_DEGAGE = 25;
+
 /* Le code de ciel qui correspond à une couverture. Les bornes sont celles de
    l'échelle nommée du ruban, dégagé jusqu'à vingt-cinq pour cent, éclaircies
    jusqu'à soixante, couvert au delà. */
 export function codeCiel(nua) {
   if (!Number.isFinite(nua)) return 3;
-  if (nua < 25) return 0;
-  if (nua < 60) return 2;
+  if (nua < SEUIL_DEGAGE) return 0;
+  if (nua < SEUIL_COUVERT) return 2;
   return 3;
 }
 
-export function apaiser(code, mm, mmAutre, nua) {
+export function apaiser(code, mm, mmAutre, nua, pb) {
   if (!CODES_APAISABLES.has(code)) return code;
   if ((mm ?? 0) >= SEUIL_DIT) return code;
+  /* Une source qui se contredit elle-même : un code de pluie sans lame et sans
+     risque. Le mot ne tient alors à rien, et la seconde voix n'y change rien.
+     Mesuré le 9 septembre 2026 sur Paris : une heure sur six annoncées
+     pluvieuses par le modèle global portait moins d'un dixième de millimètre. */
+  if ((mm ?? 0) < SEUIL_LAME && (pb ?? 0) < SEUIL_RISQUE) return codeCiel(nua);
   // Une seule voix : rien à confronter, le code est celui qu'on a.
   if (mmAutre === null || mmAutre === undefined) return code;
   if (mmAutre > 0) return code;
@@ -178,14 +196,17 @@ export function apaiser(code, mm, mmAutre, nua) {
    il n'y a pas de désaccord, seulement un modèle qu'on croit. */
 export function apaiserCharge(c) {
   const h = c?.hourly, b = c?.horaireSecours;
-  if (!h || !b || h === b) return c;
-  if (!Array.isArray(h.weather_code) || !Array.isArray(b.precipitation)) return c;
-  const rang = new Map(b.time.map((t, k) => [t, k]));
+  if (!h || !Array.isArray(h.weather_code)) return c;
+  /* Sans seconde voix, la passe tourne quand même : elle n'a plus de désaccord
+     à trancher, mais une source qui se contredit elle-même reste à reprendre. */
+  const seule = !b || h === b || !Array.isArray(b.precipitation);
+  const rang = seule ? null : new Map(b.time.map((t, k) => [t, k]));
   h.weather_code = h.weather_code.map((code, i) => {
-    const j = rang.get(h.time[i]);
+    const j = rang ? rang.get(h.time[i]) : undefined;
     const autre = j === undefined ? null : b.precipitation[j];
     return apaiser(code, h.precipitation ? h.precipitation[i] : 0, autre,
-      h.cloud_cover ? h.cloud_cover[i] : null);
+      h.cloud_cover ? h.cloud_cover[i] : null,
+      h.precipitation_probability ? h.precipitation_probability[i] : 0);
   });
   return c;
 }
@@ -284,9 +305,12 @@ export async function charger({ lat, lon }) {
         for (const serie of separerModeles(av.hourly, AROME)) {
           charge.hourly = fondre(charge.hourly, serie);
         }
-        apaiserCharge(charge);
       }
     }
+    /* La reprise du temps sensible vient après la fusion, et tourne même quand
+       AROME manque : sans seconde voix elle n'a plus de désaccord à trancher,
+       mais une source qui se contredit elle-même reste à reprendre. */
+    apaiserCharge(charge);
     heureCharge = heureCle();
     try {
       localStorage.setItem(CACHE, JSON.stringify({ cle, t: Date.now(), h: heureCharge, d: charge }));
