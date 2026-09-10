@@ -20,7 +20,7 @@ import * as Relief from "./relief.js";
 import * as Temps from "./temps.js";
 import { vueTemps, vueSemaine, vueVigilance, vueCiel, vueCarte, vueCommunes, vueReglages,
   vueAjout, vueParapluie, vueRessenti, vueActivites, vueBeauTemps, vueAir,
-  bandeauAccueil } from "./vues.js";
+  vueClimat, bandeauAccueil } from "./vues.js";
 import { moments } from "./ecritures.js";
 import * as Vig from "./vigilance.js";
 import * as Astres from "./astres.js";
@@ -575,6 +575,12 @@ function ecranAccueil() {
         + ico("brume", "") + `<span class="rangee-txt"><b>L'air qu'on respire</b>`
         + `<span>Indice européen, polluants et pollens</span></span>`
         + chevron + `</button>`
+        /* La quatrième porte : la même journée, mais replacée dans
+           quatre-vingts ans de relevés au même endroit. */
+        + `<button type="button" class="carte rangee porte" data-feuille="climat">`
+        + ico("jauge", "") + `<span class="rangee-txt"><b>Le climat d'ici</b>`
+        + `<span>Records, normales et réchauffement</span></span>`
+        + chevron + `</button>`
         + (lJour.length ? `<div class="carte retenir">`
           + `<div class="conseils">${conseilsHTML(lJour)}</div></div>` : ""));
 
@@ -863,13 +869,13 @@ async function suivrePosition({ force } = {}) {
 const FEUILLES = { vigilance: vueVigilance, communes: vueCommunes,
   ajout: vueAjout, reglages: vueReglages, parapluie: vueParapluie,
   ressenti: vueRessenti, activites: vueActivites, beautemps: vueBeauTemps,
-  air: vueAir };
+  air: vueAir, climat: vueClimat };
 
 /* Accroches : un contenu court n'occupe pas tout l'écran. */
 const ACCROCHE = { vigilance: "moyenne", communes: "grande",
   ajout: "grande", reglages: "grande", parapluie: "moyenne",
   ressenti: "moyenne", activites: "moyenne", beautemps: "grande",
-  air: "grande" };
+  air: "grande", climat: "grande" };
 
 function rendreFeuille() {
   if (!vueCourante) return;

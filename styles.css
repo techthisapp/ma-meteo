@@ -1554,6 +1554,22 @@ button.rangee:active{background:var(--surface-2)}
 .bt-verdict{padding-bottom:var(--espace-xs)}
 .bt-large{width:100%}
 
+/* Les bandes de réchauffement : une bande par année, peintes sur une toile. La
+   hauteur est fixe et non proportionnelle : ces bandes ne portent qu'une seule
+   dimension, la couleur, et les étirer en hauteur ne dirait rien de plus. Les
+   deux années de bout se posent dessous, faute de quoi la toile serait une
+   image sans échelle. */
+.cl-bandes{
+  display:block;width:100%;height:88px;
+  border-radius:var(--rayon-sm);background:var(--fond);
+}
+.cl-ans{
+  display:flex;justify-content:space-between;
+  margin-top:var(--espace-xs);
+  font-size:var(--texte-legende);color:var(--etiquette-2);
+  font-variant-numeric:tabular-nums;
+}
+
 /* Le ressenti personnel : deux gestes de même poids, côte à côte. */
 .rs-geste{display:flex;gap:var(--espace-sm)}
 .rs-geste > button{flex:1 1 0;min-width:0;padding:0 var(--espace-md);font-size:var(--texte-sous)}

@@ -436,6 +436,48 @@ function grilleCorps(u) {
   });
 }
 
+/* L'archive du climat. Une série bâtie pour que chaque réponse se recalcule à
+   la main : le maximum d'une journée est une sinusoïde de saison plus une
+   montée régulière de l'année, plus une bosse déterministe qui donne du relief
+   à la distribution. Aucun hasard : deux lectures rendent la même chose, et un
+   percentile attendu se calcule à part dans le contrôle.
+
+   La montée vaut deux centièmes de degré par an, soit un degré et demi sur les
+   soixante-seize années : les bandes de réchauffement ont alors un sens de
+   lecture, du bleu au rouge, que le contrôle vérifie.
+
+   La pluie est nulle un jour sur deux et vaut deux millimètres l'autre, ce qui
+   rend un cumul de saison exactement calculable. */
+let appelsArchive = [];
+let archiveMuette = false;
+const ARCHIVE_MONTEE = 0.02;
+/* La bosse est la somme de deux restes et non un seul : une somme de deux
+   tirages plats donne une distribution en toit, dense au milieu et rare aux
+   bords, comme l'est celle d'une température. Un tirage plat rendrait les
+   quantiles alignés, et une garde sur le percentile ne verrait pas la
+   différence entre l'interpolation par bornes et une simple règle de trois. */
+const archiveMax = (an, rang) =>
+  Math.round((14 + 10 * Math.sin((rang / 365) * 2 * Math.PI - 1.9)
+    + (an - 1950) * ARCHIVE_MONTEE
+    + ((an * 7 + rang * 13) % 7) + ((an * 11 + rang * 5) % 7) - 6) * 10) / 10;
+function archiveCorps(u) {
+  const q = new URL(u).searchParams;
+  const d0 = new Date(`${q.get("start_date")}T00:00:00Z`);
+  const d1 = new Date(`${q.get("end_date")}T00:00:00Z`);
+  const time = [], mx = [], mn = [], pl = [];
+  for (let t = d0.getTime(); t <= d1.getTime(); t += 86400000) {
+    const d = new Date(t);
+    const iso = d.toISOString().slice(0, 10);
+    const an = d.getUTCFullYear();
+    const rang = Math.round((d - Date.UTC(an, 0, 1)) / 86400000);
+    const M = archiveMax(an, rang);
+    time.push(iso); mx.push(M); mn.push(Math.round((M - 8) * 10) / 10);
+    pl.push(rang % 2 === 0 ? 2 : 0);
+  }
+  return { latitude: 47.6, longitude: 4.3, elevation: 345,
+    daily: { time, temperature_2m_max: mx, temperature_2m_min: mn, precipitation_sum: pl } };
+}
+
 /* La grille de la qualité de l'air : les mêmes 380 points, un autre service.
    L'indice monte du sud au nord, l'inverse de la température, pour qu'une
    nappe peinte avec la mauvaise grille se voie. */
@@ -613,6 +655,16 @@ const brancherRoutes = async c => {
     appelsEns.push(r.request().url());
     r.fulfill({ status: 200, contentType: "application/json",
       body: JSON.stringify(ENSEMBLE) });
+  });
+  /* L'archive du climat. Son domaine porte « open-meteo.com » et la route de la
+     prévision le happerait : elle se pose donc après, Playwright essayant la
+     dernière posée en premier. */
+  await c.route(/archive-api\.open-meteo\.com/, r => {
+    const u = r.request().url();
+    appelsArchive.push(u);
+    if (archiveMuette) { r.fulfill({ status: 503, body: "non" }); return; }
+    r.fulfill({ status: 200, contentType: "application/json",
+      body: JSON.stringify(archiveCorps(u)) });
   });
   /* L'air se sert après la prévision, pour la même raison que l'ensemble : son
      domaine porte « api.open-meteo.com » à un préfixe près, et la route de la
@@ -8252,6 +8304,239 @@ ok("le délai s'arrondit au pas de la source",
     return [23, 22, 7].map(m => M.minutesJusqua(t0 + m * 60000, t0)).join("|");
   }));
 await ctxRond.close();
+
+/* ---------- Le climat de la commune ----------
+
+   La charge d'archive est déterministe : le maximum d'une journée vaut une
+   sinusoïde de saison, plus deux centièmes de degré par année écoulée depuis
+   1950, plus une bosse tirée de l'année et du rang. Chaque réponse de la
+   feuille se recalcule donc ici, à partir de la même formule, sans dépendre de
+   ce que le module en fait. */
+
+console.log("\n--- Le climat de la commune ---");
+
+const ouvrirClimat = async p => {
+  await p.locator('[data-feuille="climat"]').click();
+  await p.waitForTimeout(2200);
+  return p.evaluate(() =>
+    [...document.querySelectorAll("#feuille-corps .rangee")].map(r => ({
+      nom: r.querySelector(".rangee-txt b")?.textContent.trim() || "",
+      sous: r.querySelector(".rangee-txt span")?.textContent.replace(/\s+/g, " ").trim() || "",
+      val: r.querySelector(".rangee-val")?.textContent.replace(/\s+/g, " ").trim() || "",
+    })));
+};
+
+appelsArchive.length = 0;
+const [ctxClimat, pgClimat] = await ctxReponse(METEO_NUE);
+
+/* L'archive longue pèse cent soixante-six kilooctets : elle ne se lit pas au
+   chargement de l'application, mais à l'ouverture de la feuille. */
+ok("l'archive n'est pas lue tant que la feuille n'est pas ouverte",
+  appelsArchive.length === 0, `${appelsArchive.length} appels`);
+
+const lignesClimat = await ouvrirClimat(pgClimat);
+
+ok("la feuille du climat s'ouvre depuis l'accueil",
+  (await txtDe(pgClimat, "#feuille-titre")).startsWith("Le climat d'ici"),
+  await txtDe(pgClimat, "#feuille-titre"));
+
+/* Deux lectures et pas davantage : l'archive longue, qui s'arrête à la fin de
+   l'année écoulée, et la série récente, qui part du 1er décembre d'avant pour
+   qu'un hiver à cheval sur le changement d'année soit entier. */
+ok("elle lit l'archive longue puis la série récente",
+  appelsArchive.length === 2, `${appelsArchive.length} appels`);
+ok("l'archive longue va de 1950 à la fin de l'année écoulée",
+  (() => {
+    const q = new URL(appelsArchive[0]).searchParams;
+    if (q.get("start_date") !== "1950-01-01") return `début ${q.get("start_date")}`;
+    if (q.get("end_date") !== "2025-12-31") return `fin ${q.get("end_date")}`;
+    return q.get("daily") === "temperature_2m_max,temperature_2m_min,precipitation_sum"
+      ? "" : `colonnes ${q.get("daily")}`;
+  })() === "", appelsArchive[0] || "");
+ok("la série récente part du 1er décembre d'avant et s'arrête aujourd'hui",
+  (() => {
+    const q = new URL(appelsArchive[1]).searchParams;
+    if (q.get("start_date") !== "2025-12-01") return `début ${q.get("start_date")}`;
+    return q.get("end_date") === "2026-08-18" ? "" : `fin ${q.get("end_date")}`;
+  })() === "", appelsArchive[1] || "");
+
+/* Le percentile, recalculé ici à partir de la formule de la charge : toutes les
+   journées à onze jours du 18 août, de 1950 à 2025, comparées au maximum que la
+   semaine affiche pour aujourd'hui. */
+const attenduClimat = (() => {
+  const rangDe = (an, mois, jour) => {
+    const c = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+    const b = (an % 4 === 0 && an % 100 !== 0) || an % 400 === 0;
+    return c[mois - 1] + jour - 1 + (mois > 2 && b ? 1 : 0);
+  };
+  const centre = Math.floor(rangDe(2026, 8, 18) / 5) * 5 + 2;
+  const ech = [];
+  let recMax = -99, recMaxAn = 0, recMin = 99, recMinAn = 0;
+  const parAn = new Map();
+  for (let an = 1950; an <= 2025; an++) {
+    const b = (an % 4 === 0 && an % 100 !== 0) || an % 400 === 0;
+    const nj = b ? 366 : 365;
+    for (let r = 0; r < nj; r++) {
+      const M = archiveMax(an, r);
+      const e = Math.abs(r - centre);
+      if (Math.min(e, 366 - e) <= 5) ech.push(M);
+      if (r === rangDe(an, 8, 18)) {
+        if (M > recMax) { recMax = M; recMaxAn = an; }
+        const mn = Math.round((M - 8) * 10) / 10;
+        if (mn < recMin) { recMin = mn; recMinAn = an; }
+      }
+      let a = parAn.get(an); if (!a) parAn.set(an, a = [0, 0]);
+      a[0] += (M + (M - 8)) / 2; a[1]++;
+    }
+  }
+  ech.sort((x, y) => x - y);
+  const q = [];
+  for (let k = 0; k <= 100; k += 10) q.push(Math.round(ech[Math.round(k / 100 * (ech.length - 1))] * 10) / 10);
+  const annees = [...parAn.keys()].sort((a, b) => a - b).map(y => parAn.get(y)[0] / parAn.get(y)[1]);
+  const moy = l => l.reduce((a, b) => a + b, 0) / l.length;
+  return { q, mediane: q[5], recMax, recMaxAn, recMin, recMinAn,
+    annees, montee: moy(annees.slice(-30)) - moy(annees.slice(0, 30)) };
+})();
+
+const maxSemaine = await pgClimat.evaluate(async () => {
+  const P = await import("/src/previsions.js");
+  const i = P.iJour();
+  const c = P.chargeCourante();
+  const h = P.jourHoraire(c.daily.time[i]);
+  return h ? h.tx : c.daily.temperature_2m_max[i];
+});
+
+ok("le maximum comparé est celui que la semaine affiche",
+  lignesClimat[0]?.val.startsWith(`${Math.round(maxSemaine)}°`),
+  `${JSON.stringify(lignesClimat[0])} contre ${maxSemaine}`);
+
+/* Le percentile attendu se calcule ici, dans la suite, et non en demandant au
+   module de se juger lui-même : une garde qui appellerait `percentile` pour
+   savoir ce que `percentile` doit rendre ne tomberait sous aucune faute. */
+const percentileAttendu = (() => {
+  const q = attenduClimat.q, v = maxSemaine;
+  if (v <= q[0]) return 0;
+  if (v >= q[q.length - 1]) return 100;
+  for (let k = 0; k < q.length - 1; k++) {
+    if (v >= q[k] && v <= q[k + 1]) {
+      const l = q[k + 1] - q[k];
+      return (k + (l > 0 ? (v - q[k]) / l : 0)) * 10;
+    }
+  }
+  return null;
+})();
+ok("le percentile du jour est celui de la distribution de l'archive",
+  Math.abs(Math.round(percentileAttendu)
+    - Number((lignesClimat[0]?.val.match(/(\d+)\s*%/) || [0, 0])[1])) <= 1,
+  `attendu ${percentileAttendu?.toFixed(1)}, écrit « ${lignesClimat[0]?.val} »`);
+
+ok("la médiane écrite est celle des mêmes dates",
+  lignesClimat[1]?.val === `${Math.round(attenduClimat.mediane)}°`
+  && /18 août de 1950 à 2025/.test(lignesClimat[1]?.sous || ""),
+  JSON.stringify(lignesClimat[1]));
+
+/* Les records portent la date exacte et non la fenêtre : un record du 18 août
+   est un fait du 18 août. */
+ok("les records de la date portent leur valeur et leur année",
+  lignesClimat[2]?.val === `${Math.round(attenduClimat.recMax)}° ${attenduClimat.recMaxAn}`
+  && lignesClimat[3]?.val === `${Math.round(attenduClimat.recMin)}° ${attenduClimat.recMinAn}`,
+  `${lignesClimat[2]?.val} | ${lignesClimat[3]?.val}`);
+
+/* Le 18 août, l'été porte soixante-dix-neuf journées : c'est lui qui se
+   compare. Le 10 septembre, l'automne n'en porterait que dix, et c'est l'été
+   qui se comparerait encore. */
+ok("la saison comparée est celle qui porte trente journées",
+  await pgClimat.evaluate(async () => {
+    const C = await import("/src/climat.js");
+    const cas = [[8, 18, "ete", true], [9, 10, "ete", false], [12, 5, "automne", false],
+      [1, 15, "hiver", true], [3, 2, "hiver", false]];
+    for (const [m, j, cle, enCours] of cas) {
+      const r = C.saisonDite(m, j);
+      if (r.saison.cle !== cle || r.enCours !== enCours) {
+        return `${j}/${m} rend ${r.saison.cle} ${r.enCours}`;
+      }
+    }
+    return "";
+  }) === "");
+
+ok("la saison se compare à la normale de 1991 à 2020",
+  /1991 à 2020/.test(lignesClimat[4]?.sous || "")
+  && /normale/.test(lignesClimat[5]?.sous || "")
+  && /mm$/.test(lignesClimat[5]?.val || ""),
+  `${lignesClimat[4]?.sous} | ${lignesClimat[5]?.sous} ${lignesClimat[5]?.val}`);
+
+/* Une bande par année, du bleu au rouge dans le sens du temps : la charge fait
+   monter la température de deux centièmes par an, la dernière année est donc la
+   plus chaude de la série. */
+const bandesDit = await pgClimat.evaluate(async e => {
+  const attendu = JSON.parse(e);
+  const cv = document.getElementById("clToile");
+  if (!cv) return "aucune toile de bandes";
+  const x = cv.getContext("2d");
+  const teinte = (r, g, b) => {
+    const [u, v, w] = [r, g, b].map(z => z / 255);
+    const mx = Math.max(u, v, w), mn = Math.min(u, v, w), d = mx - mn;
+    if (d < 1e-6) return null;
+    let h = mx === u ? ((v - w) / d) % 6 : mx === v ? (w - u) / d + 2 : (u - v) / d + 4;
+    h *= 60; if (h < 0) h += 360;
+    return h;
+  };
+  const lu = f => {
+    const d = x.getImageData(Math.round(cv.width * f), Math.round(cv.height / 2), 1, 1).data;
+    return teinte(d[0], d[1], d[2]);
+  };
+  const g = lu(0.02), dr = lu(0.98);
+  if (g === null || dr === null) return "une bande n'est pas peinte";
+  /* Le bleu tourne autour de deux cent quatorze degrés de roue, le rouge autour
+     de huit : la première année est froide, la dernière chaude. */
+  if (Math.abs(g - 214) > 30) return `la première bande n'est pas bleue, teinte ${g.toFixed(0)}`;
+  if (Math.abs(dr - 8) > 30) return `la dernière bande n'est pas rouge, teinte ${dr.toFixed(0)}`;
+  const ans = [...document.querySelectorAll(".cl-ans span")].map(s => s.textContent);
+  if (ans.join(",") !== "1950,2025") return `bornes ${ans.join(",")}`;
+  const note = document.querySelector("#clBandes .note").textContent;
+  const m = note.match(/de ([\d,]+)°/);
+  if (!m) return `note ${note}`;
+  const ecrit = Number(m[1].replace(",", "."));
+  return Math.abs(ecrit - Math.abs(attendu.montee)) <= 0.1 ? ""
+    : `montée écrite ${ecrit}, attendue ${attendu.montee.toFixed(2)}`;
+}, JSON.stringify({ montee: attenduClimat.montee }));
+ok("les bandes vont du bleu au rouge et disent leur montée", bandesDit === "", bandesDit);
+
+/* La réserve garde l'archive : rouvrir la feuille ne redemande que la série
+   récente, laquelle porte l'année en cours et change tous les jours. */
+await pgClimat.evaluate(() => document.getElementById("feuille-fermer").click());
+await pgClimat.waitForTimeout(400);
+const avantReouverture = appelsArchive.length;
+await ouvrirClimat(pgClimat);
+ok("rouvrir la feuille ne redemande pas l'archive longue",
+  appelsArchive.length - avantReouverture <= 1
+  && !appelsArchive.slice(avantReouverture).some(u => u.includes("1950-01-01")),
+  appelsArchive.slice(avantReouverture).join(" | "));
+
+ok("la réserve ne garde pas plus de six communes",
+  await pgClimat.evaluate(async () => {
+    const C = await import("/src/climat.js");
+    for (let k = 0; k < 9; k++) C.poser(`4${k}.00,3.00`, { v: 1, blocs: [], annees: [] }, 2025);
+    const n = Object.keys(JSON.parse(localStorage.getItem("mameteo.climat.v1"))).length;
+    return n <= C.COMMUNES_GARDEES ? "" : `${n} communes gardées`;
+  }) === "");
+await ctxClimat.close();
+
+/* Sans archive, la feuille le dit et ne montre aucune section vide. */
+archiveMuette = true;
+appelsArchive.length = 0;
+const [ctxSansArchive, pgSansArchive] = await ctxReponse(METEO_NUE);
+await pgSansArchive.locator('[data-feuille="climat"]').click();
+await pgSansArchive.waitForTimeout(1500);
+ok("sans archive, la feuille le dit et ne montre pas de section vide",
+  await pgSansArchive.evaluate(() => {
+    const t = document.getElementById("feuille-corps").innerText;
+    if (!/besoin du réseau/.test(t)) return `corps « ${t.slice(0, 60)} »`;
+    const vus = ["clRecords", "clSaison", "clBandes"].filter(i => !document.getElementById(i).hidden);
+    return vus.length ? `sections montrées : ${vus.join(", ")}` : "";
+  }) === "");
+await ctxSansArchive.close();
+archiveMuette = false;
 
 console.log("\n--- Mouvement réduit ---");
 const ctx2 = await nav.newContext({

@@ -207,3 +207,19 @@ export const couleurAQI = v => {
   const h = teinteAQI(v);
   return h === null ? "var(--etiquette-3)" : `hsl(${h.toFixed(0)} 58% 46%)`;
 };
+
+/* L'écart à une référence, pour les bandes de réchauffement : bleu en dessous,
+   rouge au-dessus, et la force dit la grandeur de l'écart.
+
+   Ce n'est pas la rampe de température, qui est absolue et passe par le vert :
+   une rampe d'écart doit être coupée en deux au point zéro, faute de quoi une
+   année juste au-dessus de la référence et une année juste en dessous se
+   peindraient de la même couleur. La coupure au zéro est visible, et c'est ce
+   qu'on veut voir. */
+export function couleurEcart(e, etendue = 1.5) {
+  if (!Number.isFinite(e)) return "var(--etiquette-3)";
+  const f = Math.max(-1, Math.min(1, e / (etendue || 1)));
+  const a = Math.abs(f);
+  const h = f >= 0 ? 8 : 214;
+  return `hsl(${h} ${(28 + 46 * a).toFixed(0)}% ${(70 - 28 * a).toFixed(0)}%)`;
+}

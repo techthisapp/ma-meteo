@@ -2,10 +2,10 @@
    corps et un branchement facultatif. */
 
 import { nombreFr, hhmm, heureTxt, jourCourt, jourLong, esc, departementDe,
-  heureJour } from "./horloge.js";
+  heureJour, cleJour } from "./horloge.js";
 import * as P from "./previsions.js";
 import { ico, icoTemps, icoCiel, tempsDe, couleurT, teinteT,
-  couleurUV, teinteUV, couleurAQI, teinteAQI } from "./icones.js";
+  couleurUV, teinteUV, couleurAQI, teinteAQI, couleurEcart } from "./icones.js";
 import * as Ruban from "./ruban.js";
 import { ECHELLES } from "./ruban.js";
 import { liste, moments, TRANCHES } from "./ecritures.js";
@@ -25,6 +25,7 @@ import * as Radar from "./radar.js";
 import * as NappeCarte from "./nappe.js";
 import * as Vent from "./vent.js";
 import * as Vig from "./vigilance.js";
+import * as Climat from "./climat.js";
 import { SEUILS } from "./conseils.js";
 
 /* ---------- Fragments communs ---------- */
@@ -2665,3 +2666,158 @@ export function vueReglages(ctx, rendre, majEtat) {
   };
 }
 /* ---------- Mesure contre modèle ---------- */
+
+/* ---------- Le climat de la commune ----------
+
+   Quatre-vingts ans de relevés au même endroit, pour dire où la journée se
+   place. Le module `climat.js` porte la source, la réduction et les seuils ; la
+   feuille ne fait que lire et écrire.
+
+   Elle se lit à l'ouverture et non au chargement de l'application : l'archive
+   longue pèse cent soixante-six kilooctets, et c'est le prix d'une question
+   qu'on ne pose pas tous les jours. */
+export function vueClimat(ctx, rendre, majEtat) {
+  const g = Reglages.lire();
+  if (!Number.isFinite(g.lat) || !Number.isFinite(g.lon)) {
+    return {
+      titre: "Le climat d'ici",
+      corps: `<p class="note">Aucun lieu courant : la comparaison part d'ici.</p>`,
+    };
+  }
+
+  return {
+    titre: "Le climat d'ici",
+    sous: g.commune || "",
+    corps:
+      `<div class="carte" id="clJour"><p class="note">Lecture de l'archive…</p></div>`
+      + `<div class="carte" id="clRecords" hidden></div>`
+      + `<div class="carte" id="clSaison" hidden></div>`
+      + `<div class="carte" id="clBandes" hidden></div>`
+      + `<p class="note" id="clSource">Réanalyse ERA5, servie par Open-Meteo. `
+      + `L'archive d'une commune se lit une fois et se garde sur l'appareil.</p>`,
+
+    brancher(bloc) {
+      const jour = bloc.querySelector("#clJour");
+      const recs = bloc.querySelector("#clRecords");
+      const sais = bloc.querySelector("#clSaison");
+      const band = bloc.querySelector("#clBandes");
+
+      const dire = t => { jour.innerHTML = `<p class="note">${esc(t)}</p>`; };
+
+      /* Le maximum du jour vient de la même source que la semaine et que
+         l'accueil, la série horaire quand elle couvre la journée : deux écrans
+         qui liraient deux sources pour le même chiffre finiraient par se
+         contredire. */
+      const c = P.chargeCourante();
+      const iJ = P.iJour();
+      const date = c && iJ >= 0 ? c.daily.time[iJ] : cleJour(new Date());
+      const h = P.jourHoraire(date);
+      const max = h ? h.tx
+        : (c && iJ >= 0 ? c.daily.temperature_2m_max[iJ] : null);
+
+      (async () => {
+        let d = null;
+        try { d = await Climat.charger(g.lat, g.lon, date); }
+        catch { d = null; }
+        if (!bloc.isConnected) return;
+        if (!d) { dire("L'archive a besoin du réseau."); return; }
+        const b = Climat.bilan(d, date, max);
+        if (!b) { dire("L'archive de ce lieu n'est pas lisible."); return; }
+
+        /* 1. La journée d'aujourd'hui parmi les mêmes dates. */
+        /* La date sans le nom du jour : la médiane porte sur toutes les
+           journées du 10 septembre, quel que soit le jour de la semaine. */
+        const dateLongue = new Date(`${date}T12:00`)
+          .toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+        jour.innerHTML = `<div class="carte-tete"><h3>Aujourd'hui dans l'histoire</h3></div>`
+          + (Number.isFinite(max) && b.percentile !== null
+            ? `<div class="rangee"><span class="rangee-txt"><b>Maximum annoncé</b>`
+              + `<span>${esc(Climat.motPercentile(b.percentile))}</span></span>`
+              + valeur(Climat.degre(max), { doux: `${Math.round(b.percentile)} %` })
+              + `</div>`
+            : `<p class="note">Le maximum du jour n'est pas connu.</p>`)
+          + (b.mediane !== null
+            ? `<div class="rangee"><span class="rangee-txt"><b>Ordinaire de la date</b>`
+              + `<span>Médiane des ${esc(dateLongue)} de ${b.an0} à ${b.anN}</span></span>`
+              + valeur(Climat.degre(b.mediane)) + `</div>`
+            : "");
+
+        /* 2. Les records de la date. */
+        if (b.records && b.records[0] !== null) {
+          recs.hidden = false;
+          recs.innerHTML = `<div class="carte-tete"><h3>Les records du jour</h3></div>`
+            + `<div class="rangee"><span class="rangee-txt"><b>Le plus chaud</b>`
+            + `<span>Maximum le plus élevé pour cette date</span></span>`
+            + valeur(Climat.degre(b.records[0]), { doux: String(b.records[1]) }) + `</div>`
+            + `<div class="rangee"><span class="rangee-txt"><b>La nuit la plus froide</b>`
+            + `<span>Minimum le plus bas pour cette date</span></span>`
+            + valeur(Climat.degre(b.records[2]), { doux: String(b.records[3]) }) + `</div>`;
+        }
+
+        /* 3. La saison contre la normale. Elle ne paraît que si l'année en
+           cours a été lue : sans elle, il n'y a rien à comparer. */
+        if (b.releve && b.normale) {
+          const dT = Math.round((b.releve.temp - b.normale[0]) * 10) / 10;
+          const dP = Math.round(b.releve.pluie - b.normale[1]);
+          /* L'écart se dit dans la ligne de description et non à côté de la
+             valeur. Les températures s'écrivent au degré rond partout dans
+             l'application : « 21° » à côté de « normale 20° » et de « +0,6° »
+             donnerait une soustraction qui ne tombe pas juste sous les yeux du
+             lecteur. La comparaison se lit alors en toutes lettres, et le
+             chiffre affiché reste celui de la règle commune. */
+          const motT = Math.abs(dT) < 0.05 ? "dans la normale"
+            : `${nombreFr(Math.abs(dT))}° ${dT > 0 ? "au-dessus" : "en dessous"} de la normale`;
+          const motP = dP === 0 ? "comme la normale"
+            : `${Math.abs(dP)} mm ${dP > 0 ? "de plus" : "de moins"} que la normale`;
+          sais.hidden = false;
+          sais.innerHTML = `<div class="carte-tete"><h3>${esc(b.saison.nom)} `
+            + `${b.saisonEnCours ? "en cours" : "qui vient de finir"}</h3></div>`
+            + `<div class="rangee"><span class="rangee-txt"><b>Température moyenne</b>`
+            + `<span>${esc(motT)} ${Climat.NORMALE[0]} à ${Climat.NORMALE[1]}, `
+            + `${esc(Climat.degre(b.normale[0]))}</span></span>`
+            + valeur(Climat.degre(b.releve.temp)) + `</div>`
+            + `<div class="rangee"><span class="rangee-txt"><b>Pluie tombée</b>`
+            + `<span>${esc(motP)}, ${Math.round(b.normale[1])} mm</span></span>`
+            + valeur(`${Math.round(b.releve.pluie)} mm`) + `</div>`;
+        }
+
+        /* 4. Les bandes de réchauffement, une bande par année. */
+        if (b.bandes && b.montee) {
+          band.hidden = false;
+          const e = b.bandes.ecarts;
+          const etendue = Math.max(Math.abs(b.bandes.mn), Math.abs(b.bandes.mx)) || 1;
+          band.innerHTML = `<div class="carte-tete"><h3>Les bandes de réchauffement</h3></div>`
+            + `<canvas class="cl-bandes" id="clToile" role="img" aria-label="`
+            + `Une bande par année de ${b.an0} à ${b.anN}, du bleu au rouge selon `
+            + `l'écart à la moyenne des trente premières années, de `
+            + `${nombreFr(b.bandes.mn)} à ${nombreFr(b.bandes.mx)} degrés"></canvas>`
+            + `<div class="cl-ans"><span>${b.an0}</span><span>${b.anN}</span></div>`
+            + `<p class="note">La moyenne annuelle a `
+            + `${b.montee.ecart >= 0 ? "monté" : "baissé"} de `
+            + `${nombreFr(Math.abs(b.montee.ecart))}° des trente premières années aux `
+            + `trente dernières. Chaque bande dit l'écart de son année à la moyenne `
+            + `des trente premières.</p>`;
+
+          const cv = band.querySelector("#clToile");
+          const peindre = () => {
+            const l = cv.clientWidth, ht = cv.clientHeight;
+            if (!l || !ht) return;
+            const r = Math.min(3, window.devicePixelRatio || 1);
+            cv.width = Math.round(l * r); cv.height = Math.round(ht * r);
+            const x = cv.getContext("2d");
+            x.setTransform(r, 0, 0, r, 0, 0);
+            const w = l / e.length;
+            for (let k = 0; k < e.length; k++) {
+              x.fillStyle = couleurEcart(e[k], etendue);
+              /* Un demi-point de recouvrement : sans lui, l'arrondi laisse des
+                 raies du fond entre deux bandes. */
+              x.fillRect(k * w, 0, w + 0.5, ht);
+            }
+          };
+          requestAnimationFrame(peindre);
+          window.addEventListener("resize", peindre, { passive: true });
+        }
+      })();
+    },
+  };
+}
