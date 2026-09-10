@@ -261,6 +261,20 @@ for (const theme of ["light", "dark"]) {
      quinze heures. La route vient après celle de la prévision, dont
      l'expression happerait ce domaine. */
   await ctx.route(/air-quality-api\.open-meteo\.com/, r => {
+    /* La grille de la carte demande l'instant sur tous les points ; la feuille
+       demande des heures sur un seul. L'indice monte vers le nord-est. */
+    const u = new URL(r.request().url());
+    if (u.searchParams.get("current")) {
+      const las = u.searchParams.get("latitude").split(",").map(Number);
+      const los = u.searchParams.get("longitude").split(",").map(Number);
+      r.fulfill({ status: 200, contentType: "application/json",
+        body: JSON.stringify(las.map((la, k) => ({
+          latitude: la, longitude: los[k],
+          current: { time: "2026-08-18T09:00", interval: 3600,
+            european_aqi: Math.round(10 + (la - 41) * 2.6 + los[k] * 1.1) },
+        }))) });
+      return;
+    }
     const h = { time: [], european_aqi: [] };
     const fixes = { pm2_5: 5.1, pm10: 8.2, ozone: 57, nitrogen_dioxide: 3.3,
       alder_pollen: 0, birch_pollen: 0, grass_pollen: 12, mugwort_pollen: 0.4,

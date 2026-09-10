@@ -187,3 +187,23 @@ export const couleurUV = v => {
   const h = teinteUV(v);
   return h === null ? "var(--etiquette-3)" : `hsl(${h.toFixed(0)} 62% 46%)`;
 };
+
+/* L'indice européen de qualité de l'air, aux bornes de ses six niveaux, vingt
+   par vingt. La rampe part du cyan et non du vert, à la différence de celle de
+   l'indice ultraviolet : mesuré le 10 septembre 2026 sur les 380 points de la
+   grille, l'indice du moment va de 12 à 37 sur toute la France, c'est-à-dire
+   entièrement dans les deux premiers niveaux. Une rampe qui les rendrait de la
+   même couleur ne montrerait qu'un aplat. Le cyan est aussi la couleur que
+   l'indice européen donne lui-même au niveau bon.
+
+   Comme celle de l'indice ultraviolet, elle s'arrête au rouge : l'échelle
+   officielle finit sur un magenta, que l'interpolation de teinte atteindrait en
+   traversant le vert et le bleu. */
+const ARRETS_AQI = [[0, 190], [20, 132], [40, 54], [60, 32], [80, 14], [100, 0]];
+
+export const teinteAQI = v => rampe(ARRETS_AQI, v);
+
+export const couleurAQI = v => {
+  const h = teinteAQI(v);
+  return h === null ? "var(--etiquette-3)" : `hsl(${h.toFixed(0)} 58% 46%)`;
+};

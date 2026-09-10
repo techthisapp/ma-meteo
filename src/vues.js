@@ -5,7 +5,7 @@ import { nombreFr, hhmm, heureTxt, jourCourt, jourLong, esc, departementDe,
   heureJour } from "./horloge.js";
 import * as P from "./previsions.js";
 import { ico, icoTemps, icoCiel, tempsDe, couleurT, teinteT,
-  couleurUV, teinteUV } from "./icones.js";
+  couleurUV, teinteUV, couleurAQI, teinteAQI } from "./icones.js";
 import * as Ruban from "./ruban.js";
 import { ECHELLES } from "./ruban.js";
 import { liste, moments, TRANCHES } from "./ecritures.js";
@@ -1077,6 +1077,13 @@ const NAPPES_CARTE = [
   { cle: "uv", id: "caUV", nom: "Indice UV", ico: "soleil", porte: "maximum du jour",
     champ: "uv", teinte: teinteUV, sat: 0.62, clarte: 0.46,
     arrets: [0, 3, 6, 8, 11], unite: "", couleur: couleurUV },
+  /* La qualité de l'air vient d'un second service sur la même grille, d'où la
+     source nommée : les trois autres nappes se partagent une seule lecture,
+     celle-ci a la sienne, sa garde et sa mention. */
+  { cle: "air", id: "caAir", nom: "Qualité de l'air", ico: "brume", porte: "maintenant",
+    champ: "aqi", source: "air", teinte: teinteAQI, sat: 0.58, clarte: 0.46,
+    arrets: [0, 20, 40, 60, 80], unite: "", couleur: couleurAQI,
+    credit: "Qualité de l'air Copernicus" },
 ];
 
 /* Le fond est dessiné, non chargé en tuiles : la mesure et ses raisons sont dans
@@ -1232,11 +1239,18 @@ export function vueCarte(ctx, rendre, majEtat) {
          table des nappes dit laquelle va avec quel champ : le tracé ne connaît
          pas les grandeurs, il connaît une valeur et une teinte. */
       let mesures = null;
+      let mesuresAir = null;
+      /* La grille d'une nappe : celle de la prévision pour trois d'entre elles,
+         celle de la qualité de l'air pour la quatrième. Les deux se posent sur
+         les mêmes points et se peignent de la même façon ; seule la lecture
+         diffère. */
+      const grilleDe = n => (n && n.source === "air" ? mesuresAir : mesures);
       const coucheValeur = (c, v, l, h) => {
         const n = NAPPES_CARTE.find(x => x.cle === choisie && x.champ);
-        if (!n || !mesures) return 0;
+        const g = grilleDe(n);
+        if (!n || !g) return 0;
         return Carte.peindreNappe(c, v, l, h,
-          NappeCarte.couche(mesures[n.champ], n.teinte),
+          NappeCarte.couche(g[n.champ], n.teinte),
           { opacite: 0.62, sat: n.sat, clarte: n.clarte });
       };
 
@@ -1433,14 +1447,18 @@ export function vueCarte(ctx, rendre, majEtat) {
             + `rel="noopener noreferrer">RainViewer</a></span>`
           : "")
           + (() => {
-            /* Deux couches de la même source ne la nomment qu'une fois. */
+            /* Deux couches de la même source ne la nomment qu'une fois. La
+               nappe qui porte son propre crédit vient d'ailleurs et se nomme à
+               part : la fondre avec le vent dirait une source pour l'autre. */
             const n = NAPPES_CARTE.find(x => x.cle === choisie && x.champ);
-            const noms = [n && n.nom, ventAllume ? "vent" : null].filter(Boolean);
-            if (!noms.length) return "";
+            const nOM = n && !n.credit ? n : null;
+            const noms = [nOM && nOM.nom, ventAllume ? "vent" : null].filter(Boolean);
+            const propre = n && n.credit ? `<span>${n.credit}</span>` : "";
+            if (!noms.length) return propre;
             const brut = noms.length === 2 ? `${noms[0]} et ${noms[1]}` : noms[0];
             const dit = brut.charAt(0).toUpperCase() + brut.slice(1);
             return `<span>${dit} <a href="https://open-meteo.com" target="_blank" `
-              + `rel="noopener noreferrer">Open-Meteo</a></span>`;
+              + `rel="noopener noreferrer">Open-Meteo</a></span>` + propre;
           })()
           + (vigiAllume ? `<span>Vigilance Météo-France</span>` : "")
           + `<span>Contours IGN et Natural Earth</span>`;
@@ -1504,8 +1522,10 @@ export function vueCarte(ctx, rendre, majEtat) {
         }
       };
 
-      /* La grille de mesures, une lecture pour les trois nappes. Elle ne part
-         que si une nappe qui en vit est allumée. */
+      /* Les grilles de mesures. Une lecture sert les trois nappes de la
+         prévision et le vent ; la qualité de l'air a la sienne, sur les mêmes
+         points mais sur un autre service. Ni l'une ni l'autre ne part si aucune
+         couche qui en vit n'est allumée. */
       const lireMesures = async () => {
         try {
           const d = await NappeCarte.charger();
@@ -1515,6 +1535,19 @@ export function vueCarte(ctx, rendre, majEtat) {
           dire("");
           revoir();
           poserVent();
+        } catch {
+          if (cv.isConnected) dire("La nappe a besoin du réseau.");
+        }
+      };
+
+      const lireAir = async () => {
+        try {
+          const d = await NappeCarte.chargerAir();
+          if (!cv.isConnected) return;
+          if (!d) { dire("La nappe a besoin du réseau."); return; }
+          mesuresAir = d;
+          dire("");
+          revoir();
         } catch {
           if (cv.isConnected) dire("La nappe a besoin du réseau.");
         }
@@ -1540,8 +1573,11 @@ export function vueCarte(ctx, rendre, majEtat) {
           if (images.length) { rangee.hidden = images.length < 2; revoir(); } else lireIndex();
           return;
         }
-        if (NAPPES_CARTE.some(n => n.cle === c && n.champ)) {
-          if (mesures) revoir(); else lireMesures();
+        const n = NAPPES_CARTE.find(x => x.cle === c && x.champ);
+        if (n) {
+          if (grilleDe(n)) revoir();
+          else if (n.source === "air") lireAir();
+          else lireMesures();
           return;
         }
         dire("");
@@ -1609,7 +1645,12 @@ export function vueCarte(ctx, rendre, majEtat) {
       mention();
       poserLegende();
       if (allume) lireIndex();
-      if (NAPPES_CARTE.some(n => n.cle === choisie && n.champ) || ventAllume) lireMesures();
+      /* Chaque source ne part que si une couche qui en vit est allumée. La
+         grille de la prévision sert trois nappes et le vent, celle de la
+         qualité de l'air ne sert qu'elle-même. */
+      const auDepart = NAPPES_CARTE.find(n => n.cle === choisie && n.champ);
+      if ((auDepart && !auDepart.source) || ventAllume) lireMesures();
+      if (auDepart && auDepart.source === "air") lireAir();
       if (vigiAllume) lireVigi();
 
       window.addEventListener("resize", revoir, { passive: true });

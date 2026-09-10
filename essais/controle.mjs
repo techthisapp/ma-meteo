@@ -436,6 +436,21 @@ function grilleCorps(u) {
   });
 }
 
+/* La grille de la qualité de l'air : les mêmes 380 points, un autre service.
+   L'indice monte du sud au nord, l'inverse de la température, pour qu'une
+   nappe peinte avec la mauvaise grille se voie. */
+let appelsGrilleAir = [];
+function grilleAirCorps(u) {
+  const q = new URL(u).searchParams;
+  const lats = decodeURIComponent(q.get("latitude")).split(",").map(Number);
+  const lons = decodeURIComponent(q.get("longitude")).split(",").map(Number);
+  return lats.map((la, k) => ({
+    latitude: la, longitude: lons[k],
+    current: { time: "2026-08-18T09:00", interval: 3600,
+      european_aqi: Math.round(8 + (la - 41) * 4.2) },
+  }));
+}
+
 /* Le désaccord entre modèles sur la pluie, posé par les contextes qui
    l'éprouvent : AROME annonce une bruine à cette heure, le modèle global reste
    sec. C'est le défaut du 9 septembre 2026 à Paris. */
@@ -603,7 +618,16 @@ const brancherRoutes = async c => {
      domaine porte « api.open-meteo.com » à un préfixe près, et la route de la
      prévision le happerait. */
   await c.route(/air-quality-api\.open-meteo\.com/, r => {
-    appelsAir.push(r.request().url());
+    const u = r.request().url();
+    /* La grille de la carte se reconnaît à ce qu'elle demande l'instant sur
+       plusieurs points, quand la feuille demande des heures sur un seul. */
+    if (u.includes("current=")) {
+      appelsGrilleAir.push(u);
+      r.fulfill({ status: 200, contentType: "application/json",
+        body: JSON.stringify(grilleAirCorps(u)) });
+      return;
+    }
+    appelsAir.push(u);
     r.fulfill({ status: 200, contentType: "application/json",
       body: JSON.stringify(airDe(profilAir)) });
   });
@@ -7344,11 +7368,152 @@ ok("la légende dit sur quoi la nappe porte",
 ok("rallumer la nappe ne redemande pas la grille",
   appelsGrille.length === 1, `${appelsGrille.length} appels`);
 
+/* ---------- La qualité de l'air sur la carte ----------
+
+   Quatrième nappe, et la première qui vienne d'un autre service : les analyses
+   européennes de Copernicus, sur les mêmes points que celle de la prévision.
+   Elle a donc sa lecture, sa garde et sa mention.
+
+   La charge d'essai fait monter l'indice du sud au nord, l'inverse de la
+   température et de l'indice ultraviolet : une nappe peinte avec la mauvaise
+   grille se voit à sa pente avant même de comparer les teintes. */
+ok("la grille de l'air n'est pas demandée tant que sa nappe ne l'est pas",
+  appelsGrilleAir.length === 0, `${appelsGrilleAir.length} appels`);
+
+const airCarteDit = await pgNap.evaluate(async () => {
+  const dodo = m => new Promise(r => setTimeout(r, m));
+  document.getElementById("caAir").click(); await dodo(1200);
+  const cv = document.getElementById("caToile");
+  const ctx = cv.getContext("2d");
+  const C = await import("/src/carte.js");
+  const teinte = (r, g, b) => {
+    const [x, y, z] = [r, g, b].map(v => v / 255);
+    const mx = Math.max(x, y, z), mn = Math.min(x, y, z), d = mx - mn;
+    if (d < 1e-6) return null;
+    let h = mx === x ? ((y - z) / d) % 6 : mx === y ? (z - x) / d + 2 : (x - y) / d + 4;
+    h *= 60; if (h < 0) h += 360;
+    return h;
+  };
+  const lire = (la, lo) => {
+    const p = C.surEcran({ lat: 46.4, lon: 2.2, z: 5.13 }, la, lo, cv.clientWidth, cv.clientHeight);
+    const d = ctx.getImageData(Math.round(p.x * 2), Math.round(p.y * 2), 1, 1).data;
+    return teinte(d[0], d[1], d[2]);
+  };
+  if (document.getElementById("caTemp").getAttribute("aria-checked") !== "false") {
+    return "la température reste marquée sous l'air";
+  }
+  const sud = lire(43.6, 1.4), nord = lire(50.3, 3.0);
+  if (sud === null || nord === null) return "un point du pays n'est pas teinté";
+  /* L'indice monte vers le nord dans la charge : la teinte y descend vers le
+     rouge. Les deux autres nappes vont dans l'autre sens. */
+  if (!(nord < sud - 20)) {
+    return `le nord n'est pas plus chargé : teintes ${sud.toFixed(0)} et ${nord.toFixed(0)}`;
+  }
+  const I = await import("/src/icones.js");
+  for (const [la, peinte] of [[43.6, sud], [50.3, nord]]) {
+    const attendue = I.teinteAQI(Math.round(8 + (la - 41) * 4.2));
+    if (Math.abs(peinte - attendue) > 20) {
+      return `teinte ${peinte.toFixed(0)} là où la rampe de l'air donne ${attendue.toFixed(0)}`;
+    }
+  }
+  return "";
+});
+ok("la nappe de la qualité de l'air teinte selon sa propre rampe",
+  airCarteDit === "", airCarteDit);
+
+/* Elle vit sur son propre service : allumer cette nappe ne redemande pas la
+   grille de la prévision. Et sa grille à elle est gardée trois heures, la
+   cadence des analyses : la quitter et y revenir ne la redemande pas.
+
+   La première écriture de cette garde comptait les appels après un seul
+   allumage. Rien ne l'aurait fait tomber, la garde de mémoire n'étant jamais
+   sollicitée : elle éteint donc la nappe, en choisit une autre, puis revient. */
+await pgNap.evaluate(async () => {
+  const dodo = m => new Promise(r => setTimeout(r, m));
+  document.getElementById("caSansNappe").click(); await dodo(300);
+  document.getElementById("caTemp").click(); await dodo(600);
+  /* Quitter la carte et y revenir : la vue se rebâtit et perd sa grille, seule
+     la garde du module empêche alors une seconde lecture. Rallumer la nappe
+     sans partir ne l'éprouverait pas, la vue gardant sa lecture pour elle. */
+  document.querySelector('[data-onglet="accueil"]').click(); await dodo(400);
+  document.querySelector('[data-onglet="carte"]').click(); await dodo(900);
+  document.getElementById("caCouches").click(); await dodo(200);
+  document.getElementById("caAir").click(); await dodo(900);
+});
+ok("la nappe d'air lit sa grille et non celle de la prévision",
+  appelsGrilleAir.length === 1 && appelsGrille.length === 1,
+  `air ${appelsGrilleAir.length}, prévision ${appelsGrille.length}`);
+
+ok("l'adresse de la grille d'air demande l'indice européen sur tous les points",
+  await pgNap.evaluate(async () => {
+    const N = await import("/src/nappe.js");
+    const u = new URL(N.adresseAir());
+    if (!/air-quality-api/.test(u.hostname)) return `hôte ${u.hostname}`;
+    const q = u.searchParams;
+    if (q.get("current") !== "european_aqi") return `current ${q.get("current")}`;
+    if (q.get("hourly")) return "des heures sont demandées";
+    const n = decodeURIComponent(q.get("latitude")).split(",").length;
+    return n === N.points().length ? "" : `${n} points`;
+  }) === "");
+
+/* La source propre se nomme, et ne se fond pas avec celle du vent : deux
+   services différents sous une seule mention diraient l'un pour l'autre. */
+ok("la nappe d'air nomme sa source, le vent gardant la sienne",
+  await pgNap.evaluate(async () => {
+    const dodo = m => new Promise(r => setTimeout(r, m));
+    const c = document.getElementById("caCredit");
+    if (!/Copernicus/.test(c.textContent)) return `mention ${c.textContent}`;
+    if (/Qualité de l'air <a/.test(c.innerHTML)) return "la nappe d'air renvoie à Open-Meteo";
+    document.getElementById("caVent").click(); await dodo(600);
+    const deux = c.textContent;
+    document.getElementById("caVent").click(); await dodo(300);
+    if (!/Copernicus/.test(deux)) return `avec le vent : ${deux}`;
+    return /Vent/.test(deux) ? "" : `le vent ne se nomme pas : ${deux}`;
+  }) === "");
+
+ok("la légende de l'air porte les bornes des niveaux européens",
+  await pgNap.evaluate(async () => {
+    const t = document.getElementById("caLegTitre").textContent;
+    if (!/Qualité de l'air, maintenant/.test(t)) return `titre ${t}`;
+    const g = [...document.querySelectorAll("#caGrads span")].map(x => x.textContent);
+    return g.join(",") === "0,20,40,60,80" ? "" : `graduations ${g.join(", ")}`;
+  }) === "");
+
+/* Le choix se garde comme les trois autres. */
+ok("le choix de la nappe d'air se garde d'une visite à l'autre",
+  await pgNap.evaluate(async () => {
+    const R = await import("/src/reglages.js");
+    return R.nappe() === "air" ? "" : `réglage ${R.nappe()}`;
+  }) === "");
+
 await ctxNap.close();
+
+/* Une carte qui s'ouvre sur la nappe d'air la peint sans qu'on y touche. Le
+   premier tracé lit les sources des couches allumées, et cette lecture-là est
+   la sienne : le défaut a existé, la nappe restant vide jusqu'à ce qu'on
+   rouvre le panneau, et aucune garde ne le voyait puisque toutes finissaient
+   par appuyer sur son bouton. */
+appelsGrilleAir.length = 0;
+const [ctxAirDepart, pgAirDepart] = await ouvrirCarte({ ...FAIN, nappe: "air" }, 0);
+ok("une carte qui s'ouvre sur la nappe d'air la peint d'elle-même",
+  await pgAirDepart.evaluate(async () => {
+    const cv = document.getElementById("caToile");
+    const C = await import("/src/carte.js");
+    const ctx = cv.getContext("2d");
+    const p = C.surEcran({ lat: 46.4, lon: 2.2, z: 5.13 }, 46.8, 2.4,
+      cv.clientWidth, cv.clientHeight);
+    const d = ctx.getImageData(Math.round(p.x * 2), Math.round(p.y * 2), 1, 1).data;
+    const ecart = Math.max(d[0], d[1], d[2]) - Math.min(d[0], d[1], d[2]);
+    return ecart > 12 ? "" : `le centre du pays reste gris, écart ${ecart}`;
+  }) === "");
+ok("elle ne lit sa grille qu'une fois en s'ouvrant",
+  appelsGrilleAir.length === 1, `${appelsGrilleAir.length} appels`);
+await ctxAirDepart.close();
 
 /* Un réglage écrit par la version d'avant ne porte qu'un booléen de pluie. Il se
    reprend : pluie éteinte veut dire aucune nappe. */
 appelsGrille.length = 0;
+appelsGrilleAir.length = 0;
 const [ctxAncienRadar, pgAncienRadar] = await ouvrirCarte({ ...FAIN, radar: false }, 0);
 ok("un ancien réglage de pluie se reprend en choix de nappe",
   await pgAncienRadar.evaluate(() =>
@@ -7461,7 +7626,14 @@ ok("les deux couches se partagent une seule lecture de la grille",
 /* La toile du vent est posée devant celle de la carte : elle ne doit prendre
    aucun geste, sans quoi le doigt cesserait de déplacer la carte. */
 ok("la toile du vent ne prend pas les gestes",
-  await pgVent.evaluate(() => {
+  await pgVent.evaluate(async () => {
+    const dodo = m => new Promise(r => setTimeout(r, m));
+    /* Le panneau des couches, laissé ouvert par le contrôle précédent, couvre
+       le haut du cadre : il faut le refermer pour interroger la carte. Il a
+       grandi d'une rangée avec la nappe de la qualité de l'air et atteint
+       désormais le centre du cadre. */
+    const ouvre = document.getElementById("caCouches");
+    if (ouvre.getAttribute("aria-expanded") === "true") { ouvre.click(); await dodo(200); }
     const cv = document.getElementById("caToileVent");
     const s = getComputedStyle(cv);
     if (s.pointerEvents !== "none") return `pointer-events ${s.pointerEvents}`;

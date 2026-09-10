@@ -46,7 +46,26 @@ export const JOURS = 2;
    son champ `interval`. La garde suit cette cadence. */
 export const GARDE = 15 * 60 * 1000;
 
+/* La qualité de l'air vient d'un second service, sur la même grille. Les
+   analyses de Copernicus sont publiées une fois par jour : la garde est celle
+   de la feuille « L'air qu'on respire », trois heures, et pour la même raison.
+
+   Mesuré le 10 septembre 2026 sur les 380 points : 9718 octets compressés,
+   3826 octets d'adresse. La lecture ne part que si la nappe est allumée.
+
+   L'indice du moment, non le pire de la journée. C'est ce que la carte montre
+   pour la température et le vent, et l'exception de l'indice ultraviolet tient
+   à ce qu'il vaut zéro la nuit sur tous les points, ce qui n'arrive jamais à
+   l'indice d'air. Mesuré à 2 h : l'indice du moment va de 12 à 37 sur la
+   France, le pire des vingt-quatre heures de 21 à 53, neuf points d'écart
+   médian entre les deux. Le pire de la journée est déjà écrit dans la feuille,
+   à côté du moment présent. */
+export const SERVICE_AIR = "https://air-quality-api.open-meteo.com/v1/air-quality";
+export const COLONNES_AIR = ["european_aqi"];
+export const GARDE_AIR = 3 * 3600 * 1000;
+
 let garde = null;
+let gardeAir = null;
 
 export function points() {
   const p = [];
@@ -117,7 +136,41 @@ export async function charger(fetcheur = fetch) {
   return d;
 }
 
-export function oublier() { garde = null; }
+export function adresseAir() {
+  const p = points();
+  const q = new URLSearchParams();
+  q.set("latitude", p.map(x => x[0].toFixed(2)).join(","));
+  q.set("longitude", p.map(x => x[1].toFixed(2)).join(","));
+  q.set("current", COLONNES_AIR.join(","));
+  return `${SERVICE_AIR}?${q}`;
+}
+
+export function lireAir(d) {
+  if (!Array.isArray(d) || d.length !== COLS * RANGS) return null;
+  const n = COLS * RANGS;
+  const out = { aqi: new Float32Array(n), maj: null };
+  for (let i = 0; i < n; i++) {
+    const c = d[i] && d[i].current;
+    if (!c) return null;
+    out.aqi[i] = Number.isFinite(c.european_aqi) ? c.european_aqi : NaN;
+    if (!out.maj && typeof c.time === "string") out.maj = c.time;
+  }
+  return out;
+}
+
+export async function chargerAir(fetcheur = fetch) {
+  const t = Date.now();
+  if (gardeAir && t < gardeAir.exp) return gardeAir.d;
+  let d = null;
+  try {
+    const r = await fetcheur(adresseAir());
+    if (r.ok) d = lireAir(await r.json());
+  } catch { d = null; }
+  gardeAir = { d, exp: t + (d ? GARDE_AIR : 60 * 1000) };
+  return d;
+}
+
+export function oublier() { garde = null; gardeAir = null; }
 
 /* La valeur en un point quelconque, par interpolation bilinéaire sur les quatre
    mailles voisines. Hors de l'emprise, rien : une nappe qui prolongerait sa

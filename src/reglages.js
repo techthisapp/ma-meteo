@@ -255,13 +255,13 @@ export function poserCiel(e) {
   poser({ ciel: e });
 }
 
-/* La nappe de la carte. Une seule à la fois : ce sont trois étalements de
-   couleur sur toute la surface, et deux superposés ne se liraient ni l'un ni
-   l'autre. La pluie est celle du départ, c'est ce que la carte a de plus utile.
+/* La nappe de la carte. Une seule à la fois : ce sont des étalements de couleur
+   sur toute la surface, et deux superposés ne se liraient ni l'un ni l'autre.
+   La pluie est celle du départ, c'est ce que la carte a de plus utile.
 
    Un réglage écrit par la version d'avant ne porte qu'un booléen de pluie : il
    se reprend, la pluie éteinte devenant l'absence de nappe. */
-export const NAPPES = ["pluie", "temp", "uv"];
+export const NAPPES = ["pluie", "temp", "uv", "air"];
 export const nappe = () => {
   if (NAPPES.includes(etat.nappe)) return etat.nappe;
   if (etat.nappe === null) return null;
