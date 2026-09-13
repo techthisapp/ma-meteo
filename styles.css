@@ -1296,6 +1296,13 @@ button.rangee:active{background:var(--surface-2)}
 .ca-lv-r i{flex:none;height:1.6px;background:var(--ca-vent);border-radius:var(--rayon-plein)}
 .ca-l-titre{display:block;font-size:var(--texte-note);color:var(--etiquette-2);margin-bottom:3px}
 .ca-rampe{display:block;height:8px;border-radius:var(--rayon-plein)}
+/* La rampe de la foudre est celle du service, du jaune pâle au rouge sombre :
+   la légende dit la couleur telle qu'elle est peinte, sur une ligne comme
+   celle du vent. */
+.ca-lf .ca-rampe-foudre{
+  flex:none;width:36px;height:6px;border-radius:var(--rayon-plein);
+  background:linear-gradient(90deg,#fef9bd,#fdb14c,#f23a24,#b10126);
+}
 .ca-graduations{
   display:flex;justify-content:space-between;
   font-size:var(--texte-note);color:var(--etiquette-2);

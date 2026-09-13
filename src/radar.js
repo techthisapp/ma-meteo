@@ -113,9 +113,12 @@ export function rangCourant(images) {
    s'arrête à sept et la tuile s'agrandit d'autant : quatre tuiles de cinq cent
    douze points à l'écran au zoom huit, deux de deux mille quarante-huit au zoom
    dix. Une vue de près coûte donc moins qu'une vue de loin, l'inverse d'une
-   carte ordinaire. */
-export function tuilesVues(vue, l, h) {
-  const z = Math.max(ZMIN, Math.min(ZMAX_TUILE, Math.round(vue.z)));
+   carte ordinaire.
+
+   La borne se passe en paramètre : la foudre, dont le pixel fait deux
+   kilomètres, s'arrête au zoom six. */
+export function tuilesVues(vue, l, h, zmax = ZMAX_TUILE) {
+  const z = Math.max(ZMIN, Math.min(zmax, Math.round(vue.z)));
   const n = Math.pow(2, z);
   const cote = echelle(vue.z) / n;
   const cx = mx(vue.lon) * n, cy = my(vue.lat) * n;

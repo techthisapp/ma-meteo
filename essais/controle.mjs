@@ -25,7 +25,12 @@ const serveur = http.createServer((rq, rs) => {
   rs.writeHead(200, { "Content-Type": MIME[path.extname(f)] || "text/plain" });
   rs.end(fs.readFileSync(f));
 });
-await new Promise(r => serveur.listen(8137, r));
+/* Le port se choisit par l'environnement : plusieurs épreuves de fautes
+   tournent alors en parallèle sur des copies du dépôt, chacune sur son port.
+   Une passe dure dix minutes ; dix passes en séquence en prenaient cent. */
+const PORT = Number(process.env.PORT_ESSAIS) || 8137;
+const RACINE_HTTP = `http://localhost:${PORT}/`;
+await new Promise(r => serveur.listen(PORT, r));
 
 const nav = await chromium.launch({
   executablePath: process.env.CHROMIUM || undefined,
@@ -270,6 +275,19 @@ const teinteRadar = chemin => {
     : { r: 250, g: 60 + k * 10, b: 40, rang: k };
 };
 const appelsRadar = [];
+
+/* La foudre d'EUMETSAT : les capacités de la couche disent le dernier pas
+   publié, douze minutes avant l'heure figée arrondies au pas de cinq, comme le
+   service le fait ; les tuiles sont transparentes, sauf sur demande d'un
+   contrôle qui lit la toile au pixel, où le dernier pas est rouge et les
+   autres jaunes. Le pas le plus ancien de la fenêtre rend un XML d'exception
+   en HTTP 200, comme le service le fait pour un pas qu'il ne sert pas. */
+const appelsFoudre = [];
+const FOUDRE_PAS = 5 * 60 * 1000;
+const FOUDRE_DERNIER = Math.floor((FIGE - 12 * 60 * 1000) / FOUDRE_PAS) * FOUDRE_PAS;
+const FOUDRE_XML = FOUDRE_DERNIER - 5 * FOUDRE_PAS;
+let foudreTeinte = false;
+const heureService = t => new Date(t).toISOString().replace(/\.\d{3}Z$/, "Z");
 
 /* ---------- La charge de la pluie dans l'heure ----------
 
@@ -526,7 +544,7 @@ function retoucher(hourly) {
    perdues. Le repli borne l'attente et se compte, pour que le masquage se voie
    plutôt que de passer inaperçu. */
 let repliesOuverture = 0;
-const ouvrirPage = async (p, url = "http://localhost:8137/") => {
+const ouvrirPage = async (p, url = RACINE_HTTP) => {
   try {
     await p.goto(url, { waitUntil: "networkidle", timeout: 15000 });
   } catch {
@@ -714,6 +732,34 @@ const brancherRoutes = async c => {
     appelsRadar.push(r.request().url());
     r.fulfill({ status: 200, contentType: "application/json",
       body: JSON.stringify(radarIndex()) });
+  });
+  await c.route(/view\.eumetsat\.int/, r => {
+    const u = r.request().url();
+    appelsFoudre.push(u);
+    if (/request=GetCapabilities/i.test(u)) {
+      r.fulfill({ status: 200, contentType: "text/xml",
+        headers: { "Access-Control-Allow-Origin": "*" },
+        body: `<?xml version="1.0" encoding="UTF-8"?><WMS_Capabilities version="1.3.0">`
+          + `<Capability><Layer><Layer queryable="1"><Name>mtg_fd:li_afa</Name>`
+          + `<Dimension name="time" default="${heureService(FOUDRE_DERNIER)}" units="ISO8601">`
+          + `2025-05-30T00:00:00.000Z/${heureService(FOUDRE_DERNIER)}/PT5M</Dimension>`
+          + `</Layer></Layer></Capability></WMS_Capabilities>` });
+      return;
+    }
+    const m = /[?&]time=([^&]+)/.exec(u);
+    const t = m ? Date.parse(decodeURIComponent(m[1])) : NaN;
+    if (t === FOUDRE_XML) {
+      r.fulfill({ status: 200, contentType: "application/xml",
+        headers: { "Access-Control-Allow-Origin": "*" },
+        body: `<?xml version="1.0"?><ServiceExceptionReport><ServiceException `
+          + `code="InvalidDimensionValue" locator="time">No nearest match`
+          + `</ServiceException></ServiceExceptionReport>` });
+      return;
+    }
+    const corps = !foudreTeinte ? pngUni(0, 0, 0, 0)
+      : t === FOUDRE_DERNIER ? pngUni(220, 20, 20, 255) : pngUni(250, 230, 90, 255);
+    r.fulfill({ status: 200, contentType: "image/png",
+      headers: { "Access-Control-Allow-Origin": "*" }, body: corps });
   });
   await c.route(/tilecache\.rainviewer\.com/, r => {
     const u = r.request().url();
@@ -4598,7 +4644,7 @@ await ctxLent.route(/api\.open-meteo\.com/, async route => {
   route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
 });
 const pgLent = await ctxLent.newPage();
-pgLent.goto("http://localhost:8137/").catch(() => {});
+pgLent.goto(RACINE_HTTP).catch(() => {});
 await pgLent.waitForTimeout(1200);
 ok("la première lecture montre une ossature, non un voile plein écran",
   await pgLent.locator(".ossature").count() >= 3
@@ -6273,7 +6319,7 @@ const ouvrirDiscordante = async (sansModeleFin = false) => {
   await c.addInitScript(amorceGardee(FAIN, FIGE));
   await brancherRoutes(c);
   const p = await c.newPage();
-  await p.goto("http://localhost:8137/", { waitUntil: "networkidle" });
+  await p.goto(RACINE_HTTP, { waitUntil: "networkidle" });
   await p.waitForTimeout(900);
   /* La lecture est une chaîne : elle s'évalue comme expression, il faut donc
      l'appeler. */
@@ -7628,6 +7674,158 @@ ok("un ancien réglage de pluie se reprend en choix de nappe",
     document.getElementById("caPluie").getAttribute("aria-checked") === "false"
     && document.getElementById("caSansNappe").getAttribute("aria-checked") === "true"));
 await ctxAncienRadar.close();
+
+/* ---------- La foudre sur la carte ----------
+
+   L'imageur de foudre du Meteosat de troisième génération, servi par
+   EUMETSAT en tuiles de Mercator. Le contrat, relevé sur les adresses émises :
+   le dernier pas publié et non l'heure courante, six pas de cinq minutes posés
+   l'un sur l'autre, des tuiles bornées au zoom six, rien tant que la couche est
+   éteinte, et la chronologie de la pluie qui entraîne la foudre. */
+appelsFoudre.length = 0;
+foudreTeinte = true;
+const [ctxFou, pgFou] = await ouvrirCarte(FAIN, 0);
+const tempsFoudre = () => appelsFoudre
+  .filter(u => /request=GetMap/i.test(u))
+  .map(u => Date.parse(decodeURIComponent(/[?&]time=([^&]+)/.exec(u)[1])));
+const pasFoudre = () => [...new Set(tempsFoudre())].sort((a, b) => a - b);
+/* Le message d'une garde ne doit pas faire tomber la suite : sans tuile
+   demandée, `Math.max` rend moins l'infini et la mise en forme de l'heure
+   lève. Le cas arrive dès que la couche ne peint plus, ce qu'une garde
+   voisine éprouve. */
+const dernierPasDit = () => {
+  const p = pasFoudre();
+  return p.length ? heureService(Math.max(...p)) : "aucune tuile demandée";
+};
+
+ok("la foudre est allumée au départ, comme la vigilance",
+  await pgFou.evaluate(() =>
+    document.getElementById("caFoudre").getAttribute("aria-checked") === "true"));
+
+ok("elle lit les capacités de la couche seule, non celles du service entier",
+  appelsFoudre.some(u => /\/geoserver\/mtg_fd\/li_afa\/ows\?.*GetCapabilities/i.test(u))
+  && !appelsFoudre.some(u => /\/geoserver\/ows\?.*GetCapabilities/i.test(u)),
+  appelsFoudre.filter(u => /GetCapabilities/i.test(u)).join(" "));
+
+ok("elle demande le dernier pas publié et non l'heure courante",
+  pasFoudre().length > 0 && Math.max(...pasFoudre()) === FOUDRE_DERNIER,
+  `dernier demandé ${dernierPasDit()}, publié ${heureService(FOUDRE_DERNIER)}`);
+
+ok("elle pose six pas de cinq minutes, trente minutes de foudre",
+  (() => {
+    const p = pasFoudre();
+    if (p.length !== 6) return false;
+    for (let k = 1; k < 6; k++) if (p[k] - p[k - 1] !== FOUDRE_PAS) return false;
+    return true;
+  })(), pasFoudre().map(heureService).join(" "));
+
+/* Cinq points au cœur de grands départements, loin des limites et de leur
+   gaine : Landes, Gironde, Marne, Allier, Aveyron. Un trait peut en effleurer
+   un, non quatre. */
+const foudrePeinte = await pgFou.evaluate(async () => {
+  const dodo = m => new Promise(r => setTimeout(r, m));
+  await dodo(600);
+  const cv = document.getElementById("caToile");
+  const C = await import("/src/carte.js");
+  const ctx = cv.getContext("2d");
+  const lieux = [[44.0, -0.9], [44.9, -0.6], [48.9, 4.2], [46.4, 3.2], [44.3, 2.6]];
+  const lus = lieux.map(([la, lo]) => {
+    const p = C.surEcran({ lat: 46.4, lon: 2.2, z: 5.13 }, la, lo, cv.clientWidth, cv.clientHeight);
+    return [...ctx.getImageData(Math.round(p.x * 2), Math.round(p.y * 2), 1, 1).data].slice(0, 3);
+  });
+  return { rouges: lus.filter(d => d[0] > 180 && d[1] < 80 && d[2] < 80).length, lus };
+});
+ok("le pas le plus récent est peint par-dessus les autres",
+  foudrePeinte.rouges >= 4, JSON.stringify(foudrePeinte.lus));
+
+ok("les tuiles se demandent en projection de Mercator, au pas de temps du service",
+  appelsFoudre.filter(u => /GetMap/i.test(u)).every(u =>
+    /crs=EPSG:3857/.test(u) && /layers=mtg_fd:li_afa/.test(u)
+    && /width=256&height=256/.test(u) && /time=\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ/.test(u)),
+  appelsFoudre.find(u => /GetMap/i.test(u)) || "aucune tuile");
+
+/* Le pixel de la source fait deux kilomètres, ce qu'une tuile du zoom six porte
+   déjà : au delà, la tuile s'agrandit au lieu de se redemander. La largeur
+   d'une tuile du zoom six est le tour du monde divisé par soixante-quatre. */
+appelsFoudre.length = 0;
+await pgFou.locator("#caPlus").click(); await pgFou.waitForTimeout(150);
+await pgFou.locator("#caPlus").click(); await pgFou.waitForTimeout(150);
+await pgFou.locator("#caPlus").click(); await pgFou.waitForTimeout(600);
+ok("les tuiles de foudre s'arrêtent au zoom six",
+  (() => {
+    const u = appelsFoudre.filter(x => /GetMap/i.test(x));
+    if (!u.length) return false;
+    const tour = 2 * Math.PI * 6378137;
+    return u.every(x => {
+      const b = /bbox=([^&]+)/.exec(x)[1].split(",").map(Number);
+      return Math.abs((b[2] - b[0]) - tour / 64) < 1;
+    });
+  })(), appelsFoudre.find(x => /GetMap/i.test(x)) || "aucune tuile au zoom huit");
+
+ok("la mention nomme EUMETSAT tant que la foudre est allumée",
+  await pgFou.evaluate(() => {
+    const c = document.getElementById("caCredit");
+    return /Foudre/.test(c.textContent) && c.querySelector('a[href*="eumetsat.int"]') !== null;
+  }));
+
+ok("la légende de la foudre paraît avec la couche",
+  await pgFou.evaluate(() => !document.getElementById("caLegFoudre").hidden));
+
+/* La chronologie de la pluie entraîne la foudre : une image de pluie plus
+   ancienne montre la foudre de son heure, au pas de cinq minutes le plus
+   proche, jamais au delà du dernier pas publié. */
+appelsFoudre.length = 0;
+const foudreEntrainee = await pgFou.evaluate(async () => {
+  const dodo = m => new Promise(r => setTimeout(r, m));
+  const p = document.getElementById("caPiste");
+  p.focus();
+  for (let k = 0; k < 6; k++) {
+    p.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
+  }
+  await dodo(500);
+  const F = await import("/src/foudre.js");
+  return { image: Number(document.getElementById("caPiste").getAttribute("aria-valuenow")),
+    PAS: F.PAS };
+});
+ok("la chronologie de la pluie entraîne la foudre au pas le plus proche",
+  (() => {
+    const p = pasFoudre();
+    if (!p.length) return false;
+    /* Six images en arrière : soixante minutes avant la dernière observée,
+       laquelle porte l'heure figée arrondie à la dizaine. */
+    const image = Math.floor(FIGE / 600000) * 600000 - 6 * 600000;
+    const attendu = Math.min(Math.round(image / FOUDRE_PAS) * FOUDRE_PAS, FOUDRE_DERNIER);
+    return Math.max(...p) === attendu;
+  })(), `demandé jusqu'à ${dernierPasDit()}, image ${foudreEntrainee.image}`);
+
+/* L'interrupteur. Éteinte, la couche ne peint plus, la mention et la légende
+   la quittent, et une carte qui s'ouvre éteinte ne demande rien au service. */
+const foudreEteinte = await pgFou.evaluate(async () => {
+  const dodo = m => new Promise(r => setTimeout(r, m));
+  document.getElementById("caCouches").click(); await dodo(200);
+  document.getElementById("caFoudre").click(); await dodo(400);
+  const c = document.getElementById("caCredit");
+  return {
+    coche: document.getElementById("caFoudre").getAttribute("aria-checked"),
+    mention: /Foudre/.test(c.textContent),
+    legende: !document.getElementById("caLegFoudre").hidden,
+  };
+});
+ok("la foudre éteinte quitte la mention et la légende",
+  foudreEteinte.coche === "false" && !foudreEteinte.mention && !foudreEteinte.legende,
+  JSON.stringify(foudreEteinte));
+await ctxFou.close();
+foudreTeinte = false;
+
+appelsFoudre.length = 0;
+const [ctxFouOff, pgFouOff] = await ouvrirCarte({ ...FAIN, foudrecarte: false }, 0);
+await pgFouOff.waitForTimeout(400);
+ok("une carte qui s'ouvre la foudre éteinte ne demande rien au service",
+  appelsFoudre.length === 0, `${appelsFoudre.length} appels`);
+ok("et son réglage est retenu d'une ouverture à l'autre",
+  await pgFouOff.evaluate(() =>
+    document.getElementById("caFoudre").getAttribute("aria-checked") === "false"));
+await ctxFouOff.close();
 
 /* ---------- Le vent sur la carte ----------
 

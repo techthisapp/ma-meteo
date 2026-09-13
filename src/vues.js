@@ -22,6 +22,7 @@ import * as BeauTemps from "./beautemps.js";
 import * as Air from "./air.js";
 import * as Carte from "./carte.js";
 import * as Radar from "./radar.js";
+import * as Foudre from "./foudre.js";
 import * as NappeCarte from "./nappe.js";
 import * as Vent from "./vent.js";
 import * as Vig from "./vigilance.js";
@@ -1163,6 +1164,9 @@ export function vueCarte(ctx, rendre, majEtat) {
       + `<button type="button" class="ca-ch" id="caVigi" role="switch" `
       + `aria-checked="${Reglages.vigicarte() ? "true" : "false"}">`
       + ico("alerte", "") + `<span>Vigilance</span></button>`
+      + `<button type="button" class="ca-ch" id="caFoudre" role="switch" `
+      + `aria-checked="${Reglages.foudrecarte() ? "true" : "false"}">`
+      + ico("orage", "") + `<span>Foudre</span></button>`
       + `</div>`
       + `</div>`
       + `<p class="ca-mot" id="caMot" role="status" hidden></p>`
@@ -1174,6 +1178,10 @@ export function vueCarte(ctx, rendre, majEtat) {
       + `<div class="ca-graduations" id="caGrads"></div>`
       + `</div>`
       + `<div class="ca-legende ca-lv" id="caLegVent" hidden></div>`
+      + `<div class="ca-legende ca-lv ca-lf" id="caLegFoudre" hidden `
+      + `aria-label="Foudre des trente dernières minutes, du jaune pour un éclair au rouge sombre pour vingt et plus">`
+      + `<span class="ca-lv-r"><i class="ca-rampe-foudre"></i>Foudre, 30 min</span>`
+      + `</div>`
       + `</div>`
       + `<div class="ca-bas">`
       + `<div class="ca-echelle" id="caEchelle"><i></i><span></span></div>`
@@ -1305,10 +1313,32 @@ export function vueCarte(ctx, rendre, majEtat) {
         return Carte.peindreDepartements(cv, c, v, l, h, vigiNiveaux, { trait: true });
       };
 
+      /* La foudre, par-dessus la pluie : clairsemée, elle se lit sur toute
+         nappe. La fenêtre finit au dernier pas publié, ou au pas le plus
+         proche de l'image de pluie regardée quand la chronologie est
+         parcourue : l'orage se lit à l'heure de la pluie qu'on regarde. */
+      let foudreAllume = Reglages.foudrecarte();
+      let foudreDernier = 0;
+      const finFoudre = () => {
+        if (!foudreDernier) return 0;
+        if (allume && images.length && rang !== Radar.rangCourant(images)) {
+          return Foudre.pasProche(images[rang].t, foudreDernier);
+        }
+        return foudreDernier;
+      };
+      const coucheFoudre = (c, v, l, h) => {
+        if (!foudreAllume) return 0;
+        return Foudre.peindre(c, v, l, h, finFoudre(), () => main.redessiner());
+      };
+
       /* L'ordre de tracé, écrit une fois : la pose du geste et le premier tracé
          prennent la même liste. */
+      /* La foudre ne demande pas la gaine des traits : ses tuiles comptent
+         comme posées même vides, et un liseré le long des limites ferait lire
+         une couche là où il n'y a pas d'orage. */
       const COUCHES = [coucheVigiFond, { peindre: coucheValeur, gaine: false },
-        couche, { peindre: coucheVigiTrait, gaine: false }];
+        couche, { peindre: coucheFoudre, gaine: false },
+        { peindre: coucheVigiTrait, gaine: false }];
       const main = Carte.poser(cv, vue, placer, COUCHES);
       const revoir = () => { main.redessiner(); };
 
@@ -1468,6 +1498,10 @@ export function vueCarte(ctx, rendre, majEtat) {
               + `rel="noopener noreferrer">Open-Meteo</a></span>` + propre;
           })()
           + (vigiAllume ? `<span>Vigilance Météo-France</span>` : "")
+          + (foudreAllume
+            ? `<span>Foudre <a href="https://www.eumetsat.int" target="_blank" `
+              + `rel="noopener noreferrer">EUMETSAT</a></span>`
+            : "")
           + `<span>Contours IGN et Natural Earth</span>`;
       };
 
@@ -1481,6 +1515,7 @@ export function vueCarte(ctx, rendre, majEtat) {
       const titreLeg = bloc.querySelector("#caLegTitre");
       const grads = bloc.querySelector("#caGrads");
       const legVent = bloc.querySelector("#caLegVent");
+      const legFoudre = bloc.querySelector("#caLegFoudre");
       const poserLegende = () => {
         const n = NAPPES_CARTE.find(x => x.cle === choisie && x.champ);
         legende.hidden = !n;
@@ -1499,6 +1534,7 @@ export function vueCarte(ctx, rendre, majEtat) {
         /* Le vent ne porte pas de couleur : sa force se lit à la longueur des
            traînées. La légende montre donc trois traînées et les nomme, avec
            les mots de l'échelle du ruban. */
+        legFoudre.hidden = !foudreAllume;
         legVent.hidden = !ventAllume;
         if (legVent.hidden) return;
         const rep = ECHELLES.v.filter(([v]) => v === 12 || v === 30 || v === 50);
@@ -1649,9 +1685,30 @@ export function vueCarte(ctx, rendre, majEtat) {
         if (vigiAllume && !vigiNiveaux) lireVigi(); else revoir();
       });
 
+      /* La foudre. Une lecture de sept kilooctets dit le dernier pas publié ;
+         les tuiles suivent au tracé. Sans réseau la carte se lit sans elle. */
+      const foudreB = bloc.querySelector("#caFoudre");
+      const lireFoudre = async () => {
+        try {
+          const d = await Foudre.charger();
+          if (!cv.isConnected || !d) return;
+          foudreDernier = d.dernier;
+          revoir();
+        } catch { /* la carte se lit sans la foudre */ }
+      };
+      foudreB.addEventListener("click", () => {
+        foudreAllume = !foudreAllume;
+        Reglages.poserFoudrecarte(foudreAllume);
+        foudreB.setAttribute("aria-checked", foudreAllume ? "true" : "false");
+        mention();
+        poserLegende();
+        if (foudreAllume && !foudreDernier) lireFoudre(); else revoir();
+      });
+
       mention();
       poserLegende();
       if (allume) lireIndex();
+      if (foudreAllume) lireFoudre();
       /* Chaque source ne part que si une couche qui en vit est allumée. La
          grille de la prévision sert trois nappes et le vent, celle de la
          qualité de l'air ne sert qu'elle-même. */

@@ -4,12 +4,17 @@
 set -u
 cd "$(dirname "$0")/.."
 N="$1"
-SAUVE=/tmp/epreuve-couches
-rm -rf "$SAUVE"; mkdir -p "$SAUVE/src"
-cp src/vues.js "$SAUVE/src/"; cp styles.css "$SAUVE/"
-
-restaurer() { cp "$SAUVE/src/vues.js" src/; cp "$SAUVE/styles.css" .; }
-trap restaurer EXIT
+# Chaque épreuve travaille sur sa copie du dépôt et son port : six épreuves
+# tournent alors ensemble en dix minutes, là où la séquence en prenait soixante.
+# Le dépôt d'origine n'est jamais touché, donc rien à restaurer.
+OLD="$PWD"
+COPIE=/tmp/copie-couches-$N
+rm -rf "$COPIE"; mkdir -p "$COPIE"
+cp -r essais icones src index.html manifest.webmanifest package.json \
+  styles.css sw.js "$COPIE/"
+ln -s "$OLD/node_modules" "$COPIE/node_modules"
+cd "$COPIE"
+PORT_ESSAIS=$((8220 + N))
 
 case "$N" in
   1) # Revenir à la liste : une tuile par rangée.
@@ -33,13 +38,13 @@ case "$N" in
   *) echo "faute inconnue"; exit 2 ;;
 esac
 
-if diff -q "$SAUVE/src/vues.js" src/vues.js >/dev/null \
-  && diff -q "$SAUVE/styles.css" styles.css >/dev/null; then
+if diff -q "$OLD/src/vues.js" src/vues.js >/dev/null \
+  && diff -q "$OLD/styles.css" styles.css >/dev/null; then
   echo "FAUTE $N NON APPLIQUÉE"; exit 3
 fi
 
 SORTIE=$(CHROMIUM=/opt/pw-browsers/chromium-1194/chrome-linux/chrome \
-  timeout 900 node essais/controle.mjs 2>&1)
+  PORT_ESSAIS=$PORT_ESSAIS timeout 900 node essais/controle.mjs 2>&1)
 echo "$SORTIE" > "/tmp/epreuve-couches-$N.log"
 if echo "$SORTIE" | grep -q "ÉCHEC  $ATTENDU"; then
   echo "FAUTE $N vue par : $ATTENDU"
