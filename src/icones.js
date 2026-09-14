@@ -176,16 +176,37 @@ export const couleurT = t => {
   return h === null ? "var(--etiquette-3)" : `hsl(${h.toFixed(0)} 54% 47%)`;
 };
 
-/* L'indice ultraviolet suit l'échelle de l'Organisation mondiale de la Santé,
-   du vert au rouge. Elle s'arrête au violet à onze ; la métropole n'y monte
-   pas, la rampe s'arrête donc au rouge. */
-const ARRETS_UV = [[0, 132], [3, 54], [6, 32], [8, 14], [11, 0]];
+/* L'indice ultraviolet, du violet clair au fuchsia intense.
+
+   Deux mesures ont réglé la rampe, le 12 septembre 2026. Sur cinquante-quatre
+   points de France et sept jours, l'indice va de 1,2 à 6,3, médiane 5,0, rien
+   au-dessus de 8 : la plage utile est le bas de l'échelle, et des arrêts posés
+   à 0, 3, 6, 8 puis 11 rendraient la France d'une seule couleur. Ils sont donc
+   resserrés, comme ceux de la qualité de l'air l'ont été pour la même raison.
+
+   La teinte seule ne suffit pas : entre le violet et le fuchsia, elle ne
+   parcourt que cinquante degrés de roue, et deux valeurs voisines se
+   confondent. La saturation et la clarté montent donc avec l'indice, d'un
+   mauve pâle à un magenta franc. C'est la seule rampe du dépôt dans ce cas,
+   d'où les trois nombres par arrêt là où les autres n'en ont que deux.
+
+   L'échelle de l'Organisation mondiale de la Santé, du vert au rouge, se lit
+   sans légende ; elle est abandonnée ici parce que la nappe de température est
+   déjà verte puis rouge, et que les deux cartes se confondaient au premier coup
+   d'œil. Pour la rétablir, reprendre ARRETS_UV = [[0, 132], [3, 54], [6, 32],
+   [8, 14], [11, 0]] et rendre `styleUV` constant. */
+const ARRETS_UV = [[0, 268], [2, 276], [4, 288], [6, 306], [9, 322]];
+const SATS_UV = [[0, 0.38], [2, 0.50], [4, 0.66], [6, 0.84], [9, 0.95]];
+const CLARTES_UV = [[0, 0.76], [2, 0.63], [4, 0.53], [6, 0.45], [9, 0.42]];
 
 export const teinteUV = v => rampe(ARRETS_UV, v);
+export const satUV = v => rampe(SATS_UV, v) ?? 0.62;
+export const clarteUV = v => rampe(CLARTES_UV, v) ?? 0.46;
 
 export const couleurUV = v => {
   const h = teinteUV(v);
-  return h === null ? "var(--etiquette-3)" : `hsl(${h.toFixed(0)} 62% 46%)`;
+  if (h === null) return "var(--etiquette-3)";
+  return `hsl(${h.toFixed(0)} ${(satUV(v) * 100).toFixed(0)}% ${(clarteUV(v) * 100).toFixed(0)}%)`;
 };
 
 /* L'indice européen de qualité de l'air, aux bornes de ses six niveaux, vingt

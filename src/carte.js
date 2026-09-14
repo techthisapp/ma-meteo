@@ -274,7 +274,12 @@ let tramePot = null;
 export function peindreNappe(ctx, vue, l, h, couche, style = {}) {
   if (!couche) return 0;
   const { S, N, O, E, cols, valeurA, teinte } = couche;
+  /* La saturation et la clarté sont un nombre pour la plupart des nappes, une
+     fonction de la valeur pour celle de l'indice ultraviolet, dont la rampe
+     monte en intensité avec l'indice. */
   const sat = style.sat ?? 0.54, clarte = style.clarte ?? 0.47;
+  const satDe = typeof sat === "function" ? sat : () => sat;
+  const clarteDe = typeof clarte === "function" ? clarte : () => clarte;
   if (!tramePot) tramePot = document.createElement("canvas");
   if (tramePot.width !== cols || tramePot.height !== TRAME) {
     tramePot.width = cols;
@@ -293,7 +298,7 @@ export function peindreNappe(ctx, vue, l, h, couche, style = {}) {
       const t = v === null ? null : teinte(v);
       const p = (k * cols + c) * 4;
       if (t === null) { img.data[p + 3] = 0; continue; }
-      const [r, g, b] = deTeinte(t, sat, clarte);
+      const [r, g, b] = deTeinte(t, satDe(v), clarteDe(v));
       img.data[p] = r; img.data[p + 1] = g; img.data[p + 2] = b; img.data[p + 3] = 255;
       vus++;
     }

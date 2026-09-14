@@ -5,7 +5,8 @@ import { nombreFr, hhmm, heureTxt, jourCourt, jourLong, esc, departementDe,
   heureJour, cleJour } from "./horloge.js";
 import * as P from "./previsions.js";
 import { ico, icoTemps, icoCiel, tempsDe, couleurT, teinteT,
-  couleurUV, teinteUV, couleurAQI, teinteAQI, couleurEcart } from "./icones.js";
+  couleurUV, teinteUV, satUV, clarteUV, couleurAQI, teinteAQI,
+  couleurEcart } from "./icones.js";
 import * as Ruban from "./ruban.js";
 import { ECHELLES } from "./ruban.js";
 import { liste, moments, TRANCHES } from "./ecritures.js";
@@ -1077,8 +1078,8 @@ const NAPPES_CARTE = [
     champ: "temp", teinte: teinteT, sat: 0.54, clarte: 0.47,
     arrets: [-5, 5, 15, 25, 35], unite: "°", couleur: couleurT },
   { cle: "uv", id: "caUV", nom: "Indice UV", ico: "soleil", porte: "maximum du jour",
-    champ: "uv", teinte: teinteUV, sat: 0.62, clarte: 0.46,
-    arrets: [0, 3, 6, 8, 11], unite: "", couleur: couleurUV },
+    champ: "uv", teinte: teinteUV, sat: satUV, clarte: clarteUV,
+    arrets: [0, 2, 4, 6, 9], unite: "", couleur: couleurUV },
   /* La qualité de l'air vient d'un second service sur la même grille, d'où la
      source nommée : les trois autres nappes se partagent une seule lecture,
      celle-ci a la sienne, sa garde et sa mention. */

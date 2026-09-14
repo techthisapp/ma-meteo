@@ -1500,15 +1500,18 @@ ok("la rampe colore la température", await pg.evaluate(() => {
   return rampee && !!aire && v.querySelectorAll("linearGradient stop").length > 20;
 }));
 
-// Les barres de l'indice ultraviolet prennent la couleur de leur niveau.
+/* Les barres de l'indice ultraviolet prennent la couleur de leur niveau. La
+   rampe va du violet clair au fuchsia intense depuis le 12 septembre 2026 :
+   l'indice se lit à l'intensité, non à la chaleur de la teinte, et c'est la
+   saturation qui doit monter avec lui. */
 ok("les barres UV prennent la couleur de leur niveau", await pg.evaluate(() => {
   const b = [...document.querySelectorAll('.mg-v[data-cle="uv"] rect[fill^="hsl"]')];
   if (b.length < 6) return false;
-  const teinte = e => Number((e.getAttribute("fill").match(/hsl\((\d+)/) || [])[1]);
-  const h = b.map(teinte).filter(Number.isFinite);
-  // Une teinte basse est chaude, une teinte haute est froide : l'indice le plus
-  // fort doit être le plus chaud, donc la teinte la plus basse.
-  return new Set(h).size >= 3 && Math.min(...h) < Math.max(...h) - 20;
+  const lu = e => (e.getAttribute("fill").match(/hsl\((\d+) (\d+)% (\d+)%/) || []).slice(1).map(Number);
+  const c = b.map(lu).filter(v => v.length === 3);
+  if (c.length < 6) return false;
+  const h = c.map(v => v[0]), sat = c.map(v => v[1]);
+  return new Set(h).size >= 3 && Math.max(...sat) > Math.min(...sat) + 15;
 }));
 
 /* La nuit prend l'encre du texte, non la couleur de la voie : lavée à la
@@ -7462,17 +7465,25 @@ const uvDit = await pgNap.evaluate(async () => {
     h *= 60; if (h < 0) h += 360;
     return h;
   };
-  const lire = (la, lo) => {
+  /* L'écart brut entre le canal le plus fort et le plus faible, non la
+     saturation au sens de HSL : celle-ci se divise par la clarté, si bien que
+     la nappe composée à soixante-deux pour cent sur un fond clair rend deux
+     valeurs très différentes à deux centièmes l'une de l'autre. L'écart brut
+     suit ce que l'œil lit comme vivacité. */
+  const vivacite = (r, g, b) => Math.max(r, g, b) - Math.min(r, g, b);
+  const pixel = (la, lo) => {
     const p = C.surEcran({ lat: 46.4, lon: 2.2, z: 5.13 }, la, lo, cv.clientWidth, cv.clientHeight);
-    const d = ctx.getImageData(Math.round(p.x * 2), Math.round(p.y * 2), 1, 1).data;
-    return teinte(d[0], d[1], d[2]);
+    return ctx.getImageData(Math.round(p.x * 2), Math.round(p.y * 2), 1, 1).data;
   };
+  const lire = (la, lo) => { const d = pixel(la, lo); return teinte(d[0], d[1], d[2]); };
   if (document.getElementById("caTemp").getAttribute("aria-checked") !== "false") {
     return "la température reste marquée sous l'indice";
   }
   const sud = lire(43.6, 1.4), nord = lire(50.3, 3.0);
   if (sud === null || nord === null) return "un point du pays n'est pas teinté";
-  if (!(sud < nord - 4)) {
+  /* La rampe monte du violet au fuchsia : plus l'indice est fort, plus la
+     teinte est haute, l'inverse de l'échelle chaude qu'elle a remplacée. */
+  if (!(sud > nord + 4)) {
     return `le sud n'est pas plus exposé : teintes ${sud.toFixed(0)} et ${nord.toFixed(0)}`;
   }
   /* L'ordre ne suffit pas à dire quelle rampe a servi : celle de la température
@@ -7486,9 +7497,44 @@ const uvDit = await pgNap.evaluate(async () => {
       return `teinte ${teintePeinte.toFixed(0)} là où la rampe de l'indice donne ${attendue.toFixed(0)}`;
     }
   }
+  /* La rampe de l'indice monte en intensité, non en teinte seule : la nappe doit
+     passer à la carte une saturation qui suit la valeur, sans quoi un indice
+     faible et un indice fort se peignent aussi vifs l'un que l'autre. Une
+     saturation fixe rendue à la carte passait inaperçue de toutes les autres
+     gardes, épreuve 5 du 13 septembre 2026. */
+  const ds = pixel(43.6, 1.4), dn = pixel(50.3, 3.0);
+  const vSud = vivacite(ds[0], ds[1], ds[2]), vNord = vivacite(dn[0], dn[1], dn[2]);
+  if (!(vSud > vNord + 15)) {
+    return `la nappe ne monte pas en intensité : vivacités ${vSud} au sud et ${vNord} au nord`;
+  }
   return "";
 });
 ok("la nappe d'indice ultraviolet teinte selon sa propre rampe", uvDit === "", uvDit);
+
+/* La rampe de l'indice, mesurée le 12 septembre 2026 : sur cinquante-quatre
+   points de France et sept jours, l'indice va de 1,2 à 6,3 et ne dépasse pas 8.
+   La rampe doit donc séparer les valeurs de cette plage, et le faire par
+   l'intensité, la teinte ne parcourant que cinquante degrés de roue entre le
+   violet et le fuchsia. */
+const rampeUV = await pgNap.evaluate(async () => {
+  const I = await import("/src/icones.js");
+  const lu = v => (I.couleurUV(v).match(/hsl\((\d+) (\d+)% (\d+)%/) || []).slice(1).map(Number);
+  return { deux: lu(2), cinq: lu(5), plage: [I.teinteUV(0), I.teinteUV(9)],
+    arrets: [...document.querySelectorAll("#caGrads span")].map(e => e.textContent) };
+});
+ok("la rampe de l'indice monte en intensité avec la valeur",
+  rampeUV.cinq[1] > rampeUV.deux[1] + 10 && rampeUV.cinq[2] < rampeUV.deux[2] - 5,
+  `à 2 ${rampeUV.deux.join("/")}, à 5 ${rampeUV.cinq.join("/")}`);
+
+ok("elle va du violet au fuchsia, sans traverser le vert ni le rouge",
+  rampeUV.plage.every(h => h >= 260 && h <= 330),
+  rampeUV.plage.map(h => h.toFixed(0)).join(" à "));
+
+/* Deux valeurs voisines de la plage française doivent se distinguer : c'est ce
+   que des arrêts posés à 0, 3, 6, 8 puis 11 ne faisaient pas, la France entière
+   tombant dans le premier intervalle. */
+ok("la légende porte les arrêts de la plage utile, non ceux de l'échelle entière",
+  rampeUV.arrets.join(" ") === "0 2 4 6 9", rampeUV.arrets.join(" "));
 
 ok("la légende dit sur quoi la nappe porte",
   await pgNap.evaluate(async () => {
