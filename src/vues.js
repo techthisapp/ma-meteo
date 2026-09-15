@@ -1079,7 +1079,7 @@ const NAPPES_CARTE = [
     arrets: [-5, 5, 15, 25, 35], unite: "°", couleur: couleurT },
   { cle: "uv", id: "caUV", nom: "Indice UV", ico: "soleil", porte: "maximum du jour",
     champ: "uv", teinte: teinteUV, sat: satUV, clarte: clarteUV,
-    arrets: [0, 2, 4, 6, 9], unite: "", couleur: couleurUV },
+    arrets: [0, 2, 4, 6, 8], unite: "", couleur: couleurUV },
   /* La qualité de l'air vient d'un second service sur la même grille, d'où la
      source nommée : les trois autres nappes se partagent une seule lecture,
      celle-ci a la sienne, sa garde et sa mention. */

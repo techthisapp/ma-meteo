@@ -17,16 +17,16 @@ PORT_ESSAIS=$((8240 + N))
 
 case "$N" in
   1) # Revenir à l'échelle chaude, du vert au rouge.
-     perl -0pi -e 's/const ARRETS_UV = \[\[0, 268\], \[2, 276\], \[4, 288\], \[6, 306\], \[9, 322\]\];/const ARRETS_UV = [[0, 132], [3, 54], [6, 32], [8, 14], [11, 0]];/' src/icones.js
+     perl -0pi -e 's/const ARRETS_UV = \[\[1, 252\], \[2\.5, 270\], \[4\.5, 296\], \[6, 318\], \[8, 338\]\];/const ARRETS_UV = [[0, 132], [3, 54], [6, 32], [8, 14], [11, 0]];/' src/icones.js
      ATTENDU="elle va du violet au fuchsia, sans traverser le vert ni le rouge" ;;
   2) # Une saturation constante : la rampe ne monte plus en intensité.
-     perl -0pi -e 's/const SATS_UV = \[\[0, 0\.38\], \[2, 0\.50\], \[4, 0\.66\], \[6, 0\.84\], \[9, 0\.95\]\];/const SATS_UV = [[0, 0.62], [9, 0.62]];/' src/icones.js
+     perl -0pi -e 's/const SATS_UV = \[\[1, 0\.42\], \[2\.5, 0\.56\], \[4\.5, 0\.78\], \[6, 0\.95\], \[8, 1\.0\]\];/const SATS_UV = [[1, 0.62], [8, 0.62]];/' src/icones.js
      ATTENDU="la rampe de l'indice monte en intensité avec la valeur" ;;
   3) # Une clarté constante : seule la moitié du contrat d'intensité tombe.
-     perl -0pi -e 's/const CLARTES_UV = \[\[0, 0\.76\], \[2, 0\.63\], \[4, 0\.53\], \[6, 0\.45\], \[9, 0\.42\]\];/const CLARTES_UV = [[0, 0.46], [9, 0.46]];/' src/icones.js
+     perl -0pi -e 's/const CLARTES_UV = \[\[1, 0\.80\], \[2\.5, 0\.70\], \[4\.5, 0\.55\], \[6, 0\.43\], \[8, 0\.34\]\];/const CLARTES_UV = [[1, 0.46], [8, 0.46]];/' src/icones.js
      ATTENDU="la rampe de l'indice monte en intensité avec la valeur" ;;
   4) # Les arrêts de l'échelle entière, où toute la France tient dans le premier.
-     perl -0pi -e 's/    arrets: \[0, 2, 4, 6, 9\], unite: "", couleur: couleurUV \},/    arrets: [0, 3, 6, 8, 11], unite: "", couleur: couleurUV },/' src/vues.js
+     perl -0pi -e 's/    arrets: \[0, 2, 4, 6, 8\], unite: "", couleur: couleurUV \},/    arrets: [0, 3, 6, 8, 11], unite: "", couleur: couleurUV },/' src/vues.js
      ATTENDU="la légende porte les arrêts de la plage utile, non ceux de l'échelle entière" ;;
   5) # La nappe reprend une saturation fixe : l'intensité de la carte est perdue.
      perl -0pi -e 's/    champ: "uv", teinte: teinteUV, sat: satUV, clarte: clarteUV,/    champ: "uv", teinte: teinteUV, sat: 0.62, clarte: 0.46,/' src/vues.js
@@ -37,6 +37,11 @@ case "$N" in
   7) # La carte ignore les fonctions et retombe sur ses valeurs par défaut.
      perl -0pi -e 's/  const satDe = typeof sat === "function" \? sat : \(\) => sat;/  const satDe = () => 0.54;/' src/carte.js
      ATTENDU="la nappe d'indice ultraviolet teinte selon sa propre rampe" ;;
+  8) # Le premier réglage, publié puis repris : trop plat là où se serre le pays.
+     perl -0pi -e 's/const ARRETS_UV = \[\[1, 252\], \[2\.5, 270\], \[4\.5, 296\], \[6, 318\], \[8, 338\]\];/const ARRETS_UV = [[0, 268], [2, 276], [4, 288], [6, 306], [9, 322]];/' src/icones.js
+     perl -0pi -e 's/const SATS_UV = \[\[1, 0\.42\], \[2\.5, 0\.56\], \[4\.5, 0\.78\], \[6, 0\.95\], \[8, 1\.0\]\];/const SATS_UV = [[0, 0.38], [2, 0.50], [4, 0.66], [6, 0.84], [9, 0.95]];/' src/icones.js
+     perl -0pi -e 's/const CLARTES_UV = \[\[1, 0\.80\], \[2\.5, 0\.70\], \[4\.5, 0\.55\], \[6, 0\.43\], \[8, 0\.34\]\];/const CLARTES_UV = [[0, 0.76], [2, 0.63], [4, 0.53], [6, 0.45], [9, 0.42]];/' src/icones.js
+     ATTENDU="elle sépare les valeurs où se serre le pays, de 5 à 6" ;;
   *) echo "faute inconnue"; exit 2 ;;
 esac
 

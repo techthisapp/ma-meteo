@@ -178,11 +178,25 @@ export const couleurT = t => {
 
 /* L'indice ultraviolet, du violet clair au fuchsia intense.
 
-   Deux mesures ont réglé la rampe, le 12 septembre 2026. Sur cinquante-quatre
-   points de France et sept jours, l'indice va de 1,2 à 6,3, médiane 5,0, rien
-   au-dessus de 8 : la plage utile est le bas de l'échelle, et des arrêts posés
-   à 0, 3, 6, 8 puis 11 rendraient la France d'une seule couleur. Ils sont donc
-   resserrés, comme ceux de la qualité de l'air l'ont été pour la même raison.
+   Trois mesures ont réglé la rampe. Sur cinquante-quatre points de France et
+   sept jours, l'indice va de 1,2 à 6,3, médiane 5,0, rien au-dessus de 8 : la
+   plage utile est le bas de l'échelle, et des arrêts posés à 0, 3, 6, 8 puis 11
+   rendraient la France d'une seule couleur. Ils sont donc resserrés, comme ceux
+   de la qualité de l'air l'ont été pour la même raison.
+
+   Un premier réglage, publié le 12 septembre, laissait pourtant la carte
+   presque unie : un jour donné, l'étendue sur le pays vaut trois à quatre
+   points, mais la médiane se tient à 5,5 et l'essentiel du territoire se serre
+   entre 5 et 6. Les arrêts et l'amplitude ont donc été repris ensemble, sous
+   une contrainte : l'indice descend à 1 partout en hiver, et une rampe trop
+   pâle en bas fait disparaître la nappe sur le fond de carte. Mesuré en
+   distance perçue, sur la nappe telle qu'elle est composée à soixante-deux pour
+   cent sur ce fond, le réglage retenu porte l'écart entre 5 et 6 de 6,6 à 17,8,
+   près du triple, en gardant 15,4 de distance au fond à un indice de 1. Une
+   rampe plus étalée montait à 26 d'écart mais tombait à 7,7 du fond, donc
+   invisible l'hiver. La vivacité brute ne sert pas à ce réglage : une couleur
+   très sombre a moins d'écart entre ses canaux qu'une couleur moyenne, et
+   l'écart brut diminue là où l'œil voit une différence.
 
    La teinte seule ne suffit pas : entre le violet et le fuchsia, elle ne
    parcourt que cinquante degrés de roue, et deux valeurs voisines se
@@ -195,9 +209,9 @@ export const couleurT = t => {
    déjà verte puis rouge, et que les deux cartes se confondaient au premier coup
    d'œil. Pour la rétablir, reprendre ARRETS_UV = [[0, 132], [3, 54], [6, 32],
    [8, 14], [11, 0]] et rendre `styleUV` constant. */
-const ARRETS_UV = [[0, 268], [2, 276], [4, 288], [6, 306], [9, 322]];
-const SATS_UV = [[0, 0.38], [2, 0.50], [4, 0.66], [6, 0.84], [9, 0.95]];
-const CLARTES_UV = [[0, 0.76], [2, 0.63], [4, 0.53], [6, 0.45], [9, 0.42]];
+const ARRETS_UV = [[1, 252], [2.5, 270], [4.5, 296], [6, 318], [8, 338]];
+const SATS_UV = [[1, 0.42], [2.5, 0.56], [4.5, 0.78], [6, 0.95], [8, 1.0]];
+const CLARTES_UV = [[1, 0.80], [2.5, 0.70], [4.5, 0.55], [6, 0.43], [8, 0.34]];
 
 export const teinteUV = v => rampe(ARRETS_UV, v);
 export const satUV = v => rampe(SATS_UV, v) ?? 0.62;

@@ -7519,7 +7519,8 @@ ok("la nappe d'indice ultraviolet teinte selon sa propre rampe", uvDit === "", u
 const rampeUV = await pgNap.evaluate(async () => {
   const I = await import("/src/icones.js");
   const lu = v => (I.couleurUV(v).match(/hsl\((\d+) (\d+)% (\d+)%/) || []).slice(1).map(Number);
-  return { deux: lu(2), cinq: lu(5), plage: [I.teinteUV(0), I.teinteUV(9)],
+  return { deux: lu(2), cinq: lu(5), cinqSix: [lu(5), lu(6)],
+    plage: [I.teinteUV(0), I.teinteUV(9)],
     arrets: [...document.querySelectorAll("#caGrads span")].map(e => e.textContent) };
 });
 ok("la rampe de l'indice monte en intensité avec la valeur",
@@ -7527,14 +7528,23 @@ ok("la rampe de l'indice monte en intensité avec la valeur",
   `à 2 ${rampeUV.deux.join("/")}, à 5 ${rampeUV.cinq.join("/")}`);
 
 ok("elle va du violet au fuchsia, sans traverser le vert ni le rouge",
-  rampeUV.plage.every(h => h >= 260 && h <= 330),
+  rampeUV.plage.every(h => h >= 245 && h <= 340),
   rampeUV.plage.map(h => h.toFixed(0)).join(" à "));
 
 /* Deux valeurs voisines de la plage française doivent se distinguer : c'est ce
    que des arrêts posés à 0, 3, 6, 8 puis 11 ne faisaient pas, la France entière
    tombant dans le premier intervalle. */
 ok("la légende porte les arrêts de la plage utile, non ceux de l'échelle entière",
-  rampeUV.arrets.join(" ") === "0 2 4 6 9", rampeUV.arrets.join(" "));
+  rampeUV.arrets.join(" ") === "0 2 4 6 8", rampeUV.arrets.join(" "));
+
+/* Un jour donné, l'essentiel du pays se tient entre 5 et 6 : c'est là que la
+   rampe doit séparer, faute de quoi la carte paraît unie. Le premier réglage
+   n'y mettait que six degrés de roue et deux centièmes de clarté. */
+ok("elle sépare les valeurs où se serre le pays, de 5 à 6",
+  (() => {
+    const [a, b] = rampeUV.cinqSix;
+    return (b[0] - a[0]) >= 12 && (a[2] - b[2]) >= 6;
+  })(), rampeUV.cinqSix.map(c => c.join("/")).join(" puis "));
 
 ok("la légende dit sur quoi la nappe porte",
   await pgNap.evaluate(async () => {
