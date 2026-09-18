@@ -283,6 +283,12 @@ const appelsRadar = [];
    autres jaunes. Le pas le plus ancien de la fenêtre rend un XML d'exception
    en HTTP 200, comme le service le fait pour un pas qu'il ne sert pas. */
 const appelsFoudre = [];
+const appelsAtmo = [];
+const ATMO_MOTS = { 1: "Bon", 2: "Moyen", 3: "Dégradé", 4: "Mauvais",
+  5: "Très mauvais", 6: "Extrêmement mauvais" };
+const atmoJour = new Date(FIGE).toISOString().slice(0, 10);
+let atmoLent = 0;
+let atmoMuet = false;
 const FOUDRE_PAS = 5 * 60 * 1000;
 const FOUDRE_DERNIER = Math.floor((FIGE - 12 * 60 * 1000) / FOUDRE_PAS) * FOUDRE_PAS;
 const FOUDRE_XML = FOUDRE_DERNIER - 5 * FOUDRE_PAS;
@@ -732,6 +738,27 @@ const brancherRoutes = async c => {
     appelsRadar.push(r.request().url());
     r.fulfill({ status: 200, contentType: "application/json",
       body: JSON.stringify(radarIndex()) });
+  });
+  /* L'indice officiel d'Atmo France. Le service rend les zones d'un rayon, non
+     la commune demandée : la charge en porte trois, dont la plus proche est à
+     un kilomètre et demi et une autre, plus séduisante par son rang, à douze.
+     Un réglage la fait tarder ou échouer, comme le vrai service le fait. */
+  await c.route(/data\.atmo-france\.org/, async r => {
+    appelsAtmo.push(r.request().url());
+    if (atmoMuet) { r.abort(); return; }
+    if (atmoLent) await new Promise(f => setTimeout(f, atmoLent));
+    const zone = (nom, q, x, y, sous) => ({ type: "Feature", properties: {
+      lib_zone: nom, lib_qual: ATMO_MOTS[q], code_qual: q, type_zone: "commune",
+      date_ech: atmoJour, source: "Atmo Bourgogne-Franche-Comté",
+      x_wgs84: x, y_wgs84: y, code_pm25: sous[0], code_pm10: sous[1],
+      code_o3: sous[2], code_no2: sous[3], code_so2: sous[4] } });
+    r.fulfill({ status: 200, contentType: "application/json",
+      headers: { "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({ type: "FeatureCollection", features: [
+        zone("Zone lointaine", 5, 4.45, 47.58, [4, 5, 3, 2, 1]),
+        zone("Genay", 3, 4.31, 47.512, [1, 2, 3, 1, 1]),
+        zone("Zone moyenne", 2, 4.22, 47.44, [1, 1, 2, 1, 1]),
+      ] }) });
   });
   await c.route(/view\.eumetsat\.int/, r => {
     const u = r.request().url();
@@ -6076,6 +6103,25 @@ const ouvrirAir = async p => {
 const [ctxAir, pgAir, urlsAir] = await ctxReponse(METEO_NUE);
 const lignesAir = await ouvrirAir(pgAir);
 
+/* ---------- L'indice officiel ----------
+
+   Le service d'Atmo France met une vingtaine de secondes quand celui de
+   Copernicus répond en une fraction : la feuille s'ouvre sans lui et se refait
+   quand il arrive. Le contrat, relevé le 14 septembre 2026 sur le vrai
+   service : la zone rendue n'est pas toujours la commune demandée, et le nom
+   écrit doit être celui que la source donne. */
+const lignesApres = async (p, ms) => {
+  await p.waitForTimeout(ms);
+  return p.evaluate(() =>
+    [...document.querySelectorAll("#feuille-corps .rangee")].map(r => ({
+      nom: r.querySelector(".rangee-txt b")?.textContent.trim() || "",
+      sous: r.querySelector(".rangee-txt span")?.textContent || "",
+      val: r.querySelector(".rangee-val")?.textContent.replace(/\s+/g, " ").trim() || "",
+    })));
+};
+const titresCartes = p => p.evaluate(() =>
+  [...document.querySelectorAll("#feuille-corps .carte-tete h3")].map(h => h.textContent.trim()));
+
 ok("la feuille s'ouvre sur la question de l'air",
   (await txtDe(pgAir, "#feuille-titre")).startsWith("L'air qu'on respire"),
   await txtDe(pgAir, "#feuille-titre"));
@@ -6131,6 +6177,72 @@ ok("le profil n'entre dans aucune requête",
   `${requetesAir().length} requêtes`);
 await ctxAir.close();
 
+/* L'indice officiel, carte par carte. */
+appelsAtmo.length = 0;
+atmoLent = 1200;
+const [ctxOff, pgOff] = await ctxReponse(METEO_NUE);
+await pgOff.locator('[data-feuille="air"]').click();
+
+const avantOff = await lignesApres(pgOff, 400);
+ok("la feuille s'ouvre sans attendre l'indice officiel",
+  avantOff.length > 0 && !avantOff.some(l => l.nom === "Genay"),
+  avantOff.map(l => l.nom).join(" / "));
+
+const apresOff = await lignesApres(pgOff, 1800);
+ok("l'indice officiel paraît quand le service a répondu",
+  apresOff.some(l => l.nom === "Genay"), apresOff.map(l => l.nom).join(" / "));
+
+/* Le service rend les zones d'un rayon : la charge en porte trois, dont une
+   plus séduisante par son rang. Retenir la première rendue afficherait un
+   indice relevé à douze kilomètres. */
+ok("la zone retenue est la plus proche, non la première rendue",
+  apresOff.some(l => l.nom === "Genay") && !apresOff.some(l => l.nom === "Zone lointaine"),
+  apresOff.map(l => l.nom).join(" / "));
+
+ok("le nom écrit est celui de la source, non celui de la commune choisie",
+  !apresOff.some(l => l.nom === "Fain-lès-Moutiers"),
+  apresOff.map(l => l.nom).join(" / "));
+
+ok("les cinq sous-indices paraissent avec leur niveau",
+  (() => {
+    const i = apresOff.findIndex(l => l.nom === "Genay");
+    if (i < 0) return false;
+    const cinq = apresOff.slice(i + 1, i + 6);
+    const noms = ["Particules fines", "Particules", "Ozone",
+      "Dioxyde d'azote", "Dioxyde de soufre"];
+    return cinq.length === 5 && cinq.every((l, k) => l.nom === noms[k] && l.val.length > 1);
+  })(), apresOff.slice(-6).map(l => `${l.nom}=${l.val}`).join(" / "));
+
+ok("l'indice retenu est le plus mauvais de ses cinq sous-indices",
+  (() => {
+    const l = apresOff.find(x => x.nom === "Genay");
+    return !!l && /Dégradé 3$/.test(l.val);
+  })(), apresOff.find(x => x.nom === "Genay")?.val);
+
+ok("la requête demande le point de la commune, en projection de Mercator",
+  appelsAtmo.length > 0
+  && /DWITHIN\(the_geom,POINT\(478674 6024072\),15000,meters\)/
+    .test(decodeURIComponent(appelsAtmo[0]).replace(/\+/g, " ")),
+  decodeURIComponent(appelsAtmo[0] || "").slice(-120));
+
+ok("une seule requête part, quelle que soit la refonte de la feuille",
+  appelsAtmo.length === 1, `${appelsAtmo.length} requêtes`);
+await ctxOff.close();
+
+/* Sans réponse du service, la feuille se lit telle quelle : l'air de
+   Copernicus est déjà là, et cette carte ne fait que s'ajouter. */
+appelsAtmo.length = 0;
+atmoLent = 0; atmoMuet = true;
+const [ctxOffMuet, pgOffMuet] = await ctxReponse(METEO_NUE);
+await pgOffMuet.locator('[data-feuille="air"]').click();
+const muetDit = await lignesApres(pgOffMuet, 1200);
+ok("un service muet ne prive la feuille de rien",
+  muetDit.some(l => l.nom === "Maintenant") && appelsAtmo.length > 0
+  && !(await titresCartes(pgOffMuet)).includes("Indice ATMO officiel"),
+  (await titresCartes(pgOffMuet)).join(" / "));
+await ctxOffMuet.close();
+atmoMuet = false;
+
 /* Un air dégradé se dit dans ce qui est à savoir, et pas en deçà. Les deux
    contextes ne diffèrent que par l'air servi. */
 const conseilsDe = async profil => {
@@ -6178,7 +6290,9 @@ const aererAvec = async profil => {
   const rangees = await ouvrirAir(p);
   await c.close();
   profilAir = "base";
-  return { dit, air: rangees.filter(l => /^(Bon|Moyen|Dégradé|Mauvais)/.test(l.val)) };
+  /* Les deux rangées de la première carte, non toutes celles qui portent un
+     niveau : l'indice officiel en ajoute six plus bas, avec les mêmes mots. */
+  return { dit, air: rangees.filter(l => l.nom === "Maintenant" || l.nom === "Au plus haut") };
 };
 const aereBase = await aererAvec("base");
 const aereSale = await aererAvec("matin");

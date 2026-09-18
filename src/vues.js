@@ -24,6 +24,7 @@ import * as Air from "./air.js";
 import * as Carte from "./carte.js";
 import * as Radar from "./radar.js";
 import * as Foudre from "./foudre.js";
+import * as Atmo from "./atmo.js";
 import * as NappeCarte from "./nappe.js";
 import * as Vent from "./vent.js";
 import * as Vig from "./vigilance.js";
@@ -2288,6 +2289,36 @@ export function vueActivites() {
 
 /* ---------- L'air qu'on respire ---------- */
 
+/* L'indice officiel français et ses cinq sous-indices, quand la source a
+   répondu. Le nom écrit est celui de la zone que la source rend, non celui de
+   la commune choisie : le service rend parfois une agglomération ou une
+   commune voisine, et un chiffre sous un mauvais nom vaudrait moins que pas de
+   chiffre. La distance se dit dès qu'elle dépasse deux kilomètres. */
+function carteOfficielle(off) {
+  if (!off) return "";
+  const n = Atmo.niveauDe(off.code);
+  const majuscule = t => t.charAt(0).toUpperCase() + t.slice(1);
+  const lieu = off.zone ? esc(off.zone) : "la zone la plus proche";
+  const loin = off.km >= 2 ? `, à ${nombreFr(off.km)} km` : "";
+  return `<div class="carte"><div class="carte-tete"><h3>Indice ATMO officiel</h3></div>`
+    + `<div class="rangee">`
+    + `<span class="rangee-txt"><b>${lieu}</b><span>Aujourd'hui${loin}</span></span>`
+    + valeur(majuscule(off.libelle || (n ? n.nom : "—")), { doux: String(off.code) })
+    + `</div>`
+    + Atmo.SOUS.map(([cle, nom, court]) => {
+      const v = off.sous[cle];
+      const m = Atmo.niveauDe(v);
+      return `<div class="rangee">`
+        + `<span class="rangee-txt"><b>${esc(nom)}</b><span>${esc(court)}</span></span>`
+        + valeur(m ? majuscule(m.nom) : "—", { doux: v === null ? "" : String(v) })
+        + `</div>`;
+    }).join("")
+    + `<p class="note">Publié chaque jour par les associations agréées de `
+    + `surveillance de la qualité de l'air, réunies sous Atmo France. L'indice `
+    + `retenu est le plus mauvais des cinq, ce qui explique qu'il puisse être `
+    + `plus sévère que l'indice européen au-dessus.</p></div>`;
+}
+
 /* Ce qui entre dans les poumons, que le temps qu'il fait ne dit pas. L'indice
    européen et les quatre polluants qui le composent, puis les pollens en
    saison.
@@ -2297,6 +2328,15 @@ export function vueActivites() {
 export function vueAir(ctx, rendre, majEtat) {
   const s = P.serieHoraire(0, 24, 8);
   const air = s ? Air.alignerSur(s) : null;
+
+  /* L'indice officiel se lit après coup : le service met une vingtaine de
+     secondes quand celui de Copernicus répond en une fraction. La feuille
+     s'ouvre sans lui et se refait quand il arrive ; s'il ne vient pas, elle se
+     lit telle quelle. */
+  const off = Atmo.chargeCourante();
+  if (!off && Number.isFinite(ctx?.lat)) {
+    Atmo.charger({ lat: ctx.lat, lon: ctx.lon }).then(d => { if (d) rendre(); });
+  }
 
   if (!air) {
     return {
@@ -2347,6 +2387,8 @@ export function vueAir(ctx, rendre, majEtat) {
           { doux: "µg/m³" }) + `</div>`).join("")
       + `<p class="note">L'indice est celui du polluant le plus mal placé, non `
       + `une moyenne : un seul suffit à faire la journée.</p></div>`
+
+      + carteOfficielle(off)
 
       + `<div class="carte"><div class="carte-tete"><h3>Les pollens</h3></div>`
       + (saison.length

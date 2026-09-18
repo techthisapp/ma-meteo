@@ -665,7 +665,13 @@ function poserJeton() {
     ? Parapluie.jeton(P.serieHorizon(), Reglages.alertes(Parapluie.ALERTES_DEFAUT))
     : null;
   ctx.jeton = j;
-  ctx.commune = Reglages.lire().commune || "";
+  const lieu = Reglages.lire();
+  ctx.commune = lieu.commune || "";
+  /* Le point de la commune, pour les feuilles qui lisent une source à la
+     demande plutôt qu'au chargement : l'indice officiel de la qualité de
+     l'air, dont le service met une vingtaine de secondes. */
+  ctx.lat = lieu.lat;
+  ctx.lon = lieu.lon;
   const vu = !!j && !Reglages.jetonPris(j.cle);
   bouton.hidden = !vu;
   if (!vu) return;
