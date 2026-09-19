@@ -25,6 +25,7 @@ import * as Carte from "./carte.js";
 import * as Radar from "./radar.js";
 import * as Foudre from "./foudre.js";
 import * as Atmo from "./atmo.js";
+import * as Nuages from "./nuages.js";
 import * as NappeCarte from "./nappe.js";
 import * as Vent from "./vent.js";
 import * as Vig from "./vigilance.js";
@@ -1169,6 +1170,9 @@ export function vueCarte(ctx, rendre, majEtat) {
       + `<button type="button" class="ca-ch" id="caFoudre" role="switch" `
       + `aria-checked="${Reglages.foudrecarte() ? "true" : "false"}">`
       + ico("orage", "") + `<span>Foudre</span></button>`
+      + `<button type="button" class="ca-ch" id="caNuages" role="switch" `
+      + `aria-checked="${Reglages.nuagescarte() ? "true" : "false"}">`
+      + ico("nuage", "") + `<span>Nuages</span></button>`
       + `</div>`
       + `</div>`
       + `<p class="ca-mot" id="caMot" role="status" hidden></p>`
@@ -1315,6 +1319,23 @@ export function vueCarte(ctx, rendre, majEtat) {
         return Carte.peindreDepartements(cv, c, v, l, h, vigiNiveaux, { trait: true });
       };
 
+      /* Les nuages, sous la pluie : la pluie tombe de la masse nuageuse et doit
+         rester lisible par-dessus elle. La tuile arrive opaque et se rend
+         transparente à son arrivée, un ciel dégagé laissant voir la carte. */
+      let nuagesAllume = Reglages.nuagescarte();
+      let nuagesDernier = 0;
+      const finNuages = () => {
+        if (!nuagesDernier) return 0;
+        if (allume && images.length && rang !== Radar.rangCourant(images)) {
+          return Nuages.pasProche(images[rang].t, nuagesDernier);
+        }
+        return nuagesDernier;
+      };
+      const coucheNuages = (c, v, l, h) => {
+        if (!nuagesAllume) return 0;
+        return Nuages.peindre(c, v, l, h, finNuages(), () => main.redessiner());
+      };
+
       /* La foudre, par-dessus la pluie : clairsemée, elle se lit sur toute
          nappe. La fenêtre finit au dernier pas publié, ou au pas le plus
          proche de l'image de pluie regardée quand la chronologie est
@@ -1339,6 +1360,7 @@ export function vueCarte(ctx, rendre, majEtat) {
          comme posées même vides, et un liseré le long des limites ferait lire
          une couche là où il n'y a pas d'orage. */
       const COUCHES = [coucheVigiFond, { peindre: coucheValeur, gaine: false },
+        { peindre: coucheNuages, gaine: false },
         couche, { peindre: coucheFoudre, gaine: false },
         { peindre: coucheVigiTrait, gaine: false }];
       const main = Carte.poser(cv, vue, placer, COUCHES);
@@ -1500,8 +1522,10 @@ export function vueCarte(ctx, rendre, majEtat) {
               + `rel="noopener noreferrer">Open-Meteo</a></span>` + propre;
           })()
           + (vigiAllume ? `<span>Vigilance Météo-France</span>` : "")
-          + (foudreAllume
-            ? `<span>Foudre <a href="https://www.eumetsat.int" target="_blank" `
+          + (foudreAllume || nuagesAllume
+            ? `<span>${foudreAllume && nuagesAllume ? "Foudre et nuages"
+              : foudreAllume ? "Foudre" : "Nuages"} `
+              + `<a href="https://www.eumetsat.int" target="_blank" `
               + `rel="noopener noreferrer">EUMETSAT</a></span>`
             : "")
           + `<span>Contours IGN et Natural Earth</span>`;
@@ -1698,6 +1722,22 @@ export function vueCarte(ctx, rendre, majEtat) {
           revoir();
         } catch { /* la carte se lit sans la foudre */ }
       };
+      const nuagesB = bloc.querySelector("#caNuages");
+      const lireNuages = async () => {
+        try {
+          const d = await Nuages.charger();
+          if (!cv.isConnected || !d) return;
+          nuagesDernier = d.dernier;
+          revoir();
+        } catch { /* la carte se lit sans les nuages */ }
+      };
+      nuagesB.addEventListener("click", () => {
+        nuagesAllume = !nuagesAllume;
+        Reglages.poserNuagescarte(nuagesAllume);
+        nuagesB.setAttribute("aria-checked", nuagesAllume ? "true" : "false");
+        mention();
+        if (nuagesAllume && !nuagesDernier) lireNuages(); else revoir();
+      });
       foudreB.addEventListener("click", () => {
         foudreAllume = !foudreAllume;
         Reglages.poserFoudrecarte(foudreAllume);
@@ -1711,6 +1751,7 @@ export function vueCarte(ctx, rendre, majEtat) {
       poserLegende();
       if (allume) lireIndex();
       if (foudreAllume) lireFoudre();
+      if (nuagesAllume) lireNuages();
       /* Chaque source ne part que si une couche qui en vit est allumée. La
          grille de la prévision sert trois nappes et le vent, celle de la
          qualité de l'air ne sert qu'elle-même. */

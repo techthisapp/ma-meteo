@@ -28,6 +28,7 @@ const DEFAUT = {
   vigicarte: true,     // la couche de vigilance sur la carte
   ventcarte: false,    // les particules de vent sur la carte
   foudrecarte: true,   // la foudre observée par satellite sur la carte
+  nuagescarte: false,  // les nuages vus du satellite sur la carte
   // `nappe` n'a pas de valeur par défaut : son absence est ce qui déclenche la
   // reprise de l'ancien réglage de pluie.
 };
@@ -286,6 +287,11 @@ export function poserVentcarte(v) { poser({ ventcarte: v === true }); }
    rien quand il n'y a pas d'orage, et un orage doit se voir sans le demander. */
 export const foudrecarte = () => etat.foudrecarte !== false;
 export function poserFoudrecarte(v) { poser({ foudrecarte: v === true }); }
+
+/* Les nuages, éteints au départ : ils couvrent une grande partie de la vue et
+   masqueraient la nappe choisie à qui ne les a pas demandés. */
+export const nuagescarte = () => etat.nuagescarte === true;
+export function poserNuagescarte(v) { poser({ nuagescarte: v === true }); }
 
 /* Les instants d'alerte. `null` rend la valeur par défaut du module du
    parapluie, qui la porte avec les seuils : les nombres du rappel vivent au

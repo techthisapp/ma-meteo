@@ -210,6 +210,22 @@ const pngUni = (r, g, b, a, n = 64) => {
   return enPng(brut, n);
 };
 
+/* Une tuile d'imagerie infrarouge, opaque comme le service la rend : moitié
+   gauche sombre, le ciel dégagé, moitié droite claire, le sommet d'un nuage.
+   La mise en transparence doit effacer la première et garder la seconde. */
+const pngDamier = (n = 64) => {
+  const brut = Buffer.alloc(n * (n * 4 + 1));
+  for (let y = 0; y < n; y++) {
+    const o = y * (n * 4 + 1);
+    for (let x = 0; x < n; x++) {
+      const p = o + 1 + x * 4;
+      const v = x < n / 2 ? 30 : 230;
+      brut[p] = v; brut[p + 1] = v; brut[p + 2] = v; brut[p + 3] = 255;
+    }
+  }
+  return enPng(brut, n);
+};
+
 /* L'enveloppe PNG, partagée par la tuile unie et la tuile à motif. */
 function enPng(brut, n) {
   const bloc = (type, data) => {
@@ -284,6 +300,9 @@ const appelsRadar = [];
    en HTTP 200, comme le service le fait pour un pas qu'il ne sert pas. */
 const appelsFoudre = [];
 const appelsAtmo = [];
+const appelsNuages = [];
+const NUAGES_PAS = 10 * 60 * 1000;
+const NUAGES_DERNIER = Math.floor((FIGE - 15 * 60 * 1000) / NUAGES_PAS) * NUAGES_PAS;
 const ATMO_MOTS = { 1: "Bon", 2: "Moyen", 3: "Dégradé", 4: "Mauvais",
   5: "Très mauvais", 6: "Extrêmement mauvais" };
 const atmoJour = new Date(FIGE).toISOString().slice(0, 10);
@@ -787,6 +806,25 @@ const brancherRoutes = async c => {
       : t === FOUDRE_DERNIER ? pngUni(220, 20, 20, 255) : pngUni(250, 230, 90, 255);
     r.fulfill({ status: 200, contentType: "image/png",
       headers: { "Access-Control-Allow-Origin": "*" }, body: corps });
+  });
+  /* L'imagerie de nuages, servie par le même hôte que la foudre. La tuile
+     arrive opaque, comme le vrai service la rend : un damier de gris clairs et
+     sombres, pour que la mise en transparence se mesure. */
+  await c.route(/view\.eumetsat\.int\/geoserver\/mtg_fd\/ir105_hrfi/, r => {
+    const u = r.request().url();
+    appelsNuages.push(u);
+    if (/request=GetCapabilities/i.test(u)) {
+      r.fulfill({ status: 200, contentType: "text/xml",
+        headers: { "Access-Control-Allow-Origin": "*" },
+        body: `<?xml version="1.0" encoding="UTF-8"?><WMS_Capabilities version="1.3.0">`
+          + `<Capability><Layer><Layer><Name>mtg_fd:ir105_hrfi</Name>`
+          + `<Dimension name="time" default="${heureService(NUAGES_DERNIER)}" units="ISO8601">`
+          + `2025-05-30T00:00:00.000Z/${heureService(NUAGES_DERNIER)}/PT10M</Dimension>`
+          + `</Layer></Layer></Capability></WMS_Capabilities>` });
+      return;
+    }
+    r.fulfill({ status: 200, contentType: "image/png",
+      headers: { "Access-Control-Allow-Origin": "*" }, body: pngDamier() });
   });
   await c.route(/tilecache\.rainviewer\.com/, r => {
     const u = r.request().url();
@@ -7345,10 +7383,13 @@ const tuiles = await pgNap.evaluate(async () => {
     droite: pan.right, largeurEcran: window.innerWidth, tuiles: ch };
 });
 
-/* Quatre rangées de 56 points, titres compris : 239 points sur les 742 du
-   cadre d'un téléphone, la liste en prenait 350. */
-ok("le panneau ouvert tient dans un tiers du cadre",
-  tuiles.hauteur <= tuiles.hauteurCadre / 3,
+/* Le panneau ouvert doit laisser à la carte la plus grande part du cadre :
+   c'est ce que la liste ne faisait plus, à 350 points sur 742. En tuiles, trois
+   nappes par rangée, il en prend 301 avec neuf entrées et quatre rangées, et
+   gagne 62 points par rangée ajoutée. Le seuil est posé aux deux cinquièmes,
+   ce qui laisse la place d'une rangée de plus avant d'avoir à revoir la forme. */
+ok("le panneau ouvert laisse à la carte la plus grande part du cadre",
+  tuiles.hauteur <= tuiles.hauteurCadre * 0.42,
   `${Math.round(tuiles.hauteur)} sur ${Math.round(tuiles.hauteurCadre)}`);
 
 ok("les tuiles vont par trois sur une rangée",
@@ -7996,6 +8037,113 @@ ok("et son réglage est retenu d'une ouverture à l'autre",
   await pgFouOff.evaluate(() =>
     document.getElementById("caFoudre").getAttribute("aria-checked") === "false"));
 await ctxFouOff.close();
+
+/* ---------- Les nuages sur la carte ----------
+
+   L'imagerie infrarouge du Meteosat de troisième génération. Elle est retenue
+   parce qu'elle voit la nuit, ce que le visible ne fait pas : mesuré à deux
+   heures du matin, le visible rend une image noire. La tuile arrive opaque et
+   se rend transparente à son arrivée, faute de quoi elle couvrirait la carte. */
+appelsNuages.length = 0;
+const [ctxNu, pgNu] = await ouvrirCarte({ ...FAIN, nuagescarte: true }, 0);
+await pgNu.waitForTimeout(700);
+
+ok("les nuages sont éteints au départ, sauf réglage contraire",
+  await pgNu.evaluate(() => {
+    const r = JSON.parse(localStorage.getItem("mameteo.reglages.v1") || "{}");
+    return r.nuagescarte === true;
+  }));
+
+ok("la couche demande le dernier pas publié, au pas de dix minutes",
+  (() => {
+    const t = appelsNuages.filter(u => /GetMap/i.test(u))
+      .map(u => Date.parse(decodeURIComponent(/[?&]time=([^&]+)/.exec(u)[1])));
+    return t.length > 0 && t.every(x => x === NUAGES_DERNIER);
+  })(), appelsNuages.filter(u => /GetMap/i.test(u)).length + " tuiles");
+
+ok("elle lit les capacités de la couche seule",
+  appelsNuages.some(u => /mtg_fd\/ir105_hrfi\/ows\?.*GetCapabilities/i.test(u)));
+
+/* Le contrat de la mise en transparence, éprouvé sur la tuile même : le ciel
+   dégagé, sombre en infrarouge, doit disparaître, et le sommet du nuage, clair,
+   rester. Une tuile posée telle quelle couvrirait la carte entière. */
+const nuTransp = await pgNu.evaluate(async () => {
+  const N = await import("/src/nuages.js");
+  const d = new Uint8ClampedArray([30, 30, 30, 255, 230, 230, 230, 255, 140, 140, 140, 255]);
+  N.transparence(d);
+  return [d[3], d[7], d[11]];
+});
+ok("le ciel dégagé s'efface et le nuage reste",
+  nuTransp[0] === 0 && nuTransp[1] === 255 && nuTransp[2] > 100 && nuTransp[2] < 255,
+  nuTransp.join(" / "));
+
+/* La tuile d'imagerie est grise, le fond de carte est teinté : si la couche
+   était posée opaque, la vue entière deviendrait neutre. Un point unique ne
+   suffit pas à le dire, sa place dans la tuile n'étant pas garantie ; la
+   mesure se fait sur une grille. */
+ok("la carte laisse voir son fond là où le ciel est dégagé",
+  await pgNu.evaluate(async () => {
+    const dodo = m => new Promise(r => setTimeout(r, m));
+    /* Sans cette mise à nu, la nappe de pluie couvre la vue par-dessus les
+       nuages et la mesure ne dirait rien de la couche éprouvée. */
+    document.getElementById("caCouches").click(); await dodo(200);
+    document.getElementById("caSansNappe").click(); await dodo(700);
+    document.getElementById("caCouches").click(); await dodo(200);
+    const cv = document.getElementById("caToile");
+    const ctx = cv.getContext("2d");
+    let teintes = 0, vus = 0;
+    for (let y = 40; y < cv.height - 40; y += 40) {
+      for (let x = 40; x < cv.width - 40; x += 40) {
+        const d = ctx.getImageData(x, y, 1, 1).data;
+        vus++;
+        if (Math.max(d[0], d[1], d[2]) - Math.min(d[0], d[1], d[2]) > 8) teintes++;
+      }
+    }
+    return vus > 20 && teintes / vus > 0.25 ? "" : `${teintes} teintés sur ${vus}`;
+  }) === "");
+
+/* Les deux couches du même service se disent d'un seul tenant, « Foudre et
+   nuages », d'où la lecture sans égard à la casse. */
+ok("la mention nomme EUMETSAT tant que les nuages sont allumés",
+  await pgNu.evaluate(() => {
+    const c = document.getElementById("caCredit");
+    return /nuages/i.test(c.textContent)
+      && c.querySelector('a[href*="eumetsat.int"]') !== null;
+  }));
+
+/* Les nuages se posent sous la pluie : la pluie tombe de la masse nuageuse et
+   doit rester lisible par-dessus elle. La pluie de la charge est colorée et
+   couvre la vue ; le sommet du nuage est un gris clair et neutre. Posée
+   par-dessus, la couche de nuages blanchirait la moitié de la vue, celle où sa
+   tuile est opaque. La mesure compte donc les points gris clairs : trois points
+   ne suffisaient pas, la tuile laissant passer la couleur là où le ciel est
+   dégagé. */
+ok("les nuages se posent sous la pluie, non par-dessus",
+  await pgNu.evaluate(async () => {
+    const dodo = m => new Promise(r => setTimeout(r, m));
+    document.getElementById("caCouches").click(); await dodo(200);
+    document.getElementById("caPluie").click(); await dodo(900);
+    const cv = document.getElementById("caToile");
+    const ctx = cv.getContext("2d");
+    let gris = 0, vus = 0;
+    for (let y = 40; y < cv.height - 40; y += 30) {
+      for (let x = 40; x < cv.width - 40; x += 30) {
+        const d = ctx.getImageData(x, y, 1, 1).data;
+        vus++;
+        const neutre = Math.max(d[0], d[1], d[2]) - Math.min(d[0], d[1], d[2]) < 12;
+        if (neutre && (d[0] + d[1] + d[2]) / 3 > 170) gris++;
+      }
+    }
+    return vus > 20 && gris / vus < 0.12 ? "" : `${gris} gris clairs sur ${vus}`;
+  }) === "");
+await ctxNu.close();
+
+appelsNuages.length = 0;
+const [ctxNuOff, pgNuOff] = await ouvrirCarte(FAIN, 0);
+await pgNuOff.waitForTimeout(500);
+ok("une carte qui s'ouvre les nuages éteints ne demande rien au service",
+  appelsNuages.length === 0, `${appelsNuages.length} appels`);
+await ctxNuOff.close();
 
 /* ---------- Le vent sur la carte ----------
 

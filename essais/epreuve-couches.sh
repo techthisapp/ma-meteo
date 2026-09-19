@@ -19,7 +19,7 @@ PORT_ESSAIS=$((8220 + N))
 case "$N" in
   1) # Revenir à la liste : une tuile par rangée.
      perl -0pi -e 's/\.ca-grille\{display:grid;grid-template-columns:repeat\(3,1fr\)/.ca-grille{display:grid;grid-template-columns:repeat(1,1fr)/' styles.css
-     ATTENDU="le panneau ouvert tient dans un tiers du cadre" ;;
+     ATTENDU="le panneau ouvert laisse à la carte la plus grande part du cadre" ;;
   2) # Deux tuiles par rangée.
      perl -0pi -e 's/\.ca-grille\{display:grid;grid-template-columns:repeat\(3,1fr\)/.ca-grille{display:grid;grid-template-columns:repeat(2,1fr)/' styles.css
      ATTENDU="les tuiles vont par trois sur une rangée" ;;
