@@ -569,7 +569,9 @@ function retoucher(hourly) {
    perdues. Le repli borne l'attente et se compte, pour que le masquage se voie
    plutôt que de passer inaperçu. */
 let repliesOuverture = 0;
+let coutOuvertures = 0, nbOuvertures = 0;
 const ouvrirPage = async (p, url = RACINE_HTTP) => {
+  const t0 = Date.now();
   try {
     await p.goto(url, { waitUntil: "networkidle", timeout: 15000 });
   } catch {
@@ -577,6 +579,7 @@ const ouvrirPage = async (p, url = RACINE_HTTP) => {
     await p.goto(url, { waitUntil: "domcontentloaded" });
     await p.waitForTimeout(1200);
   }
+  coutOuvertures += Date.now() - t0; nbOuvertures++;
   return p;
 };
 
@@ -866,7 +869,50 @@ await ouvrirPage(pg);
 await pg.waitForTimeout(900);
 
 let n = 0, ko = 0;
+/* Chronomètre par section, allumé par CHRONO=1 : il dit où passe le temps
+   d'une passe, sans quoi on découpe à l'aveugle. */
+const CHRONO = process.env.CHRONO === "1";
+let sectionNom = "(début)", sectionT0 = Date.now();
+const profil = [];
+const marquerSection = nom => {
+  if (CHRONO) profil.push([sectionNom, Date.now() - sectionT0]);
+  /* L'arrêt tombe au titre suivant : la section visée est alors terminée. */
+  if (sectionAtteinte) { arretDemande = true; return; }
+  if (JUSQUA && sansAccent(nom).includes(sansAccent(JUSQUA))) sectionAtteinte = true;
+  sectionNom = nom; sectionT0 = Date.now();
+};
+
+/* Arrêt anticipé, demandé par JUSQUA : la passe s'arrête une fois la section
+   nommée terminée. Les épreuves de fautes visent une garde précise et n'ont
+   rien à tirer des sections qui la suivent ; sur une garde de la carte, le
+   quart final de la suite est du temps perdu. Le nom donné est cherché dans
+   les titres de section, sans égard à la casse ni aux accents.
+   Mesure du 19 septembre 2026 : une passe entière dure 554 secondes, dont 126
+   pour les 104 ouvertures de page, à 1,21 seconde chacune. Le temps n'est donc
+   pas dans une section en particulier mais dans cette charge répartie, ce qui
+   écarte l'idée d'un filtre qui ne garderait qu'une section. */
+const JUSQUA = (process.env.JUSQUA || "").trim();
+const sansAccent = t => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+let sectionAtteinte = false;
+let arretDemande = false;
+
+/* La sortie est synchrone jusqu'à `process.exit` : attendre la fermeture du
+   navigateur rendrait la main au script, qui poursuivrait sur une page déjà
+   condamnée et planterait avant de sortir. Le processus qui s'arrête ferme le
+   navigateur et le serveur de toute façon. */
+const finir = (anticipe = false) => {
+  console.log(`\n${n - ko} contrôles sur ${n}${ko ? `, ${ko} en échec` : ", tous vérifiés"}.`);
+  if (anticipe) {
+    console.log(`Arrêt demandé après la section « ${JUSQUA} » : les sections suivantes`
+      + " n'ont pas été passées.");
+  }
+  nav.close().catch(() => {});
+  try { serveur.close(); } catch { /* déjà fermé */ }
+  process.exit(ko ? 1 : 0);
+};
+
 const ok = (nom, cond, detail) => {
+  if (arretDemande) { finir(true); return; }
   n++; if (!cond) { ko++; console.log(`  ÉCHEC  ${nom}${detail ? " | " + detail : ""}`); }
   else console.log(`  ok     ${nom}`);
 };
@@ -895,7 +941,7 @@ const ouvrirEcran = async cle => {
   await pg.waitForTimeout(500);
 };
 
-console.log("\n--- Couche navigation ---");
+marquerSection("\n--- Couche navigation ---"); console.log("\n--- Couche navigation ---");
 /* Cinq destinations : la fusion du soleil et de la lune a libéré une place, et
    La carte l'a prise. Les quatre premières se lisent en échelle de temps, de
    l'instant à la semaine ; la carte lit l'espace, elle vient après. */
@@ -923,7 +969,7 @@ ok("le bouton de commune ouvre la feuille des communes",
 ok("une journée sèche ne fait paraître aucun jeton de parapluie",
   await pg.locator("#navJeton").isHidden());
 
-console.log("\n--- Écran d'accueil ---");
+marquerSection("\n--- Écran d'accueil ---"); console.log("\n--- Écran d'accueil ---");
 ok("le jour est porté par le ciel, non par un titre d'écran",
   /^[A-ZÀ-Ý][a-zà-ÿ]+ \d{1,2} [a-zà-ÿ]+$/.test(await txt(".plein-titre > i"))
   && await pg.locator(".titre-ecran").count() === 0,
@@ -1042,7 +1088,7 @@ ok("les chiffres des mesures sont au moins à l'échelle du titre 2", await pg.e
   return parseFloat(getComputedStyle(b).fontSize) >= t2 - 0.5;
 }));
 
-console.log("\n--- Le ciel de l'accueil ---");
+marquerSection("\n--- Le ciel de l'accueil ---"); console.log("\n--- Le ciel de l'accueil ---");
 
 /* Le bandeau de l'accueil suit la grammaire du soleil et de la lune : plein
    cadre, titre posé dans le ciel, barre de tête déshabillée. Ce qui lui est
@@ -1213,7 +1259,7 @@ ok("sous une couche fermée l'astre n'est plus dessiné",
 ok("sous un ciel dégagé l'astre garde toute sa lumière",
   cr.voiles.clair === 0 && cr.voiles.eclaircies < cr.seuil);
 
-console.log("\n--- Les moments de l'accueil ---");
+marquerSection("\n--- Les moments de l'accueil ---"); console.log("\n--- Les moments de l'accueil ---");
 
 /* Les moments racontent la journée qui vient, ce qui est l'affaire de
    l'accueil. Ils en ferment le contenu, la vigilance et la source formant la
@@ -1322,7 +1368,7 @@ ok("la journée qui vient tient sous quatre cents points", await pg.evaluate(() 
 }), String(await pg.evaluate(() =>
   Math.round(document.querySelector("#ecran .mt").closest(".carte").getBoundingClientRect().height))));
 
-console.log("\n--- Un chiffre mène à sa voie ---");
+marquerSection("\n--- Un chiffre mène à sa voie ---"); console.log("\n--- Un chiffre mène à sa voie ---");
 ok("chaque mesure de l'accueil porte une destination",
   await pg.locator(".bd-m[data-detail]").count() === 4);
 ok("le grand chiffre et le ciel en portent une aussi",
@@ -1349,7 +1395,7 @@ await pg.waitForTimeout(900);
 ok("le grand chiffre mène à la température",
   await pg.locator('.mg-v[data-cle="t"].mg-grand').count() === 1);
 
-console.log("\n--- Lecture au doigt et défilement ---");
+marquerSection("\n--- Lecture au doigt et défilement ---"); console.log("\n--- Lecture au doigt et défilement ---");
 const boite = await pg.locator('.mg-v[data-cle="t"] .mg-s').boundingBox();
 const cx = boite.x + boite.width * 0.5, cy = boite.y + boite.height * 0.5;
 const lu = () => pg.locator('.mg-v[data-cle="t"] .mg-cur:not([hidden])').count();
@@ -1395,7 +1441,7 @@ ok("le défilement vertical reste au navigateur", await pg.evaluate(() =>
 await pg.locator('.mg-b[data-voie="t"]').click();
 await pg.waitForTimeout(400);
 
-console.log("\n--- Le temps, ruban ---");
+marquerSection("\n--- Le temps, ruban ---"); console.log("\n--- Le temps, ruban ---");
 
 await onglet("temps");
 /* Ce qui mérite d'être retenu se lit sur l'accueil, sous « À retenir ». Le
@@ -1596,7 +1642,7 @@ ok("chaque voie résume un fait, non une notice", await pg.evaluate(() =>
   [...document.querySelectorAll(".mg-l")].every(e => /\d/.test(e.textContent))),
   (await pg.locator(".mg-l").first().innerText()).slice(0, 60));
 
-console.log("\n--- Agrandissement d'une voie ---");
+marquerSection("\n--- Agrandissement d'une voie ---"); console.log("\n--- Agrandissement d'une voie ---");
 const hAvant = await pg.locator('.mg-v[data-cle="t"] svg.mg-s').boundingBox();
 await pg.locator('.mg-b[data-voie="t"]').click();
 await pg.waitForTimeout(320);
@@ -1729,7 +1775,7 @@ ok("le ciel déplié tient dans la hauteur commune", await (async () => {
 await pg.locator('.mg-b[data-voie="nua"]').click();
 await pg.waitForTimeout(320);
 
-console.log("\n--- L'horizon glissant ---");
+marquerSection("\n--- L'horizon glissant ---"); console.log("\n--- L'horizon glissant ---");
 
 /* La fenêtre porte vingt-quatre heures sur la largeur en portrait, et le dessin
    court au delà, d'une fenêtre de part et d'autre : c'est la réserve que le
@@ -1970,7 +2016,7 @@ await pg.waitForTimeout(600);
 ok("de retour en portrait, la fenêtre reprend vingt-quatre heures",
   (await txt(".mg-fenl")) === "05 h à demain 05 h", await txt(".mg-fenl"));
 
-console.log("\n--- Les deux écritures ---");
+marquerSection("\n--- Les deux écritures ---"); console.log("\n--- Les deux écritures ---");
 /* Le sélecteur se tient sur la ligne du titre : c'est ce qui remonte le ruban
    et la table en haut de la page. */
 ok("le sélecteur d'écriture est sur la ligne du titre",
@@ -1999,7 +2045,7 @@ ok("la première ligne est l'heure en cours", h1.trim() === "09 h", h1);
 await pg.locator('[data-ecriture="ruban"]').click();
 await pg.waitForTimeout(420);
 
-console.log("\n--- La semaine ---");
+marquerSection("\n--- La semaine ---"); console.log("\n--- La semaine ---");
 await onglet("semaine");
 /* Neuf rangées : les deux journées que les heures couvrent en arrière, puis les
    sept annoncées. La table commençait à aujourd'hui, faute d'avoir demandé les
@@ -2193,7 +2239,7 @@ ok("une journée écoulée n'efface aucun de ses moments",
 await pg.locator(".sem-passe .sem-r").first().click();
 await pg.waitForTimeout(300);
 
-console.log("\n--- La destination Le ciel ---");
+marquerSection("\n--- La destination Le ciel ---"); console.log("\n--- La destination Le ciel ---");
 
 /* Le soleil et la lune sont deux écrans d'une même destination depuis le
    3 septembre 2026. Le sélecteur se pose en tête du contenu, sous le ciel : ces
@@ -2240,7 +2286,7 @@ ok("et il est gardé sur l'appareil",
 await pg.locator('[data-ciel="soleil"]').click();
 await pg.waitForTimeout(500);
 
-console.log("\n--- Le soleil ---");
+marquerSection("\n--- Le soleil ---"); console.log("\n--- Le soleil ---");
 await ecranCiel(pg, "soleil");
 await pg.waitForTimeout(600);
 const soleilTxt = await txt("#ecran");
@@ -2500,7 +2546,7 @@ ok("la course du jour se lit dans l'ordre", await pg.evaluate(() => {
 ok("les trois mesures tiennent sur une ligne",
   await pg.locator(".tm > div").count() === 3);
 
-console.log("\n--- La lune ---");
+marquerSection("\n--- La lune ---"); console.log("\n--- La lune ---");
 const requetes = [];
 const noter = r => requetes.push(r.url());
 pg.on("request", noter);
@@ -2639,7 +2685,7 @@ ok("la légende nomme les deux courbes",
   (await txt(".tr-leg")).includes("Lune") && (await txt(".tr-leg")).includes("Soleil"));
 ok("aucune requête réseau pour la Lune", requetes.length === 0, requetes.slice(0, 2).join(" "));
 
-console.log("\n--- Vigilance ---");
+marquerSection("\n--- Vigilance ---"); console.log("\n--- Vigilance ---");
 await onglet("accueil");
 await pg.waitForTimeout(500);
 
@@ -2788,7 +2834,7 @@ ok("le détail nomme le département",
 ok("la feuille courte prend l'accroche intermédiaire",
   await pg.locator("#feuille.moyenne").count() === 1);
 
-console.log("\n--- Communes suivies ---");
+marquerSection("\n--- Communes suivies ---"); console.log("\n--- Communes suivies ---");
 await pg.locator("#feuille-fermer").click(); await pg.waitForTimeout(420);
 await onglet("accueil");
 
@@ -2979,7 +3025,7 @@ ok("l'état désactivé neutralise le contrôle", await pg.evaluate(() => {
   return r;
 }));
 
-console.log("\n--- Ma position ---");
+marquerSection("\n--- Ma position ---"); console.log("\n--- Ma position ---");
 // L'appareil se tient à Grenoble : le relevé doit y mener et la feuille se fermer.
 await pg.locator("#coPos").click();
 await pg.waitForTimeout(1500);
@@ -3030,7 +3076,7 @@ ok("Ma position ne porte plus la coche",
   await pg.locator('.co-pos .co-l[aria-current="true"]').count() === 0);
 await pg.locator("#feuille-fermer").click(); await pg.waitForTimeout(420);
 
-console.log("\n--- Réglages en feuille ---");
+marquerSection("\n--- Réglages en feuille ---"); console.log("\n--- Réglages en feuille ---");
 await pg.locator("#btnReglages").click(); await pg.waitForTimeout(500);
 ok("la feuille des réglages s'ouvre", (await txt("#feuille-titre")).startsWith("Réglages"));
 ok("la feuille longue prend toute la hauteur",
@@ -3041,13 +3087,13 @@ ok("une seule rangée de liste dans toute l'application",
   && await pg.locator("#feuille-corps .rangee").count() >= 3);
 await pg.locator("#feuille-fermer").click(); await pg.waitForTimeout(420);
 
-console.log("\n--- Sources coupées ---");
+marquerSection("\n--- Sources coupées ---"); console.log("\n--- Sources coupées ---");
 ok("aucune ligne de vigilance sur l'accueil", await pg.locator(".al.v-2, .al.v-3, .al.v-4").count() === 0);
 ok("l'application reste utilisable", await pg.locator(".bd-deg").count() === 1);
 ok("l'accueil ne parle pas de mesure au poste",
   !(await txt("#ecran")).toLowerCase().includes("pluie mesurée"));
 
-console.log("\n--- Largeur des écrans ---");
+marquerSection("\n--- Largeur des écrans ---"); console.log("\n--- Largeur des écrans ---");
 for (const cle of ["accueil", "temps", "semaine", "soleil", "lune", "carte"]) {
   await ouvrirEcran(cle);
   /* Le débord se mesure sur la couche de contenu, non sur le document : le
@@ -3074,7 +3120,7 @@ await onglet("accueil");
 /* Grand corps de texte. Safari suit le réglage d'accessibilité du système :
    à deux crans au-dessus, une valeur insécable débordait de sa carte et la
    colonne des heures se coupait au bord de l'écran. */
-console.log("\n--- Grand corps de texte ---");
+marquerSection("\n--- Grand corps de texte ---"); console.log("\n--- Grand corps de texte ---");
 await pg.addStyleTag({ content: ":root{font-size:22px}" });
 for (const cle of ["accueil", "temps", "semaine", "soleil", "lune", "carte"]) {
   await ouvrirEcran(cle);
@@ -3124,7 +3170,7 @@ await pg.evaluate(() => {
 });
 await onglet("accueil");
 
-console.log("\n--- La coque hors ligne ---");
+marquerSection("\n--- La coque hors ligne ---"); console.log("\n--- La coque hors ligne ---");
 
 /* L'agent de service met en cache une liste de fichiers écrite à la main. Un
    module nouveau qui n'y figure pas ne se voit pas : l'application marche tant
@@ -3166,7 +3212,7 @@ console.log("\n--- La coque hors ligne ---");
     durs.length === 0, durs.join(", ") || "lame, risque, couvert repris");
 }
 
-console.log("\n--- Design system ---");
+marquerSection("\n--- Design system ---"); console.log("\n--- Design system ---");
 const petites = await pg.evaluate(() => {
   const cibles = [...document.querySelectorAll(
     "button:not([hidden]), a[href], input, .onglet, .rangee")];
@@ -3233,7 +3279,7 @@ const horsEchelle = await pg.evaluate(() => {
 ok("toutes les tailles de texte viennent de l'échelle",
   horsEchelle.length === 0, horsEchelle.join(", "));
 
-console.log("\n--- La réponse du matin ---");
+marquerSection("\n--- La réponse du matin ---"); console.log("\n--- La réponse du matin ---");
 
 /* Une phrase qui tranche ce qu'il y a à faire, posée dans le ciel. Elle donne
    une instruction là où les conseils donnent un fait, et c'est ce qui la
@@ -3276,7 +3322,7 @@ ok("chaque ligne de l'encart ouvre la feuille qui la concerne",
       ? "" : f.join(",");
   }) === "");
 
-console.log("\n--- L'écran de questions ---");
+marquerSection("\n--- L'écran de questions ---"); console.log("\n--- L'écran de questions ---");
 
 await pg.locator('[data-onglet="accueil"]').click();
 await pg.waitForTimeout(400);
@@ -3395,7 +3441,7 @@ ok("la signature des colonnes entre dans la clé du cache",
 await pg.locator("#feuille-fermer").click();
 await pg.waitForTimeout(400);
 
-console.log("\n--- États vide et chargement ---");
+marquerSection("\n--- États vide et chargement ---"); console.log("\n--- États vide et chargement ---");
 await ctx.close();
 
 const ctxVide = await nav.newContext({
@@ -3414,7 +3460,7 @@ ok("l'état vide propose une action secondaire",
   await pgVide.locator('.etat-vide .bouton-borde[data-action="geo"]').count() === 1);
 await ctxVide.close();
 
-console.log("\n--- Suivi de la position ---");
+marquerSection("\n--- Suivi de la position ---"); console.log("\n--- Suivi de la position ---");
 
 /* L'application s'ouvre en mode position sur un relevé ancien, pris ailleurs.
    L'autorisation étant déjà accordée, le relevé silencieux doit partir seul,
@@ -4719,7 +4765,7 @@ ok("la première lecture montre une ossature, non un voile plein écran",
   && await pgLent.locator(".etat-vide .tourne").count() === 0);
 await ctxLent.close();
 
-console.log("\n--- Les scénarios ---");
+marquerSection("\n--- Les scénarios ---"); console.log("\n--- Les scénarios ---");
 
 /* La marge d'une prévision. La source rend quarante scénarios sous un autre
    point d'entrée : leur dispersion est la marge, et elle s'élargit avec
@@ -5196,7 +5242,7 @@ await ctxSc.close();
 
 /* ---------- Le rappel de parapluie ---------- */
 
-console.log("\n--- Le rappel de parapluie ---");
+marquerSection("\n--- Le rappel de parapluie ---"); console.log("\n--- Le rappel de parapluie ---");
 
 /* Les heures réglées disent quand prévenir, non où chercher la pluie. Chaque
    alerte répond de la pluie attendue jusqu'à la suivante, la dernière jusqu'à
@@ -5618,7 +5664,7 @@ ok("un réglage de plages de sortie se reprend en instants d'alerte",
 await ctxRepris.close();
 /* ---------- Le ressenti et le silence de la réponse ---------- */
 
-console.log("\n--- Le ressenti calibré ---");
+marquerSection("\n--- Le ressenti calibré ---"); console.log("\n--- Le ressenti calibré ---");
 
 /* Un contexte à la carte pour la réponse du matin : la charge d'essai est
    reprise en déplaçant la température ressentie, qui décide de la tenue, et la
@@ -5792,7 +5838,7 @@ await ctxSur.close();
 
 /* ---------- Les activités sur des charges à la carte ---------- */
 
-console.log("\n--- Les activités, cas limites ---");
+marquerSection("\n--- Les activités, cas limites ---"); console.log("\n--- Les activités, cas limites ---");
 
 const meteoAct = patch => () => {
   const d = JSON.parse(JSON.stringify(METEO));
@@ -5872,7 +5918,7 @@ ok("le même cumul de pluie, sans évaporation, n'en demande pas",
 
 /* ---------- Où est le beau temps ---------- */
 
-console.log("\n--- Où est le beau temps ---");
+marquerSection("\n--- Où est le beau temps ---"); console.log("\n--- Où est le beau temps ---");
 
 /* Trois lieux suivis sur un axe nord-sud. La charge d'essai fait monter le
    soleil vers le nord aujourd'hui, la température vers le sud : les deux
@@ -6123,7 +6169,7 @@ await ctxBeau.close();
 
 /* ---------- L'air qu'on respire ---------- */
 
-console.log("\n--- L'air qu'on respire ---");
+marquerSection("\n--- L'air qu'on respire ---"); console.log("\n--- L'air qu'on respire ---");
 
 const METEO_NUE = () => JSON.parse(JSON.stringify(METEO));
 
@@ -6358,7 +6404,7 @@ ok("le pire moment ne se répète pas quand c'est le moment présent",
    le modèle global, avec une lame médiane d'un dixième et six dixièmes au plus.
    Le désaccord porte donc toujours sur des pluies très faibles. */
 
-console.log("\n--- Le temps sensible et le désaccord entre modèles ---");
+marquerSection("\n--- Le temps sensible et le désaccord entre modèles ---"); console.log("\n--- Le temps sensible et le désaccord entre modèles ---");
 
 bruineArome = { heure: "2026-08-18T09:00", code: 51, mm: 0.2 };
 const ctxBruine = await nav.newContext({
@@ -6446,7 +6492,7 @@ bruineArome = null;
    pour toutes : le mot écrit dans le ciel et les chiffres écrits en dessous
    disent la même chose. */
 
-console.log("\n--- Les charges discordantes ---");
+marquerSection("\n--- Les charges discordantes ---"); console.log("\n--- Les charges discordantes ---");
 
 /* Ce que l'accueil montre du temps qu'il fait : le mot du ciel, la tuile de
    pluie, et ce que la série porte à l'heure en cours. */
@@ -6530,7 +6576,7 @@ retoucheGlobal = null;
 
 /* ---------- La carte ---------- */
 
-console.log("\n--- La carte ---");
+marquerSection("\n--- La carte ---"); console.log("\n--- La carte ---");
 
 /* Le fond est dessiné, non chargé en tuiles : une tuile de plan de l'IGN pèse de
    42 à 70 kilooctets, et une vue de téléphone en demande une douzaine. Les
@@ -6915,7 +6961,7 @@ await ctxCarte.close();
 
 /* ---------- La pluie sur la carte ---------- */
 
-console.log("\n--- La pluie sur la carte ---");
+marquerSection("\n--- La pluie sur la carte ---"); console.log("\n--- La pluie sur la carte ---");
 
 /* La couche de pluie vient du service RainViewer, sans clé. Les tuiles d'essai
    sont unies, d'une teinte qui porte le rang de l'image : la toile relue au
@@ -7018,7 +7064,9 @@ ok("la pluie se pose sous les traits, non dessus",
       return mieux.split(",").map(Number);
     };
 
-    document.getElementById("caSansNappe").click(); await dodo(500);  // couche éteinte
+    /* La pluie s'éteint par sa propre tuile, « Aucune » ne touchant plus qu'à
+       la nappe depuis qu'elle est une superposition. */
+    pluie.click(); await dodo(500);          // couche éteinte
     const a = lu();
     const fond = dominante(a);
     /* Les traits pleins seulement : un trait lissé sur son bord est à demi
@@ -7151,6 +7199,14 @@ ok("la lecture avance d'image en image",
    points chacune, la moitié de ce qu'un doigt vise. */
 /* Le doigt est celui de Playwright, non un évènement fabriqué : la piste prend
    le pointeur à l'appui, et un pointeur fabriqué ne se prend pas. */
+/* La pluie est rallumée avant de relever la boîte : la garde précédente
+   l'éteint pour mesurer l'ordre du tracé, et la chronologie disparaît avec
+   elle depuis que la pluie est une superposition. */
+await pgNappe.evaluate(async () => {
+  const dodo = m => new Promise(r => setTimeout(r, m));
+  const p = document.getElementById("caPluie");
+  if (p.getAttribute("aria-checked") !== "true") { p.click(); await dodo(900); }
+});
 const boitePiste = await pgNappe.locator("#caPiste").boundingBox();
 const lirePiste = async () => ({
   rang: await pgNappe.getAttribute("#caPiste", "aria-valuenow"),
@@ -7178,7 +7234,9 @@ ok("la mention du service paraît avec la couche",
     const dodo = m => new Promise(r => setTimeout(r, m));
     const avec = c.textContent.includes("RainViewer")
       && c.querySelector('a[href*="rainviewer.com"]') !== null;
-    document.getElementById("caSansNappe").click(); await dodo(300);
+    /* La pluie s'éteint par sa propre tuile depuis qu'elle est une
+       superposition : « Aucune » ne touche plus qu'à la nappe. */
+    p.click(); await dodo(400);
     const sans = !c.textContent.includes("RainViewer");
     p.click(); await dodo(600);
     if (!avec) return "la mention manque quand la couche est allumée";
@@ -7336,10 +7394,13 @@ await ctxSec.close();
    Les nappes sont exclusives entre elles : ce sont des étalements de couleur sur
    toute la surface, et deux superposés ne se liraient ni l'un ni l'autre. */
 
-console.log("\n--- Les nappes de la carte ---");
+marquerSection("\n--- Les nappes de la carte ---"); console.log("\n--- Les nappes de la carte ---");
 
 appelsGrille.length = 0;
-const [ctxNap, pgNap] = await ouvrirCarte(FAIN, 0);
+/* La pluie est allumée au départ et se pose désormais par-dessus la nappe :
+   les contrôles qui lisent la couleur d'une nappe l'éteignent d'abord, sans
+   quoi ils mesureraient la couleur de la pluie. */
+const [ctxNap, pgNap] = await ouvrirCarte({ ...FAIN, pluiecarte: false }, 0);
 
 ok("la nappe ne demande rien tant qu'elle n'est pas choisie",
   appelsGrille.length === 0, `${appelsGrille.length} appels`);
@@ -7407,15 +7468,39 @@ ok("le panneau reste dans l'écran",
   tuiles.gauche >= 0 && tuiles.droite <= tuiles.largeurEcran,
   `de ${Math.round(tuiles.gauche)} à ${Math.round(tuiles.droite)} sur ${tuiles.largeurEcran}`);
 
+/* Une seule nappe à la fois, mais la pluie n'en est plus une depuis le
+   19 septembre 2026 : elle se lit en même temps qu'une température ou une
+   qualité de l'air, et sa chronologie reste. */
 ok("une seule nappe à la fois",
   await pgNap.evaluate(async () => {
     const dodo = m => new Promise(r => setTimeout(r, m));
     const lu = id => document.getElementById(id).getAttribute("aria-checked");
-    if (lu("caPluie") !== "true") return "la pluie n'est pas celle du départ";
     document.getElementById("caTemp").click(); await dodo(900);
     if (lu("caTemp") !== "true") return "la température ne se marque pas";
-    if (lu("caPluie") !== "false") return "la pluie reste marquée sous la température";
-    if (!document.getElementById("caTemps").hidden) return "la chronologie reste sous la température";
+    document.getElementById("caUV").click(); await dodo(700);
+    if (lu("caUV") !== "true") return "l'indice ultraviolet ne se marque pas";
+    if (lu("caTemp") !== "false") return "la température reste marquée sous l'indice";
+    document.getElementById("caTemp").click(); await dodo(700);
+    return "";
+  }) === "");
+
+/* Dans les deux sens : allumer la pluie sous une nappe déjà choisie, et
+   choisir une nappe sous une pluie déjà allumée. Le second sens est celui que
+   l'usage rencontre, et le premier réglage ne l'éprouvait pas. */
+ok("la pluie se lit en même temps qu'une nappe",
+  await pgNap.evaluate(async () => {
+    const dodo = m => new Promise(r => setTimeout(r, m));
+    const lu = id => document.getElementById(id).getAttribute("aria-checked");
+    document.getElementById("caPluie").click(); await dodo(900);
+    if (lu("caPluie") !== "true") return "la pluie ne s'allume pas";
+    if (lu("caTemp") !== "true") return "la température s'est éteinte sous la pluie";
+    if (document.getElementById("caTemps").hidden) return "la chronologie n'est pas là";
+    document.getElementById("caUV").click(); await dodo(900);
+    if (lu("caUV") !== "true") return "l'indice ultraviolet ne se marque pas";
+    if (lu("caPluie") !== "true") return "la pluie s'est éteinte sous une nappe choisie";
+    document.getElementById("caTemp").click(); await dodo(700);
+    if (lu("caPluie") !== "true") return "la pluie s'est éteinte au second choix";
+    document.getElementById("caPluie").click(); await dodo(500);
     return "";
   }) === "");
 
@@ -7886,6 +7971,15 @@ ok("un ancien réglage de pluie se reprend en choix de nappe",
     && document.getElementById("caSansNappe").getAttribute("aria-checked") === "true"));
 await ctxAncienRadar.close();
 
+/* Le réglage de la version d'ensuite écrivait `nappe: "pluie"`. Il se reprend
+   aussi : la pluie s'allume et la nappe reste absente. */
+const [ctxAncienNappe, pgAncienNappe] = await ouvrirCarte({ ...FAIN, nappe: "pluie" }, 0);
+ok("un réglage qui nommait la pluie comme nappe se reprend en superposition",
+  await pgAncienNappe.evaluate(() =>
+    document.getElementById("caPluie").getAttribute("aria-checked") === "true"
+    && document.getElementById("caSansNappe").getAttribute("aria-checked") === "true"));
+await ctxAncienNappe.close();
+
 /* ---------- La foudre sur la carte ----------
 
    L'imageur de foudre du Meteosat de troisième génération, servi par
@@ -8121,8 +8215,12 @@ ok("la mention nomme EUMETSAT tant que les nuages sont allumés",
 ok("les nuages se posent sous la pluie, non par-dessus",
   await pgNu.evaluate(async () => {
     const dodo = m => new Promise(r => setTimeout(r, m));
+    /* La pluie est allumée au départ et sa tuile est un interrupteur : la
+       toucher l'éteindrait. Le panneau se referme pour dégager la vue. */
     document.getElementById("caCouches").click(); await dodo(200);
-    document.getElementById("caPluie").click(); await dodo(900);
+    document.getElementById("caToile").dispatchEvent(
+      new PointerEvent("pointerdown", { bubbles: true }));
+    await dodo(900);
     const cv = document.getElementById("caToile");
     const ctx = cv.getContext("2d");
     let gris = 0, vus = 0;
@@ -8155,7 +8253,7 @@ await ctxNuOff.close();
    médiane de 16,6 millisecondes contre 16,7 sans la couche, pire image de 23,4
    contre 18,2. L'animation tient donc dans le budget d'une image. */
 
-console.log("\n--- Le vent sur la carte ---");
+marquerSection("\n--- Le vent sur la carte ---"); console.log("\n--- Le vent sur la carte ---");
 
 appelsGrille.length = 0;
 const [ctxVent, pgVent] = await ouvrirCarte({ ...FAIN, ventcarte: true, nappe: null }, 0);
@@ -8393,7 +8491,7 @@ await ctxVentFige.close();
 
 /* ---------- La pluie dans l'heure ---------- */
 
-console.log("\n--- La pluie dans l'heure ---");
+marquerSection("\n--- La pluie dans l'heure ---"); console.log("\n--- La pluie dans l'heure ---");
 
 /* Le produit « pluie dans l'heure » de Météo-France, sur le service qui porte
    déjà la vigilance. Il devait être l'extrapolation de RainViewer, lue au pixel
@@ -8571,7 +8669,7 @@ ok("une échéance sans valeur arrête la lecture avant la pluie qui suit",
    provenance de 243 degrés à environ quarante kilomètres par heure, ce qui est
    le cas réel relevé le 8 septembre. */
 
-console.log("\n--- Le sens d'arrivée de la pluie ---");
+marquerSection("\n--- Le sens d'arrivée de la pluie ---"); console.log("\n--- Le sens d'arrivée de la pluie ---");
 
 profilPluie = "debut";
 appelsRadar.length = 0;
@@ -8885,7 +8983,7 @@ await ctxRond.close();
    feuille se recalcule donc ici, à partir de la même formule, sans dépendre de
    ce que le module en fait. */
 
-console.log("\n--- Le climat de la commune ---");
+marquerSection("\n--- Le climat de la commune ---"); console.log("\n--- Le climat de la commune ---");
 
 const ouvrirClimat = async p => {
   await p.locator('[data-feuille="climat"]').click();
@@ -9110,7 +9208,7 @@ ok("sans archive, la feuille le dit et ne montre pas de section vide",
 await ctxSansArchive.close();
 archiveMuette = false;
 
-console.log("\n--- Mouvement réduit ---");
+marquerSection("\n--- Mouvement réduit ---"); console.log("\n--- Mouvement réduit ---");
 const ctx2 = await nav.newContext({
   viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
   locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
@@ -9136,13 +9234,22 @@ ok("les transitions sont neutralisées", await pg2.evaluate(() =>
   parseFloat(getComputedStyle(document.querySelector(".nav")).transitionDuration) < 0.001));
 await ctx2.close();
 
-console.log("\n--- Erreurs de page ---");
+marquerSection("\n--- Erreurs de page ---"); console.log("\n--- Erreurs de page ---");
 ok("aucune erreur de page", erreurs.length === 0, erreurs.slice(0,3).join(" ~ "));
 
 if (repliesOuverture) {
   console.log(`\n${repliesOuverture} ouverture(s) de page repliées sur le chargement du document,`
     + " le réseau n'étant pas revenu au repos dans les quinze secondes.");
 }
-console.log(`\n${n - ko} contrôles sur ${n}${ko ? `, ${ko} en échec` : ", tous vérifiés"}.`);
-await nav.close(); serveur.close();
-process.exit(ko ? 1 : 0);
+if (CHRONO) {
+  marquerSection("(fin)");
+  console.log("\n--- Temps par section ---");
+  for (const [nom, ms] of profil.sort((x, y) => y[1] - x[1]).slice(0, 18)) {
+    console.log(`  ${(ms / 1000).toFixed(1).padStart(6)} s  ${nom.replace(/\n|---/g, "").trim()}`);
+  }
+  console.log(`  total ${(profil.reduce((t, x) => t + x[1], 0) / 1000).toFixed(1)} s`);
+  console.log(`  dont ${(coutOuvertures / 1000).toFixed(1)} s pour ${nbOuvertures} ouvertures`
+    + ` de page, soit ${(coutOuvertures / nbOuvertures / 1000).toFixed(2)} s chacune`
+    + `, ${repliesOuverture} en repli`);
+}
+finir();

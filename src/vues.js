@@ -1073,9 +1073,14 @@ export function vueLune() {
 /* Les nappes de la carte, exclusives entre elles. Ce sont des étalements de
    couleur sur toute la surface : deux superposés ne se liraient ni l'un ni
    l'autre. La vigilance n'entre pas dans cette liste, elle ne teinte que les
-   départements en alerte et se pose sous la nappe. */
+   départements en alerte et se pose sous la nappe.
+
+   La pluie n'y figure plus depuis le 19 septembre 2026. Elle ne couvre qu'un
+   cinquième de la vue un jour de pluie et laisse voir ce qui est dessous : elle
+   est passée au-dessus, avec le vent, la vigilance, la foudre et les nuages, ce
+   qui permet de la lire en même temps qu'une température ou une qualité de
+   l'air. Sa place ici tenait à l'ordre dans lequel les couches sont venues. */
 const NAPPES_CARTE = [
-  { cle: "pluie", id: "caPluie", nom: "Pluie", ico: "goutte", porte: "maintenant" },
   { cle: "temp", id: "caTemp", nom: "Température", ico: "thermo", porte: "maintenant",
     champ: "temp", teinte: teinteT, sat: 0.54, clarte: 0.47,
     arrets: [-5, 5, 15, 25, 35], unite: "°", couleur: couleurT },
@@ -1161,6 +1166,9 @@ export function vueCarte(ctx, rendre, majEtat) {
       + `</div>`
       + `<p class="ca-p-titre" id="caPnTitre2">Par-dessus</p>`
       + `<div class="ca-grille" role="group" aria-labelledby="caPnTitre2">`
+      + `<button type="button" class="ca-ch" id="caPluie" role="switch" `
+      + `aria-checked="${Reglages.pluiecarte() ? "true" : "false"}">`
+      + ico("goutte", "") + `<span>Pluie</span></button>`
       + `<button type="button" class="ca-ch" id="caVent" role="switch" `
       + `aria-checked="${Reglages.ventcarte() ? "true" : "false"}">`
       + ico("vent", "") + `<span>Vent</span></button>`
@@ -1246,7 +1254,7 @@ export function vueCarte(ctx, rendre, majEtat) {
          Elles se glissent entre le fond et les traits. La carte ne sait pas ce
          qu'elle peint là, et les couches ne savent rien du fond. */
       let choisie = Reglages.nappe();
-      let allume = choisie === "pluie";
+      let allume = Reglages.pluiecarte();
       let hote = "", images = [], rang = 0, enLecture = false;
 
       const couche = (c, v, l, h) => {
@@ -1583,7 +1591,9 @@ export function vueCarte(ctx, rendre, majEtat) {
           dire("");
           piste.setAttribute("aria-valuemax", String(images.length - 1));
           piste.style.setProperty("--cn", String(images.length));
-          rangee.hidden = images.length < 2;
+          /* La chronologie appartient à la pluie : une lecture qui arrive après
+             que la couche a été éteinte ne doit pas la faire paraître. */
+          rangee.hidden = !allume || images.length < 2;
           poserRang(Radar.rangCourant(images));
         } catch {
           if (!cv.isConnected) return;
@@ -1630,18 +1640,11 @@ export function vueCarte(ctx, rendre, majEtat) {
 
       const poserChoix = c => {
         choisie = c;
-        allume = c === "pluie";
         Reglages.poserNappe(c);
         for (const [cle, el] of rangs) el.setAttribute("aria-checked", cle === c ? "true" : "false");
         sans.setAttribute("aria-checked", c === null ? "true" : "false");
         mention();
         poserLegende();
-        if (!allume) { arreter(); rangee.hidden = true; }
-        if (c === "pluie") {
-          dire("");
-          if (images.length) { rangee.hidden = images.length < 2; revoir(); } else lireIndex();
-          return;
-        }
         const n = NAPPES_CARTE.find(x => x.cle === c && x.champ);
         if (n) {
           if (grilleDe(n)) revoir();
@@ -1722,6 +1725,21 @@ export function vueCarte(ctx, rendre, majEtat) {
           revoir();
         } catch { /* la carte se lit sans la foudre */ }
       };
+      /* La pluie, superposition depuis le 19 septembre 2026. La chronologie la
+         suit : elle paraît quand la pluie est allumée et que le service a rendu
+         plus d'une image, et s'efface avec elle. */
+      const pluieB = bloc.querySelector("#caPluie");
+      pluieB.addEventListener("click", () => {
+        allume = !allume;
+        Reglages.poserPluiecarte(allume);
+        pluieB.setAttribute("aria-checked", allume ? "true" : "false");
+        mention();
+        poserLegende();
+        if (!allume) { arreter(); rangee.hidden = true; revoir(); return; }
+        dire("");
+        if (images.length) { rangee.hidden = images.length < 2; revoir(); } else lireIndex();
+      });
+
       const nuagesB = bloc.querySelector("#caNuages");
       const lireNuages = async () => {
         try {

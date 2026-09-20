@@ -29,8 +29,8 @@ const DEFAUT = {
   ventcarte: false,    // les particules de vent sur la carte
   foudrecarte: true,   // la foudre observée par satellite sur la carte
   nuagescarte: false,  // les nuages vus du satellite sur la carte
-  // `nappe` n'a pas de valeur par défaut : son absence est ce qui déclenche la
-  // reprise de l'ancien réglage de pluie.
+  // Ni `nappe` ni `pluiecarte` n'ont de valeur par défaut : c'est leur absence
+  // qui déclenche la reprise des anciens réglages, `radar` puis `nappe`.
 };
 
 let etat = { ...DEFAUT };
@@ -259,16 +259,21 @@ export function poserCiel(e) {
 
 /* La nappe de la carte. Une seule à la fois : ce sont des étalements de couleur
    sur toute la surface, et deux superposés ne se liraient ni l'un ni l'autre.
-   La pluie est celle du départ, c'est ce que la carte a de plus utile.
+   Aucune au départ, la pluie tenant désormais sa place au-dessus.
 
-   Un réglage écrit par la version d'avant ne porte qu'un booléen de pluie : il
-   se reprend, la pluie éteinte devenant l'absence de nappe. */
-export const NAPPES = ["pluie", "temp", "uv", "air"];
-export const nappe = () => {
-  if (NAPPES.includes(etat.nappe)) return etat.nappe;
-  if (etat.nappe === null) return null;
-  return etat.radar === false ? null : "pluie";
-};
+   La pluie a longtemps figuré dans cette liste. Elle en est sortie le
+   19 septembre 2026 : mesurée sur les images radar un jour de pluie, elle ne
+   couvre que 19 % de la tuile de la France au zoom cinq et 14 % de la vue au
+   zoom six, donc elle laisse voir ce qui est dessous, comme la foudre et les
+   nuages. La raison écrite pour l'y mettre, un étalement sur toute la surface,
+   ne valait pas pour elle ; c'était un héritage du temps où elle était la seule
+   couche de la carte.
+
+   Deux réglages d'avant se reprennent. La version la plus ancienne ne portait
+   qu'un booléen de pluie ; celle d'ensuite écrivait `nappe: "pluie"`. Dans les
+   deux cas la pluie s'allume et la nappe reste absente. */
+export const NAPPES = ["temp", "uv", "air"];
+export const nappe = () => (NAPPES.includes(etat.nappe) ? etat.nappe : null);
 export function poserNappe(v) { poser({ nappe: NAPPES.includes(v) ? v : null }); }
 
 /* La vigilance sur la carte. Allumée au départ : elle ne coûte qu'une lecture de
@@ -292,6 +297,19 @@ export function poserFoudrecarte(v) { poser({ foudrecarte: v === true }); }
    masqueraient la nappe choisie à qui ne les a pas demandés. */
 export const nuagescarte = () => etat.nuagescarte === true;
 export function poserNuagescarte(v) { poser({ nuagescarte: v === true }); }
+
+/* La pluie, allumée au départ : c'est la couche pour laquelle la carte a été
+   faite. Elle a longtemps été une nappe, exclusive des trois autres, alors
+   qu'elle ne couvre qu'un cinquième de la vue un jour de pluie et laisse voir
+   ce qui est dessous. Un ancien réglage `nappe: "pluie"` vaut désormais une
+   pluie allumée et aucune nappe, ce que `poser` reprend au chargement. */
+export const pluiecarte = () => {
+  if (typeof etat.pluiecarte === "boolean") return etat.pluiecarte;
+  if (etat.nappe === "pluie") return true;
+  if (etat.nappe !== undefined) return false;
+  return etat.radar !== false;
+};
+export function poserPluiecarte(v) { poser({ pluiecarte: v === true }); }
 
 /* Les instants d'alerte. `null` rend la valeur par défaut du module du
    parapluie, qui la porte avec les seuils : les nombres du rappel vivent au

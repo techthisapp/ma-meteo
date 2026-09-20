@@ -4,13 +4,19 @@
 set -u
 cd "$(dirname "$0")/.."
 N="$1"
-SAUVE=/tmp/epreuve-pluie
-rm -rf "$SAUVE"; mkdir -p "$SAUVE/src"
-cp src/radar.js src/vues.js src/carte.js src/reglages.js "$SAUVE/src/"
-
-restaurer() { cp "$SAUVE/src/radar.js" "$SAUVE/src/vues.js" "$SAUVE/src/carte.js" \
-  "$SAUVE/src/reglages.js" src/; }
-trap restaurer EXIT
+OLD="$PWD"
+# Chaque épreuve travaille sur sa copie du dépôt et son port : le dépôt
+# d'origine n'est jamais touché, et une épreuve interrompue ne laisse rien.
+# L'arrêt anticipé borne la passe à la section visée, 446 secondes au lieu de
+# 554, mesuré le 19 septembre 2026.
+COPIE=/tmp/copie-pluie-$N
+rm -rf "$COPIE"; mkdir -p "$COPIE"
+cp -r essais icones src index.html manifest.webmanifest package.json \
+  styles.css sw.js "$COPIE/"
+ln -s "$OLD/node_modules" "$COPIE/node_modules"
+cd "$COPIE"
+PORT_ESSAIS=$((8300 + N))
+JUSQUA="Les nappes de la carte"
 
 case "$N" in
   1) # Peindre la couche par-dessus les traits au lieu de dessous. La gaine reste
@@ -69,23 +75,37 @@ case "$N" in
      # fort : à huit, celui de l'ouverture, elle emporterait toute la section.
      perl -0pi -e 's/  const z = Math\.max\(ZMIN, Math\.min\(ZMAX_TUILE, Math\.round\(vue\.z\)\)\);/  if (vue.z > 9) return [];\n  const z = Math.max(ZMIN, Math.min(ZMAX_TUILE, Math.round(vue.z)));/' src/radar.js
      ATTENDU="la couche couvre encore la carte au zoom le plus fort" ;;
+  18) # La pluie redevient exclusive : choisir une nappe l'éteint, comme avant
+      # qu'elle ne passe en superposition le 19 septembre 2026.
+     perl -0pi -e 's/      const poserChoix = c => \{\n        choisie = c;/      const poserChoix = c => {\n        choisie = c;\n        if (c !== null \&\& allume) { allume = false; pluieB.setAttribute("aria-checked", "false"); }/' src/vues.js
+     ATTENDU="la pluie se lit en même temps qu.une nappe" ;;
+  19) # L'ancien réglage de radar n'est plus repris.
+     perl -0pi -e 's/  if \(etat\.nappe !== undefined\) return false;\n  return etat\.radar !== false;/  return true;/' src/reglages.js
+     ATTENDU="un ancien réglage de pluie se reprend en choix de nappe" ;;
+  20) # Le réglage qui nommait la pluie comme nappe n'est plus repris.
+     perl -0pi -e 's/  if \(etat\.nappe === "pluie"\) return true;//' src/reglages.js
+     ATTENDU="un réglage qui nommait la pluie comme nappe se reprend en superposition" ;;
+  21) # Une valeur par défaut court-circuite toute reprise. C'est le défaut
+      # trouvé le 19 septembre 2026 : un radar éteint se rallumait de lui-même.
+     perl -0pi -e 's/  nuagescarte: false,  \/\/ les nuages vus du satellite sur la carte/  nuagescarte: false,\n  pluiecarte: true,/' src/reglages.js
+     ATTENDU="un ancien réglage de pluie se reprend en choix de nappe" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
-if ! git diff --quiet -- src/; then
-  echo "faute $N posée"
-else
-  echo "faute $N : le fichier n'a pas changé, la substitution a raté"
-  exit 3
+if diff -q "$OLD/src/radar.js" src/radar.js >/dev/null \
+  && diff -q "$OLD/src/vues.js" src/vues.js >/dev/null \
+  && diff -q "$OLD/src/carte.js" src/carte.js >/dev/null \
+  && diff -q "$OLD/src/reglages.js" src/reglages.js >/dev/null; then
+  echo "FAUTE $N NON APPLIQUÉE"; exit 3
 fi
 
-node essais/controle.mjs > /tmp/ep-pluie-$N.txt 2>&1
-LIGNE=$(grep -n "ÉCHEC" /tmp/ep-pluie-$N.txt | head -20)
-echo "--- échecs relevés ---"
-echo "$LIGNE"
-if echo "$LIGNE" | grep -qi "$ATTENDU"; then
-  echo "OK : la garde « $ATTENDU » est tombée."
+SORTIE=$(CHROMIUM=/opt/pw-browsers/chromium-1194/chrome-linux/chrome \
+  PORT_ESSAIS=$PORT_ESSAIS JUSQUA="$JUSQUA" timeout 900 node essais/controle.mjs 2>&1)
+echo "$SORTIE" > "/tmp/epreuve-pluie-$N.log"
+if echo "$SORTIE" | grep -q "ÉCHEC  $ATTENDU"; then
+  echo "FAUTE $N vue par : $ATTENDU"
 else
-  echo "MANQUE : « $ATTENDU » n'est pas tombée."
-  tail -3 /tmp/ep-pluie-$N.txt
+  echo "FAUTE $N NON VUE. Attendu : $ATTENDU"
+  echo "$SORTIE" | grep "ÉCHEC" | head -8
+  echo "$SORTIE" | tail -2
 fi
