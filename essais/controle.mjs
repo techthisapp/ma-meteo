@@ -8336,6 +8336,27 @@ ok("la légende dit des foyers vus par satellite, non des incendies",
     return "";
   }) === "");
 
+/* La mention est une attribution : elle doit se lire sur une couche colorée
+   comme sur la carte nue. Le gris clair d'origine s'y perdait. La mesure porte
+   sur le rapport de clarté entre le texte et le fond de page, celui que le halo
+   de texte pose autour des lettres. */
+ok("la mention se lit assez pour être une attribution",
+  await pgFx.evaluate(() => {
+    const clarte = c => {
+      const [r, g, b] = c.match(/\d+/g).slice(0, 3).map(Number).map(v => {
+        const u = v / 255;
+        return u <= 0.03928 ? u / 12.92 : Math.pow((u + 0.055) / 1.055, 2.4);
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const el = document.getElementById("caCredit");
+    const texte = clarte(getComputedStyle(el).color);
+    const fond = clarte(getComputedStyle(document.body).backgroundColor);
+    const haut = Math.max(texte, fond), bas = Math.min(texte, fond);
+    const rapport = (haut + 0.05) / (bas + 0.05);
+    return rapport >= 4 ? "" : `rapport de clarté ${rapport.toFixed(2)}`;
+  }) === "");
+
 ok("la mention nomme Copernicus tant que les feux sont allumés",
   await pgFx.evaluate(() => {
     const c = document.getElementById("caCredit");

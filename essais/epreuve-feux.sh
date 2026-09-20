@@ -36,11 +36,15 @@ case "$N" in
   6) # La tuile se dit allumée quel que soit le réglage.
      perl -0pi -e 's/export const feuxcarte = \(\) => etat\.feuxcarte === true;/export const feuxcarte = () => true;/' src/reglages.js
      ATTENDU="une carte qui s'ouvre les feux éteints ne demande rien au service" ;;
+  7) # La mention revient au gris clair, illisible sur une couche colorée.
+     perl -0pi -e 's/  font-size:var\(--texte-note\);color:var\(--etiquette-2\);text-align:right;/  font-size:var(--texte-note);color:var(--etiquette-3);text-align:right;/' styles.css
+     ATTENDU="la mention se lit assez pour être une attribution" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
 if diff -q "$OLD/src/feux.js" src/feux.js >/dev/null \
   && diff -q "$OLD/src/vues.js" src/vues.js >/dev/null \
+  && diff -q "$OLD/styles.css" styles.css >/dev/null \
   && diff -q "$OLD/src/reglages.js" src/reglages.js >/dev/null; then
   echo "FAUTE $N NON APPLIQUÉE"; exit 3
 fi

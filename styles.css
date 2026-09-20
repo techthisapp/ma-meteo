@@ -1339,9 +1339,16 @@ button.rangee:active{background:var(--surface-2)}
   box-shadow:0 0 0 1px var(--fond);
 }
 .ca-echelle span{color:var(--etiquette-2);font-variant-numeric:tabular-nums}
+/* La mention se lit en gris moyen et non en gris clair. Le halo de texte
+   ci-dessus ne suffit pas sur une couche colorée : halo clair et texte clair
+   se confondent, et les mentions devenaient illisibles sur une averse jaune,
+   relevé le 20 septembre 2026 sur une carte où la pluie est allumée sans nappe,
+   ce que la bascule de la pluie en superposition rend courant. Un halo plus
+   dense a été essayé et n'apporte presque rien ; c'est le texte qu'il faut
+   assombrir. Une attribution illisible ne remplit pas son office. */
 .ca-credit{
   display:flex;flex-direction:column;align-items:flex-end;
-  font-size:var(--texte-note);color:var(--etiquette-3);text-align:right;
+  font-size:var(--texte-note);color:var(--etiquette-2);text-align:right;
   line-height:1.25;
 }
 
