@@ -180,11 +180,30 @@ export function dessiner(cv, vue, nappes) {
        département gris clair disparaît sous une averse jaune. Un trait plus
        large de la couleur du fond, glissé sous le trait, rend le contraste quel
        que soit ce qu'il y a dessous. Il ne se paie que quand la couche est là,
-       et le chemin ne se construit qu'une fois pour les deux passes. */
+       et le chemin ne se construit qu'une fois pour les deux passes.
+
+       Elle se déclenche dès qu'une couche a posé quelque chose, donc sur toute
+       la carte, alors que la pluie ne couvre que 19 % de la vue au zoom cinq :
+       quatre limites sur cinq étaient gainées sans rien avoir à traverser, et
+       la carte paraissait quadrillée de blanc dès qu'il pleuvait quelque part.
+       La gaine est passée le 19 septembre 2026 de trois points de large à 1,4
+       et de neuf dixièmes d'opacité à cinq. Assombrir le trait au lieu de le
+       gainer a été essayé et écarté : les limites devenaient plus visibles que
+       la pluie.
+
+       Ces deux valeurs ne sont tenues par aucune garde, et il faut le savoir
+       avant d'y toucher. La garde « un trait posé sur la couche garde son écart
+       de clarté » mesure l'écart entre le trait et son entourage ; cet écart
+       vient du trait lui-même, non de sa gaine, et la garde passe encore avec
+       une gaine réduite à deux dixièmes de point et huit centièmes d'opacité.
+       Comparées en image, la gaine réduite et l'absence complète de gaine se
+       distinguent à peine : elle est gardée comme filet pour le cas d'une
+       averse très claire sous un trait clair, non parce qu'elle serait
+       nécessaire. */
     if (gainees) {
       ctx.strokeStyle = c.fond || "#eef2f6";
-      ctx.globalAlpha = 0.9;
-      ctx.lineWidth = epais * gros + 3;
+      ctx.globalAlpha = 0.5;
+      ctx.lineWidth = epais * gros + 1.4;
       ctx.stroke();
       ctx.globalAlpha = 1;
     }

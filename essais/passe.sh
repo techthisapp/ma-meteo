@@ -15,5 +15,8 @@ cp -r essais icones src index.html manifest.webmanifest package.json \
   styles.css sw.js "$COPIE/"
 ln -s "$OLD/node_modules" "$COPIE/node_modules"
 cd "$COPIE"
+# JUSQUA et CHRONO se transmettent au besoin : la première borne la passe à une
+# section, la seconde dit le temps de chacune.
 CHROMIUM=/opt/pw-browsers/chromium-1194/chrome-linux/chrome \
-  PORT_ESSAIS=$PORT_ESSAIS timeout 900 node essais/controle.mjs
+  PORT_ESSAIS=$PORT_ESSAIS JUSQUA="${JUSQUA:-}" CHRONO="${CHRONO:-}" \
+  timeout 900 node essais/controle.mjs

@@ -7153,9 +7153,26 @@ const gaineDit = await pgNappe.evaluate(async () => {
 
     pluie.click(); await dodo(900);          // couche allumée
     const b = ctx.getImageData(0, 0, cv.width, cv.height).data;
-    const avec = median(traits.map(([x, y]) => fenetre(b, x, y)));
-    return avec >= nu * 0.7 ? ""
-      : `écart de ${avec.toFixed(3)} sous la couche contre ${nu.toFixed(3)} sur la carte nue`;
+
+    /* Seuls les traits que la couche recouvre vraiment. Mesurer tous les traits
+       relevés sur la carte nue ne dit rien : la pluie ne couvre que 19 % de la
+       vue, la médiane tombe hors d'elle, et la garde passait même avec une
+       gaine réduite à rien. Un trait est tenu pour recouvert quand la couleur
+       de son entourage a changé entre les deux images. */
+    const recouvert = ([x, y]) => {
+      for (let k = -7; k <= 7; k++) {
+        const i = (y * larg + x + k) * 4;
+        if (Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1])
+          + Math.abs(a[i + 2] - b[i + 2]) > 24) return true;
+      }
+      return false;
+    };
+    const sous = traits.filter(recouvert);
+    if (sous.length < 8) return `${sous.length} traits sous la couche`;
+    const avec = median(sous.map(([x, y]) => fenetre(b, x, y)));
+    const nuSous = median(sous.map(([x, y]) => fenetre(a, x, y)));
+    return avec >= nuSous * 0.7 ? ""
+      : `écart de ${avec.toFixed(3)} sous la couche contre ${nuSous.toFixed(3)} sur la carte nue`;
 });
 ok("un trait posé sur la couche garde son écart de clarté", gaineDit === "", gaineDit);
 
