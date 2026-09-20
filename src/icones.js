@@ -69,6 +69,12 @@ const D = {
   culmination: '<path d="M2.6 19.4h18.8"/><path d="M6 19.4a6 6 0 0 1 12 0"/>'
     + '<path d="M12 13.4V9.6"/>',
   alerte: '<path d="M12 3.6 21.4 20H2.6z" stroke-linejoin="round"/><path d="M12 9.6v4.6M12 17.2v.1"/>',
+  /* La flamme : une langue extérieure et son cœur, comme la goutte a son
+     contour. Le tracé est fermé pour que le trait suive la forme. */
+  feu: '<path d="M12 2.8c3.2 3.4 5.6 6 5.6 9.4a5.6 5.6 0 0 1-11.2 0c0-2 .9-3.6 2.4-5.2'
+    + ' .3 1.2.9 2 1.8 2.5.2-2.6.6-4.7 1.4-6.7z" stroke-linejoin="round"/>'
+    + '<g class="ic-b"><path d="M12 13c1.2 1.3 2 2.2 2 3.4a2 2 0 0 1-4 0c0-1 .6-1.8 2-3.4z"'
+    + ' stroke-linejoin="round"/></g>',
   vent: '<path d="M3 8.4h11a3 3 0 1 0-3-3M3 13h15a3 3 0 1 1-3 3M3 17.6h8"/>',
   lune: '<g class="ic-b"><path d="M20.2 14.6A8.6 8.6 0 0 1 9.4 3.8a8.6 8.6 0 1 0 10.8 10.8z"/></g>',
   lune_nuage: '<g class="ic-b"><path d="M12.9 9.1A5 5 0 0 1 6.5 2.7a5 5 0 1 0 6.4 6.4z"/></g>'

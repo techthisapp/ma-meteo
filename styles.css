@@ -1299,6 +1299,12 @@ button.rangee:active{background:var(--surface-2)}
 /* La rampe de la foudre est celle du service, du jaune pâle au rouge sombre :
    la légende dit la couleur telle qu'elle est peinte, sur une ligne comme
    celle du vent. */
+/* La pastille des feux : la couche est faite de points, non d'une rampe, et sa
+   légende montre la couleur d'un foyer plutôt qu'un dégradé. */
+.ca-lx .ca-pastille-feu{
+  flex:none;width:10px;height:10px;border-radius:var(--rayon-plein);
+  background:#e8442a;box-shadow:0 0 0 3px rgba(232,68,42,.22);
+}
 .ca-lf .ca-rampe-foudre{
   flex:none;width:36px;height:6px;border-radius:var(--rayon-plein);
   background:linear-gradient(90deg,#fef9bd,#fdb14c,#f23a24,#b10126);

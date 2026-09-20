@@ -26,6 +26,7 @@ import * as Radar from "./radar.js";
 import * as Foudre from "./foudre.js";
 import * as Atmo from "./atmo.js";
 import * as Nuages from "./nuages.js";
+import * as Feux from "./feux.js";
 import * as NappeCarte from "./nappe.js";
 import * as Vent from "./vent.js";
 import * as Vig from "./vigilance.js";
@@ -1181,6 +1182,9 @@ export function vueCarte(ctx, rendre, majEtat) {
       + `<button type="button" class="ca-ch" id="caNuages" role="switch" `
       + `aria-checked="${Reglages.nuagescarte() ? "true" : "false"}">`
       + ico("nuage", "") + `<span>Nuages</span></button>`
+      + `<button type="button" class="ca-ch" id="caFeux" role="switch" `
+      + `aria-checked="${Reglages.feuxcarte() ? "true" : "false"}">`
+      + ico("feu", "") + `<span>Feux</span></button>`
       + `</div>`
       + `</div>`
       + `<p class="ca-mot" id="caMot" role="status" hidden></p>`
@@ -1192,6 +1196,10 @@ export function vueCarte(ctx, rendre, majEtat) {
       + `<div class="ca-graduations" id="caGrads"></div>`
       + `</div>`
       + `<div class="ca-legende ca-lv" id="caLegVent" hidden></div>`
+      + `<div class="ca-legende ca-lv ca-lx" id="caLegFeux" hidden `
+      + `aria-label="Foyers vus par satellite sur les deux derniers jours">`
+      + `<span class="ca-lv-r"><i class="ca-pastille-feu"></i>Foyers vus par satellite, 48 h</span>`
+      + `</div>`
       + `<div class="ca-legende ca-lv ca-lf" id="caLegFoudre" hidden `
       + `aria-label="Foudre des trente dernières minutes, du jaune pour un éclair au rouge sombre pour vingt et plus">`
       + `<span class="ca-lv-r"><i class="ca-rampe-foudre"></i>Foudre, 30 min</span>`
@@ -1344,6 +1352,14 @@ export function vueCarte(ctx, rendre, majEtat) {
         return Nuages.peindre(c, v, l, h, finNuages(), () => main.redessiner());
       };
 
+      /* Les feux, par-dessus tout le reste : quelques points par département,
+         qui se perdraient sous une averse. */
+      let feuxAllume = Reglages.feuxcarte();
+      const coucheFeux = (c, v, l, h) => {
+        if (!feuxAllume) return 0;
+        return Feux.peindre(c, v, l, h, Date.now(), () => main.redessiner());
+      };
+
       /* La foudre, par-dessus la pluie : clairsemée, elle se lit sur toute
          nappe. La fenêtre finit au dernier pas publié, ou au pas le plus
          proche de l'image de pluie regardée quand la chronologie est
@@ -1370,6 +1386,7 @@ export function vueCarte(ctx, rendre, majEtat) {
       const COUCHES = [coucheVigiFond, { peindre: coucheValeur, gaine: false },
         { peindre: coucheNuages, gaine: false },
         couche, { peindre: coucheFoudre, gaine: false },
+        { peindre: coucheFeux, gaine: false },
         { peindre: coucheVigiTrait, gaine: false }];
       const main = Carte.poser(cv, vue, placer, COUCHES);
       const revoir = () => { main.redessiner(); };
@@ -1536,6 +1553,10 @@ export function vueCarte(ctx, rendre, majEtat) {
               + `<a href="https://www.eumetsat.int" target="_blank" `
               + `rel="noopener noreferrer">EUMETSAT</a></span>`
             : "")
+          + (feuxAllume
+            ? `<span>Feux <a href="https://effis.jrc.ec.europa.eu" target="_blank" `
+              + `rel="noopener noreferrer">Copernicus</a></span>`
+            : "")
           + `<span>Contours IGN et Natural Earth</span>`;
       };
 
@@ -1550,6 +1571,7 @@ export function vueCarte(ctx, rendre, majEtat) {
       const grads = bloc.querySelector("#caGrads");
       const legVent = bloc.querySelector("#caLegVent");
       const legFoudre = bloc.querySelector("#caLegFoudre");
+      const legFeux = bloc.querySelector("#caLegFeux");
       const poserLegende = () => {
         const n = NAPPES_CARTE.find(x => x.cle === choisie && x.champ);
         legende.hidden = !n;
@@ -1568,6 +1590,7 @@ export function vueCarte(ctx, rendre, majEtat) {
         /* Le vent ne porte pas de couleur : sa force se lit à la longueur des
            traînées. La légende montre donc trois traînées et les nomme, avec
            les mots de l'échelle du ruban. */
+        legFeux.hidden = !feuxAllume;
         legFoudre.hidden = !foudreAllume;
         legVent.hidden = !ventAllume;
         if (legVent.hidden) return;
@@ -1738,6 +1761,16 @@ export function vueCarte(ctx, rendre, majEtat) {
         if (!allume) { arreter(); rangee.hidden = true; revoir(); return; }
         dire("");
         if (images.length) { rangee.hidden = images.length < 2; revoir(); } else lireIndex();
+      });
+
+      const feuxB = bloc.querySelector("#caFeux");
+      feuxB.addEventListener("click", () => {
+        feuxAllume = !feuxAllume;
+        Reglages.poserFeuxcarte(feuxAllume);
+        feuxB.setAttribute("aria-checked", feuxAllume ? "true" : "false");
+        mention();
+        poserLegende();
+        revoir();
       });
 
       const nuagesB = bloc.querySelector("#caNuages");

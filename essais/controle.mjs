@@ -301,6 +301,12 @@ const appelsRadar = [];
 const appelsFoudre = [];
 const appelsAtmo = [];
 const appelsNuages = [];
+/* Les feux du système européen d'information sur les feux de forêt. Le service
+   rend une image vide quand la date manque, sa valeur par défaut étant le
+   1er janvier 2020 : la charge le reproduit, sans quoi l'oubli de la date
+   passerait inaperçu. */
+const appelsFeux = [];
+const FEUX_JOUR = new Date(FIGE).toISOString().slice(0, 10);
 const NUAGES_PAS = 10 * 60 * 1000;
 const NUAGES_DERNIER = Math.floor((FIGE - 15 * 60 * 1000) / NUAGES_PAS) * NUAGES_PAS;
 const ATMO_MOTS = { 1: "Bon", 2: "Moyen", 3: "Dégradé", 4: "Mauvais",
@@ -813,6 +819,16 @@ const brancherRoutes = async c => {
   /* L'imagerie de nuages, servie par le même hôte que la foudre. La tuile
      arrive opaque, comme le vrai service la rend : un damier de gris clairs et
      sombres, pour que la mise en transparence se mesure. */
+  await c.route(/maps\.effis\.emergency\.copernicus\.eu/, r => {
+    const u = r.request().url();
+    appelsFeux.push(u);
+    const m = /[?&]time=([^&]+)/.exec(u);
+    const jour = m ? decodeURIComponent(m[1]) : "2020-01-01";
+    const vide = jour < "2025-01-01";
+    r.fulfill({ status: 200, contentType: "image/png",
+      headers: { "Access-Control-Allow-Origin": "*" },
+      body: vide ? pngUni(0, 0, 0, 0) : pngUni(232, 68, 42, 255) });
+  });
   await c.route(/view\.eumetsat\.int\/geoserver\/mtg_fd\/ir105_hrfi/, r => {
     const u = r.request().url();
     appelsNuages.push(u);
@@ -8259,6 +8275,81 @@ await pgNuOff.waitForTimeout(500);
 ok("une carte qui s'ouvre les nuages éteints ne demande rien au service",
   appelsNuages.length === 0, `${appelsNuages.length} appels`);
 await ctxNuOff.close();
+
+/* ---------- Les feux sur la carte ----------
+
+   Les foyers relevés par les satellites en orbite polaire. Mesuré le
+   20 septembre 2026 sur la tuile de la France : 455 points pour le jour même,
+   1334 avec la veille. Les satellites ne passant que deux fois par jour, un
+   jour seul montre la moitié de ce qui brûle. */
+appelsFeux.length = 0;
+const [ctxFx, pgFx] = await ouvrirCarte({ ...FAIN, feuxcarte: true }, 0);
+await pgFx.waitForTimeout(800);
+const joursFeux = () => [...new Set(appelsFeux
+  .map(u => decodeURIComponent((/[?&]time=([^&]+)/.exec(u) || [])[1] || "")))].sort();
+
+ok("la couche demande deux jours, le jour même et la veille",
+  (() => {
+    const j = joursFeux();
+    if (j.length !== 2) return false;
+    const veille = new Date(FIGE - 86400000).toISOString().slice(0, 10);
+    return j[0] === veille && j[1] === FEUX_JOUR;
+  })(), joursFeux().join(" "));
+
+/* La dimension de temps est obligatoire : sans elle le service rend l'année
+   2020 et une image vide, ce qui fait croire qu'il ne sert rien. */
+ok("chaque tuile porte sa date",
+  appelsFeux.length > 0
+  && appelsFeux.every(u => /[?&]time=\d{4}-\d\d-\d\d/.test(u)),
+  appelsFeux.find(u => !/[?&]time=/.test(u)) || "toutes datées");
+
+ok("les tuiles se demandent en projection de Mercator",
+  appelsFeux.every(u => /crs=EPSG:3857/.test(u) && /layers=viirs\.hs/.test(u)),
+  appelsFeux[0] || "aucune tuile");
+
+ok("les foyers se posent sur la carte",
+  await pgFx.evaluate(async () => {
+    const dodo = m => new Promise(r => setTimeout(r, m));
+    await dodo(600);
+    const cv = document.getElementById("caToile");
+    const ctx = cv.getContext("2d");
+    let rouges = 0, vus = 0;
+    for (let y = 60; y < cv.height - 60; y += 40) {
+      for (let x = 60; x < cv.width - 60; x += 40) {
+        const d = ctx.getImageData(x, y, 1, 1).data;
+        vus++;
+        if (d[0] > 190 && d[1] < 110 && d[2] < 90) rouges++;
+      }
+    }
+    return vus > 20 && rouges / vus > 0.3 ? "" : `${rouges} foyers sur ${vus} points`;
+  }) === "");
+
+/* Le nom ne promet pas d'incendie : le satellite voit un point chaud, que
+   produisent aussi un brûlage agricole ou une torchère. */
+ok("la légende dit des foyers vus par satellite, non des incendies",
+  await pgFx.evaluate(() => {
+    const l = document.getElementById("caLegFeux");
+    if (l.hidden) return "légende absente";
+    const t = l.textContent;
+    if (!/[Ff]oyers/.test(t) || !/satellite/.test(t)) return `légende « ${t} »`;
+    if (/incendie/i.test(t)) return "la légende promet un incendie";
+    return "";
+  }) === "");
+
+ok("la mention nomme Copernicus tant que les feux sont allumés",
+  await pgFx.evaluate(() => {
+    const c = document.getElementById("caCredit");
+    return /Feux/.test(c.textContent)
+      && c.querySelector('a[href*="effis"]') !== null;
+  }));
+await ctxFx.close();
+
+appelsFeux.length = 0;
+const [ctxFxOff, pgFxOff] = await ouvrirCarte(FAIN, 0);
+await pgFxOff.waitForTimeout(500);
+ok("une carte qui s'ouvre les feux éteints ne demande rien au service",
+  appelsFeux.length === 0, `${appelsFeux.length} appels`);
+await ctxFxOff.close();
 
 /* ---------- Le vent sur la carte ----------
 

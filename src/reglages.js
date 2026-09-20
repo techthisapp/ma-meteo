@@ -29,6 +29,7 @@ const DEFAUT = {
   ventcarte: false,    // les particules de vent sur la carte
   foudrecarte: true,   // la foudre observée par satellite sur la carte
   nuagescarte: false,  // les nuages vus du satellite sur la carte
+  feuxcarte: false,    // les foyers vus par satellite sur la carte
   // Ni `nappe` ni `pluiecarte` n'ont de valeur par défaut : c'est leur absence
   // qui déclenche la reprise des anciens réglages, `radar` puis `nappe`.
 };
@@ -297,6 +298,11 @@ export function poserFoudrecarte(v) { poser({ foudrecarte: v === true }); }
    masqueraient la nappe choisie à qui ne les a pas demandés. */
 export const nuagescarte = () => etat.nuagescarte === true;
 export function poserNuagescarte(v) { poser({ nuagescarte: v === true }); }
+
+/* Les feux, éteints au départ : la saison des incendies ne dure qu'une partie
+   de l'année, et la couche serait vide le reste du temps. */
+export const feuxcarte = () => etat.feuxcarte === true;
+export function poserFeuxcarte(v) { poser({ feuxcarte: v === true }); }
 
 /* La pluie, allumée au départ : c'est la couche pour laquelle la carte a été
    faite. Elle a longtemps été une nappe, exclusive des trois autres, alors
