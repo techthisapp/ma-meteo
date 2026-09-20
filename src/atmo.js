@@ -76,7 +76,6 @@ export const niveauDe = c => {
   return n ? { code: n[0], nom: n[1], couleur: n[2] } : null;
 };
 
-const RAYON_TERRE = 6378137;
 export const enMercator = (lat, lon) => [
   RAYON_TERRE * (lon * Math.PI / 180),
   RAYON_TERRE * Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI / 180) / 2)),
@@ -132,6 +131,81 @@ export function plusProche(elements, lat, lon) {
     km: Math.round(bon.km * 10) / 10,
     sous,
   };
+}
+
+/* ---------- La nappe de la carte ----------
+
+   Le même service sert la couche en tuiles, sous le nom `ind:ind_atmo_tile`.
+   Mesuré le 20 septembre 2026 sur la tuile de la France au zoom cinq : 21
+   kilooctets et 1,4 seconde, contre 90 secondes et un échec pour la couche
+   principale `ind:ind_atmo`, qui n'est pas tuilée. Le poids et la lenteur qui
+   écartaient cette source de la carte disparaissent donc.
+
+   Les couleurs rendues sont celles de l'échelle officielle, les mêmes que
+   NIVEAUX ci-dessus : le vert d'eau du niveau moyen et le jaune du niveau
+   dégradé se lisent au pixel près.
+
+   La date est indispensable. Sans elle, le service rend son pas par défaut, qui
+   est à deux jours dans le futur, avec une couverture moindre : 2868 points
+   peints contre 5027 pour le jour même. Une veille ne rend rien du tout, la
+   couche ne portant que le jour courant et ses prévisions. */
+
+const RAYON_TERRE = 6378137;
+
+export const CARTE = "https://data.atmo-france.org/geoserver/ind/ows";
+export const COUCHE_TUILES = "ind:ind_atmo_tile";
+export const TAILLE = 256;
+export const ZMAX_TUILE = 7;
+export const CACHE_MAX = 160;
+
+export function bornes(t) {
+  const n = Math.pow(2, t.z);
+  const tour = 2 * Math.PI * RAYON_TERRE;
+  const x0 = (t.x / n - 0.5) * tour, x1 = ((t.x + 1) / n - 0.5) * tour;
+  const y0 = (0.5 - (t.y + 1) / n) * tour, y1 = (0.5 - t.y / n) * tour;
+  return [x0, y0, x1, y1].map(v => v.toFixed(1)).join(",");
+}
+
+export const adresseTuile = (t, jour = jourDe()) =>
+  `${CARTE}?service=WMS&version=1.3.0&request=GetMap&layers=${COUCHE_TUILES}`
+  + `&styles=&format=image/png&transparent=true&crs=EPSG:3857`
+  + `&bbox=${bornes(t)}&width=${TAILLE}&height=${TAILLE}&time=${jour}`;
+
+const tuiles = new Map();
+export function oublierTuiles() { tuiles.clear(); }
+
+export function tuile(t, jour, surPret) {
+  const cle = adresseTuile(t, jour);
+  let e = tuiles.get(cle);
+  if (e) {
+    tuiles.delete(cle); tuiles.set(cle, e);
+    if (surPret && !e.pret && !e.echoue) {
+      e.img.addEventListener("load", surPret, { once: true });
+    }
+    return e;
+  }
+  e = { pret: false, echoue: false, img: new Image() };
+  e.img.crossOrigin = "anonymous";
+  e.img.decoding = "async";
+  e.img.addEventListener("load", () => { e.pret = true; if (surPret) surPret(); });
+  e.img.addEventListener("error", () => { e.echoue = true; });
+  e.img.src = cle;
+  tuiles.set(cle, e);
+  while (tuiles.size > CACHE_MAX) tuiles.delete(tuiles.keys().next().value);
+  return e;
+}
+
+export function peindre(ctx, vue, l, h, tuilesVues, surPret) {
+  const jour = jourDe();
+  let posees = 0;
+  ctx.imageSmoothingEnabled = true;
+  for (const t of tuilesVues(vue, l, h, ZMAX_TUILE)) {
+    const e = tuile(t, jour, surPret);
+    if (!e.pret) continue;
+    ctx.drawImage(e.img, t.px, t.py, t.cote + 0.5, t.cote + 0.5);
+    posees++;
+  }
+  return posees;
 }
 
 let charge = null;

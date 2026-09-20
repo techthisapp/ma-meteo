@@ -1092,9 +1092,20 @@ const NAPPES_CARTE = [
      source nommée : les trois autres nappes se partagent une seule lecture,
      celle-ci a la sienne, sa garde et sa mention. */
   /* `tuile` est le nom court du panneau ; la légende garde le nom entier. */
+  /* La nappe de l'air est peinte en deux temps depuis le 20 septembre 2026.
+     Copernicus interpolé couvre l'Europe, et les tuiles de l'indice officiel
+     se posent par-dessus la France.
+
+     La raison est le contraste. Les deux sources tombent dans la même classe
+     neuf fois sur dix, mais l'indice ATMO retient le pire de ses cinq
+     sous-indices et sépare bien mieux les zones : le 14 septembre, sur cinq
+     villes, il prenait les valeurs 2, 3, 3, 3 et 4 quand l'indice européen
+     restait entre 25 et 34, soit une seule classe. L'indice officiel ne couvre
+     en revanche que la France, et une carte ouverte au zoom cinq montrerait un
+     pays coloré dans un continent vide s'il était seul. */
   { cle: "air", id: "caAir", nom: "Qualité de l'air", tuile: "Air", ico: "brume", porte: "maintenant",
     champ: "aqi", source: "air", teinte: teinteAQI, sat: 0.58, clarte: 0.46,
-    arrets: [0, 20, 40, 60, 80], unite: "", couleur: couleurAQI,
+    arrets: [0, 20, 40, 60, 80], unite: "", couleur: couleurAQI, officiel: true,
     credit: "Qualité de l'air Copernicus" },
 ];
 
@@ -1286,9 +1297,15 @@ export function vueCarte(ctx, rendre, majEtat) {
         const n = NAPPES_CARTE.find(x => x.cle === choisie && x.champ);
         const g = grilleDe(n);
         if (!n || !g) return 0;
-        return Carte.peindreNappe(c, v, l, h,
+        const posees = Carte.peindreNappe(c, v, l, h,
           NappeCarte.couche(g[n.champ], n.teinte),
           { opacite: 0.62, sat: n.sat, clarte: n.clarte });
+        /* Les tuiles de l'indice officiel se posent par-dessus l'interpolation,
+           sur la France seule : elles y séparent bien mieux les zones, et
+           l'interpolation garde le reste de l'Europe. */
+        if (!n.officiel) return posees;
+        return posees + Atmo.peindre(c, v, l, h, Radar.tuilesVues,
+          () => main.redessiner());
       };
 
       /* Le vent, sur sa propre toile posée devant celle de la carte. Il ne

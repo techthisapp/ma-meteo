@@ -14,6 +14,8 @@ cp -r essais icones src index.html manifest.webmanifest package.json \
 ln -s "$OLD/node_modules" "$COPIE/node_modules"
 cd "$COPIE"
 PORT_ESSAIS=$((8260 + N))
+# L'arrêt anticipé borne la passe à la section visée par ces fautes.
+JUSQUA="Les nappes de la carte"
 
 case "$N" in
   1) # La feuille attend l'indice officiel avant de s'afficher.
@@ -45,6 +47,17 @@ case "$N" in
   8) # Un service muet fait poser une carte vide au lieu de rien.
      perl -0pi -e "s/  if \(!off\) return \"\";/  if (!off) off = { code: null, libelle: null, zone: null, km: 0, sous: {} };/" src/vues.js
      ATTENDU="un service muet ne prive la feuille de rien" ;;
+  9) # La nappe s'en tient à l'interpolation : les tuiles officielles, qui
+     # séparent bien mieux les zones, ne sont plus posées.
+     perl -0pi -e "s/        if \(!n\.officiel\) return posees;/        return posees;/" src/vues.js
+     ATTENDU="les tuiles de l'indice officiel se demandent avec la nappe" ;;
+  10) # La date disparaît de la requête : le service rend un pas à deux jours
+      # dans le futur, moins couvrant, au lieu du jour même.
+     perl -0pi -e 's/&time=\$\{jour\}`;/`;/' src/atmo.js
+     ATTENDU="chaque tuile de l'indice porte sa date" ;;
+  11) # Les tuiles sont demandées mais jamais posées.
+     perl -0pi -e "s/    ctx\.drawImage\(e\.img, t\.px, t\.py, t\.cote \+ 0\.5, t\.cote \+ 0\.5\);\n    posees\+\+;\n  \}\n  return posees;\n\}\n\nlet charge/    posees++;\n  }\n  return posees;\n}\n\nlet charge/" src/atmo.js
+     ATTENDU="et elles se posent par-dessus l'interpolation" ;;
   *) echo "faute inconnue"; exit 2 ;;
 esac
 
@@ -54,7 +67,7 @@ if diff -q "$OLD/src/vues.js" src/vues.js >/dev/null \
 fi
 
 SORTIE=$(CHROMIUM=/opt/pw-browsers/chromium-1194/chrome-linux/chrome \
-  PORT_ESSAIS=$PORT_ESSAIS timeout 900 node essais/controle.mjs 2>&1)
+  PORT_ESSAIS=$PORT_ESSAIS JUSQUA="$JUSQUA" timeout 900 node essais/controle.mjs 2>&1)
 echo "$SORTIE" > "/tmp/epreuve-atmo-$N.log"
 if echo "$SORTIE" | grep -q "ÉCHEC  $ATTENDU"; then
   echo "FAUTE $N vue par : $ATTENDU"

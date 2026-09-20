@@ -306,6 +306,8 @@ const appelsNuages = [];
    1er janvier 2020 : la charge le reproduit, sans quoi l'oubli de la date
    passerait inaperçu. */
 const appelsFeux = [];
+const appelsAirTuiles = [];
+let airTuilesPleines = false;
 const FEUX_JOUR = new Date(FIGE).toISOString().slice(0, 10);
 const NUAGES_PAS = 10 * 60 * 1000;
 const NUAGES_DERNIER = Math.floor((FIGE - 15 * 60 * 1000) / NUAGES_PAS) * NUAGES_PAS;
@@ -819,6 +821,20 @@ const brancherRoutes = async c => {
   /* L'imagerie de nuages, servie par le même hôte que la foudre. La tuile
      arrive opaque, comme le vrai service la rend : un damier de gris clairs et
      sombres, pour que la mise en transparence se mesure. */
+  /* Les tuiles de l'indice officiel de l'air. Le service rend un pas à deux
+     jours dans le futur quand la date manque : la charge le reproduit en
+     servant alors une image vide, sans quoi l'oubli passerait inaperçu. */
+  await c.route(/data\.atmo-france\.org\/geoserver\/ind\/ows.*GetMap/, r => {
+    const u = r.request().url();
+    appelsAirTuiles.push(u);
+    const daté = /[?&]time=\d{4}-\d\d-\d\d/.test(u);
+    /* Les tuiles sont vides par défaut, comme le vrai service hors de France :
+       la nappe interpolée reste alors mesurable là où elle se voit. Un contrôle
+       les fait peindre pour vérifier qu'elles se posent. */
+    r.fulfill({ status: 200, contentType: "image/png",
+      headers: { "Access-Control-Allow-Origin": "*" },
+      body: daté && airTuilesPleines ? pngUni(240, 230, 65, 255) : pngUni(0, 0, 0, 0) });
+  });
   await c.route(/maps\.effis\.emergency\.copernicus\.eu/, r => {
     const u = r.request().url();
     appelsFeux.push(u);
@@ -7941,6 +7957,51 @@ ok("l'adresse de la grille d'air demande l'indice européen sur tous les points"
 
 /* La source propre se nomme, et ne se fond pas avec celle du vent : deux
    services différents sous une seule mention diraient l'un pour l'autre. */
+/* Les tuiles de l'indice officiel se posent par-dessus l'interpolation de
+   Copernicus : celle-ci couvre l'Europe, celles-là séparent bien mieux les
+   zones sur la France. Mesuré le 14 septembre 2026 sur cinq villes, l'indice
+   officiel prenait les valeurs 2, 3, 3, 3 et 4 quand l'indice européen restait
+   entre 25 et 34, soit une seule classe. */
+ok("les tuiles de l'indice officiel se demandent avec la nappe",
+  appelsAirTuiles.length > 0
+  && appelsAirTuiles.every(u => /layers=ind%3Aind_atmo_tile|layers=ind:ind_atmo_tile/.test(u)),
+  `${appelsAirTuiles.length} tuiles`);
+
+/* Et elles se posent : servies pleines, elles doivent couvrir l'interpolation,
+   dont la teinte varie du nord au sud quand la leur est unie. */
+ok("et elles se posent par-dessus l'interpolation",
+  await (async () => {
+    airTuilesPleines = true;
+    const [ctxAt, pgAt] = await ouvrirCarte({ ...FAIN, nappe: "air", pluiecarte: false }, 0);
+    await pgAt.waitForTimeout(1400);
+    const dit = await pgAt.evaluate(async () => {
+      const C = await import("/src/carte.js");
+      const cv = document.getElementById("caToile");
+      const ctx = cv.getContext("2d");
+      const lu = (la, lo) => {
+        const p = C.surEcran({ lat: 46.4, lon: 2.2, z: 5.13 }, la, lo, cv.clientWidth, cv.clientHeight);
+        return [...ctx.getImageData(Math.round(p.x * 2), Math.round(p.y * 2), 1, 1).data].slice(0, 3);
+      };
+      const jaune = c => c[0] > 200 && c[1] > 190 && c[2] < 140;
+      const pts = [lu(43.6, 1.4), lu(50.3, 3.0), lu(46.4, 2.2)];
+      return pts.filter(jaune).length >= 2 ? "" : JSON.stringify(pts);
+    });
+    await ctxAt.close();
+    airTuilesPleines = false;
+    return dit;
+  })() === "");
+
+/* Sans date, le service rend son pas par défaut, à deux jours dans le futur et
+   moins couvrant : 2868 points peints contre 5027 pour le jour même. */
+ok("chaque tuile de l'indice porte sa date",
+  appelsAirTuiles.length > 0
+  && appelsAirTuiles.every(u => /[?&]time=\d{4}-\d\d-\d\d/.test(u)),
+  appelsAirTuiles.find(u => !/[?&]time=/.test(u)) || "toutes datées");
+
+ok("elles se demandent en projection de Mercator",
+  appelsAirTuiles.every(u => /crs=EPSG:3857/.test(u)),
+  appelsAirTuiles[0] || "aucune tuile");
+
 ok("la nappe d'air nomme sa source, le vent gardant la sienne",
   await pgNap.evaluate(async () => {
     const dodo = m => new Promise(r => setTimeout(r, m));
