@@ -1891,8 +1891,13 @@ function titreNuit(maintenant, g) {
   return d.matin ? ["Fin de la nuit noire", d.matin] : ["Les étoiles", null];
 }
 
-/* Le tracé, commun au bandeau et au plein écran. */
-function peindreCiel(cv, vue, g) {
+/* Le tracé, commun au bandeau et au plein écran. Le bandeau se passe des
+   points cardinaux : sa ligne de titre occupe le bas, là où ils tombaient, et
+   l'heure recouvrait « SE ». Sa vue, fixe, regarde vers le sud, ce que la note
+   sous le bandeau dit. */
+function peindreCiel(cv, vue, g, options = {}) {
+  const affichage = options.affichage || Reglages.affichageCiel();
+  const cardinaux = options.cardinaux !== false;
   const dpr = window.devicePixelRatio || 1;
   const l = cv.clientWidth, h = cv.clientHeight;
   if (!l || !h) return;
@@ -1918,7 +1923,7 @@ function peindreCiel(cv, vue, g) {
     c.lineWidth = 1;
     c.stroke();
   }
-  for (const e of Ciel.etoilesVues(date, g.lat, g.lon, vue.az, vue.haut, vue.champ, 6, bords)) {
+  for (const e of Ciel.etoilesVues(date, g.lat, g.lon, vue.az, vue.haut, vue.champ, affichage, bords)) {
     const [x, y] = ecran(e);
     c.beginPath();
     c.arc(x, y, Ciel.rayon(e.mag, unite / 170), 0, 2 * Math.PI);
@@ -1961,7 +1966,7 @@ function peindreCiel(cv, vue, g) {
   }
   c.fillStyle = "rgba(220, 230, 245, 0.9)";
   c.font = "600 12px -apple-system, system-ui, sans-serif";
-  for (const [az, nom] of CARDINAUX) {
+  for (const [az, nom] of cardinaux ? CARDINAUX : []) {
     const p = Ciel.projeter(az, 0, vue.az, vue.haut, vue.champ);
     if (!p || Math.abs(p.x) > 1.1) continue;
     const [x, y] = ecran(p);
@@ -1993,7 +1998,8 @@ export function vueEtoiles() {
       + `<div class="plein-titre">`
       + (quand ? `<i>${esc(libelle)}</i><b>${hm(quand.getTime())}</b>` : `<b>${esc(libelle)}</b>`)
       + `</div></div>`,
-    dedans: `<p class="note ci-mention">Toucher le ciel pour l'ouvrir en plein écran. `
+    dedans: `<p class="note ci-mention">Le bandeau regarde vers le sud. `
+      + `Toucher le ciel pour l'ouvrir en plein écran. `
       + `Étoiles du catalogue HYG, figures de d3-celestial.</p>`,
     brancher(bloc) {
       const bandeau = bloc.querySelector("#ciBandeau");
@@ -2001,7 +2007,9 @@ export function vueEtoiles() {
       const etat = bloc.querySelector("#ciEtat");
       if (!cv || !bandeau) return;
       const fixe = { az: 180, haut: 40, champ: 60 };
-      const tracerBandeau = () => { if (cv.isConnected) peindreCiel(cv, fixe, g); };
+      const tracerBandeau = () => {
+        if (cv.isConnected) peindreCiel(cv, fixe, g, { cardinaux: false });
+      };
 
       const ouvrir = () => {
         if (!Ciel.chargees() || document.getElementById("ciPleinEcran")) return;
@@ -2017,6 +2025,11 @@ export function vueEtoiles() {
           + (jour ? `<p class="ci-jour" id="ciJour">Il fait jour : la lumière du Soleil efface ces étoiles.</p>` : "")
           + `<button type="button" class="ci-bouton ci-fermer" id="ciFermer">Fermer</button>`
           + `<button type="button" class="ci-bouton ci-sources" id="ciSources">Sources</button>`
+          + `<div class="ci-choix" id="ciChoix" role="group" aria-label="Étoiles affichées">`
+          + Ciel.AFFICHAGES.map(([cle, court, long]) => `<button type="button" `
+            + `data-affichage="${cle}" aria-label="${long}" `
+            + `aria-pressed="${cle === Reglages.affichageCiel()}">${court}</button>`).join("")
+          + `</div>`
           + `<div class="ci-fenetre" id="ciFenetre" hidden>${MENTIONS}`
           + `<button type="button" class="ci-bouton" id="ciFenetreFermer">Fermer</button></div>`;
         document.body.appendChild(fe);
@@ -2044,11 +2057,21 @@ export function vueEtoiles() {
         const lacher = () => { depart = null; };
         pe.addEventListener("pointerup", lacher);
         pe.addEventListener("pointercancel", lacher);
+        for (const b of fe.querySelectorAll("[data-affichage]")) {
+          b.addEventListener("click", () => {
+            Reglages.poserAffichageCiel(b.dataset.affichage);
+            for (const x of fe.querySelectorAll("[data-affichage]")) {
+              x.setAttribute("aria-pressed", String(x === b));
+            }
+            redessiner();
+          });
+        }
         const fenetre = fe.querySelector("#ciFenetre");
         fe.querySelector("#ciSources").addEventListener("click", () => { fenetre.hidden = false; });
         fe.querySelector("#ciFenetreFermer").addEventListener("click", () => { fenetre.hidden = true; });
         const fermer = () => {
           fe.remove();
+          tracerBandeau();
           window.removeEventListener("resize", redessiner);
           document.removeEventListener("keydown", touche);
           bandeau.focus?.();

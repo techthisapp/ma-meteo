@@ -1966,3 +1966,15 @@ button.rangee:active{background:var(--surface-2)}
 }
 .ci-fenetre p{margin:0 0 10px}
 .ci-fenetre[hidden]{display:none}
+/* Le choix des étoiles affichées, en bas à gauche du plein écran, le bouton des
+   sources tenant la droite. */
+.ci-choix{
+  position:absolute;left:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);
+  display:flex;gap:2px;padding:2px;border-radius:var(--rayon-plein);
+  background:rgba(255,255,255,.1);
+}
+.ci-choix button{
+  padding:5px 10px;border-radius:var(--rayon-plein);
+  color:rgba(230,236,245,.8);font-size:12px;
+}
+.ci-choix button[aria-pressed="true"]{background:rgba(255,255,255,.26);color:#fff}

@@ -8369,6 +8369,10 @@ const cielDit = await pgCiel.evaluate(async () => {
     magMax: Math.max(...d.etoiles.map(e => e[2])),
     rayons: [C.rayon(-1), C.rayon(2), C.rayon(6)],
     derriere: C.projeter(0, 45, 180, 45, 60),
+    marquees: d.etoiles.filter(e => e[7] === 1).length,
+    latin: [d.noms.UMa?.[3], d.noms.CVn?.[3]],
+    modes: Object.fromEntries(["visibles", "toutes", "constellations"].map(m =>
+      [m, C.etoilesVues(date, 48.86, 2.35, 180, 45, 60, m)])),
   };
 });
 
@@ -8412,6 +8416,26 @@ ok("le rayon d'une étoile suit sa magnitude, à l'envers",
 
 ok("un point derrière l'observateur ne se projette pas",
   cielDit.derriere === null, JSON.stringify(cielDit.derriere));
+
+/* Le choix de ce qui s'affiche, mesuré le 21 septembre 2026 : 523 étoiles
+   jusqu'à la magnitude 4 pour les plus visibles, 5070 pour toutes, 749 qui
+   portent les figures pour les constellations. */
+ok("le fichier marque les étoiles des figures",
+  cielDit.marquees === 749, `${cielDit.marquees} marquées`);
+
+ok("les noms latins entrent dans le fichier, sous leur forme officielle",
+  cielDit.latin.join(" | ") === "Ursa Major | Canes Venatici", cielDit.latin.join(" | "));
+
+ok("les plus visibles s'arrêtent à la magnitude 4",
+  cielDit.modes.visibles.length > 50
+  && cielDit.modes.visibles.every(e => e.mag <= 4)
+  && cielDit.modes.visibles.length < cielDit.modes.toutes.length / 3,
+  `${cielDit.modes.visibles.length} contre ${cielDit.modes.toutes.length}`);
+
+ok("le mode des constellations ne retient que les étoiles des figures",
+  cielDit.modes.constellations.length > 50
+  && cielDit.modes.constellations.every(e => e.figure === 1),
+  `${cielDit.modes.constellations.length} étoiles`);
 await ctxCiel.close();
 
 /* L'écran des étoiles. Le fichier du ciel pèse 81 kilooctets comprimés : il ne
@@ -8502,6 +8526,25 @@ if (pleinOuvert) {
   viseeDit = await pgEt.evaluate(() => document.getElementById("ciVisee").textContent);
 }
 ok("le doigt tourne la vue", /^Sud-ouest, 40°$/.test(viseeDit), viseeDit);
+
+/* Le choix de l'affichage se fait en plein écran : les plus visibles par
+   défaut, et le choix se garde d'une visite à l'autre. */
+ok("le choix de l'affichage montre les plus visibles par défaut",
+  pleinOuvert && await pgEt.evaluate(() =>
+    document.querySelector('#ciChoix [data-affichage="visibles"]')
+      ?.getAttribute("aria-pressed") === "true"));
+
+if (pleinOuvert) {
+  await pgEt.locator('#ciChoix [data-affichage="toutes"]').click();
+  await pgEt.waitForTimeout(300);
+}
+ok("le choix de l'affichage se garde d'une visite à l'autre",
+  await pgEt.evaluate(() => {
+    const r = JSON.parse(localStorage.getItem("mameteo.reglages.v1") || "{}");
+    return r.affichageCiel === "toutes"
+      && document.querySelector('#ciChoix [data-affichage="toutes"]')
+        ?.getAttribute("aria-pressed") === "true";
+  }));
 
 if (pleinOuvert) {
   await pgEt.locator("#ciSources").click();

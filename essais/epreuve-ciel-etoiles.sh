@@ -62,11 +62,40 @@ PY
       # suivante.
      perl -0pi -e 's/  if \(c\.soir && maintenant < c\.soir\) return \["Nuit noire", c\.soir\];\n//' src/vues.js
      ATTENDU="le bandeau annonce le prochain événement du ciel" ;;
+  14) # Toutes les étoiles par défaut : la carte redevient trop dense.
+     perl -0pi -e 's/etat\.affichageCiel : "visibles";/etat.affichageCiel : "toutes";/' src/reglages.js
+     ATTENDU="le choix de l.affichage montre les plus visibles par défaut" ;;
+  15) # Les plus visibles vont jusqu'à la magnitude 6.
+     perl -0pi -e 's/  if \(affichage === "visibles"\) return mag <= 4;/  if (affichage === "visibles") return mag <= 6;/' src/ciel.js
+     ATTENDU="les plus visibles s.arrêtent à la magnitude 4" ;;
+  16) # Le mode des constellations oublie la marque des figures.
+     perl -0pi -e 's/  if \(affichage === "constellations"\) return figure === 1;/  if (affichage === "constellations") return mag <= 6;/' src/ciel.js
+     ATTENDU="le mode des constellations ne retient que les étoiles des figures" ;;
+  17) # Le choix ne se garde plus.
+     perl -0pi -e 's/            Reglages\.poserAffichageCiel\(b\.dataset\.affichage\);\n//' src/vues.js
+     ATTENDU="le choix de l.affichage se garde d.une visite à l.autre" ;;
+  18) # Les noms latins disparaissent du fichier.
+     python3 - <<'PY'
+import json, io
+d = json.load(open("donnees/ciel.json"))
+d["noms"] = {k: v[:3] for k, v in d["noms"].items()}
+io.open("donnees/ciel.json", "w", encoding="utf-8").write(json.dumps(d, separators=(",", ":"), ensure_ascii=False))
+PY
+     ATTENDU="les noms latins entrent dans le fichier, sous leur forme officielle" ;;
+  19) # La marque des figures disparaît du fichier.
+     python3 - <<'PY'
+import json, io
+d = json.load(open("donnees/ciel.json"))
+d["etoiles"] = [e[:7] + [0] for e in d["etoiles"]]
+io.open("donnees/ciel.json", "w", encoding="utf-8").write(json.dumps(d, separators=(",", ":"), ensure_ascii=False))
+PY
+     ATTENDU="le fichier marque les étoiles des figures" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
 if diff -q "$OLD/src/ciel.js" src/ciel.js >/dev/null \
   && diff -q "$OLD/src/vues.js" src/vues.js >/dev/null \
+  && diff -q "$OLD/src/reglages.js" src/reglages.js >/dev/null \
   && diff -q "$OLD/donnees/ciel.json" donnees/ciel.json >/dev/null; then
   echo "FAUTE $N NON APPLIQUÉE"; exit 3
 fi

@@ -452,3 +452,13 @@ export function geolocaliser() {
     );
   });
 }
+
+/* Les étoiles affichées sur la carte du ciel : les plus visibles par défaut,
+   la carte entière étant trop dense pour se lire. Le choix se garde d'une
+   visite à l'autre et vaut pour le bandeau comme pour le plein écran. */
+export const AFFICHAGES_CIEL = ["visibles", "toutes", "constellations"];
+export const affichageCiel = () =>
+  AFFICHAGES_CIEL.includes(etat.affichageCiel) ? etat.affichageCiel : "visibles";
+export function poserAffichageCiel(v) {
+  if (AFFICHAGES_CIEL.includes(v)) poser({ affichageCiel: v });
+}

@@ -53,6 +53,23 @@ export async function charger(fetcheur = fetch) {
 }
 
 export const chargees = () => donnees;
+
+/* Ce qui s'affiche, au choix, mesuré le 21 septembre 2026 sur le fichier :
+   les plus visibles, 523 étoiles jusqu'à la magnitude 4, ce qu'on voit depuis
+   une ville ; toutes, 5070 jusqu'à la magnitude 6, un ciel noir de campagne ;
+   les constellations, les 749 étoiles qui portent les figures, marquées dans
+   le fichier. Les plus visibles par défaut, décidé le même jour : la carte
+   entière était trop dense pour se lire. */
+export const AFFICHAGES = [
+  ["visibles", "Visibles", "Les étoiles les plus visibles"],
+  ["toutes", "Toutes", "Toutes les étoiles"],
+  ["constellations", "Constellations", "Les étoiles des constellations"],
+];
+export function retenue(affichage, mag, figure) {
+  if (affichage === "visibles") return mag <= 4;
+  if (affichage === "constellations") return figure === 1;
+  return mag <= 6;
+}
 export function oublier() { donnees = null; enCours = null; }
 
 /* Hauteur et azimut d'un point du ciel, en réutilisant le calcul d'horizon déjà
@@ -113,17 +130,17 @@ export function couleur(ci) {
    d'écran en unités du rayon, à charge de l'appelant de les mettre à l'échelle.
    Une étoile sous l'horizon est écartée : la voûte s'arrête au sol. */
 export function etoilesVues(date, lat, lon, azCentre, hautCentre, champ = 60,
-  magMax = 6, bords = [1.2, 1.2]) {
+  affichage = "toutes", bords = [1.2, 1.2]) {
   if (!donnees) return [];
   const jj = jourJulien(date);
   const out = [];
-  for (const [ra, dec, mag, ci, nom, bf, con] of donnees.etoiles) {
-    if (mag > magMax) continue;
+  for (const [ra, dec, mag, ci, nom, bf, con, figure] of donnees.etoiles) {
+    if (!retenue(affichage, mag, figure)) continue;
     const { hauteur, azimut } = surHorizon(ra, dec, jj, lat, lon);
     if (hauteur < 0) continue;
     const p = projeter(azimut, hauteur, azCentre, hautCentre, champ);
     if (!p || Math.abs(p.x) > bords[0] || Math.abs(p.y) > bords[1]) continue;
-    out.push({ x: p.x, y: p.y, hauteur, mag, ci, nom, bf, con });
+    out.push({ x: p.x, y: p.y, hauteur, mag, ci, nom, bf, con, figure });
   }
   return out;
 }
