@@ -37,10 +37,23 @@ PY
   5) # Un point derrière l'observateur se projette quand même.
      perl -0pi -e 's/  if \(cosC <= 0\) return null;//' src/ciel.js
      ATTENDU="un point derrière l'observateur ne se projette pas" ;;
+  6) # Le fichier du ciel se charge dès l'écran du Soleil : tout le monde le paie.
+     perl -0pi -e 's/  const quel = Reglages\.ciel\(\);\n  const f = quel === "lune"/  const quel = Reglages.ciel();\n  Ciel.charger().catch(() => {});\n  const f = quel === "lune"/' src/vues.js
+     ATTENDU="le fichier du ciel ne se charge qu.à l.ouverture de l.écran" ;;
+  7) # La toile reste vide une fois les données chargées.
+     perl -0pi -e 's/        if \(!pret\) return;\n        const unite = Math\.min\(l, h\) \/ 2;/        return;\n        const unite = Math.min(l, h) \/ 2;/' src/vues.js
+     ATTENDU="la toile porte des étoiles" ;;
+  8) # Le doigt ne tourne plus la vue.
+     perl -0pi -e 's/      cv\.addEventListener\("pointermove", ev => \{\n        if \(!depart\) return;/      cv.addEventListener("pointermove", ev => {\n        return;/' src/vues.js
+     ATTENDU="le doigt tourne la vue" ;;
+  9) # La mention oublie le catalogue des étoiles.
+     perl -0pi -e 's/Étoiles du catalogue HYG, licence/Étoiles, licence/' src/vues.js
+     ATTENDU="la mention nomme les deux sources" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
 if diff -q "$OLD/src/ciel.js" src/ciel.js >/dev/null \
+  && diff -q "$OLD/src/vues.js" src/vues.js >/dev/null \
   && diff -q "$OLD/donnees/ciel.json" donnees/ciel.json >/dev/null; then
   echo "FAUTE $N NON APPLIQUÉE"; exit 3
 fi

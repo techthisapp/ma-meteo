@@ -27,6 +27,7 @@ import * as Foudre from "./foudre.js";
 import * as Atmo from "./atmo.js";
 import * as Nuages from "./nuages.js";
 import * as Feux from "./feux.js";
+import * as Ciel from "./ciel.js";
 import * as NappeCarte from "./nappe.js";
 import * as Vent from "./vent.js";
 import * as Vig from "./vigilance.js";
@@ -1849,9 +1850,167 @@ export function vueCarte(ctx, rendre, majEtat) {
 
    Chaque écran garde son propre corps entier. La fusion ne mêle pas deux
    contenus, elle range deux écrans sous une même porte. */
+/* ---------- Les étoiles ----------
+
+   La voûte vue depuis la commune, à l'instant présent : les étoiles jusqu'à la
+   magnitude 6, les figures des constellations et leurs noms. Le doigt tourne
+   la vue et la lève ou l'abaisse ; le sol cache ce qui est sous l'horizon.
+
+   Le fichier du ciel, 81 kilooctets comprimés, ne se charge qu'à l'ouverture de
+   cet écran, et une fois pour toutes. Le fond reste celui d'une nuit quel que
+   soit le thème : un ciel étoilé clair ne ressemble à rien. Quand le Soleil est
+   levé ou tout juste couché, l'écran le dit, les étoiles étant alors au-dessus
+   de l'horizon sans pouvoir se voir. */
+const CARDINAUX = [[0, "N"], [45, "NE"], [90, "E"], [135, "SE"], [180, "S"],
+  [225, "SO"], [270, "O"], [315, "NO"]];
+const directionDe = az => {
+  const noms = ["le nord", "le nord-est", "l'est", "le sud-est", "le sud",
+    "le sud-ouest", "l'ouest", "le nord-ouest"];
+  return noms[Math.round((((az % 360) + 360) % 360) / 45) % 8];
+};
+
+export function vueEtoiles() {
+  const g = Reglages.lire();
+  if (!Reglages.situe()) {
+    return { titre: "Les étoiles", dedans: `<div class="carte"><p class="vide">Indisponible.</p></div>` };
+  }
+  const soleil = Astres.position("soleil", new Date(), g.lat, g.lon);
+  const jour = soleil.hauteur > -6;
+  return {
+    titre: "Les étoiles",
+    dedans: `<div class="carte ci-carte">`
+      + `<canvas class="ci-toile" id="ciToile" role="img" `
+      + `aria-label="Carte du ciel vue depuis ${esc(g.commune || "la commune")}"></canvas>`
+      + `<p class="ci-etat" id="ciEtat">Chargement du ciel…</p>`
+      + `</div>`
+      + `<p class="note" id="ciVisee">Vers le sud, à 40 degrés de hauteur. `
+      + `Faites glisser le doigt pour tourner la vue.</p>`
+      + (jour ? `<p class="note">Il fait jour : ces étoiles sont au-dessus de `
+        + `l'horizon, mais la lumière du Soleil les efface.</p>` : "")
+      + `<p class="note ci-mention">Étoiles du catalogue HYG, licence Creative `
+      + `Commons Attribution et partage dans les mêmes conditions. Figures des `
+      + `constellations de d3-celestial, Olaf Frohn, licence BSD.</p>`,
+    brancher(bloc) {
+      const cv = bloc.querySelector("#ciToile");
+      const etat = bloc.querySelector("#ciEtat");
+      const visee = bloc.querySelector("#ciVisee");
+      if (!cv) return;
+      const vue = { az: 180, haut: 40, champ: 60 };
+      let pret = false, demande = false;
+
+      /* Une seule demande de tracé par image : les mouvements du doigt se
+         regroupent, et rien ne se trace plus une fois l'écran quitté. */
+      const redessiner = () => {
+        if (demande || !cv.isConnected) return;
+        demande = true;
+        requestAnimationFrame(() => { demande = false; if (cv.isConnected) tracer(); });
+      };
+
+      const tracer = () => {
+        const dpr = window.devicePixelRatio || 1;
+        const l = cv.clientWidth, h = cv.clientHeight;
+        if (!l || !h) return;
+        if (cv.width !== Math.round(l * dpr)) { cv.width = Math.round(l * dpr); cv.height = Math.round(h * dpr); }
+        const c = cv.getContext("2d");
+        c.setTransform(dpr, 0, 0, dpr, 0, 0);
+        c.fillStyle = "#0b1220";
+        c.fillRect(0, 0, l, h);
+        if (!pret) return;
+        const unite = Math.min(l, h) / 2;
+        const ecran = p => [l / 2 + p.x * unite, h / 2 + p.y * unite];
+        const date = new Date();
+
+        for (const f of Ciel.figuresVues(date, g.lat, g.lon, vue.az, vue.haut, vue.champ)) {
+          c.beginPath();
+          f.points.forEach((p, k) => { const [x, y] = ecran(p); if (k) c.lineTo(x, y); else c.moveTo(x, y); });
+          c.strokeStyle = "rgba(140, 170, 225, 0.45)";
+          c.lineWidth = 1;
+          c.stroke();
+        }
+        for (const e of Ciel.etoilesVues(date, g.lat, g.lon, vue.az, vue.haut, vue.champ)) {
+          const [x, y] = ecran(e);
+          c.beginPath();
+          c.arc(x, y, Ciel.rayon(e.mag, unite / 170), 0, 2 * Math.PI);
+          c.fillStyle = Ciel.couleur(e.ci);
+          c.fill();
+        }
+        c.font = "11px -apple-system, system-ui, sans-serif";
+        c.fillStyle = "rgba(170, 190, 230, 0.75)";
+        c.textAlign = "center";
+        for (const n of Ciel.nomsVus(date, g.lat, g.lon, vue.az, vue.haut, vue.champ)) {
+          const [x, y] = ecran(n);
+          c.fillText(n.nom, x, y);
+        }
+
+        /* Le sol : l'horizon projeté, et tout ce qui est dessous couvert. */
+        const bord = [];
+        for (let az = 0; az <= 360; az += 3) {
+          const p = Ciel.projeter(az, 0, vue.az, vue.haut, vue.champ);
+          if (p) bord.push(ecran(p));
+        }
+        if (bord.length > 1) {
+          bord.sort((a, b) => a[0] - b[0]);
+          c.beginPath();
+          c.moveTo(-10, h + 10);
+          for (const [x, y] of bord) c.lineTo(x, y);
+          c.lineTo(l + 10, h + 10);
+          c.closePath();
+          c.fillStyle = "#1a2419";
+          c.fill();
+        }
+        c.fillStyle = "rgba(220, 230, 245, 0.9)";
+        c.font = "600 12px -apple-system, system-ui, sans-serif";
+        for (const [az, nom] of CARDINAUX) {
+          const p = Ciel.projeter(az, 0, vue.az, vue.haut, vue.champ);
+          if (!p || Math.abs(p.x) > 1.1) continue;
+          const [x, y] = ecran(p);
+          c.fillText(nom, x, y + 14);
+        }
+      };
+
+      const dire = () => {
+        if (visee) {
+          visee.textContent = `Vers ${directionDe(vue.az)}, à ${Math.round(vue.haut)} degrés `
+            + `de hauteur. Faites glisser le doigt pour tourner la vue.`;
+        }
+      };
+
+      /* Le doigt : un glissement horizontal tourne la vue, un glissement
+         vertical la lève ou l'abaisse, sans descendre sous l'horizon ni passer
+         le zénith. */
+      let depart = null;
+      cv.addEventListener("pointerdown", ev => {
+        depart = { x: ev.clientX, y: ev.clientY, az: vue.az, haut: vue.haut };
+        cv.setPointerCapture?.(ev.pointerId);
+      });
+      cv.addEventListener("pointermove", ev => {
+        if (!depart) return;
+        const unite = Math.min(cv.clientWidth, cv.clientHeight) / 2;
+        vue.az = ((depart.az - (ev.clientX - depart.x) / unite * vue.champ) % 360 + 360) % 360;
+        vue.haut = Math.max(5, Math.min(85, depart.haut + (ev.clientY - depart.y) / unite * vue.champ));
+        dire();
+        redessiner();
+      });
+      const lacher = () => { depart = null; };
+      cv.addEventListener("pointerup", lacher);
+      cv.addEventListener("pointercancel", lacher);
+
+      tracer();
+      Ciel.charger().then(() => {
+        if (!cv.isConnected) return;
+        pret = true;
+        if (etat) etat.hidden = true;
+        redessiner();
+      }).catch(() => {
+        if (etat) etat.textContent = "Le ciel n'a pas pu se charger.";
+      });
+    },
+  };
+}
+
 export function vueCiel(ctx, rendre) {
   const quel = Reglages.ciel();
-  const f = quel === "lune" ? vueLune() : vueSoleil();
+  const f = quel === "lune" ? vueLune() : quel === "etoiles" ? vueEtoiles() : vueSoleil();
 
   const seg = `<div class="seg">` + Reglages.ECRANS_CIEL.map(([c, n]) =>
     `<button type="button" data-ciel="${c}"${c === quel ? ' class="actif"' : ""}`

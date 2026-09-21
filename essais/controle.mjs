@@ -2279,8 +2279,10 @@ marquerSection("\n--- La destination Le ciel ---"); console.log("\n--- La destin
    sélecteur de l'écran Le temps se range. */
 await pg.locator('[data-onglet="ciel"]').click();
 await pg.waitForTimeout(500);
-ok("la destination porte deux écrans, un seul courant",
-  await pg.locator("#ecran [data-ciel]").count() === 2
+/* Trois écrans depuis le 20 septembre 2026 : le Soleil, la Lune et les
+   étoiles. */
+ok("la destination porte trois écrans, un seul courant",
+  await pg.locator("#ecran [data-ciel]").count() === 3
   && await pg.locator('#ecran [data-ciel][aria-current="true"]').count() === 1,
   `${await pg.locator("#ecran [data-ciel]").count()} segments`);
 ok("le sélecteur ouvre le contenu, sous le ciel",
@@ -8411,6 +8413,58 @@ ok("le rayon d'une étoile suit sa magnitude, à l'envers",
 ok("un point derrière l'observateur ne se projette pas",
   cielDit.derriere === null, JSON.stringify(cielDit.derriere));
 await ctxCiel.close();
+
+/* L'écran des étoiles. Le fichier du ciel pèse 81 kilooctets comprimés : il ne
+   se charge qu'à l'ouverture de cet écran, non au démarrage ni sur l'écran du
+   Soleil, sans quoi chacun le paierait. L'heure figée des contrôles tombe un
+   matin d'août, en plein jour : l'écran doit le dire. */
+const [ctxEt, pgEt] = await ctxReponse(METEO_NUE);
+let demandesCiel = 0;
+pgEt.on("request", r => { if (r.url().includes("donnees/ciel.json")) demandesCiel++; });
+await pgEt.locator('[data-onglet="ciel"]').click();
+await pgEt.waitForTimeout(600);
+const avantEtoiles = demandesCiel;
+await pgEt.locator('[data-ciel="etoiles"]').click();
+await pgEt.waitForTimeout(1800);
+
+ok("l'écran des étoiles se choisit dans le ciel",
+  await pgEt.evaluate(() => !!document.getElementById("ciToile")));
+
+ok("le fichier du ciel ne se charge qu'à l'ouverture de l'écran",
+  avantEtoiles === 0 && demandesCiel === 1,
+  `${avantEtoiles} avant, ${demandesCiel} après`);
+
+ok("la toile porte des étoiles",
+  await pgEt.evaluate(() => {
+    const cv = document.getElementById("ciToile");
+    const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+    let clairs = 0;
+    for (let i = 0; i < d.length; i += 4) if (Math.max(d[i], d[i + 1], d[i + 2]) > 150) clairs++;
+    return clairs > 300 ? "" : `${clairs} points clairs`;
+  }) === "");
+
+ok("l'écran dit qu'il fait jour quand le Soleil efface les étoiles",
+  await pgEt.evaluate(() => /Il fait jour/.test(document.getElementById("feuille-corps")
+    ? document.body.textContent : document.body.textContent)));
+
+ok("la mention nomme les deux sources",
+  await pgEt.evaluate(() => {
+    const t = document.querySelector(".ci-mention")?.textContent || "";
+    return /HYG/.test(t) && /d3-celestial/.test(t);
+  }));
+
+/* Le doigt tourne la vue : un glissement vers la gauche la porte vers
+   l'ouest, et la phrase de visée le dit. */
+const boiteCiel = await pgEt.locator("#ciToile").boundingBox();
+await pgEt.mouse.move(boiteCiel.x + boiteCiel.width / 2, boiteCiel.y + boiteCiel.height / 2);
+await pgEt.mouse.down();
+await pgEt.mouse.move(boiteCiel.x + boiteCiel.width / 2 - 120,
+  boiteCiel.y + boiteCiel.height / 2, { steps: 6 });
+await pgEt.mouse.up();
+await pgEt.waitForTimeout(300);
+const viseeDit = await pgEt.evaluate(() => document.getElementById("ciVisee").textContent);
+ok("le doigt tourne la vue", /^Vers le sud-ouest/.test(viseeDit), viseeDit.slice(0, 40));
+await ctxEt.close();
 
 /* ---------- Les feux sur la carte ----------
 

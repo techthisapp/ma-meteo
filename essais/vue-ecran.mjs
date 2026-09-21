@@ -45,6 +45,7 @@ const REGLAGES = { commune: "Fain-lès-Moutiers", codePostal: "21500",
   /* La nappe de la carte : la variable NAPPE la pose avant le chargement, la
      capture n'ayant pas à passer par le panneau pour la choisir. */
   ...(process.env.NAPPE ? { nappe: process.env.NAPPE } : {}),
+  ...(process.env.CIEL ? { ciel: process.env.CIEL } : {}),
   ...(process.env.VENT ? { ventcarte: true } : {}) };
 
 /* Deux journées par point, comme la source les rend pour plusieurs couples de

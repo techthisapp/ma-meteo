@@ -251,7 +251,7 @@ export function poserEcriture(e) {
    doit rendre l'écran qu'on regardait, non recommencer au premier. Les étoiles
    s'ajouteront ici au jalon 9 ; un segment qui ne mènerait nulle part
    maintenant serait une promesse que l'application ne tient pas. */
-export const ECRANS_CIEL = [["soleil", "Soleil"], ["lune", "Lune"]];
+export const ECRANS_CIEL = [["soleil", "Soleil"], ["lune", "Lune"], ["etoiles", "Étoiles"]];
 export const ciel = () => (ECRANS_CIEL.some(([c]) => c === etat.ciel) ? etat.ciel : "soleil");
 export function poserCiel(e) {
   if (!ECRANS_CIEL.some(([c]) => c === e)) return;

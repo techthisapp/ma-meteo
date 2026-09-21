@@ -1927,3 +1927,14 @@ button.rangee:active{background:var(--surface-2)}
   }
   .ossature{animation:none;opacity:.8}
 }
+
+/* La carte du ciel. Le fond reste celui d'une nuit quel que soit le thème :
+   un ciel étoilé clair ne ressemble à rien. La toile est plus haute que large,
+   la voûte s'étendant au-dessus de l'horizon. */
+.ci-carte{position:relative;padding:0;overflow:hidden;background:#0b1220}
+.ci-toile{display:block;width:100%;aspect-ratio:4/5;touch-action:none;cursor:grab}
+.ci-etat{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  margin:0;color:rgba(220,230,245,.8);font-size:var(--texte-note);
+}
+.ci-etat[hidden]{display:none}

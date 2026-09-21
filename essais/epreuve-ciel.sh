@@ -14,7 +14,7 @@ trap restaurer EXIT
 case "$N" in
   1) # Ne pas marquer l'écran courant dans le sélecteur.
      perl -0pi -e 's/    \+ ` aria-current="\$\{c === quel\}">\$\{esc\(n\)\}<\/button>`\)\.join\(""\) \+ `<\/div>`;/    + `>\${esc(n)}<\/button>`).join("") + `<\/div>`;/' src/vues.js
-     ATTENDU="la destination porte deux écrans, un seul courant" ;;
+     ATTENDU="la destination porte trois écrans, un seul courant" ;;
   2) # Poser le sélecteur après le contenu, non en tête.
      perl -0pi -e 's/      \+ `<div class="ecran-corps">\$\{seg\}\$\{f\.dedans\}<\/div>`,/      + `<div class="ecran-corps">\${f.dedans}\${seg}<\/div>`,/' src/vues.js
      ATTENDU="le sélecteur ouvre le contenu, sous le ciel" ;;
