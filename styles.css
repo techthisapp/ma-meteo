@@ -1978,3 +1978,8 @@ button.rangee:active{background:var(--surface-2)}
   color:rgba(230,236,245,.8);font-size:12px;
 }
 .ci-choix button[aria-pressed="true"]{background:rgba(255,255,255,.26);color:#fff}
+
+/* La liste « À voir ce soir » se remplit après le chargement du ciel, dans une
+   enveloppe qui ne doit pas compter dans la mise en page : ses rangées prennent
+   ainsi les retraits des rangées directes d'une carte. */
+#ciAVoir{display:contents}

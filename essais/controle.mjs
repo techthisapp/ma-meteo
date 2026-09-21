@@ -8436,6 +8436,57 @@ ok("le mode des constellations ne retient que les étoiles des figures",
   cielDit.modes.constellations.length > 50
   && cielDit.modes.constellations.every(e => e.figure === 1),
   `${cielDit.modes.constellations.length} étoiles`);
+
+/* Sous le bandeau, les informations de la nuit, vérifiées sur des dates dont
+   on connaît le ciel. */
+const infosDit = await pgCiel.evaluate(async () => {
+  const V = await import("/src/vues.js");
+  const paris = { lat: 48.86, lon: 2.35 };
+  const h = d => d ? d.getHours() + d.getMinutes() / 60 : null;
+  const sept = V.nuitNoire(new Date("2026-09-20T12:00:00+02:00"), paris);
+  const juin = V.nuitNoire(new Date("2026-06-21T12:00:00+02:00"), paris);
+  const nuit = { debut: new Date("2026-09-20T22:00"), fin: new Date("2026-09-21T05:00") };
+  const heures = ["2026-09-20T22:00", "2026-09-20T23:00", "2026-09-21T00:00",
+    "2026-09-21T01:00", "2026-09-21T02:00", "2026-09-21T03:00", "2026-09-21T04:00"];
+  const ciel = c => V.cielDeLaNuit(nuit, { hourly: { time: heures, cloud_cover: c } });
+  const vus = V.aVoirCeSoir(new Date("2026-08-18T09:00:00+02:00"), { lat: 47.5, lon: 4.3 });
+  /* Sans essaim trouvé, la garde doit échouer et non la suite tomber. */
+  const essaim = d => {
+    const e = V.prochainEssaim(new Date(d));
+    return e ? `${e.nom} ${e.date.getFullYear()}-${e.date.getMonth() + 1}-${e.date.getDate()}` : "aucun";
+  };
+  return {
+    septDebut: h(sept?.debut), septFin: h(sept?.fin), juin,
+    eclaircie: ciel([90, 90, 90, 10, 10, 10, 90]),
+    couvert: ciel([90, 90, 90, 90, 90, 90, 90]),
+    vus: vus.map(x => x.nom), vusHauts: vus.every(x => x.hauteur > 20),
+    aout: essaim("2026-08-18T12:00:00"), decembre: essaim("2026-12-20T12:00:00"),
+  };
+});
+
+/* Le crépuscule astronomique, quand le Soleil passe à dix-huit degrés sous
+   l'horizon : vers 21 h 20 à Paris le 20 septembre, et la fin vers 5 h 40. */
+ok("la nuit noire commence et finit aux crépuscules astronomiques",
+  infosDit.septDebut > 20.8 && infosDit.septDebut < 21.9
+  && infosDit.septFin > 5.0 && infosDit.septFin < 6.2,
+  `de ${infosDit.septDebut?.toFixed(2)} à ${infosDit.septFin?.toFixed(2)}`);
+
+ok("près du solstice d'été, à Paris, la nuit noire ne vient pas",
+  infosDit.juin === null, JSON.stringify(infosDit.juin));
+
+/* Une plage dégagée se dit de sa première heure à la fin de sa dernière. */
+ok("les nuages disent la plus longue éclaircie de la nuit noire",
+  infosDit.eclaircie?.mot === "Dégagé" && infosDit.eclaircie?.sous === "de 01:00 à 04:00"
+  && infosDit.couvert?.mot === "Couvert",
+  `${JSON.stringify(infosDit.eclaircie)} ${JSON.stringify(infosDit.couvert)}`);
+
+ok("à voir ce soir, les constellations les plus hautes d'une nuit d'août",
+  infosDit.vusHauts && ["Lyre", "Cygne"].every(n => infosDit.vus.slice(0, 3).includes(n)),
+  infosDit.vus.join(", "));
+
+ok("le prochain essaim d'étoiles filantes, y compris d'une année sur l'autre",
+  infosDit.aout === "Draconides 2026-10-8" && infosDit.decembre === "Quadrantides 2027-1-3",
+  `${infosDit.aout} ; ${infosDit.decembre}`);
 await ctxCiel.close();
 
 /* L'écran des étoiles. Le fichier du ciel pèse 81 kilooctets comprimés : il ne
@@ -8472,6 +8523,22 @@ ok("la mention nomme les deux sources",
     const t = document.querySelector(".ci-mention")?.textContent || "";
     return /HYG/.test(t) && /d3-celestial/.test(t);
   }));
+
+ok("sous le bandeau, la nuit noire, les nuages et la Lune",
+  await pgEt.evaluate(() => {
+    const t = [...document.querySelectorAll(".ci-nuit .rangee-txt b")].map(b => b.textContent);
+    return ["Nuit noire", "Lune"].every(n => t.includes(n)) ? "" : t.join(", ");
+  }) === "");
+
+ok("à voir ce soir se remplit une fois le ciel chargé",
+  await pgEt.evaluate(() =>
+    document.querySelectorAll("#ciAVoir .rangee").length >= 3));
+
+ok("les étoiles filantes annoncent le prochain essaim",
+  await pgEt.evaluate(() => {
+    const t = document.querySelector(".ci-filantes")?.textContent || "";
+    return /Draconides/.test(t) && /8 octobre/.test(t) ? "" : t.slice(0, 60);
+  }) === "");
 
 /* Hors plein écran, l'écran suit la mise en page du Soleil et de la Lune : le
    ciel en bandeau, et sa ligne de titre donne le prochain événement du ciel.

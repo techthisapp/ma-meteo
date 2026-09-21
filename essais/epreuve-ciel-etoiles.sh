@@ -90,6 +90,24 @@ d["etoiles"] = [e[:7] + [0] for e in d["etoiles"]]
 io.open("donnees/ciel.json", "w", encoding="utf-8").write(json.dumps(d, separators=(",", ":"), ensure_ascii=False))
 PY
      ATTENDU="le fichier marque les étoiles des figures" ;;
+  20) # L'essaim ne passe pas d'une année sur l'autre.
+     perl -0pi -e 's/  for \(const k of \[0, 1\]\) \{/  for (const k of [0]) {/' src/vues.js
+     ATTENDU="le prochain essaim d.étoiles filantes, y compris d.une année sur l.autre" ;;
+  21) # La nuit noire prise au crépuscule civil.
+     perl -0pi -e 's/  const cr = t => Astres\.crepuscules\(new Date\(t\), g\.lat, g\.lon\)\.astronomique;/  const cr = t => Astres.crepuscules(new Date(t), g.lat, g.lon).civil;/' src/vues.js
+     ATTENDU="la nuit noire commence et finit aux crépuscules astronomiques" ;;
+  22) # Le seuil des nuages à l'envers.
+     perl -0pi -e 's/degage: h\.cloud_cover\[i\] <= P\.SEUIL_DEGAGE/degage: h.cloud_cover[i] >= P.SEUIL_DEGAGE/' src/vues.js
+     ATTENDU="les nuages disent la plus longue éclaircie de la nuit noire" ;;
+  23) # L'éclaircie finit au début de sa dernière heure.
+     perl -0pi -e 's/  const fin = new Date\(meilleur\.fin\.getTime\(\) \+ 3600000\);/  const fin = new Date(meilleur.fin.getTime());/' src/vues.js
+     ATTENDU="les nuages disent la plus longue éclaircie de la nuit noire" ;;
+  24) # Les constellations les plus basses d'abord.
+     perl -0pi -e 's/    \.sort\(\(a, b\) => b\.hauteur - a\.hauteur\)/    .sort((a, b) => a.hauteur - b.hauteur)/' src/vues.js
+     ATTENDU="à voir ce soir, les constellations les plus hautes d.une nuit d.août" ;;
+  25) # La liste reste vide après le chargement.
+     perl -0pi -e 's/        const liste = bloc\.querySelector\("#ciAVoir"\);/        const liste = null;/' src/vues.js
+     ATTENDU="à voir ce soir se remplit une fois le ciel chargé" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

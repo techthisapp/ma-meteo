@@ -1975,6 +1975,149 @@ function peindreCiel(cv, vue, g, options = {}) {
   }
 }
 
+/* ---------- Sous le bandeau des étoiles ----------
+
+   Trois sections, décidées le 21 septembre 2026. « Cette nuit » répond à la
+   question qu'on se pose en ouvrant cet écran, voir les étoiles ce soir : la
+   nuit noire, les nuages, la Lune. « À voir ce soir » donne les constellations
+   les plus hautes au début de la nuit noire. « Étoiles filantes » donne le
+   prochain grand essaim. Tout se calcule sur place, sans source nouvelle : la
+   nébulosité vient de la prévision déjà chargée. */
+
+/* La nuit noire en cours ou à venir, du crépuscule astronomique du soir à
+   celui du matin. Rend null quand elle ne vient pas. */
+export function nuitNoire(maintenant, g) {
+  const jour = 86400000;
+  const cr = t => Astres.crepuscules(new Date(t), g.lat, g.lon).astronomique;
+  const c = cr(maintenant.getTime());
+  if (c.matin && maintenant < c.matin) {
+    const veille = cr(maintenant.getTime() - jour);
+    return veille.soir ? { debut: veille.soir, fin: c.matin } : null;
+  }
+  if (!c.soir) return null;
+  const d = cr(maintenant.getTime() + jour);
+  return d.matin ? { debut: c.soir, fin: d.matin } : null;
+}
+
+/* Les heures dégagées de la nuit, d'après la nébulosité de la prévision : une
+   heure compte comme dégagée sous le seuil que le reste de l'application
+   retient pour un ciel dégagé. Rend la plus longue plage, ou un mot. */
+export function cielDeLaNuit(nuit, charge) {
+  const h = charge?.hourly;
+  if (!nuit || !h?.time || !h.cloud_cover) return null;
+  const heures = [];
+  h.time.forEach((t, i) => {
+    const d = new Date(t);
+    if (d >= nuit.debut && d < nuit.fin && Number.isFinite(h.cloud_cover[i])) {
+      heures.push({ d, degage: h.cloud_cover[i] <= P.SEUIL_DEGAGE });
+    }
+  });
+  if (!heures.length) return null;
+  const n = heures.filter(x => x.degage).length;
+  if (n === 0) return { mot: "Couvert", sous: "toute la nuit noire" };
+  if (n === heures.length) return { mot: "Dégagé", sous: "toute la nuit noire" };
+  let meilleur = null, courant = null;
+  for (const x of heures) {
+    if (x.degage) {
+      courant = courant ? { ...courant, fin: x.d } : { debut: x.d, fin: x.d };
+      if (!meilleur || courant.fin - courant.debut > meilleur.fin - meilleur.debut) meilleur = courant;
+    } else courant = null;
+  }
+  const fin = new Date(meilleur.fin.getTime() + 3600000);
+  return { mot: "Dégagé", sous: `de ${hm(meilleur.debut.getTime())} à ${hm(fin.getTime())}` };
+}
+
+/* La Lune pendant la nuit noire : sa part éclairée et le temps où elle est
+   levée, relevé toutes les vingt minutes. Une Lune mince ou couchée ne gêne
+   pas l'observation. */
+export function luneDeLaNuit(nuit, g) {
+  if (!nuit) return null;
+  const pas = 20 * 60000;
+  let levee = 0, total = 0, premiere = null, derniere = null;
+  for (let t = nuit.debut.getTime(); t <= nuit.fin.getTime(); t += pas) {
+    total++;
+    if (Astres.position("lune", new Date(t), g.lat, g.lon).hauteur > 0) {
+      levee++;
+      if (premiere === null) premiere = t;
+      derniere = t;
+    }
+  }
+  const milieu = new Date((nuit.debut.getTime() + nuit.fin.getTime()) / 2);
+  const pct = Math.round(Astres.phase(milieu).eclairee * 100);
+  if (!levee) return { pct, sous: "couchée toute la nuit noire", gene: false };
+  const part = levee / total;
+  const sous = part > 0.95 ? "levée toute la nuit noire"
+    : premiere === nuit.debut.getTime() ? `couchée à ${hm(derniere)}`
+    : `levée à ${hm(premiere)}`;
+  return { pct, sous, gene: pct >= 25 && part >= 0.3 };
+}
+
+/* Les grands essaims d'étoiles filantes, au maximum de leur activité. Dates et
+   taux horaires zénithaux de l'Organisation internationale des météores, en
+   valeurs rondes : ce sont des maximums sous un ciel idéal, que la Lune et les
+   lumières de la ville réduisent. */
+export const ESSAIMS = [
+  [1, 3, "Quadrantides", 110], [4, 22, "Lyrides", 18], [5, 6, "Êta Aquarides", 50],
+  [8, 12, "Perséides", 100], [10, 8, "Draconides", 10], [10, 21, "Orionides", 20],
+  [11, 17, "Léonides", 15], [12, 14, "Géminides", 150],
+];
+export function prochainEssaim(maintenant) {
+  const an = maintenant.getFullYear();
+  const jour = new Date(an, maintenant.getMonth(), maintenant.getDate());
+  for (const k of [0, 1]) {
+    for (const [m, d, nom, taux] of ESSAIMS) {
+      const date = new Date(an + k, m - 1, d);
+      if (date >= jour) return { date, nom, taux };
+    }
+  }
+  return null;
+}
+
+const rangeeCiel = (nom, sous, val, doux = "") => `<div class="rangee">`
+  + `<span class="rangee-txt"><b>${esc(nom)}</b><span>${esc(sous)}</span></span>`
+  + valeur(val, doux ? { doux } : null) + `</div>`;
+
+function infosEtoiles(maintenant, g) {
+  const nuit = nuitNoire(maintenant, g);
+  const ciel = cielDeLaNuit(nuit, P.chargeCourante());
+  const lune = luneDeLaNuit(nuit, g);
+  const essaim = prochainEssaim(maintenant);
+  const jourMois = d => d.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+  return `<div class="carte ci-nuit"><div class="carte-tete"><h3>Cette nuit</h3></div>`
+    + (nuit
+      ? rangeeCiel("Nuit noire", `jusqu'à ${hm(nuit.fin.getTime())}`, hm(nuit.debut.getTime()))
+      : rangeeCiel("Nuit noire", "le Soleil ne descend pas assez bas", "Aucune"))
+    + (ciel ? rangeeCiel("Nuages", ciel.sous, ciel.mot) : "")
+    + (lune ? rangeeCiel("Lune", lune.sous, `${lune.pct} %`, lune.gene ? "gêne" : "")
+      : "")
+    + `</div>`
+    + `<div class="carte ci-avoir"><div class="carte-tete"><h3>À voir ce soir</h3></div>`
+    + `<div id="ciAVoir"><p class="note">Calcul en cours…</p></div></div>`
+    + (essaim
+      ? `<div class="carte ci-filantes"><div class="carte-tete"><h3>Étoiles filantes</h3></div>`
+        + rangeeCiel(essaim.nom, `jusqu'à ${essaim.taux} par heure au plus fort`,
+          jourMois(essaim.date))
+        + `</div>`
+      : "");
+}
+
+/* Les constellations les plus hautes au début de la nuit noire, ou tout de
+   suite s'il fait déjà nuit, avec leur direction. Rempli après le chargement
+   du fichier du ciel. */
+export function aVoirCeSoir(maintenant, g, n = 5) {
+  const nuit = nuitNoire(maintenant, g);
+  const instant = nuit && nuit.debut > maintenant ? nuit.debut : maintenant;
+  const d = Ciel.chargees();
+  if (!d) return [];
+  const jj = Astres.jourJulien(instant);
+  return Object.entries(d.noms)
+    .map(([sigle, [nom, ra, dec]]) => ({ sigle, nom, ...Ciel.surHorizon(ra, dec, jj, g.lat, g.lon) }))
+    .filter(x => x.hauteur > 20)
+    .sort((a, b) => b.hauteur - a.hauteur)
+    .slice(0, n)
+    .map(x => ({ ...x, instant }));
+}
+
 const MENTIONS = `<p>Étoiles du catalogue HYG, version 4.1, qui réunit Hipparcos, Yale `
   + `Bright Star et Gliese, sous licence Creative Commons Attribution et partage `
   + `dans les mêmes conditions.</p><p>Figures et noms des constellations de `
@@ -1998,7 +2141,8 @@ export function vueEtoiles() {
       + `<div class="plein-titre">`
       + (quand ? `<i>${esc(libelle)}</i><b>${hm(quand.getTime())}</b>` : `<b>${esc(libelle)}</b>`)
       + `</div></div>`,
-    dedans: `<p class="note ci-mention">Le bandeau regarde vers le sud. `
+    dedans: infosEtoiles(maintenant, g)
+      + `<p class="note ci-mention">Le bandeau regarde vers le sud. `
       + `Toucher le ciel pour l'ouvrir en plein écran. `
       + `Étoiles du catalogue HYG, figures de d3-celestial.</p>`,
     brancher(bloc) {
@@ -2092,6 +2236,17 @@ export function vueEtoiles() {
         if (!cv.isConnected) return;
         if (etat) etat.hidden = true;
         requestAnimationFrame(tracerBandeau);
+        const liste = bloc.querySelector("#ciAVoir");
+        if (liste) {
+          const vus = aVoirCeSoir(new Date(), g);
+          const hauteurDite = h => h > 70 ? "presque au zénith" : h > 45 ? "haut" : "à mi-hauteur";
+          liste.innerHTML = vus.length
+            ? vus.map(x => rangeeCiel(x.nom,
+              `${hauteurDite(x.hauteur)}, vers ${viseeDe(x.azimut, 30).split(",")[0].toLowerCase()}`,
+              `${Math.round(x.hauteur)}°`)).join("")
+              + `<p class="note">À ${hm(vus[0].instant.getTime())}, les constellations les plus hautes.</p>`
+            : `<p class="note">Aucune constellation haute à cette heure.</p>`;
+        }
       }).catch(() => {
         if (etat) etat.textContent = "Le ciel n'a pas pu se charger.";
       });
