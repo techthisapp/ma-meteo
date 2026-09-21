@@ -399,6 +399,14 @@ for (const theme of ["light", "dark"]) {
     await pg.waitForTimeout(200);
   }
 
+  /* Un toucher avant la capture, sur l'élément que CLIQUER désigne : le ciel
+     en plein écran s'ouvre ainsi, depuis son bandeau. */
+  if (process.env.CLIQUER) {
+    await pg.waitForTimeout(1200);
+    await pg.locator(process.env.CLIQUER).click();
+    await pg.waitForTimeout(900);
+  }
+
   /* Le panneau des couches, ouvert pour la capture qui le montre. */
   if (process.env.PANNEAU) {
     await pg.locator("#caCouches").click();

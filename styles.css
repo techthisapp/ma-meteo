@@ -1928,13 +1928,41 @@ button.rangee:active{background:var(--surface-2)}
   .ossature{animation:none;opacity:.8}
 }
 
-/* La carte du ciel. Le fond reste celui d'une nuit quel que soit le thème :
-   un ciel étoilé clair ne ressemble à rien. La toile est plus haute que large,
-   la voûte s'étendant au-dessus de l'horizon. */
-.ci-carte{position:relative;padding:0;overflow:hidden;background:#0b1220}
-.ci-toile{display:block;width:100%;aspect-ratio:4/5;touch-action:none;cursor:grab}
+/* Le ciel étoilé. En bandeau, il prend la place et les proportions du ciel du
+   Soleil et de la Lune ; en plein écran, un calque couvre toute l'application.
+   Le fond reste celui d'une nuit quel que soit le thème : un ciel étoilé clair
+   ne ressemble à rien. */
+/* Le nom ci-voute évite ci-etoiles, déjà pris par la couche d'étoiles du ciel du
+   Soleil, invisible le jour : la collision rendait le bandeau transparent et
+   sans hauteur. */
+.ci-voute{background:#0b1220;cursor:pointer}
+.ci-voute .ci-toile{position:absolute;inset:0;width:100%;height:100%;display:block}
 .ci-etat{
   position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   margin:0;color:rgba(220,230,245,.8);font-size:var(--texte-note);
 }
 .ci-etat[hidden]{display:none}
+.ci-plein-ecran{position:fixed;inset:0;z-index:1000;background:#0b1220}
+.ci-toile-pe{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.ci-visee{
+  position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);left:16px;margin:0;
+  padding:5px 12px;border-radius:var(--rayon-plein);
+  background:rgba(255,255,255,.12);color:#e6ecf5;font-size:13px;
+}
+.ci-jour{
+  position:absolute;top:calc(env(safe-area-inset-top,0px) + 52px);left:16px;right:16px;
+  margin:0;color:rgba(230,236,245,.7);font-size:12px;
+}
+.ci-bouton{
+  padding:6px 14px;border-radius:var(--rayon-plein);
+  background:rgba(255,255,255,.14);color:#e6ecf5;font-size:13px;
+}
+.ci-fermer{position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);right:16px}
+.ci-sources{position:absolute;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);right:16px}
+.ci-fenetre{
+  position:absolute;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);
+  padding:16px;border-radius:var(--rayon-md);background:rgba(20,28,46,.96);
+  color:#dbe3ef;font-size:13px;line-height:1.4;
+}
+.ci-fenetre p{margin:0 0 10px}
+.ci-fenetre[hidden]{display:none}

@@ -1852,155 +1852,223 @@ export function vueCarte(ctx, rendre, majEtat) {
    contenus, elle range deux écrans sous une même porte. */
 /* ---------- Les étoiles ----------
 
-   La voûte vue depuis la commune, à l'instant présent : les étoiles jusqu'à la
-   magnitude 6, les figures des constellations et leurs noms. Le doigt tourne
-   la vue et la lève ou l'abaisse ; le sol cache ce qui est sous l'horizon.
+   La voûte vue depuis la commune, à l'instant présent : les étoiles, les
+   figures des constellations et leurs noms.
+
+   Hors plein écran, l'écran suit la mise en page du Soleil et de la Lune : le
+   ciel en bandeau fixe dans la partie haute, avec sa ligne de titre, et dessous
+   les informations. Un toucher sur le bandeau l'ouvre en plein écran, et c'est
+   là seulement que le doigt tourne la vue : un même geste sur le bandeau ne
+   veut ainsi dire qu'une chose. Décidé le 21 septembre 2026.
+
+   Sur iPhone, l'interface de plein écran du navigateur ne vaut que pour les
+   vidéos : le plein écran est un calque qui couvre l'application, barre de
+   navigation comprise, et respecte les bords de l'écran.
 
    Le fichier du ciel, 81 kilooctets comprimés, ne se charge qu'à l'ouverture de
-   cet écran, et une fois pour toutes. Le fond reste celui d'une nuit quel que
-   soit le thème : un ciel étoilé clair ne ressemble à rien. Quand le Soleil est
-   levé ou tout juste couché, l'écran le dit, les étoiles étant alors au-dessus
-   de l'horizon sans pouvoir se voir. */
+   cet écran. Le fond reste celui d'une nuit quel que soit le thème : un ciel
+   étoilé clair ne ressemble à rien. */
 const CARDINAUX = [[0, "N"], [45, "NE"], [90, "E"], [135, "SE"], [180, "S"],
   [225, "SO"], [270, "O"], [315, "NO"]];
-const directionDe = az => {
-  const noms = ["le nord", "le nord-est", "l'est", "le sud-est", "le sud",
-    "le sud-ouest", "l'ouest", "le nord-ouest"];
-  return noms[Math.round((((az % 360) + 360) % 360) / 45) % 8];
-};
+const DIRECTIONS = ["Nord", "Nord-est", "Est", "Sud-est", "Sud", "Sud-ouest", "Ouest", "Nord-ouest"];
+const directionDe = az => DIRECTIONS[Math.round((((az % 360) + 360) % 360) / 45) % 8];
+
+/* La visée, dite en plein écran pendant le glissement. Au-delà de 80 degrés,
+   une direction ne veut plus rien dire : la vue est à la verticale. */
+export const viseeDe = (az, haut) => haut > 80 ? "Au zénith"
+  : `${directionDe(az)}, ${Math.round(haut)}°`;
+
+/* La ligne de titre du bandeau, dans la grammaire du Soleil et de la Lune : le
+   prochain événement du ciel. La nuit noire commence quand le Soleil passe à
+   dix-huit degrés sous l'horizon. Près du solstice d'été, à la latitude de
+   Paris, elle ne vient pas : l'écran le dit. */
+function titreNuit(maintenant, g) {
+  const c = Astres.crepuscules(maintenant, g.lat, g.lon).astronomique;
+  if (c.matin && maintenant < c.matin) return ["Fin de la nuit noire", c.matin];
+  if (c.soir && maintenant < c.soir) return ["Nuit noire", c.soir];
+  if (!c.soir) return ["Pas de nuit noire cette nuit", null];
+  const d = Astres.crepuscules(new Date(maintenant.getTime() + 86400000), g.lat, g.lon).astronomique;
+  return d.matin ? ["Fin de la nuit noire", d.matin] : ["Les étoiles", null];
+}
+
+/* Le tracé, commun au bandeau et au plein écran. */
+function peindreCiel(cv, vue, g) {
+  const dpr = window.devicePixelRatio || 1;
+  const l = cv.clientWidth, h = cv.clientHeight;
+  if (!l || !h) return;
+  if (cv.width !== Math.round(l * dpr) || cv.height !== Math.round(h * dpr)) {
+    cv.width = Math.round(l * dpr); cv.height = Math.round(h * dpr);
+  }
+  const c = cv.getContext("2d");
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  c.fillStyle = "#0b1220";
+  c.fillRect(0, 0, l, h);
+  if (!Ciel.chargees()) return;
+  const unite = Math.min(l, h) / 2;
+  const ecran = p => [l / 2 + p.x * unite, h / 2 + p.y * unite];
+  const date = new Date();
+  /* Le cadre en unités de projection : un écran haut en porte plus en hauteur
+     qu'en largeur, et un cadre carré laissait vide le haut du plein écran. */
+  const bords = [l / 2 / unite + 0.05, h / 2 / unite + 0.05];
+
+  for (const f of Ciel.figuresVues(date, g.lat, g.lon, vue.az, vue.haut, vue.champ)) {
+    c.beginPath();
+    f.points.forEach((p, k) => { const [x, y] = ecran(p); if (k) c.lineTo(x, y); else c.moveTo(x, y); });
+    c.strokeStyle = "rgba(140, 170, 225, 0.45)";
+    c.lineWidth = 1;
+    c.stroke();
+  }
+  for (const e of Ciel.etoilesVues(date, g.lat, g.lon, vue.az, vue.haut, vue.champ, 6, bords)) {
+    const [x, y] = ecran(e);
+    c.beginPath();
+    c.arc(x, y, Ciel.rayon(e.mag, unite / 170), 0, 2 * Math.PI);
+    c.fillStyle = Ciel.couleur(e.ci);
+    c.fill();
+  }
+
+  /* Les noms, détachés des traits par un halo de la couleur du ciel, et tenus
+     dans le cadre : un nom coupé au bord ne se lit pas. */
+  c.font = "11px -apple-system, system-ui, sans-serif";
+  c.textAlign = "center";
+  c.lineJoin = "round";
+  for (const n of Ciel.nomsVus(date, g.lat, g.lon, vue.az, vue.haut, vue.champ, bords)) {
+    let [x, y] = ecran(n);
+    const demi = c.measureText(n.nom).width / 2 + 4;
+    x = Math.max(demi, Math.min(l - demi, x));
+    if (y < 14 || y > h - 4) continue;
+    c.strokeStyle = "rgba(11, 18, 32, 0.9)";
+    c.lineWidth = 3;
+    c.strokeText(n.nom, x, y);
+    c.fillStyle = "rgba(170, 190, 230, 0.8)";
+    c.fillText(n.nom, x, y);
+  }
+
+  /* Le sol : l'horizon projeté, et tout ce qui est dessous couvert. */
+  const bord = [];
+  for (let az = 0; az <= 360; az += 3) {
+    const p = Ciel.projeter(az, 0, vue.az, vue.haut, vue.champ);
+    if (p) bord.push(ecran(p));
+  }
+  if (bord.length > 1) {
+    bord.sort((a, b) => a[0] - b[0]);
+    c.beginPath();
+    c.moveTo(-10, h + 10);
+    for (const [x, y] of bord) c.lineTo(x, y);
+    c.lineTo(l + 10, h + 10);
+    c.closePath();
+    c.fillStyle = "#1a2419";
+    c.fill();
+  }
+  c.fillStyle = "rgba(220, 230, 245, 0.9)";
+  c.font = "600 12px -apple-system, system-ui, sans-serif";
+  for (const [az, nom] of CARDINAUX) {
+    const p = Ciel.projeter(az, 0, vue.az, vue.haut, vue.champ);
+    if (!p || Math.abs(p.x) > 1.1) continue;
+    const [x, y] = ecran(p);
+    if (y < 0 || y > h - 4) continue;
+    c.fillText(nom, x, Math.min(y + 14, h - 6));
+  }
+}
+
+const MENTIONS = `<p>Étoiles du catalogue HYG, version 4.1, qui réunit Hipparcos, Yale `
+  + `Bright Star et Gliese, sous licence Creative Commons Attribution et partage `
+  + `dans les mêmes conditions.</p><p>Figures et noms des constellations de `
+  + `d3-celestial, Olaf Frohn, sous licence BSD à trois clauses.</p>`;
 
 export function vueEtoiles() {
   const g = Reglages.lire();
   if (!Reglages.situe()) {
     return { titre: "Les étoiles", dedans: `<div class="carte"><p class="vide">Indisponible.</p></div>` };
   }
-  const soleil = Astres.position("soleil", new Date(), g.lat, g.lon);
-  const jour = soleil.hauteur > -6;
+  const maintenant = new Date();
+  const jour = Astres.position("soleil", maintenant, g.lat, g.lon).hauteur > -6;
+  const [libelle, quand] = titreNuit(maintenant, g);
   return {
     titre: "Les étoiles",
-    dedans: `<div class="carte ci-carte">`
-      + `<canvas class="ci-toile" id="ciToile" role="img" `
-      + `aria-label="Carte du ciel vue depuis ${esc(g.commune || "la commune")}"></canvas>`
-      + `<p class="ci-etat" id="ciEtat">Chargement du ciel…</p>`
-      + `</div>`
-      + `<p class="note" id="ciVisee">Vers le sud, à 40 degrés de hauteur. `
-      + `Faites glisser le doigt pour tourner la vue.</p>`
-      + (jour ? `<p class="note">Il fait jour : ces étoiles sont au-dessus de `
-        + `l'horizon, mais la lumière du Soleil les efface.</p>` : "")
-      + `<p class="note ci-mention">Étoiles du catalogue HYG, licence Creative `
-      + `Commons Attribution et partage dans les mêmes conditions. Figures des `
-      + `constellations de d3-celestial, Olaf Frohn, licence BSD.</p>`,
+    plein: `<div class="plein">`
+      + `<div class="ci ci-voute" id="ciBandeau" role="button" tabindex="0" `
+      + `aria-label="Ouvrir le ciel de ${esc(g.commune || "la commune")} en plein écran">`
+      + `<canvas class="ci-toile" id="ciToile" aria-hidden="true"></canvas>`
+      + `<p class="ci-etat" id="ciEtat">Chargement du ciel…</p></div>`
+      + `<div class="plein-titre">`
+      + (quand ? `<i>${esc(libelle)}</i><b>${hm(quand.getTime())}</b>` : `<b>${esc(libelle)}</b>`)
+      + `</div></div>`,
+    dedans: `<p class="note ci-mention">Toucher le ciel pour l'ouvrir en plein écran. `
+      + `Étoiles du catalogue HYG, figures de d3-celestial.</p>`,
     brancher(bloc) {
+      const bandeau = bloc.querySelector("#ciBandeau");
       const cv = bloc.querySelector("#ciToile");
       const etat = bloc.querySelector("#ciEtat");
-      const visee = bloc.querySelector("#ciVisee");
-      if (!cv) return;
-      const vue = { az: 180, haut: 40, champ: 60 };
-      let pret = false, demande = false;
+      if (!cv || !bandeau) return;
+      const fixe = { az: 180, haut: 40, champ: 60 };
+      const tracerBandeau = () => { if (cv.isConnected) peindreCiel(cv, fixe, g); };
 
-      /* Une seule demande de tracé par image : les mouvements du doigt se
-         regroupent, et rien ne se trace plus une fois l'écran quitté. */
-      const redessiner = () => {
-        if (demande || !cv.isConnected) return;
-        demande = true;
-        requestAnimationFrame(() => { demande = false; if (cv.isConnected) tracer(); });
-      };
-
-      const tracer = () => {
-        const dpr = window.devicePixelRatio || 1;
-        const l = cv.clientWidth, h = cv.clientHeight;
-        if (!l || !h) return;
-        if (cv.width !== Math.round(l * dpr)) { cv.width = Math.round(l * dpr); cv.height = Math.round(h * dpr); }
-        const c = cv.getContext("2d");
-        c.setTransform(dpr, 0, 0, dpr, 0, 0);
-        c.fillStyle = "#0b1220";
-        c.fillRect(0, 0, l, h);
-        if (!pret) return;
-        const unite = Math.min(l, h) / 2;
-        const ecran = p => [l / 2 + p.x * unite, h / 2 + p.y * unite];
-        const date = new Date();
-
-        for (const f of Ciel.figuresVues(date, g.lat, g.lon, vue.az, vue.haut, vue.champ)) {
-          c.beginPath();
-          f.points.forEach((p, k) => { const [x, y] = ecran(p); if (k) c.lineTo(x, y); else c.moveTo(x, y); });
-          c.strokeStyle = "rgba(140, 170, 225, 0.45)";
-          c.lineWidth = 1;
-          c.stroke();
-        }
-        for (const e of Ciel.etoilesVues(date, g.lat, g.lon, vue.az, vue.haut, vue.champ)) {
-          const [x, y] = ecran(e);
-          c.beginPath();
-          c.arc(x, y, Ciel.rayon(e.mag, unite / 170), 0, 2 * Math.PI);
-          c.fillStyle = Ciel.couleur(e.ci);
-          c.fill();
-        }
-        c.font = "11px -apple-system, system-ui, sans-serif";
-        c.fillStyle = "rgba(170, 190, 230, 0.75)";
-        c.textAlign = "center";
-        for (const n of Ciel.nomsVus(date, g.lat, g.lon, vue.az, vue.haut, vue.champ)) {
-          const [x, y] = ecran(n);
-          c.fillText(n.nom, x, y);
-        }
-
-        /* Le sol : l'horizon projeté, et tout ce qui est dessous couvert. */
-        const bord = [];
-        for (let az = 0; az <= 360; az += 3) {
-          const p = Ciel.projeter(az, 0, vue.az, vue.haut, vue.champ);
-          if (p) bord.push(ecran(p));
-        }
-        if (bord.length > 1) {
-          bord.sort((a, b) => a[0] - b[0]);
-          c.beginPath();
-          c.moveTo(-10, h + 10);
-          for (const [x, y] of bord) c.lineTo(x, y);
-          c.lineTo(l + 10, h + 10);
-          c.closePath();
-          c.fillStyle = "#1a2419";
-          c.fill();
-        }
-        c.fillStyle = "rgba(220, 230, 245, 0.9)";
-        c.font = "600 12px -apple-system, system-ui, sans-serif";
-        for (const [az, nom] of CARDINAUX) {
-          const p = Ciel.projeter(az, 0, vue.az, vue.haut, vue.champ);
-          if (!p || Math.abs(p.x) > 1.1) continue;
-          const [x, y] = ecran(p);
-          c.fillText(nom, x, y + 14);
-        }
-      };
-
-      const dire = () => {
-        if (visee) {
-          visee.textContent = `Vers ${directionDe(vue.az)}, à ${Math.round(vue.haut)} degrés `
-            + `de hauteur. Faites glisser le doigt pour tourner la vue.`;
-        }
-      };
-
-      /* Le doigt : un glissement horizontal tourne la vue, un glissement
-         vertical la lève ou l'abaisse, sans descendre sous l'horizon ni passer
-         le zénith. */
-      let depart = null;
-      cv.addEventListener("pointerdown", ev => {
-        depart = { x: ev.clientX, y: ev.clientY, az: vue.az, haut: vue.haut };
-        cv.setPointerCapture?.(ev.pointerId);
-      });
-      cv.addEventListener("pointermove", ev => {
-        if (!depart) return;
-        const unite = Math.min(cv.clientWidth, cv.clientHeight) / 2;
-        vue.az = ((depart.az - (ev.clientX - depart.x) / unite * vue.champ) % 360 + 360) % 360;
-        vue.haut = Math.max(5, Math.min(85, depart.haut + (ev.clientY - depart.y) / unite * vue.champ));
-        dire();
+      const ouvrir = () => {
+        if (!Ciel.chargees() || document.getElementById("ciPleinEcran")) return;
+        const vue = { ...fixe };
+        const fe = document.createElement("div");
+        fe.className = "ci-plein-ecran";
+        fe.id = "ciPleinEcran";
+        fe.setAttribute("role", "dialog");
+        fe.setAttribute("aria-modal", "true");
+        fe.setAttribute("aria-label", "Le ciel en plein écran");
+        fe.innerHTML = `<canvas class="ci-toile-pe" id="ciToilePE"></canvas>`
+          + `<p class="ci-visee" id="ciVisee" aria-live="polite">${viseeDe(vue.az, vue.haut)}</p>`
+          + (jour ? `<p class="ci-jour" id="ciJour">Il fait jour : la lumière du Soleil efface ces étoiles.</p>` : "")
+          + `<button type="button" class="ci-bouton ci-fermer" id="ciFermer">Fermer</button>`
+          + `<button type="button" class="ci-bouton ci-sources" id="ciSources">Sources</button>`
+          + `<div class="ci-fenetre" id="ciFenetre" hidden>${MENTIONS}`
+          + `<button type="button" class="ci-bouton" id="ciFenetreFermer">Fermer</button></div>`;
+        document.body.appendChild(fe);
+        const pe = fe.querySelector("#ciToilePE");
+        const visee = fe.querySelector("#ciVisee");
+        let demande = false;
+        const redessiner = () => {
+          if (demande || !pe.isConnected) return;
+          demande = true;
+          requestAnimationFrame(() => { demande = false; if (pe.isConnected) peindreCiel(pe, vue, g); });
+        };
+        let depart = null;
+        pe.addEventListener("pointerdown", ev => {
+          depart = { x: ev.clientX, y: ev.clientY, az: vue.az, haut: vue.haut };
+          pe.setPointerCapture?.(ev.pointerId);
+        });
+        pe.addEventListener("pointermove", ev => {
+          if (!depart) return;
+          const unite = Math.min(pe.clientWidth, pe.clientHeight) / 2;
+          vue.az = ((depart.az - (ev.clientX - depart.x) / unite * vue.champ) % 360 + 360) % 360;
+          vue.haut = Math.max(5, Math.min(85, depart.haut + (ev.clientY - depart.y) / unite * vue.champ));
+          visee.textContent = viseeDe(vue.az, vue.haut);
+          redessiner();
+        });
+        const lacher = () => { depart = null; };
+        pe.addEventListener("pointerup", lacher);
+        pe.addEventListener("pointercancel", lacher);
+        const fenetre = fe.querySelector("#ciFenetre");
+        fe.querySelector("#ciSources").addEventListener("click", () => { fenetre.hidden = false; });
+        fe.querySelector("#ciFenetreFermer").addEventListener("click", () => { fenetre.hidden = true; });
+        const fermer = () => {
+          fe.remove();
+          window.removeEventListener("resize", redessiner);
+          document.removeEventListener("keydown", touche);
+          bandeau.focus?.();
+        };
+        const touche = ev => { if (ev.key === "Escape") fermer(); };
+        fe.querySelector("#ciFermer").addEventListener("click", fermer);
+        window.addEventListener("resize", redessiner);
+        document.addEventListener("keydown", touche);
         redessiner();
+      };
+      bandeau.addEventListener("click", ouvrir);
+      bandeau.addEventListener("keydown", ev => {
+        if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); ouvrir(); }
       });
-      const lacher = () => { depart = null; };
-      cv.addEventListener("pointerup", lacher);
-      cv.addEventListener("pointercancel", lacher);
 
-      tracer();
+      tracerBandeau();
       Ciel.charger().then(() => {
         if (!cv.isConnected) return;
-        pret = true;
         if (etat) etat.hidden = true;
-        redessiner();
+        requestAnimationFrame(tracerBandeau);
       }).catch(() => {
         if (etat) etat.textContent = "Le ciel n'a pas pu se charger.";
       });

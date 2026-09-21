@@ -8443,27 +8443,87 @@ ok("la toile porte des étoiles",
     return clairs > 300 ? "" : `${clairs} points clairs`;
   }) === "");
 
-ok("l'écran dit qu'il fait jour quand le Soleil efface les étoiles",
-  await pgEt.evaluate(() => /Il fait jour/.test(document.getElementById("feuille-corps")
-    ? document.body.textContent : document.body.textContent)));
-
 ok("la mention nomme les deux sources",
   await pgEt.evaluate(() => {
     const t = document.querySelector(".ci-mention")?.textContent || "";
     return /HYG/.test(t) && /d3-celestial/.test(t);
   }));
 
-/* Le doigt tourne la vue : un glissement vers la gauche la porte vers
-   l'ouest, et la phrase de visée le dit. */
-const boiteCiel = await pgEt.locator("#ciToile").boundingBox();
-await pgEt.mouse.move(boiteCiel.x + boiteCiel.width / 2, boiteCiel.y + boiteCiel.height / 2);
-await pgEt.mouse.down();
-await pgEt.mouse.move(boiteCiel.x + boiteCiel.width / 2 - 120,
-  boiteCiel.y + boiteCiel.height / 2, { steps: 6 });
-await pgEt.mouse.up();
-await pgEt.waitForTimeout(300);
-const viseeDit = await pgEt.evaluate(() => document.getElementById("ciVisee").textContent);
-ok("le doigt tourne la vue", /^Vers le sud-ouest/.test(viseeDit), viseeDit.slice(0, 40));
+/* Hors plein écran, l'écran suit la mise en page du Soleil et de la Lune : le
+   ciel en bandeau, et sa ligne de titre donne le prochain événement du ciel.
+   L'heure figée des contrôles tombe un matin d'août : c'est la nuit noire du
+   soir qui s'annonce. */
+ok("le bandeau annonce le prochain événement du ciel",
+  await pgEt.evaluate(() => {
+    const t = document.querySelector(".plein-titre");
+    const i = t?.querySelector("i")?.textContent || "";
+    const b = t?.querySelector("b")?.textContent || "";
+    return /^Nuit noire$/.test(i) && /\d{2}:\d{2}/.test(b) ? "" : `« ${i} » « ${b} »`;
+  }) === "");
+
+ok("la visée se dit par une direction, et au zénith à la verticale",
+  await pgEt.evaluate(async () => {
+    const V = await import("/src/vues.js");
+    return [V.viseeDe(45, 40), V.viseeDe(200, 84), V.viseeDe(180, 12)].join(" | ");
+  }) === "Nord-est, 40° | Au zénith | Sud, 12°");
+
+/* Un toucher sur le bandeau ouvre le plein écran, qui couvre toute
+   l'application, barre de navigation comprise : sur iPhone, l'interface de
+   plein écran du navigateur ne vaut que pour les vidéos. */
+await pgEt.locator("#ciBandeau").click();
+await pgEt.waitForTimeout(700);
+ok("un toucher sur le bandeau ouvre le ciel en plein écran",
+  await pgEt.evaluate(() => {
+    const fe = document.getElementById("ciPleinEcran");
+    if (!fe) return "aucun plein écran";
+    const r = fe.getBoundingClientRect();
+    return r.width >= window.innerWidth - 1 && r.height >= window.innerHeight - 1
+      ? "" : `${r.width} sur ${r.height}`;
+  }) === "");
+
+ok("le plein écran dit qu'il fait jour quand le Soleil efface les étoiles",
+  await pgEt.evaluate(() => /Il fait jour/.test(document.getElementById("ciJour")?.textContent || "")));
+
+/* Le doigt tourne la vue, en plein écran seulement : un glissement vers la
+   gauche la porte vers l'ouest, et l'étiquette de visée le dit. */
+/* Sans plein écran ouvert, la suite ne doit pas tomber : les gardes qui
+   suivent échouent chacune à leur tour, et c'est la garde du toucher qui dit
+   la cause. */
+const pleinOuvert = await pgEt.locator("#ciPleinEcran").count() > 0;
+let viseeDit = "pas de plein écran";
+if (pleinOuvert) {
+  const boitePE = await pgEt.locator("#ciToilePE").boundingBox();
+  await pgEt.mouse.move(boitePE.x + boitePE.width / 2, boitePE.y + boitePE.height / 2);
+  await pgEt.mouse.down();
+  await pgEt.mouse.move(boitePE.x + boitePE.width / 2 - 120,
+    boitePE.y + boitePE.height / 2, { steps: 6 });
+  await pgEt.mouse.up();
+  await pgEt.waitForTimeout(300);
+  viseeDit = await pgEt.evaluate(() => document.getElementById("ciVisee").textContent);
+}
+ok("le doigt tourne la vue", /^Sud-ouest, 40°$/.test(viseeDit), viseeDit);
+
+if (pleinOuvert) {
+  await pgEt.locator("#ciSources").click();
+  await pgEt.waitForTimeout(200);
+}
+ok("la fenêtre des sources nomme les deux sources et leurs licences",
+  await pgEt.evaluate(() => {
+    const f = document.getElementById("ciFenetre");
+    if (!f || f.hidden) return "fenêtre fermée";
+    const t = f.textContent;
+    return ["HYG", "Creative Commons", "d3-celestial", "BSD"].every(m => t.includes(m))
+      ? "" : t.slice(0, 80);
+  }) === "");
+
+if (pleinOuvert) {
+  await pgEt.locator("#ciFenetreFermer").click();
+  await pgEt.locator("#ciFermer").click();
+  await pgEt.waitForTimeout(200);
+}
+ok("fermer rend l'écran des étoiles",
+  await pgEt.evaluate(() => !document.getElementById("ciPleinEcran")
+    && !!document.getElementById("ciBandeau")));
 await ctxEt.close();
 
 /* ---------- Les feux sur la carte ----------

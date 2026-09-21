@@ -41,14 +41,27 @@ PY
      perl -0pi -e 's/  const quel = Reglages\.ciel\(\);\n  const f = quel === "lune"/  const quel = Reglages.ciel();\n  Ciel.charger().catch(() => {});\n  const f = quel === "lune"/' src/vues.js
      ATTENDU="le fichier du ciel ne se charge qu.à l.ouverture de l.écran" ;;
   7) # La toile reste vide une fois les données chargées.
-     perl -0pi -e 's/        if \(!pret\) return;\n        const unite = Math\.min\(l, h\) \/ 2;/        return;\n        const unite = Math.min(l, h) \/ 2;/' src/vues.js
+     perl -0pi -e 's/  if \(!Ciel\.chargees\(\)\) return;\n  const unite = Math\.min\(l, h\) \/ 2;/  return;\n  const unite = Math.min(l, h) \/ 2;/' src/vues.js
      ATTENDU="la toile porte des étoiles" ;;
-  8) # Le doigt ne tourne plus la vue.
-     perl -0pi -e 's/      cv\.addEventListener\("pointermove", ev => \{\n        if \(!depart\) return;/      cv.addEventListener("pointermove", ev => {\n        return;/' src/vues.js
+  8) # Le doigt ne tourne plus la vue du plein écran.
+     perl -0pi -e 's/        pe\.addEventListener\("pointermove", ev => \{\n          if \(!depart\) return;/        pe.addEventListener("pointermove", ev => {\n          return;/' src/vues.js
      ATTENDU="le doigt tourne la vue" ;;
   9) # La mention oublie le catalogue des étoiles.
-     perl -0pi -e 's/Étoiles du catalogue HYG, licence/Étoiles, licence/' src/vues.js
+     perl -0pi -e 's/Étoiles du catalogue HYG, figures de d3-celestial\./Figures de d3-celestial./' src/vues.js
      ATTENDU="la mention nomme les deux sources" ;;
+  10) # Le bandeau ne s'ouvre plus en plein écran.
+     perl -0pi -e 's/      bandeau\.addEventListener\("click", ouvrir\);\n//' src/vues.js
+     ATTENDU="un toucher sur le bandeau ouvre le ciel en plein écran" ;;
+  11) # Le zénith ne se dit plus : une direction à la verticale ne veut rien dire.
+     perl -0pi -e 's/haut > 80 \? "Au zénith"/haut > 95 ? "Au zénith"/' src/vues.js
+     ATTENDU="la visée se dit par une direction, et au zénith à la verticale" ;;
+  12) # La fenêtre des sources oublie une licence.
+     perl -0pi -e 's/, sous licence BSD à trois clauses\./\./' src/vues.js
+     ATTENDU="la fenêtre des sources nomme les deux sources et leurs licences" ;;
+  13) # Le titre du bandeau saute la nuit noire du soir et annonce la fin de la
+      # suivante.
+     perl -0pi -e 's/  if \(c\.soir && maintenant < c\.soir\) return \["Nuit noire", c\.soir\];\n//' src/vues.js
+     ATTENDU="le bandeau annonce le prochain événement du ciel" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

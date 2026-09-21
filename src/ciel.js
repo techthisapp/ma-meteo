@@ -113,7 +113,7 @@ export function couleur(ci) {
    d'écran en unités du rayon, à charge de l'appelant de les mettre à l'échelle.
    Une étoile sous l'horizon est écartée : la voûte s'arrête au sol. */
 export function etoilesVues(date, lat, lon, azCentre, hautCentre, champ = 60,
-  magMax = 6) {
+  magMax = 6, bords = [1.2, 1.2]) {
   if (!donnees) return [];
   const jj = jourJulien(date);
   const out = [];
@@ -122,7 +122,7 @@ export function etoilesVues(date, lat, lon, azCentre, hautCentre, champ = 60,
     const { hauteur, azimut } = surHorizon(ra, dec, jj, lat, lon);
     if (hauteur < 0) continue;
     const p = projeter(azimut, hauteur, azCentre, hautCentre, champ);
-    if (!p || Math.abs(p.x) > 1.2 || Math.abs(p.y) > 1.2) continue;
+    if (!p || Math.abs(p.x) > bords[0] || Math.abs(p.y) > bords[1]) continue;
     out.push({ x: p.x, y: p.y, hauteur, mag, ci, nom, bf, con });
   }
   return out;
@@ -152,7 +152,8 @@ export function figuresVues(date, lat, lon, azCentre, hautCentre, champ = 60) {
 
 /* Les noms de constellations à poser, à la place que la source indique. Un nom
    dont la place est sous l'horizon ne s'écrit pas. */
-export function nomsVus(date, lat, lon, azCentre, hautCentre, champ = 60) {
+export function nomsVus(date, lat, lon, azCentre, hautCentre, champ = 60,
+  bords = [1, 1]) {
   if (!donnees) return [];
   const jj = jourJulien(date);
   const out = [];
@@ -160,7 +161,7 @@ export function nomsVus(date, lat, lon, azCentre, hautCentre, champ = 60) {
     const { hauteur, azimut } = surHorizon(ra, dec, jj, lat, lon);
     if (hauteur < 0) continue;
     const p = projeter(azimut, hauteur, azCentre, hautCentre, champ);
-    if (!p || Math.abs(p.x) > 1 || Math.abs(p.y) > 1) continue;
+    if (!p || Math.abs(p.x) > bords[0] || Math.abs(p.y) > bords[1]) continue;
     out.push({ sigle, nom, x: p.x, y: p.y });
   }
   return out;
