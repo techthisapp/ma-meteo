@@ -9,7 +9,7 @@ OLD="$PWD"
 # toutes ensemble en dix minutes, et le dépôt d'origine n'est jamais touché.
 COPIE=/tmp/copie-uv-$N
 rm -rf "$COPIE"; mkdir -p "$COPIE"
-cp -r essais icones src index.html manifest.webmanifest package.json \
+cp -r donnees essais icones src index.html manifest.webmanifest package.json \
   styles.css sw.js "$COPIE/"
 ln -s "$OLD/node_modules" "$COPIE/node_modules"
 cd "$COPIE"

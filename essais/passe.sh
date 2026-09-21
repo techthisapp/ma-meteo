@@ -11,7 +11,7 @@ OLD="$PWD"
 PORT_ESSAIS="${1:-8137}"
 COPIE=/tmp/passe-$PORT_ESSAIS
 rm -rf "$COPIE"; mkdir -p "$COPIE"
-cp -r essais icones src index.html manifest.webmanifest package.json \
+cp -r donnees essais icones src index.html manifest.webmanifest package.json \
   styles.css sw.js "$COPIE/"
 ln -s "$OLD/node_modules" "$COPIE/node_modules"
 cd "$COPIE"

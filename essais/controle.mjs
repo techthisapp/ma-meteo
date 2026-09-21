@@ -8337,6 +8337,81 @@ ok("une carte qui s'ouvre les nuages éteints ne demande rien au service",
   appelsNuages.length === 0, `${appelsNuages.length} appels`);
 await ctxNuOff.close();
 
+/* ---------- Le ciel étoilé, les calculs ----------
+
+   Le module place les étoiles et les figures des constellations sur la voûte
+   telle qu'on la voit depuis la commune. Les positions se vérifient contre le
+   ciel réel : le 20 septembre 2026 à vingt-deux heures depuis Paris, le
+   triangle d'été est au sud et la Grande Ourse au nord. */
+marquerSection("\n--- Le ciel étoilé ---"); console.log("\n--- Le ciel étoilé ---");
+
+const [ctxCiel, pgCiel] = await ouvrirCarte(FAIN, 0);
+const cielDit = await pgCiel.evaluate(async () => {
+  const C = await import("/src/ciel.js");
+  const r = await fetch("/donnees/ciel.json");
+  const d = await r.json();
+  await C.charger(async () => ({ ok: true, json: async () => d }));
+  const date = new Date("2026-09-20T22:00:00+02:00");
+  const sud = C.etoilesVues(date, 48.86, 2.35, 180, 45, 60);
+  const nord = C.nomsVus(date, 48.86, 2.35, 0, 45, 60);
+  const fig = C.figuresVues(date, 48.86, 2.35, 180, 45, 60);
+  const brillantes = sud.filter(x => x.nom).sort((a, b) => a.mag - b.mag)
+    .slice(0, 6).map(x => x.nom);
+  return {
+    total: d.etoiles.length, figures: Object.keys(d.figures).length,
+    noms: Object.keys(d.noms).length,
+    vues: sud.length, brillantes, nord: nord.map(x => x.nom),
+    sousSol: sud.filter(x => x.hauteur < 0).length,
+    segments: fig.length,
+    soleil: d.etoiles.some(e => e[4] === "Sol"),
+    magMax: Math.max(...d.etoiles.map(e => e[2])),
+    rayons: [C.rayon(-1), C.rayon(2), C.rayon(6)],
+    derriere: C.projeter(0, 45, 180, 45, 60),
+  };
+});
+
+ok("le fichier porte les étoiles, les figures et leurs noms",
+  cielDit.total === 5070 && cielDit.figures === 88 && cielDit.noms === 88,
+  `${cielDit.total} étoiles, ${cielDit.figures} figures, ${cielDit.noms} noms`);
+
+/* Le catalogue porte le Soleil, à l'origine des coordonnées : le laisser
+   mettrait une étoile de magnitude moins vingt-sept au point zéro de la carte,
+   sa place se calculant ailleurs, à l'heure dite. */
+ok("le Soleil ne figure pas parmi les étoiles", !cielDit.soleil);
+
+ok("le catalogue s'arrête à la magnitude six",
+  cielDit.magMax <= 6, `magnitude la plus faible ${cielDit.magMax}`);
+
+/* La voûte s'arrête au sol : une étoile sous l'horizon ne se peint pas. Le
+   compte seul ne suffit pas à le dire : sans filtre, seules les étoiles juste
+   sous le sol et dans le champ s'ajoutent, et le total reste plausible. La
+   garde vérifie donc qu'aucune étoile retenue n'est sous l'horizon. */
+ok("les étoiles sous l'horizon sont écartées",
+  cielDit.sousSol === 0 && cielDit.vues > 500 && cielDit.vues < 3000,
+  `${cielDit.sousSol} étoiles sous l'horizon, ${cielDit.vues} dans le champ`);
+
+ok("le ciel de septembre est celui qu'on voit",
+  ["Vega", "Altair", "Deneb"].every(n => cielDit.brillantes.includes(n)),
+  cielDit.brillantes.join(", "));
+
+ok("la Grande Ourse et Cassiopée se tiennent au nord",
+  ["Grande Ourse", "Cassiopée"].every(n => cielDit.nord.includes(n)),
+  cielDit.nord.slice(0, 6).join(", "));
+
+ok("les figures se tracent par segments coupés à l'horizon",
+  cielDit.segments > 20 && cielDit.segments < 149,
+  `${cielDit.segments} segments`);
+
+/* Une étoile brillante fait un disque net, une étoile de magnitude six un
+   point à peine visible : l'échelle est inversée. */
+ok("le rayon d'une étoile suit sa magnitude, à l'envers",
+  cielDit.rayons[0] > cielDit.rayons[1] && cielDit.rayons[1] > cielDit.rayons[2],
+  cielDit.rayons.map(r => r.toFixed(2)).join(" > "));
+
+ok("un point derrière l'observateur ne se projette pas",
+  cielDit.derriere === null, JSON.stringify(cielDit.derriere));
+await ctxCiel.close();
+
 /* ---------- Les feux sur la carte ----------
 
    Les foyers relevés par les satellites en orbite polaire. Mesuré le

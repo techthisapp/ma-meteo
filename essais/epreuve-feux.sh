@@ -9,7 +9,7 @@ OLD="$PWD"
 # borne la passe à la section visée.
 COPIE=/tmp/copie-feux-$N
 rm -rf "$COPIE"; mkdir -p "$COPIE"
-cp -r essais icones src index.html manifest.webmanifest package.json \
+cp -r donnees essais icones src index.html manifest.webmanifest package.json \
   styles.css sw.js "$COPIE/"
 ln -s "$OLD/node_modules" "$COPIE/node_modules"
 cd "$COPIE"

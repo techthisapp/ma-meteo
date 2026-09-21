@@ -11,7 +11,7 @@ OLD="$PWD"
 # 554, mesuré le 19 septembre 2026.
 COPIE=/tmp/copie-pluie-$N
 rm -rf "$COPIE"; mkdir -p "$COPIE"
-cp -r essais icones src index.html manifest.webmanifest package.json \
+cp -r donnees essais icones src index.html manifest.webmanifest package.json \
   styles.css sw.js "$COPIE/"
 ln -s "$OLD/node_modules" "$COPIE/node_modules"
 cd "$COPIE"
