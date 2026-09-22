@@ -183,3 +183,87 @@ export function nomsVus(date, lat, lon, azCentre, hautCentre, champ = 60,
   }
   return out;
 }
+
+/* ---------- La fiche d'une constellation ----------
+
+   Elle s'ouvre d'un toucher bref en plein écran, décidé le 21 septembre 2026.
+   Un appui long est moins découvert sur iPhone et entre en conflit avec les
+   gestes du système ; le toucher bref ne gêne rien, le glissement tournant la
+   vue et le toucher sans mouvement désignant. */
+
+/* La constellation désignée par un toucher, en unités de projection : celle
+   dont un trait passe au plus près, puis à défaut celle dont le nom est le plus
+   proche. Les limites officielles ne servent pas ici : on touche une figure, non
+   une zone du ciel. */
+const distanceSegment = (x, y, a, b) => {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const l2 = dx * dx + dy * dy;
+  const t = l2 ? Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / l2)) : 0;
+  return Math.hypot(x - (a.x + t * dx), y - (a.y + t * dy));
+};
+export function designee(x, y, figures, noms, seuilTrait = 0.08, seuilNom = 0.16) {
+  let proche = null;
+  for (const f of figures) {
+    for (let k = 1; k < f.points.length; k++) {
+      const d = distanceSegment(x, y, f.points[k - 1], f.points[k]);
+      if (!proche || d < proche.d) proche = { sigle: f.sigle, d };
+    }
+  }
+  if (proche && proche.d <= seuilTrait) return proche.sigle;
+  let nom = null;
+  for (const n of noms) {
+    const d = Math.hypot(x - n.x, y - n.y);
+    if (!nom || d < nom.d) nom = { sigle: n.sigle, d };
+  }
+  return nom && nom.d <= seuilNom ? nom.sigle : null;
+}
+
+/* La lettre grecque d'une désignation de Bayer, telle que le catalogue l'écrit
+   en trois lettres latines. */
+const GRECQUES = { Alp: "α", Bet: "β", Gam: "γ", Del: "δ", Eps: "ε", Zet: "ζ", Eta: "η",
+  The: "θ", Iot: "ι", Kap: "κ", Lam: "λ", Mu: "μ", Nu: "ν", Xi: "ξ", Omi: "ο", Pi: "π",
+  Rho: "ρ", Sig: "σ", Tau: "τ", Ups: "υ", Phi: "φ", Chi: "χ", Psi: "ψ", Ome: "ω" };
+export function lettreDe(bf) {
+  const m = /(Alp|Bet|Gam|Del|Eps|Zet|Eta|The|Iot|Kap|Lam|Mu|Nu|Xi|Omi|Pi|Rho|Sig|Tau|Ups|Phi|Chi|Psi|Ome)/.exec(bf || "");
+  return m ? GRECQUES[m[1]] : null;
+}
+
+/* Les faits de la fiche, tous calculés : noms français et latin, hauteur et
+   direction à l'instant, heures où la constellation passe au-dessus de dix
+   degrés pendant la nuit noire, étoile la plus brillante, et mois où elle
+   culmine à minuit. Ce mois est celui où le Soleil se tient à l'opposé, à douze
+   heures d'ascension droite : il avance de deux heures par mois depuis
+   l'équinoxe de mars. Pas de récit mythologique, qui demanderait 88 textes à
+   écrire ou à reprendre d'une source protégée. */
+export function fiche(sigle, date, lat, lon, nuit = null) {
+  const n = donnees?.noms?.[sigle];
+  if (!n) return null;
+  const [nom, ra, dec, latin] = n;
+  const { hauteur, azimut } = surHorizon(ra, dec, jourJulien(date), lat, lon);
+  let visible = null;
+  if (nuit) {
+    let premiere = null, derniere = null, total = 0, dessus = 0;
+    for (let t = nuit.debut.getTime(); t <= nuit.fin.getTime(); t += 20 * 60000) {
+      total++;
+      if (surHorizon(ra, dec, jourJulien(new Date(t)), lat, lon).hauteur > 10) {
+        dessus++;
+        if (premiere === null) premiere = t;
+        derniere = t;
+      }
+    }
+    visible = dessus === 0 ? { jamais: true }
+      : dessus === total ? { toute: true }
+      : { debut: new Date(premiere), fin: new Date(derniere) };
+  }
+  const siennes = donnees.etoiles.filter(e => e[6] === sigle).sort((a, b) => a[2] - b[2]);
+  const b = siennes[0];
+  /* Une étoile ne se lève jamais quand sa hauteur au passage au méridien,
+     quatre-vingt-dix degrés moins l'écart entre la latitude et sa déclinaison,
+     reste négative : Achernar, la plus brillante de l'Éridan, à moins
+     cinquante-sept degrés, ne paraît jamais au-dessus de la France. */
+  const brillante = b ? { nom: b[4] || null, lettre: lettreDe(b[5]), mag: b[2],
+    jamais: 90 - Math.abs(lat - b[1]) < 0 } : null;
+  const jours = (((ra - 12) % 24) + 24) % 24 / 24 * 365.25;
+  const culmine = new Date(date.getFullYear(), 2, 21 + Math.round(jours));
+  return { sigle, nom, latin, hauteur, azimut, visible, brillante, moisCulmine: culmine.getMonth() };
+}

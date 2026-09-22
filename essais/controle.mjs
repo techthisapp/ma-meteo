@@ -8484,6 +8484,43 @@ ok("à voir ce soir, les constellations les plus hautes d'une nuit d'août",
   infosDit.vusHauts && ["Lyre", "Cygne"].every(n => infosDit.vus.slice(0, 3).includes(n)),
   infosDit.vus.join(", "));
 
+/* La fiche d'une constellation, vérifiée le 20 septembre 2026 à 22 h depuis
+   Paris, sur des constellations dont on connaît le ciel. */
+const ficheDit = await pgCiel.evaluate(() => (async () => {
+  const C = await import("/src/ciel.js");
+  const date = new Date("2026-09-20T22:00:00+02:00");
+  const nuit = { debut: new Date("2026-09-20T21:20:00+02:00"), fin: new Date("2026-09-21T05:40:00+02:00") };
+  const f = s => C.fiche(s, date, 48.86, 2.35, nuit);
+  const ori = f("Ori"), lyr = f("Lyr"), eri = f("Eri");
+  const figures = [{ sigle: "A", points: [{ x: 0, y: 0 }, { x: 1, y: 0 }] }];
+  const noms = [{ sigle: "B", x: 0.5, y: 0.5 }];
+  return {
+    ori: [ori.hauteur < 0, ori.moisCulmine, ori.brillante.nom, ori.visible?.debut ? ori.visible.debut.getHours() : null],
+    lyr: [lyr.hauteur > 45, lyr.moisCulmine, lyr.brillante.nom],
+    eri: [eri.brillante.nom, eri.brillante.jamais],
+    latin: f("UMa").latin,
+    designe: [C.designee(0.5, 0.02, figures, noms), C.designee(0.5, 0.46, figures, noms),
+      C.designee(3, 3, figures, noms)],
+    lettre: C.lettreDe("58Alp Ori"),
+  };
+})());
+
+ok("la fiche dit la hauteur, le mois du passage à minuit et l'étoile la plus brillante",
+  JSON.stringify(ficheDit.ori.slice(0, 3)) === '[true,11,"Rigel"]'
+  && ficheDit.ori[3] >= 0 && ficheDit.ori[3] <= 3
+  && JSON.stringify(ficheDit.lyr) === '[true,6,"Vega"]'
+  && ficheDit.latin === "Ursa Major",
+  `${JSON.stringify(ficheDit.ori)} ${JSON.stringify(ficheDit.lyr)} ${ficheDit.latin}`);
+
+ok("la fiche dit qu'une étoile ne se lève jamais ici",
+  JSON.stringify(ficheDit.eri) === '["Achernar",true]', JSON.stringify(ficheDit.eri));
+
+/* On touche une figure : le trait le plus proche d'abord, le nom à défaut, et
+   rien quand le toucher tombe loin de tout. */
+ok("le toucher désigne le trait le plus proche, puis le nom",
+  JSON.stringify(ficheDit.designe) === '["A","B",null]' && ficheDit.lettre === "α",
+  `${JSON.stringify(ficheDit.designe)} ${ficheDit.lettre}`);
+
 ok("le prochain essaim d'étoiles filantes, y compris d'une année sur l'autre",
   infosDit.aout === "Draconides 2026-10-8" && infosDit.decembre === "Quadrantides 2027-1-3",
   `${infosDit.aout} ; ${infosDit.decembre}`);
@@ -8634,6 +8671,50 @@ if (pleinOuvert) {
 ok("fermer rend l'écran des étoiles",
   await pgEt.evaluate(() => !document.getElementById("ciPleinEcran")
     && !!document.getElementById("ciBandeau")));
+
+/* Le toucher bref désigne, le glissement tourne. Le plein écran rouvert repart
+   de la vue fixe du bandeau, ce qui permet de viser le nom d'une constellation
+   à sa place calculée. */
+let ficheNom = "", ficheFermee = false, glisseDesigne = true;
+await pgEt.locator("#ciBandeau").click();
+await pgEt.waitForTimeout(700);
+if (await pgEt.locator("#ciPleinEcran").count() > 0) {
+  const cible = await pgEt.evaluate(async () => {
+    const C = await import("/src/ciel.js");
+    const r = document.getElementById("ciToilePE").getBoundingClientRect();
+    const unite = Math.min(r.width, r.height) / 2;
+    const bords = [r.width / 2 / unite, r.height / 2 / unite];
+    const n = C.nomsVus(new Date(), 47.5, 4.3, 180, 40, 60, bords)
+      .find(x => Math.abs(x.x) < 0.7 && Math.abs(x.y) < 0.7);
+    return n ? { x: r.left + r.width / 2 + n.x * unite, y: r.top + r.height / 2 + n.y * unite } : null;
+  });
+  if (cible) {
+    await pgEt.mouse.click(cible.x, cible.y);
+    await pgEt.waitForTimeout(400);
+    ficheNom = await pgEt.evaluate(() => {
+      const f = document.getElementById("ciFiche");
+      return f && !f.hidden ? f.querySelector(".ci-fiche-nom")?.textContent || "" : "";
+    });
+    if (ficheNom) await pgEt.locator("#ciFicheFermer").click();
+    await pgEt.waitForTimeout(200);
+    ficheFermee = await pgEt.evaluate(() => document.getElementById("ciFiche")?.hidden === true);
+    /* Un glissement court, parti du nom : le ciel suit le doigt, si bien qu'au
+       lâcher le nom est encore sous lui. Un glissement long finissait sur un
+       ciel vide, et même compté pour un toucher il ne désignait rien : la garde
+       ne voyait pas la faute. */
+    await pgEt.mouse.move(cible.x, cible.y);
+    await pgEt.mouse.down();
+    await pgEt.mouse.move(cible.x - 20, cible.y, { steps: 4 });
+    await pgEt.mouse.up();
+    await pgEt.waitForTimeout(300);
+    glisseDesigne = await pgEt.evaluate(() => document.getElementById("ciFiche")?.hidden === false);
+  }
+  await pgEt.locator("#ciFermer").click();
+}
+ok("un toucher bref désigne une constellation et ouvre sa fiche",
+  ficheNom.length > 0, ficheNom || "aucune fiche");
+ok("la fiche se ferme", ficheFermee);
+ok("un glissement tourne la vue sans rien désigner", ficheNom.length > 0 && !glisseDesigne);
 await ctxEt.close();
 
 /* ---------- Les feux sur la carte ----------

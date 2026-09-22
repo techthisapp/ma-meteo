@@ -1872,6 +1872,8 @@ const CARDINAUX = [[0, "N"], [45, "NE"], [90, "E"], [135, "SE"], [180, "S"],
   [225, "SO"], [270, "O"], [315, "NO"]];
 const DIRECTIONS = ["Nord", "Nord-est", "Est", "Sud-est", "Sud", "Sud-ouest", "Ouest", "Nord-ouest"];
 const directionDe = az => DIRECTIONS[Math.round((((az % 360) + 360) % 360) / 45) % 8];
+/* « l'est », « l'ouest », « le nord-est » : l'article suit la voyelle. */
+const articleDe = d => (/^[EO]/.test(d) ? "l'" : "le ") + d.toLowerCase();
 
 /* La visée, dite en plein écran pendant le glissement. Au-delà de 80 degrés,
    une direction ne veut plus rien dire : la vue est à la verticale. */
@@ -1919,8 +1921,10 @@ function peindreCiel(cv, vue, g, options = {}) {
   for (const f of Ciel.figuresVues(date, g.lat, g.lon, vue.az, vue.haut, vue.champ)) {
     c.beginPath();
     f.points.forEach((p, k) => { const [x, y] = ecran(p); if (k) c.lineTo(x, y); else c.moveTo(x, y); });
-    c.strokeStyle = "rgba(140, 170, 225, 0.45)";
-    c.lineWidth = 1;
+    /* La figure désignée se détache des autres, plus claire et plus épaisse. */
+    const choisie = f.sigle === vue.sel;
+    c.strokeStyle = choisie ? "rgba(210, 225, 255, 0.95)" : "rgba(140, 170, 225, 0.45)";
+    c.lineWidth = choisie ? 2 : 1;
     c.stroke();
   }
   for (const e of Ciel.etoilesVues(date, g.lat, g.lon, vue.az, vue.haut, vue.champ, affichage, bords)) {
@@ -2174,6 +2178,7 @@ export function vueEtoiles() {
             + `data-affichage="${cle}" aria-label="${long}" `
             + `aria-pressed="${cle === Reglages.affichageCiel()}">${court}</button>`).join("")
           + `</div>`
+          + `<div class="ci-fiche" id="ciFiche" role="dialog" aria-live="polite" hidden></div>`
           + `<div class="ci-fenetre" id="ciFenetre" hidden>${MENTIONS}`
           + `<button type="button" class="ci-bouton" id="ciFenetreFermer">Fermer</button></div>`;
         document.body.appendChild(fe);
@@ -2198,7 +2203,47 @@ export function vueEtoiles() {
           visee.textContent = viseeDe(vue.az, vue.haut);
           redessiner();
         });
-        const lacher = () => { depart = null; };
+        const ficheEl = fe.querySelector("#ciFiche");
+        const montrer = sigle => {
+          vue.sel = sigle;
+          if (!sigle) { ficheEl.hidden = true; redessiner(); return; }
+          const f = Ciel.fiche(sigle, new Date(), g.lat, g.lon, nuitNoire(new Date(), g));
+          if (!f) { ficheEl.hidden = true; return; }
+          const lieu = h => h < 0 ? "sous l'horizon"
+            : `${Math.round(h)}° vers ${articleDe(directionDe(f.azimut))}`;
+          const vis = !f.visible ? "" : f.visible.jamais ? "pas au-dessus de 10° cette nuit"
+            : f.visible.toute ? "toute la nuit noire"
+            : `de ${hm(f.visible.debut.getTime())} à ${hm(f.visible.fin.getTime())}`;
+          const etoile = f.brillante ? `${f.brillante.nom || f.brillante.lettre || "sans nom"}, `
+            + `magnitude ${f.brillante.mag.toFixed(1).replace(".", ",")}`
+            + (f.brillante.jamais ? ", ne se lève jamais ici" : "") : "";
+          const mois = new Date(2026, f.moisCulmine, 1).toLocaleDateString("fr-FR", { month: "long" });
+          ficheEl.innerHTML = `<p class="ci-fiche-nom">${esc(f.nom)}</p>`
+            + `<p class="ci-fiche-latin">${esc(f.latin || "")}</p>`
+            + `<dl><dt>Maintenant</dt><dd>${esc(lieu(f.hauteur))}</dd>`
+            + (vis ? `<dt>Cette nuit</dt><dd>${esc(vis)}</dd>` : "")
+            + (etoile ? `<dt>Étoile la plus brillante</dt><dd>${esc(etoile)}</dd>` : "")
+            + `<dt>Au plus haut à minuit</dt><dd>en ${esc(mois)}</dd></dl>`
+            + `<button type="button" class="ci-bouton" id="ciFicheFermer">Fermer</button>`;
+          ficheEl.querySelector("#ciFicheFermer").addEventListener("click", () => montrer(null));
+          ficheEl.hidden = false;
+          redessiner();
+        };
+        /* Un toucher sans mouvement désigne ; un glissement tourne la vue. */
+        const lacher = ev => {
+          const d = depart;
+          depart = null;
+          if (!d || !ev || Math.hypot(ev.clientX - d.x, ev.clientY - d.y) > 6) return;
+          const r = pe.getBoundingClientRect();
+          const unite = Math.min(r.width, r.height) / 2;
+          const ux = (ev.clientX - r.left - r.width / 2) / unite;
+          const uy = (ev.clientY - r.top - r.height / 2) / unite;
+          const bords = [r.width / 2 / unite + 0.05, r.height / 2 / unite + 0.05];
+          const date = new Date();
+          const figures = Ciel.figuresVues(date, g.lat, g.lon, vue.az, vue.haut, vue.champ);
+          const noms = Ciel.nomsVus(date, g.lat, g.lon, vue.az, vue.haut, vue.champ, bords);
+          montrer(Ciel.designee(ux, uy, figures, noms));
+        };
         pe.addEventListener("pointerup", lacher);
         pe.addEventListener("pointercancel", lacher);
         for (const b of fe.querySelectorAll("[data-affichage]")) {

@@ -108,6 +108,24 @@ PY
   25) # La liste reste vide après le chargement.
      perl -0pi -e 's/        const liste = bloc\.querySelector\("#ciAVoir"\);/        const liste = null;/' src/vues.js
      ATTENDU="à voir ce soir se remplit une fois le ciel chargé" ;;
+  26) # Le toucher ne regarde plus les traits, seulement les noms.
+     perl -0pi -e 's/  if \(proche && proche\.d <= seuilTrait\) return proche\.sigle;\n//' src/ciel.js
+     ATTENDU="le toucher désigne le trait le plus proche, puis le nom" ;;
+  27) # Le mois du passage à minuit décalé de six mois.
+     perl -0pi -e 's/  const jours = \(\(\(ra - 12\) % 24\) \+ 24\) % 24/  const jours = (((ra) % 24) + 24) % 24/' src/ciel.js
+     ATTENDU="la fiche dit la hauteur, le mois du passage à minuit et l.étoile la plus brillante" ;;
+  28) # L'étoile la plus faible prise pour la plus brillante.
+     perl -0pi -e 's/  const siennes = donnees\.etoiles\.filter\(e => e\[6\] === sigle\)\.sort\(\(a, b\) => a\[2\] - b\[2\]\);/  const siennes = donnees.etoiles.filter(e => e[6] === sigle).sort((a, b) => b[2] - a[2]);/' src/ciel.js
+     ATTENDU="la fiche dit la hauteur, le mois du passage à minuit et l.étoile la plus brillante" ;;
+  29) # Une étoile qui ne se lève jamais passe pour visible.
+     perl -0pi -e 's/    jamais: 90 - Math\.abs\(lat - b\[1\]\) < 0 \}/    jamais: false }/' src/ciel.js
+     ATTENDU="la fiche dit qu.une étoile ne se lève jamais ici" ;;
+  30) # Le toucher bref ne désigne plus rien.
+     perl -0pi -e 's/Math\.hypot\(ev\.clientX - d\.x, ev\.clientY - d\.y\) > 6\) return;/Math.hypot(ev.clientX - d.x, ev.clientY - d.y) >= 0) return;/' src/vues.js
+     ATTENDU="un toucher bref désigne une constellation et ouvre sa fiche" ;;
+  31) # Un glissement désigne aussi.
+     perl -0pi -e 's/Math\.hypot\(ev\.clientX - d\.x, ev\.clientY - d\.y\) > 6\) return;/Math.hypot(ev.clientX - d.x, ev.clientY - d.y) > 600) return;/' src/vues.js
+     ATTENDU="un glissement tourne la vue sans rien désigner" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

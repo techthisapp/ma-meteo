@@ -403,8 +403,11 @@ for (const theme of ["light", "dark"]) {
      en plein écran s'ouvre ainsi, depuis son bandeau. */
   if (process.env.CLIQUER) {
     await pg.waitForTimeout(1200);
-    await pg.locator(process.env.CLIQUER).click();
-    await pg.waitForTimeout(900);
+    /* Plusieurs touchers se séparent par une barre verticale. */
+    for (const sel of process.env.CLIQUER.split("|")) {
+      await pg.locator(sel).click();
+      await pg.waitForTimeout(900);
+    }
   }
 
   /* Le panneau des couches, ouvert pour la capture qui le montre. */
