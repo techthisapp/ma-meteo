@@ -126,6 +126,18 @@ PY
   31) # Un glissement désigne aussi.
      perl -0pi -e 's/Math\.hypot\(ev\.clientX - d\.x, ev\.clientY - d\.y\) > 6\) return;/Math.hypot(ev.clientX - d.x, ev.clientY - d.y) > 600) return;/' src/vues.js
      ATTENDU="un glissement tourne la vue sans rien désigner" ;;
+  32) # Les étoiles d'en dessous ne sont plus demandées : l'eau reste vide.
+     perl -0pi -e 's/    affichage, bords, true\);/    affichage, bords, false);/' src/vues.js
+     ATTENDU="sous l.horizon, une étendue d.eau laisse deviner les étoiles" ;;
+  33) # L'eau n'est plus posée : le dessous redevient le fond de la nuit.
+     perl -0pi -e 's/    c\.fillStyle = teinte;\n    c\.fill\(eau\);\n/    c.fillStyle = teinte;\n/' src/vues.js
+     ATTENDU="sous l.horizon, une étendue d.eau laisse deviner les étoiles" ;;
+  34) # Les étoiles d'en dessous ne sont plus marquées.
+     perl -0pi -e 's/figure, sous: hauteur < 0 \}\);/figure, sous: false });/' src/ciel.js
+     ATTENDU="sous l.horizon, les étoiles se rendent sur demande, marquées comme telles" ;;
+  35) # Les figures ne se prolongent plus sous l'horizon.
+     perl -0pi -e 's/        const p = dessous && !sousHorizon \? null/        const p = dessous ? null/' src/ciel.js
+     ATTENDU="les figures se prolongent sous l.horizon, et pas sans demande" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

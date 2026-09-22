@@ -8521,6 +8521,31 @@ ok("le toucher désigne le trait le plus proche, puis le nom",
   JSON.stringify(ficheDit.designe) === '["A","B",null]' && ficheDit.lettre === "α",
   `${JSON.stringify(ficheDit.designe)} ${ficheDit.lettre}`);
 
+/* Sous l'horizon, les étoiles se voient à travers l'eau. Le module les rend
+   sur demande, marquées, et garde sans demande le contrat d'origine. */
+const eauDit = await pgCiel.evaluate(async () => {
+  const C = await import("/src/ciel.js");
+  const date = new Date("2026-09-20T22:00:00+02:00");
+  const sans = C.etoilesVues(date, 48.86, 2.35, 180, 40, 60, "visibles", [0.6, 1.1], false);
+  const avec = C.etoilesVues(date, 48.86, 2.35, 180, 40, 60, "visibles", [0.6, 1.1], true);
+  const sous = avec.filter(x => x.sous);
+  const fig = C.figuresVues(date, 48.86, 2.35, 180, 40, 60, true);
+  return {
+    sans: sans.length, avec: avec.length, sous: sous.length,
+    sousNegatifs: sous.every(x => x.hauteur < 0),
+    dessusPositifs: avec.filter(x => !x.sous).every(x => x.hauteur >= 0),
+    figSous: fig.filter(x => x.sous).length,
+    figDefaut: C.figuresVues(date, 48.86, 2.35, 180, 40, 60).filter(x => x.sous).length,
+  };
+});
+ok("sous l'horizon, les étoiles se rendent sur demande, marquées comme telles",
+  eauDit.sous > 5 && eauDit.sousNegatifs && eauDit.dessusPositifs
+  && eauDit.avec === eauDit.sans + eauDit.sous,
+  `${eauDit.sous} sous l'horizon, ${eauDit.sans} sans demande, ${eauDit.avec} avec`);
+ok("les figures se prolongent sous l'horizon, et pas sans demande",
+  eauDit.figSous > 5 && eauDit.figDefaut === 0,
+  `${eauDit.figSous} tronçons sous l'eau, ${eauDit.figDefaut} sans demande`);
+
 ok("le prochain essaim d'étoiles filantes, y compris d'une année sur l'autre",
   infosDit.aout === "Draconides 2026-10-8" && infosDit.decembre === "Quadrantides 2027-1-3",
   `${infosDit.aout} ; ${infosDit.decembre}`);
@@ -8607,6 +8632,34 @@ ok("un toucher sur le bandeau ouvre le ciel en plein écran",
     const r = fe.getBoundingClientRect();
     return r.width >= window.innerWidth - 1 && r.height >= window.innerHeight - 1
       ? "" : `${r.width} sur ${r.height}`;
+  }) === "");
+
+/* L'eau se mesure au pixel sous l'horizon : sa teinte relève le vert au-dessus
+   du fond de la nuit, et les étoiles d'en dessous y font des taches plus
+   claires que l'eau de leur rangée. Les traits des figures, plus pâles, ne
+   passent pas ce seuil. */
+ok("sous l'horizon, une étendue d'eau laisse deviner les étoiles",
+  await pgEt.evaluate(() => {
+    const cv = document.getElementById("ciToilePE");
+    if (!cv) return "pas de plein écran";
+    const ctx = cv.getContext("2d");
+    const y0 = Math.round(cv.height * 0.72), y1 = Math.round(cv.height * 0.88);
+    const d = ctx.getImageData(0, y0, cv.width, y1 - y0).data;
+    let vert = 0, n = 0, clairs = 0;
+    for (let y = 0; y < y1 - y0; y++) {
+      let base = Infinity;
+      for (let x = 0; x < cv.width; x++) {
+        const i = (y * cv.width + x) * 4;
+        base = Math.min(base, d[i] + d[i + 1] + d[i + 2]);
+      }
+      for (let x = 0; x < cv.width; x++) {
+        const i = (y * cv.width + x) * 4;
+        vert += d[i + 1]; n++;
+        if (d[i] + d[i + 1] + d[i + 2] > base + 40) clairs++;
+      }
+    }
+    const vm = vert / n;
+    return vm > 30 && clairs > 20 ? "" : `vert moyen ${vm.toFixed(0)}, ${clairs} points clairs`;
   }) === "");
 
 ok("le plein écran dit qu'il fait jour quand le Soleil efface les étoiles",

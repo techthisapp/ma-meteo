@@ -129,18 +129,22 @@ export function couleur(ci) {
 /* Les étoiles visibles dans le champ, prêtes à peindre. Rend leurs positions
    d'écran en unités du rayon, à charge de l'appelant de les mettre à l'échelle.
    Une étoile sous l'horizon est écartée : la voûte s'arrête au sol. */
+/* Sous l'horizon, décidé le 21 septembre 2026, les étoiles se voient à travers
+   une étendue d'eau, pâlies et floutées. Le module les rend alors aussi,
+   marquées `sous`, quand on le lui demande ; sans cette demande, le contrat
+   reste celui d'origine et la voûte s'arrête au sol. */
 export function etoilesVues(date, lat, lon, azCentre, hautCentre, champ = 60,
-  affichage = "toutes", bords = [1.2, 1.2]) {
+  affichage = "toutes", bords = [1.2, 1.2], sousHorizon = false) {
   if (!donnees) return [];
   const jj = jourJulien(date);
   const out = [];
   for (const [ra, dec, mag, ci, nom, bf, con, figure] of donnees.etoiles) {
     if (!retenue(affichage, mag, figure)) continue;
     const { hauteur, azimut } = surHorizon(ra, dec, jj, lat, lon);
-    if (hauteur < 0) continue;
+    if (hauteur < 0 && !sousHorizon) continue;
     const p = projeter(azimut, hauteur, azCentre, hautCentre, champ);
     if (!p || Math.abs(p.x) > bords[0] || Math.abs(p.y) > bords[1]) continue;
-    out.push({ x: p.x, y: p.y, hauteur, mag, ci, nom, bf, con, figure });
+    out.push({ x: p.x, y: p.y, hauteur, mag, ci, nom, bf, con, figure, sous: hauteur < 0 });
   }
   return out;
 }
@@ -148,20 +152,34 @@ export function etoilesVues(date, lat, lon, azCentre, hautCentre, champ = 60,
 /* Les segments des figures, coupés à l'horizon. Un trait dont une extrémité est
    sous le sol n'est pas tracé : le prolonger dessinerait une constellation à
    moitié enterrée. */
-export function figuresVues(date, lat, lon, azCentre, hautCentre, champ = 60) {
+export function figuresVues(date, lat, lon, azCentre, hautCentre, champ = 60,
+  sousHorizon = false) {
   if (!donnees) return [];
   const jj = jourJulien(date);
   const out = [];
   for (const [sigle, segments] of Object.entries(donnees.figures)) {
     for (const seg of segments) {
-      let courant = [];
+      /* Sous l'eau demandée, un trait se coupe en tronçons de part et d'autre
+         de l'horizon, chacun marqué ; le point de passage appartient aux deux,
+         pour que le trait ne se brise pas à la surface. */
+      let courant = [], sous = null;
       for (const [ra, dec] of seg) {
         const { hauteur, azimut } = surHorizon(ra, dec, jj, lat, lon);
-        const p = hauteur < 0 ? null : projeter(azimut, hauteur, azCentre, hautCentre, champ);
-        if (!p) { if (courant.length > 1) out.push({ sigle, points: courant }); courant = []; continue; }
+        const dessous = hauteur < 0;
+        const p = dessous && !sousHorizon ? null
+          : projeter(azimut, hauteur, azCentre, hautCentre, champ);
+        if (!p) {
+          if (courant.length > 1) out.push({ sigle, points: courant, sous: !!sous });
+          courant = []; sous = null; continue;
+        }
+        if (sous !== null && dessous !== sous) {
+          if (courant.length > 1) out.push({ sigle, points: courant, sous });
+          courant = [courant[courant.length - 1]];
+        }
+        sous = dessous;
         courant.push(p);
       }
-      if (courant.length > 1) out.push({ sigle, points: courant });
+      if (courant.length > 1) out.push({ sigle, points: courant, sous: !!sous });
     }
   }
   return out;

@@ -1918,16 +1918,46 @@ function peindreCiel(cv, vue, g, options = {}) {
      qu'en largeur, et un cadre carré laissait vide le haut du plein écran. */
   const bords = [l / 2 / unite + 0.05, h / 2 / unite + 0.05];
 
-  for (const f of Ciel.figuresVues(date, g.lat, g.lon, vue.az, vue.haut, vue.champ)) {
+  const figures = Ciel.figuresVues(date, g.lat, g.lon, vue.az, vue.haut, vue.champ, true);
+  const etoiles = Ciel.etoilesVues(date, g.lat, g.lon, vue.az, vue.haut, vue.champ,
+    affichage, bords, true);
+  const tracer = (f, couleur, epaisseur) => {
     c.beginPath();
     f.points.forEach((p, k) => { const [x, y] = ecran(p); if (k) c.lineTo(x, y); else c.moveTo(x, y); });
-    /* La figure désignée se détache des autres, plus claire et plus épaisse. */
-    const choisie = f.sigle === vue.sel;
-    c.strokeStyle = choisie ? "rgba(210, 225, 255, 0.95)" : "rgba(140, 170, 225, 0.45)";
-    c.lineWidth = choisie ? 2 : 1;
+    c.strokeStyle = couleur;
+    c.lineWidth = epaisseur;
     c.stroke();
+  };
+
+  /* Sous l'horizon d'abord : les étoiles et les traits qui s'y trouvent se
+     voient à travers l'eau posée ensuite par-dessus. Chaque étoile y est un
+     disque aux bords fondus par un dégradé radial, ce qui donne le flou sans
+     dépendre du filtre de la toile, que Safari ne gère que depuis peu : le
+     rendu est le même partout et se vérifie dans les contrôles. L'eau filtre la
+     couleur, d'où une seule teinte pâle. */
+  for (const f of figures) if (f.sous) tracer(f, "rgba(140, 170, 225, 0.22)", 1);
+  for (const e of etoiles) {
+    if (!e.sous) continue;
+    const [x, y] = ecran(e);
+    const r = Ciel.rayon(e.mag, unite / 170) * 2.6 + 1;
+    const flou = c.createRadialGradient(x, y, 0, x, y, r);
+    flou.addColorStop(0, "rgba(205, 225, 245, 0.6)");
+    flou.addColorStop(1, "rgba(205, 225, 245, 0)");
+    c.fillStyle = flou;
+    c.beginPath();
+    c.arc(x, y, r, 0, 2 * Math.PI);
+    c.fill();
   }
-  for (const e of Ciel.etoilesVues(date, g.lat, g.lon, vue.az, vue.haut, vue.champ, affichage, bords)) {
+
+  /* Au-dessus : la figure désignée se détache des autres, plus claire et plus
+     épaisse. */
+  for (const f of figures) {
+    if (f.sous) continue;
+    const choisie = f.sigle === vue.sel;
+    tracer(f, choisie ? "rgba(210, 225, 255, 0.95)" : "rgba(140, 170, 225, 0.45)", choisie ? 2 : 1);
+  }
+  for (const e of etoiles) {
+    if (e.sous) continue;
     const [x, y] = ecran(e);
     c.beginPath();
     c.arc(x, y, Ciel.rayon(e.mag, unite / 170), 0, 2 * Math.PI);
@@ -1952,7 +1982,10 @@ function peindreCiel(cv, vue, g, options = {}) {
     c.fillText(n.nom, x, y);
   }
 
-  /* Le sol : l'horizon projeté, et tout ce qui est dessous couvert. */
+  /* L'eau : l'horizon projeté, et dessous une étendue teintée, plus sombre en
+     s'éloignant, à travers laquelle se devine ce qui a été peint plus haut. Une
+     ligne claire marque la surface, et quelques rides qui se resserrent vers
+     l'horizon donnent la profondeur. */
   const bord = [];
   for (let az = 0; az <= 360; az += 3) {
     const p = Ciel.projeter(az, 0, vue.az, vue.haut, vue.champ);
@@ -1960,13 +1993,32 @@ function peindreCiel(cv, vue, g, options = {}) {
   }
   if (bord.length > 1) {
     bord.sort((a, b) => a[0] - b[0]);
+    const eau = new Path2D();
+    eau.moveTo(-10, h + 10);
+    for (const [x, y] of bord) eau.lineTo(x, y);
+    eau.lineTo(l + 10, h + 10);
+    eau.closePath();
+    const surface = Math.max(0, Math.min(...bord.map(p => p[1])));
+    const teinte = c.createLinearGradient(0, surface, 0, h);
+    teinte.addColorStop(0, "rgba(34, 74, 104, 0.62)");
+    teinte.addColorStop(1, "rgba(10, 30, 48, 0.86)");
+    c.fillStyle = teinte;
+    c.fill(eau);
+    c.save();
+    c.clip(eau);
+    c.strokeStyle = "rgba(210, 230, 250, 0.05)";
+    c.lineWidth = 1;
+    for (let k = 1; k <= 7; k++) {
+      const y = surface + k * k * 5;
+      if (y > h) break;
+      c.beginPath(); c.moveTo(0, y); c.lineTo(l, y); c.stroke();
+    }
+    c.restore();
     c.beginPath();
-    c.moveTo(-10, h + 10);
-    for (const [x, y] of bord) c.lineTo(x, y);
-    c.lineTo(l + 10, h + 10);
-    c.closePath();
-    c.fillStyle = "#1a2419";
-    c.fill();
+    bord.forEach(([x, y], k) => { if (k) c.lineTo(x, y); else c.moveTo(x, y); });
+    c.strokeStyle = "rgba(180, 205, 235, 0.35)";
+    c.lineWidth = 1;
+    c.stroke();
   }
   c.fillStyle = "rgba(220, 230, 245, 0.9)";
   c.font = "600 12px -apple-system, system-ui, sans-serif";
