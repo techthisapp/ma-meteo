@@ -1192,6 +1192,36 @@ ok("sans avis, la bande et les chiffres du jour tiennent dans la première vue",
   `${sansAvis.reste === null ? "élément manquant" : sansAvis.reste.toFixed(0) + " points"}, `
   + `${sansAvis.masques} avis masqués pour la mesure`);
 
+/* Jalon 10, lot 3 : la bande et la suite de la page ne doivent pas se
+   contredire. La première version de la bande comptait les heures à fort
+   risque sans quantité, et annonçait une pluie de 2 h à 8 h quand « Demain et
+   après-demain » disait de 03 h à 06 h pour la même averse. Et le risque d'une
+   période de la table est le plus fort de ses heures : une maquette montrait
+   100 % pour un après-midi dont les heures disaient 80 et 90 %. */
+const accordDit = await pg.evaluate(async () => {
+  const B = await import("/src/bande.js");
+  const E = await import("/src/ecritures.js");
+  const heure = Array.from({ length: 24 }, (_, k) => (9 + k) % 24);
+  const s = { n: 24, heure, mm: heure.map(h => h >= 3 && h <= 5 ? 1.8 : 0),
+    pb: heure.map(h => h >= 2 && h <= 7 ? 68 : 8), raf: heure.map(() => 40),
+    t: heure.map(() => 15), v: heure.map(() => 20), code: heure.map(() => 3), clair: heure.map(() => 1) };
+  const h13 = Array.from({ length: 24 }, (_, k) => (13 + k) % 24);
+  const m = { n: 24, heure: h13, jour: h13.map((h, k) => (13 + k < 24 ? 0 : 1)),
+    t: h13.map(() => 20), mm: h13.map(() => 0), hum: h13.map(() => 70), raf: h13.map(() => 20),
+    v: h13.map(() => 10), uv: h13.map(() => 0), code: h13.map(() => 3), clair: h13.map(() => 1),
+    pb: h13.map(h => ({ 13: 10, 14: 20, 15: 80, 16: 90, 17: 90 })[h] ?? 5) };
+  const html = E.moments(m);
+  const ligne = html.split('<span class="mt-l">Risque</span>')[1]?.split('<span class="mt-l">')[0] || "";
+  const risques = [...ligne.matchAll(/class="mt-v">(\d+) %</g)].map(x => Number(x[1]));
+  return { phrase: B.phraseBande(s), plages: JSON.stringify(B.plagesDePluie(s)), apresMidi: risques[0] };
+});
+ok("la bande dit les mêmes heures de pluie que la suite de la page",
+  accordDit.plages === "[[18,20]]"
+  && accordDit.phrase === "Pluie cette nuit de 03 h à 06 h, 5,4 mm.",
+  `${accordDit.plages} ${accordDit.phrase}`);
+ok("le risque d'une période est le plus fort de ses heures",
+  accordDit.apresMidi === 90, `${accordDit.apresMidi} % pour l'après-midi`);
+
 /* Les deux décisions du lot 2, vérifiées pour elles-mêmes : dans la fenêtre des
    contrôles, sans avis, la marge est assez large pour qu'un ciel d'origine ou
    des chiffres sur deux colonnes tiennent encore, et la garde du premier écran

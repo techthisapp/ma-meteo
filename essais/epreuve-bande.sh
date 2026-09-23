@@ -42,12 +42,20 @@ case "$N" in
   8) # Les chiffres repassent sur deux colonnes quelle que soit la taille du texte.
      perl -0pi -e 's/\@container \(max-width:18rem\)\{\n  \.bd-mesures\{/\@container (max-width:60rem){\n  .bd-mesures{/' styles.css
      ATTENDU="les quatre chiffres du jour tiennent sur une ligne en taille ordinaire" ;;
+  9) # La bande compte de nouveau les heures à fort risque sans quantité, le
+     # défaut qui la faisait contredire la suite de la page.
+     perl -0pi -e 's/export const pluvieuse = \(s, k\) => \(s\.mm\[k\] \?\? 0\) >= SEUIL_LAME;/export const pluvieuse = (s, k) => (s.mm[k] ?? 0) >= SEUIL_LAME || (s.pb[k] ?? 0) >= 50;/' src/bande.js
+     ATTENDU="la bande dit les mêmes heures de pluie que la suite de la page" ;;
+  10) # Le risque d'une période devient la moyenne de ses heures.
+     perl -0pi -e 's/      pb: max\(k => s\.pb\[k\]\),/      pb: moy(k => s.pb[k]),/' src/ecritures.js
+     ATTENDU="le risque d.une période est le plus fort de ses heures" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
 if diff -q "$OLD/src/bande.js" src/bande.js >/dev/null \
   && diff -q "$OLD/src/app.js" src/app.js >/dev/null \
-  && diff -q "$OLD/styles.css" styles.css >/dev/null; then
+  && diff -q "$OLD/styles.css" styles.css >/dev/null \
+  && diff -q "$OLD/src/ecritures.js" src/ecritures.js >/dev/null; then
   echo "FAUTE $N NON APPLIQUÉE"; exit 3
 fi
 

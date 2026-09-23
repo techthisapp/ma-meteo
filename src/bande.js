@@ -17,34 +17,30 @@
 import { icoCiel, icoTemps, ico } from "./icones.js";
 import { esc } from "./horloge.js";
 import * as Astres from "./astres.js";
+import { plagesDe, SEUIL_LAME } from "./previsions.js";
 
 export const HEURES = 24;
 export const LARGEUR_HEURE = 56;
 export const LARGEUR_SOLEIL = 46;
 export const SEUIL_RISQUE = 20;
-/* Une heure compte comme pluvieuse dès un dixième de millimètre, le seuil que
-   l'accueil retient pour dire une quantité, ou dès un risque d'une chance sur
-   deux. */
-export const SEUIL_MM = 0.1;
-export const SEUIL_PLUIE = 50;
+/* Une heure compte comme pluvieuse quand il y tombe au moins la lame d'eau
+   que le reste de l'application retient, un dixième de millimètre, et par la
+   même fonction de plages que « Demain et après-demain ». La première version
+   comptait aussi les heures à fort risque sans quantité : la bande annonçait
+   alors une pluie de 2 h à 8 h quand la suite de la page disait de 03 h à 06 h
+   pour la même averse. La règle partagée rend l'accord certain. */
+export const SEUIL_MM = SEUIL_LAME;
 export const SEUIL_RAFALES = 50;
 
-export const pluvieuse = (s, k) =>
-  (s.mm[k] ?? 0) >= SEUIL_MM || (s.pb[k] ?? 0) >= SEUIL_PLUIE;
+export const pluvieuse = (s, k) => (s.mm[k] ?? 0) >= SEUIL_LAME;
 
 /* Les plages de pluie, en rangs de la série : [début, fin] inclus. */
 export function plagesDePluie(s, n = Math.min(HEURES, s.n)) {
-  const out = [];
-  let debut = null;
-  for (let k = 0; k < n; k++) {
-    if (pluvieuse(s, k)) { if (debut === null) debut = k; }
-    else if (debut !== null) { out.push([debut, k - 1]); debut = null; }
-  }
-  if (debut !== null) out.push([debut, n - 1]);
-  return out;
+  return plagesDe(n, k => pluvieuse(s, k));
 }
 
-const heureDite = h => `${h} h`;
+/* Les heures sur deux chiffres, comme dans le reste de la page. */
+const heureDite = h => `${String(h).padStart(2, "0")} h`;
 const momentDe = h => h < 6 ? "cette nuit" : h < 12 ? "ce matin"
   : h < 18 ? "cet après-midi" : "ce soir";
 
