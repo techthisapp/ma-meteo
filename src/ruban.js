@@ -1012,6 +1012,10 @@ export function brancher(bloc, surVoie) {
     }
   };
 
+  /* Une heure posée avant le rendu, depuis une heure touchée dans la bande de
+     l'accueil : sa lecture s'affiche d'emblée, et le premier relâchement du
+     doigt l'efface comme toute autre. Jalon 10, lot 5. */
+  if (heureLue >= 0 && heureLue < s.n) lire(heureLue);
   const relacher = () => {
     heureLue = -1;
     for (const v of bloc.querySelectorAll(".mg-v")) {
@@ -1097,10 +1101,19 @@ export function brancher(bloc, surVoie) {
       if (!g) return;
       const px = (dx / svg.getBoundingClientRect().width) * L;
       const h = Math.round(-px / LA);
-      deporter(0);
-      if (!h) return;
+      if (!h) { deporter(0); return; }
+      /* Le dessin reste là où le rendu suivant va le poser, à l'heure entière
+         la plus proche, puis le rendu le remplace à l'identique. La première
+         version remettait la translation à zéro avant de redessiner : les
+         courbes revenaient en arrière puis sautaient en avant au rendu, la
+         saccade relevée sur l'appareil le 23 septembre 2026. Le glissement réel
+         peut être plus court que demandé, borné par le bout de l'horizon. */
+      const avant = decalage;
       glisser(h);
-      surVoie();
+      const reel = decalage - avant;
+      deporter(-reel * LA);
+      if (!reel) return;
+      requestAnimationFrame(() => surVoie());
     };
     svg.addEventListener("pointerup", fin);
     svg.addEventListener("pointercancel", fin);

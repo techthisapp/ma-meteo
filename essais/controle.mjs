@@ -1222,6 +1222,87 @@ ok("la bande dit les mêmes heures de pluie que la suite de la page",
 ok("le risque d'une période est le plus fort de ses heures",
   accordDit.apresMidi === 90, `${accordDit.apresMidi} % pour l'après-midi`);
 
+/* Jalon 10, lot 5 : « Le temps » en page de détail depuis l'accueil. Les gestes
+   ramènent la page des contrôles à l'accueil en fin de bloc. */
+await pg.evaluate(() => window.scrollTo({ top: 260, behavior: "instant" }));
+await pg.waitForTimeout(150);
+const yQuitte = await pg.evaluate(() => Math.round(window.scrollY));
+const heureBande = await pg.evaluate(() =>
+  (document.querySelector('#bande [data-heure="5"]')?.getAttribute("aria-label") || "").split(",")[0]);
+await pg.locator('#bande [data-heure="5"]').click();
+await pg.waitForTimeout(700);
+const detailDit = await pg.evaluate(() => ({
+  retour: !!document.getElementById("btnRetour"),
+  titre: document.querySelector("#ecran h1")?.textContent || "",
+  accueilCourant: document.querySelector('[data-onglet="accueil"]')?.getAttribute("aria-current") === "page",
+  lecture: document.querySelector('.mg-v[data-cle="t"] .mg-r')?.textContent || "",
+}));
+ok("une heure touchée dans la bande ouvre le temps en page de détail",
+  detailDit.retour && /temps/i.test(detailDit.titre) && detailDit.accueilCourant,
+  JSON.stringify(detailDit));
+ok("le ruban s'y cale sur l'heure touchée",
+  heureBande !== "" && detailDit.lecture.startsWith(heureBande.replace(/^0/, ""))
+  || detailDit.lecture.startsWith(heureBande),
+  `bande « ${heureBande} », ruban « ${detailDit.lecture} »`);
+await pg.locator("#btnRetour").click();
+await pg.waitForTimeout(600);
+const retourDit = await pg.evaluate(() => ({
+  accueil: !!document.getElementById("bande") && !document.getElementById("btnRetour"),
+  y: Math.round(window.scrollY),
+}));
+ok("le retour ramène l'accueil à l'endroit quitté",
+  retourDit.accueil && Math.abs(retourDit.y - yQuitte) <= 2,
+  `accueil ${retourDit.accueil}, ${retourDit.y} contre ${yQuitte}`);
+
+/* Ouvert sans heure, le ruban ne garde aucune lecture d'une ouverture
+   précédente. Puis le glissement : au lâcher, le dessin doit rester à l'heure
+   entière où le rendu le pose ; le remettre à zéro avant de redessiner faisait
+   revenir les courbes en arrière puis sauter, la saccade relevée sur
+   l'appareil. Un observateur relève la translation du dessin jusqu'au rendu. */
+await pg.locator("#bande .bande-plus").click();
+await pg.waitForTimeout(700);
+const sansLecture = await pg.evaluate(() =>
+  [...document.querySelectorAll(".mg-cur")].every(c => c.hasAttribute("hidden")));
+ok("sans heure désignée, aucune lecture ne reste d'une ouverture précédente", sansLecture);
+await pg.evaluate(() => {
+  window.__tr = [];
+  const g = document.querySelector(".mg-mob");
+  new MutationObserver(() => window.__tr.push(g.getAttribute("transform") || ""))
+    .observe(g, { attributes: true, attributeFilter: ["transform"] });
+});
+const tracé = await pg.locator(".mg-s").first().boundingBox();
+if (tracé) {
+  const y = tracé.y + tracé.height / 2, x = tracé.x + tracé.width * 0.7;
+  await pg.mouse.move(x, y);
+  await pg.mouse.down();
+  await pg.mouse.move(x - 40, y, { steps: 3 });
+  await pg.mouse.move(x - 120, y, { steps: 4 });
+  await pg.mouse.up();
+  await pg.waitForTimeout(500);
+}
+const translations = await pg.evaluate(() => window.__tr || []);
+ok("au lâcher d'un glissement, le dessin reste là où le rendu le pose",
+  translations.length > 2 && /^translate\(-?\d/.test(translations[translations.length - 1])
+  && translations[translations.length - 1] !== "translate(0.00,0)",
+  `dernières : ${translations.slice(-3).map(t => t || "zéro").join(" | ")}`);
+
+/* Un onglet referme la page de détail, comme sur iPhone. */
+await pg.locator('[data-onglet="semaine"]').click();
+await pg.waitForTimeout(400);
+await pg.locator('[data-onglet="accueil"]').click();
+await pg.waitForTimeout(600);
+ok("un onglet referme la page de détail",
+  await pg.evaluate(() => !!document.getElementById("bande") && !document.getElementById("btnRetour")));
+/* Le ruban garde son état d'un rendu à l'autre : la fenêtre glissée, la voie
+   ouverte et la lecture posée ici survivraient jusqu'aux sections du ruban, qui
+   supposent une fenêtre calée sur maintenant et en dépendaient. Le bloc rend ce
+   qu'il a pris. */
+await pg.evaluate(async () => {
+  const R = await import("/src/ruban.js");
+  R.auMaintenant(); R.poserHeure(-1); R.poserVoie(null);
+  window.scrollTo({ top: 0, behavior: "instant" });
+});
+
 /* Les deux décisions du lot 2, vérifiées pour elles-mêmes : dans la fenêtre des
    contrôles, sans avis, la marge est assez large pour qu'un ciel d'origine ou
    des chiffres sur deux colonnes tiennent encore, et la garde du premier écran

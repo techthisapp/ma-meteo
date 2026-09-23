@@ -49,13 +49,29 @@ case "$N" in
   10) # Le risque d'une période devient la moyenne de ses heures.
      perl -0pi -e 's/      pb: max\(k => s\.pb\[k\]\),/      pb: moy(k => s.pb[k]),/' src/ecritures.js
      ATTENDU="le risque d.une période est le plus fort de ses heures" ;;
+  11) # L'heure touchée ne cale plus le ruban.
+     perl -0pi -e 's/        Ruban\.poserHeure\(cible\);\n//' src/app.js
+     ATTENDU="le ruban s.y cale sur l.heure touchée" ;;
+  12) # Le retour renvoie en haut de l'accueil.
+     perl -0pi -e 's/  rendre\(\);\n  window\.scrollTo\(\{ top: y, behavior: "instant" \}\);/  rendre();\n  window.scrollTo({ top: 0, behavior: "instant" });/' src/app.js
+     ATTENDU="le retour ramène l.accueil à l.endroit quitté" ;;
+  13) # Un onglet ne referme plus la page de détail.
+     perl -0pi -e 's/  if \(detail\) detail = null;\n  onglet = nom;/  onglet = nom;/' src/app.js
+     ATTENDU="un onglet referme la page de détail" ;;
+  14) # Une lecture reste d'une ouverture précédente.
+     perl -0pi -e 's/    if \(heure === null\) Ruban\.poserHeure\(-1\);\n//' src/app.js
+     ATTENDU="sans heure désignée, aucune lecture ne reste d.une ouverture précédente" ;;
+  15) # Le dessin revient à zéro avant le rendu : la saccade du glissement.
+     perl -0pi -e 's/      deporter\(-reel \* LA\);/      deporter(0);/' src/ruban.js
+     ATTENDU="au lâcher d.un glissement, le dessin reste là où le rendu le pose" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
 if diff -q "$OLD/src/bande.js" src/bande.js >/dev/null \
   && diff -q "$OLD/src/app.js" src/app.js >/dev/null \
   && diff -q "$OLD/styles.css" styles.css >/dev/null \
-  && diff -q "$OLD/src/ecritures.js" src/ecritures.js >/dev/null; then
+  && diff -q "$OLD/src/ecritures.js" src/ecritures.js >/dev/null \
+  && diff -q "$OLD/src/ruban.js" src/ruban.js >/dev/null; then
   echo "FAUTE $N NON APPLIQUÉE"; exit 3
 fi
 

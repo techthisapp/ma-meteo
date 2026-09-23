@@ -2065,3 +2065,12 @@ button.rangee:active{background:var(--surface-2)}
 @container (max-width:18rem){
   [data-bloc="jour"] .bd-chev{display:block}
 }
+
+/* Le retour d'une page de détail, en haut à gauche comme sur iPhone : le
+   chevron et le nom de l'écran d'où l'on vient, en couleur d'accent. */
+.retour{
+  display:inline-flex;align-items:center;gap:2px;min-height:var(--touche);
+  margin:0 0 -8px -6px;padding:0 6px 0 0;background:none;border:0;
+  font:inherit;font-size:var(--texte-corps);color:var(--accent);
+}
+.retour-ic{width:22px;height:22px;transform:rotate(90deg);stroke-width:2.2}

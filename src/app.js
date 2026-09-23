@@ -76,6 +76,16 @@ const ONGLETS = [
 ];
 
 let onglet = "accueil";
+/* La page de détail ouverte depuis l'accueil, ou null. Voir allerAuDetail. */
+let detail = null;
+/* L'application restaure elle-même le défilement au retour d'une page de
+   détail. Laissé au navigateur, le retour tombait juste parce que le
+   navigateur rétablissait la position de l'entrée d'historique, par-dessus ce
+   que faisait l'application : le bon comportement dépendait de lui, et une
+   restauration fausse dans le code passait inaperçue. */
+if (typeof history !== "undefined" && "scrollRestoration" in history) {
+  history.scrollRestoration = "manual";
+}
 let charge = "vide";           // vide, chargement, pret, erreur
 let pile = [];
 let vueCourante = null;
@@ -725,6 +735,9 @@ function rendre() {
       titre: nom, sous: "",
       corps: onglet === "accueil" ? ossatureAccueil() : etatChargement(),
     };
+  } else if (onglet === "accueil" && detail) {
+    f = ecranVue("temps");
+    f.retour = true;
   } else if (onglet === "accueil") {
     f = ecranAccueil();
   } else {
@@ -746,8 +759,14 @@ function rendre() {
   ecran.classList.toggle("plein-cadre", f.pleinCadre === true);
   ecran.classList.toggle("ecran-carte", f.carte === true);
   ecran.classList.toggle("ecran-large", f.large === true);
-  ecran.innerHTML = (f.pleinCadre || f.carte ? "" : titreEcran(f.titre, f.sous, f.cote))
+  ecran.classList.toggle("ecran-detail", f.retour === true);
+  ecran.innerHTML = (f.retour
+      ? `<button type="button" class="retour" id="btnRetour">`
+        + ico("chevron_bas", "retour-ic") + `<span>Accueil</span></button>` : "")
+    + (f.pleinCadre || f.carte ? "" : titreEcran(f.titre, f.sous, f.cote))
     + f.corps;
+  const retour = ecran.querySelector("#btnRetour");
+  if (retour) retour.addEventListener("click", () => history.back());
   if (typeof f.brancher === "function") f.brancher(ecran);
   if (y) window.scrollTo({ top: y, behavior: "instant" });
 
@@ -770,6 +789,9 @@ function poserOnglet(nom) {
      appuie de nouveau dessus. La carte s'ouvre alors sur la France entière. Sur
      les autres écrans, l'appui répété n'a rien à défaire. */
   if (nom === "carte") ctx.cadreCarte = null;
+  /* Toucher un onglet referme la page de détail, comme sur iPhone : l'onglet
+     courant ramène à sa racine. */
+  if (detail) detail = null;
   onglet = nom;
   for (const b of $("onglets").children) {
     const actif = b.dataset.onglet === onglet;
@@ -1148,10 +1170,47 @@ $("voile").addEventListener("click", () => history.back());
 /* Un chiffre de l'accueil mène à ses vingt-quatre heures : l'écran du temps
    s'ouvre en ruban, sur la voie correspondante déjà dépliée, et la page se
    place dessus. */
-function allerAuDetail(cle) {
+/* « Le temps » en page de détail, jalon 10, lot 5. Depuis l'accueil, le détail
+   s'ouvre comme une page d'iPhone : l'onglet Accueil reste le courant, un
+   retour en haut à gauche ramène à l'accueil à l'endroit qu'on avait quitté,
+   et l'historique du navigateur porte ce pas pour le geste de retour. Une
+   heure touchée dans la bande cale le ruban sur elle : sa lecture s'y pose, et
+   la fenêtre glisse si l'heure tombe au-delà. Depuis un autre écran, rien ne
+   change encore : l'onglet « Le temps » existe jusqu'au lot 6. La variable
+   `detail` est déclarée en tête, près de l'onglet courant : le premier rendu
+   la lit avant que le fichier n'arrive ici. */
+
+function quitterDetail() {
+  if (!detail) return;
+  const y = detail.y;
+  detail = null;
+  rendre();
+  window.scrollTo({ top: y, behavior: "instant" });
+}
+
+function allerAuDetail(cle, heure = null) {
   Reglages.poserEcriture("ruban");
   Ruban.poserVoie(cle);
   sentir(8);
+  if (onglet === "accueil") {
+    /* Sans heure désignée, aucune lecture ne reste d'une ouverture précédente. */
+    if (heure === null) Ruban.poserHeure(-1);
+    detail = { y: window.scrollY };
+    history.pushState({ detail: true }, "");
+    rendre();
+    window.scrollTo({ top: 0, behavior: "instant" });
+    if (heure !== null) {
+      const sr = Ruban.serieCourante();
+      if (sr) {
+        const cible = Math.min(sr.n - 1, sr.ici + heure);
+        const fin = Ruban.decalageCourant() + Ruban.fenetre() - 1;
+        if (cible > fin) Ruban.glisser(cible - fin);
+        Ruban.poserHeure(cible);
+        rendre();
+      }
+    }
+    return;
+  }
   poserOnglet("temps");
   requestAnimationFrame(() => {
     const v = document.querySelector(`.mg-v[data-cle="${cle}"]`);
@@ -1163,7 +1222,10 @@ $("ecran").addEventListener("click", ev => {
   const f = ev.target.closest("[data-feuille]");
   if (f) { ouvrirFeuille(f.dataset.feuille); return; }
   const d = ev.target.closest("[data-detail]");
-  if (d) { allerAuDetail(d.dataset.detail); return; }
+  if (d) {
+    allerAuDetail(d.dataset.detail, d.dataset.heure != null ? Number(d.dataset.heure) : null);
+    return;
+  }
   const a = ev.target.closest('[data-action="geo"]');
   if (a) situerParPosition(a);
 });
@@ -1173,7 +1235,8 @@ window.addEventListener("keydown", ev => {
 });
 
 window.addEventListener("popstate", () => {
-  if (!$("feuille").hidden) { if (pile.length) retour(); else fermerFeuille(); }
+  if (!$("feuille").hidden) { if (pile.length) retour(); else fermerFeuille(); return; }
+  if (detail) quitterDetail();
 });
 
 for (const ev of ["online", "offline"]) window.addEventListener(ev, () => rendre());
