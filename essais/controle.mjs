@@ -8546,6 +8546,49 @@ ok("les figures se prolongent sous l'horizon, et pas sans demande",
   eauDit.figSous > 5 && eauDit.figDefaut === 0,
   `${eauDit.figSous} tronçons sous l'eau, ${eauDit.figDefaut} sans demande`);
 
+/* La Lune et les planètes. Deux recoupements indépendants : le Soleil calculé
+   par sa série et le Soleil vu depuis la Terre décrite par ses éléments
+   d'orbite ne doivent différer que de la précession générale depuis l'an 2000,
+   un degré et 397 millièmes par siècle ; et l'opposition de Saturne doit tomber
+   début octobre 2026, treize jours après celle de 2025, selon la cadence des
+   oppositions de cette planète. */
+const astresDit = await pgCiel.evaluate(async () => {
+  const A = await import("/src/astres.js");
+  const C = await import("/src/ciel.js");
+  const jj = A.jourJulien(new Date("2026-09-22T00:00:00Z"));
+  const T = (jj - 2451545) / 36525;
+  const t = A.heliocentrique("terre", jj);
+  const parTerre = (Math.atan2(t.y, t.x) * 180 / Math.PI + 180 + 360) % 360;
+  const ecart = Math.abs(((A.soleil(jj).lambda - parTerre + 540) % 360) - 180);
+  let opposition = null;
+  for (let k = 0; k < 40; k++) {
+    const d = new Date(Date.UTC(2026, 8, 1) + k * 86400000);
+    const j = A.jourJulien(d);
+    const e = Math.abs(180 - Math.abs(((A.planete("saturne", j).lambda - A.soleil(j).lambda + 540) % 360) - 180));
+    if (!opposition || e < opposition.e) opposition = { d: d.toISOString().slice(0, 10), e };
+  }
+  const vus = C.astresVus(new Date("2026-09-22T21:00:00+02:00"), 48.86, 2.35, 180, 40, 90, [1.2, 1.2], true);
+  return {
+    ecart, precession: 1.3969 * T, opposition: opposition.d, liste: C.ASTRES,
+    saturne: A.planete("saturne", jj).ascension / 15,
+    astres: vus.map(x => x.cle), nommes: vus.every(x => x.nom && x.nom.length > 2),
+  };
+});
+ok("les planètes tiennent le repère du catalogue, à la précession près",
+  Math.abs(astresDit.ecart - astresDit.precession) < 0.05,
+  `écart ${(astresDit.ecart * 60).toFixed(1)}', précession ${(astresDit.precession * 60).toFixed(1)}'`);
+ok("l'opposition de Saturne tombe dans les premiers jours d'octobre 2026",
+  astresDit.opposition >= "2026-10-01" && astresDit.opposition <= "2026-10-08"
+  && astresDit.saturne > 0 && astresDit.saturne < 1.5,
+  `${astresDit.opposition}, ascension ${astresDit.saturne.toFixed(2)} h`);
+/* La liste tient la Lune et les cinq planètes ; ce qu'un champ donné en montre
+   dépend de l'heure et de la direction, et ne se garde pas. */
+ok("la Lune et les cinq planètes visibles à l'œil nu se placent sur la carte",
+  astresDit.liste.length === 6 && astresDit.liste.includes("lune")
+  && ["mercure", "venus", "mars", "jupiter", "saturne"].every(p => astresDit.liste.includes(p))
+  && astresDit.astres.length > 0 && astresDit.nommes,
+  `${astresDit.liste.join(", ")} ; vus : ${astresDit.astres.join(", ")}`);
+
 ok("le prochain essaim d'étoiles filantes, y compris d'une année sur l'autre",
   infosDit.aout === "Draconides 2026-10-8" && infosDit.decembre === "Quadrantides 2027-1-3",
   `${infosDit.aout} ; ${infosDit.decembre}`);
@@ -8767,6 +8810,50 @@ if (await pgEt.locator("#ciPleinEcran").count() > 0) {
 ok("un toucher bref désigne une constellation et ouvre sa fiche",
   ficheNom.length > 0, ficheNom || "aucune fiche");
 ok("la fiche se ferme", ficheFermee);
+
+/* Le curseur parcourt la nuit. Poussé au bout, il change le ciel ; le bouton
+   « Maintenant » le ramène à l'instant présent. */
+let curseurDit = null;
+/* Le plein écran a été refermé par la garde précédente : il se rouvre pour le
+   curseur, qui n'existe que là. */
+if (await pgEt.locator("#ciPleinEcran").count() === 0) {
+  await pgEt.locator("#ciBandeau").click();
+  await pgEt.waitForTimeout(700);
+}
+if (await pgEt.locator("#ciPleinEcran").count() > 0) {
+  curseurDit = await pgEt.evaluate(async () => {
+    const cv = document.getElementById("ciToilePE");
+    const c = cv.getContext("2d");
+    const somme = () => {
+      const d = c.getImageData(0, 0, cv.width, Math.round(cv.height * 0.6)).data;
+      let s = 0;
+      for (let i = 0; i < d.length; i += 4) s += d[i] + d[i + 1] + d[i + 2];
+      return s;
+    };
+    const curseur = document.getElementById("ciCurseur");
+    const heure = document.getElementById("ciHeure");
+    const dodo = m => new Promise(r => setTimeout(r, m));
+    const avant = { somme: somme(), heure: heure.textContent, max: Number(curseur.max) };
+    curseur.value = curseur.max;
+    curseur.dispatchEvent(new Event("input", { bubbles: true }));
+    await dodo(500);
+    const apres = { somme: somme(), heure: heure.textContent };
+    document.getElementById("ciMaintenant").click();
+    await dodo(500);
+    return { avant, apres, retour: heure.textContent, minutes: avant.max * 5 };
+  });
+}
+ok("le curseur parcourt la nuit, du crépuscule à l'aube",
+  curseurDit && curseurDit.minutes > 360 && curseurDit.minutes < 900,
+  `${curseurDit ? curseurDit.minutes : 0} minutes`);
+ok("le curseur change le ciel et l'heure qu'il annonce",
+  curseurDit && curseurDit.apres.heure !== curseurDit.avant.heure
+  && Math.abs(curseurDit.apres.somme - curseurDit.avant.somme) > curseurDit.avant.somme * 0.002,
+  curseurDit ? `${curseurDit.avant.heure} puis ${curseurDit.apres.heure}` : "");
+ok("le bouton Maintenant ramène à l'instant présent",
+  curseurDit && curseurDit.retour === curseurDit.avant.heure,
+  curseurDit ? `${curseurDit.retour} contre ${curseurDit.avant.heure}` : "");
+if (await pgEt.locator("#ciPleinEcran").count() > 0) await pgEt.locator("#ciFermer").click();
 ok("un glissement tourne la vue sans rien désigner", ficheNom.length > 0 && !glisseDesigne);
 await ctxEt.close();
 

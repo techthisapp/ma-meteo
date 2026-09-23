@@ -1897,6 +1897,22 @@ function titreNuit(maintenant, g) {
    points cardinaux : sa ligne de titre occupe le bas, là où ils tombaient, et
    l'heure recouvrait « SE ». Sa vue, fixe, regarde vers le sud, ce que la note
    sous le bandeau dit. */
+/* La nuit parcourue par le curseur, du crépuscule civil du soir à l'aube
+   civile : c'est le temps où le ciel se regarde. Rend null quand le Soleil ne
+   se couche pas assez, ce qui n'arrive pas aux latitudes de la France. */
+export function nuitCivile(maintenant, g) {
+  const jour = 86400000;
+  const cr = t => Astres.crepuscules(new Date(t), g.lat, g.lon).civil;
+  const c = cr(maintenant.getTime());
+  if (c.matin && maintenant < c.matin) {
+    const veille = cr(maintenant.getTime() - jour);
+    return veille.soir ? { debut: veille.soir, fin: c.matin } : null;
+  }
+  if (!c.soir) return null;
+  const d = cr(maintenant.getTime() + jour);
+  return d.matin ? { debut: c.soir, fin: d.matin } : null;
+}
+
 function peindreCiel(cv, vue, g, options = {}) {
   const affichage = options.affichage || Reglages.affichageCiel();
   const cardinaux = options.cardinaux !== false;
@@ -1913,7 +1929,8 @@ function peindreCiel(cv, vue, g, options = {}) {
   if (!Ciel.chargees()) return;
   const unite = Math.min(l, h) / 2;
   const ecran = p => [l / 2 + p.x * unite, h / 2 + p.y * unite];
-  const date = new Date();
+  /* L'instant du curseur, ou le moment présent quand il n'a pas bougé. */
+  const date = vue.instant || new Date();
   /* Le cadre en unités de projection : un écran haut en porte plus en hauteur
      qu'en largeur, et un cadre carré laissait vide le haut du plein écran. */
   const bords = [l / 2 / unite + 0.05, h / 2 / unite + 0.05];
@@ -1963,6 +1980,41 @@ function peindreCiel(cv, vue, g, options = {}) {
     c.arc(x, y, Ciel.rayon(e.mag, unite / 170), 0, 2 * Math.PI);
     c.fillStyle = Ciel.couleur(e.ci);
     c.fill();
+  }
+
+  /* La Lune et les planètes, posées par-dessus les étoiles : plus grosses et
+     nommées, elles ne se confondent pas avec elles. Celles qui sont sous
+     l'horizon restent dans l'eau, pâlies comme le reste. */
+  const astres = Ciel.astresVus(date, g.lat, g.lon, vue.az, vue.haut, vue.champ, bords, true);
+  c.font = "600 11px -apple-system, system-ui, sans-serif";
+  c.textAlign = "center";
+  c.lineJoin = "round";
+  for (const a of astres) {
+    const [x, y] = ecran(a);
+    const r = a.cle === "lune" ? unite * 0.035 : unite * 0.012 + 1.5;
+    if (a.sous) {
+      const flou = c.createRadialGradient(x, y, 0, x, y, r * 2.2);
+      flou.addColorStop(0, a.cle === "lune" ? "rgba(235, 232, 216, 0.5)" : "rgba(255, 228, 175, 0.5)");
+      flou.addColorStop(1, "rgba(255, 228, 175, 0)");
+      c.fillStyle = flou;
+      c.beginPath(); c.arc(x, y, r * 2.2, 0, 2 * Math.PI); c.fill();
+      continue;
+    }
+    c.beginPath();
+    c.arc(x, y, r, 0, 2 * Math.PI);
+    c.fillStyle = a.cle === "lune" ? "#ebe8d8" : "#ffe4af";
+    c.fill();
+    /* Le nom reste dans le cadre, comme ceux des constellations : un nom coupé
+       au bord ne se lit pas. */
+    const demiA = c.measureText(a.nom).width / 2 + 4;
+    const xn = Math.max(demiA, Math.min(l - demiA, x));
+    const yn = y + r + 13;
+    if (yn > h - 2) continue;
+    c.strokeStyle = "rgba(11, 18, 32, 0.9)";
+    c.lineWidth = 3;
+    c.strokeText(a.nom, xn, yn);
+    c.fillStyle = "rgba(245, 238, 220, 0.95)";
+    c.fillText(a.nom, xn, yn);
   }
 
   /* Les noms, détachés des traits par un halo de la couleur du ciel, et tenus
@@ -2214,6 +2266,18 @@ export function vueEtoiles() {
       const ouvrir = () => {
         if (!Ciel.chargees() || document.getElementById("ciPleinEcran")) return;
         const vue = { ...fixe };
+        /* Le curseur parcourt la nuit par pas de cinq minutes. Il part de
+           l'instant présent quand il tombe dedans, du début de la nuit sinon,
+           ce qui est le cas en plein jour. */
+        const maintenant = new Date();
+        const nuit = nuitCivile(maintenant, g)
+          || { debut: new Date(maintenant.getTime() - 6 * 3600000),
+               fin: new Date(maintenant.getTime() + 6 * 3600000) };
+        const PAS = 5 * 60000;
+        const pas = Math.max(1, Math.round((nuit.fin - nuit.debut) / PAS));
+        const instantDe = k => new Date(nuit.debut.getTime() + k * PAS);
+        const rang = t => Math.max(0, Math.min(pas, Math.round((t - nuit.debut) / PAS)));
+        const rangDepart = rang(maintenant.getTime());
         const fe = document.createElement("div");
         fe.className = "ci-plein-ecran";
         fe.id = "ciPleinEcran";
@@ -2225,6 +2289,12 @@ export function vueEtoiles() {
           + (jour ? `<p class="ci-jour" id="ciJour">Il fait jour : la lumière du Soleil efface ces étoiles.</p>` : "")
           + `<button type="button" class="ci-bouton ci-fermer" id="ciFermer">Fermer</button>`
           + `<button type="button" class="ci-bouton ci-sources" id="ciSources">Sources</button>`
+          + `<div class="ci-curseur" id="ciBarreTemps">`
+          + `<input type="range" id="ciCurseur" min="0" max="${pas}" step="1" `
+          + `value="${rangDepart}" aria-label="Heure du ciel">`
+          + `<span id="ciHeure">${hm(instantDe(rangDepart).getTime())}</span>`
+          + `<button type="button" class="ci-bouton" id="ciMaintenant">Maintenant</button>`
+          + `</div>`
           + `<div class="ci-choix" id="ciChoix" role="group" aria-label="Étoiles affichées">`
           + Ciel.AFFICHAGES.map(([cle, court, long]) => `<button type="button" `
             + `data-affichage="${cle}" aria-label="${long}" `
@@ -2255,11 +2325,28 @@ export function vueEtoiles() {
           visee.textContent = viseeDe(vue.az, vue.haut);
           redessiner();
         });
+        const curseur = fe.querySelector("#ciCurseur");
+        const heure = fe.querySelector("#ciHeure");
+        const poserInstant = k => {
+          const t = instantDe(k);
+          /* Le moment présent se rend par son absence : la carte suit alors
+             l'heure qui passe. */
+          vue.instant = Math.abs(t - new Date()) < PAS ? null : t;
+          heure.textContent = hm(t.getTime());
+          redessiner();
+        };
+        curseur.addEventListener("input", () => poserInstant(Number(curseur.value)));
+        fe.querySelector("#ciMaintenant").addEventListener("click", () => {
+          curseur.value = String(rang(Date.now()));
+          poserInstant(Number(curseur.value));
+        });
+
         const ficheEl = fe.querySelector("#ciFiche");
         const montrer = sigle => {
           vue.sel = sigle;
           if (!sigle) { ficheEl.hidden = true; redessiner(); return; }
-          const f = Ciel.fiche(sigle, new Date(), g.lat, g.lon, nuitNoire(new Date(), g));
+          const quand = vue.instant || new Date();
+          const f = Ciel.fiche(sigle, quand, g.lat, g.lon, nuitNoire(quand, g));
           if (!f) { ficheEl.hidden = true; return; }
           const lieu = h => h < 0 ? "sous l'horizon"
             : `${Math.round(h)}° vers ${articleDe(directionDe(f.azimut))}`;
@@ -2291,7 +2378,7 @@ export function vueEtoiles() {
           const ux = (ev.clientX - r.left - r.width / 2) / unite;
           const uy = (ev.clientY - r.top - r.height / 2) / unite;
           const bords = [r.width / 2 / unite + 0.05, r.height / 2 / unite + 0.05];
-          const date = new Date();
+          const date = vue.instant || new Date();
           const figures = Ciel.figuresVues(date, g.lat, g.lon, vue.az, vue.haut, vue.champ);
           const noms = Ciel.nomsVus(date, g.lat, g.lon, vue.az, vue.haut, vue.champ, bords);
           montrer(Ciel.designee(ux, uy, figures, noms));

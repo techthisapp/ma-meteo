@@ -1997,3 +1997,14 @@ button.rangee:active{background:var(--surface-2)}
 .ci-fiche dl{margin:0 0 10px;display:grid;grid-template-columns:auto 1fr;gap:3px 12px}
 .ci-fiche dt{color:rgba(219,227,239,.65)}
 .ci-fiche dd{margin:0}
+
+/* Le curseur de temps, au-dessus du choix de l'affichage. Le nom ci-curseur
+   évite ci-temps, déjà pris par la chronologie de l'écran du temps : la règle
+   aurait déplacé cette chronologie. */
+.ci-curseur{
+  position:absolute;left:16px;right:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 62px);
+  display:flex;align-items:center;gap:10px;
+}
+.ci-curseur input[type="range"]{flex:1;accent-color:#9ec2f0}
+.ci-curseur span{min-width:44px;color:#e6ecf5;font-size:13px;font-variant-numeric:tabular-nums}
+.ci-fiche{bottom:calc(env(safe-area-inset-bottom,0px) + 110px)}

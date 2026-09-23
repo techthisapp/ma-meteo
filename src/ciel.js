@@ -31,7 +31,7 @@
    qui étalerait les distances ne ferait pas : une Grande Ourse déformée ne se
    reconnaît plus. */
 
-import { jourJulien, horizon } from "./astres.js";
+import { jourJulien, horizon, position, NOMS_PLANETES } from "./astres.js";
 
 export const FICHIER = "./donnees/ciel.json";
 
@@ -284,4 +284,32 @@ export function fiche(sigle, date, lat, lon, nuit = null) {
   const jours = (((ra - 12) % 24) + 24) % 24 / 24 * 365.25;
   const culmine = new Date(date.getFullYear(), 2, 21 + Math.round(jours));
   return { sigle, nom, latin, hauteur, azimut, visible, brillante, moisCulmine: culmine.getMonth() };
+}
+
+/* ---------- La Lune et les planètes ----------
+
+   Les cinq planètes que l'œil nu distingue, et la Lune, placées comme les
+   étoiles. Leurs positions viennent des éléments d'orbite de `astres.js`, dans
+   le repère de l'an 2000, celui du catalogue d'étoiles : elles se posent donc
+   parmi les constellations sans décalage. La série du Soleil, elle, travaille
+   dans le repère de la date, d'où un écart de vingt-deux minutes d'arc entre
+   les deux, qui est la précession générale depuis 2000, un degré et 397
+   millièmes par siècle. Cet écart ne se voit pas sur une carte du ciel.
+
+   L'ordre les range du plus brillant au moins visible, pour que le tracé pose
+   les discrets en dernier. */
+export const ASTRES = ["lune", "venus", "jupiter", "mars", "saturne", "mercure"];
+
+export function astresVus(date, lat, lon, azCentre, hautCentre, champ = 60,
+  bords = [1.2, 1.2], sousHorizon = false) {
+  const out = [];
+  for (const cle of ASTRES) {
+    const { hauteur, azimut } = position(cle, date, lat, lon);
+    if (hauteur < 0 && !sousHorizon) continue;
+    const p = projeter(azimut, hauteur, azCentre, hautCentre, champ);
+    if (!p || Math.abs(p.x) > bords[0] || Math.abs(p.y) > bords[1]) continue;
+    out.push({ cle, nom: cle === "lune" ? "Lune" : NOMS_PLANETES[cle],
+      x: p.x, y: p.y, hauteur, azimut, sous: hauteur < 0 });
+  }
+  return out;
 }

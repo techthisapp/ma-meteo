@@ -138,12 +138,28 @@ PY
   35) # Les figures ne se prolongent plus sous l'horizon.
      perl -0pi -e 's/        const p = dessous && !sousHorizon \? null/        const p = dessous ? null/' src/ciel.js
      ATTENDU="les figures se prolongent sous l.horizon, et pas sans demande" ;;
+  36) # Les éléments de la Terre faussés : les planètes quittent le repère.
+     perl -0pi -e 's/  e0: \[1\.00000261, 0\.01671123/  e0: [1.00000261, 0.11671123/' src/astres.js
+     ATTENDU="les planètes tiennent le repère du catalogue, à la précession près" ;;
+  37) # La longitude moyenne de Saturne dérive deux fois trop vite.
+     perl -0pi -e 's/    d: \[-0\.00125060, -0\.00050991, 0\.00193609, 1222\.49362201/    d: [-0.00125060, -0.00050991, 0.00193609, 2444.98724402/' src/astres.js
+     ATTENDU="l.opposition de Saturne tombe dans les premiers jours d.octobre 2026" ;;
+  38) # La Lune quitte la liste des astres placés sur la carte.
+     perl -0pi -e 's/export const ASTRES = \["lune", /export const ASTRES = [/' src/ciel.js
+     ATTENDU="la Lune et les cinq planètes visibles à l.œil nu se placent sur la carte" ;;
+  39) # Le curseur ne change plus l'instant du ciel.
+     perl -0pi -e 's/          vue\.instant = Math\.abs\(t - new Date\(\)\) < PAS \? null : t;/          vue.instant = null;/' src/vues.js
+     ATTENDU="le curseur change le ciel et l.heure qu.il annonce" ;;
+  40) # Le bouton « Maintenant » ne ramène plus rien.
+     perl -0pi -e 's/          curseur\.value = String\(rang\(Date\.now\(\)\)\);\n//' src/vues.js
+     ATTENDU="le bouton Maintenant ramène à l.instant présent" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
 if diff -q "$OLD/src/ciel.js" src/ciel.js >/dev/null \
   && diff -q "$OLD/src/vues.js" src/vues.js >/dev/null \
   && diff -q "$OLD/src/reglages.js" src/reglages.js >/dev/null \
+  && diff -q "$OLD/src/astres.js" src/astres.js >/dev/null \
   && diff -q "$OLD/donnees/ciel.json" donnees/ciel.json >/dev/null; then
   echo "FAUTE $N NON APPLIQUÉE"; exit 3
 fi
