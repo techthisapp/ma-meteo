@@ -30,6 +30,7 @@ import * as Air from "./air.js";
 import * as Parapluie from "./parapluie.js";
 import * as Reponse from "./reponse.js";
 import * as Pluie from "./pluieproche.js";
+import * as Bande from "./bande.js";
 import * as Deplacement from "./deplacement.js";
 import * as Radar from "./radar.js";
 
@@ -452,6 +453,13 @@ function ecranAccueil() {
     ] : [];
 
     const chevronM = ico("chevron_bas", "bd-chev");
+    /* Le nombre à la taille du titre, l'unité plus petite : sur une ligne de
+       quatre, « 23 km/h » d'un seul corps débordait la cellule. Le texte lu
+       reste le même. Jalon 10, lot 2. */
+    const valeurUnite = v => {
+      const m = /^(-?[\d,.]+)( .+)$/.exec(v);
+      return m ? `${esc(m[1])}<small class="bd-u">${esc(m[2])}</small>` : esc(v);
+    };
 
     /* Le ciel porte le temps qu'il fait, et le titre est posé dedans : la
        couverture nuageuse donne les nuages, le code donne la précipitation et
@@ -465,7 +473,10 @@ function ecranAccueil() {
     const params = Temps.depuis(code, s ? s.nua[0] : null, s ? s.mm[0] : null);
     plein = true;
     const bd = bandeauAccueil(g, new Date(), params, s ? s.v[0] : 0);
-    corps += `<div class="plein" style="--ci-clarte:${bd.clarte.toFixed(3)}">`
+    /* Le ciel de l'accueil est plus bas que celui des autres écrans : la bande
+       horaire et les chiffres du jour doivent tenir dans le premier écran.
+       Jalon 10, lot 2. */
+    corps += `<div class="plein plein-accueil" style="--ci-clarte:${bd.clarte.toFixed(3)}">`
       + bd.ciel
       /* La réponse du matin, en matière verre sur le ciel. Elle traverse la
          largeur au-dessus de la ligne de date : c'est la seule bande du ciel qui
@@ -539,18 +550,26 @@ function ecranAccueil() {
         air: Air.alignerSur(sApres), pollens: suivis }) : []),
     ].sort((a, b) => b.g - a.g).slice(0, LIGNES_MAX);
 
-    const bloc = (cle, titre, dedans) => (dedans
-      ? `<div class="section" data-bloc="${cle}"><h2>${esc(titre)}</h2>${dedans}</div>` : "");
+    /* Un titre peut n'être lu que par la voix de synthèse : celui des chiffres du
+       jour, que la bande horaire rend redondant à l'œil et qui coûtait une
+       ligne au premier écran. Jalon 10. */
+    const bloc = (cle, titre, dedans, luSeul = false) => (dedans
+      ? `<div class="section" data-bloc="${cle}"><h2${luSeul ? ' class="titre-lu"' : ""}>`
+        + `${esc(titre)}</h2>${dedans}</div>` : "");
 
     corps += `<div class="ecran-corps">`
       + panneauVigilance()
       + panneauPluieProche()
+      /* La bande horaire, juste sous les deux avis urgents : l'évolution de la
+         journée d'un coup d'œil, qu'il fallait aller chercher dans « Le
+         temps ». Jalon 10, lot 1. */
+      + Bande.bandeHoraire(s, g)
       + bloc("jour", "Aujourd'hui",
         (mesures.length ? `<div class="bd-mesures">`
           + mesures.map(([n, v, e, c, voie]) =>
             `<button type="button" class="bd-m" data-detail="${esc(voie)}" `
             + `aria-label="${esc(n)}, ${esc(v)}, voir les vingt-quatre heures">`
-            + `<i>${esc(n)}${chevronM}</i><b${c ? ` class="${c}"` : ""}>${esc(v)}</b>`
+            + `<i>${esc(n)}${chevronM}</i><b${c ? ` class="${c}"` : ""}>${valeurUnite(v)}</b>`
             + `<em>${esc(e)}</em></button>`).join("")
           + `</div>` : "")
         /* L'écran de questions s'ouvre d'ici, sous les mesures du jour : c'est
@@ -582,7 +601,7 @@ function ecranAccueil() {
         + `<span>Records, normales et réchauffement</span></span>`
         + chevron + `</button>`
         + (lJour.length ? `<div class="carte retenir">`
-          + `<div class="conseils">${conseilsHTML(lJour)}</div></div>` : ""));
+          + `<div class="conseils">${conseilsHTML(lJour)}</div></div>` : ""), true);
 
     /* La table des moments couvre exactement les vingt-quatre heures qui
        viennent, tranche par tranche. Elle s'appelait « la journée qui vient »,

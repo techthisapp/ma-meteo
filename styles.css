@@ -1822,7 +1822,7 @@ button.rangee:active{background:var(--surface-2)}
   background:var(--erreur);color:var(--sur-accent);
   font-size:var(--texte-sous);font-weight:var(--graisse-medium);
 }
-.co-hors{
+.co-hors,.titre-lu{
   position:absolute;width:1px;height:1px;overflow:hidden;
   clip-path:inset(50%);white-space:nowrap;
 }
@@ -1913,8 +1913,14 @@ button.rangee:active{background:var(--surface-2)}
   }
 }
 
-/* Texte fortement agrandi : les grilles se déplient plutôt que de casser. */
-@media (max-width:430px){
+/* Texte fortement agrandi : les grilles se déplient plutôt que de casser. La
+   règle portait sur la largeur de l'écran, si bien que tout téléphone passait
+   les chiffres du jour sur deux colonnes. Elle porte désormais sur la largeur
+   du bloc comptée en rem, qui suit la taille du texte : les quatre chiffres
+   tiennent sur une ligne en taille ordinaire et se déplient quand le texte
+   grandit. Jalon 10, lot 2. */
+[data-bloc="jour"]{container-type:inline-size}
+@container (max-width:18rem){
   .bd-mesures{grid-template-columns:repeat(2,1fr);padding:var(--espace-sm) 0}
 }
 
@@ -2008,3 +2014,54 @@ button.rangee:active{background:var(--surface-2)}
 .ci-curseur input[type="range"]{flex:1;accent-color:#9ec2f0}
 .ci-curseur span{min-width:44px;color:#e6ecf5;font-size:13px;font-variant-numeric:tabular-nums}
 .ci-fiche{bottom:calc(env(safe-area-inset-bottom,0px) + 110px)}
+
+/* La bande horaire de l'accueil. Les colonnes ont une largeur fixe, les mêmes
+   dans les trois rangées, ce qui aligne le trait des températures sans mesurer
+   la page. La bande glisse sous le doigt, sans barre de défilement visible. */
+.bande{padding:12px 0 10px}
+.bande-tete{display:flex;align-items:baseline;justify-content:space-between;padding:0 16px 6px}
+.bande-tete h3{margin:0;font-size:var(--texte-note);font-weight:var(--graisse-semibold);color:var(--etiquette-2)}
+/* La cible tient 44 points au doigt sans grandir la ligne : la marge négative
+   rend la hauteur ajoutée. */
+.bande-plus{min-height:var(--touche);margin:-14px -8px -14px 0;padding:0 8px;background:none;border:0;
+  font:inherit;font-size:var(--texte-note);color:var(--accent)}
+.bande-defil{overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.bande-defil::-webkit-scrollbar{display:none}
+.bande-rang{padding:0 8px;box-sizing:content-box}
+.bande-ligne{display:flex}
+.bh,.bv{flex:none;width:56px;box-sizing:border-box}
+.bh-soleil{width:46px}
+.bh{display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 0 0;
+  background:none;border:0;color:inherit;font:inherit}
+.bh-h{font-size:var(--texte-legende);color:var(--etiquette-2);white-space:nowrap}
+.bh-maint .bh-h{color:var(--accent);font-weight:var(--graisse-semibold)}
+.bh .bd-ic,.bh .bh-ic{width:26px;height:26px}
+.bh-soleil .bh-ic{color:#e6a23c}
+.bh-lib{font-size:var(--texte-legende);color:var(--etiquette-2)}
+.bh-pb{min-height:14px;font-size:var(--texte-legende);font-weight:var(--graisse-semibold);color:var(--ic-pluie)}
+.bh-t{font-size:var(--texte-entete);font-weight:var(--graisse-semibold)}
+.bh-courbe{display:block;color:var(--etiquette-3)}
+.bv{position:relative;display:flex;flex-direction:column;align-items:center;padding:0 0 8px;
+  font-size:var(--texte-legende);color:var(--etiquette-2);line-height:1.35}
+.bh-pluie::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--ic-pluie)}
+.bande-phrase{margin:8px 16px 0;font-size:var(--texte-note);color:var(--etiquette-2)}
+
+/* Le ciel de l'accueil, plus bas que celui des autres écrans : il porte la
+   température, l'état et la réponse du matin, et laisse la bande horaire et
+   les chiffres du jour dans le premier écran. Jalon 10, lot 2. */
+.plein-accueil .ci{aspect-ratio:390 / 250}
+
+/* Les chiffres du jour sur une ligne : l'étiquette, la valeur à la taille du
+   corps de texte, la précision en légende. */
+[data-bloc="jour"] .bd-m{padding:var(--espace-md);gap:1px}
+[data-bloc="jour"] .bd-m b{font-size:var(--texte-titre3)}
+[data-bloc="jour"] .bd-u{font-size:var(--texte-note);font-weight:var(--graisse-medium)}
+/* Sur une ligne de quatre, les cellules se passent de chevron, comme dans les
+   deux maquettes : la place manque pour « Indice UV » et sa flèche, et la
+   rangée entière se lit comme une rangée de boutons. Dépliées sur deux
+   colonnes en grand corps de texte, elles le retrouvent. */
+[data-bloc="jour"] .bd-m i{white-space:nowrap}
+[data-bloc="jour"] .bd-chev{display:none}
+@container (max-width:18rem){
+  [data-bloc="jour"] .bd-chev{display:block}
+}

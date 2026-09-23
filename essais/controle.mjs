@@ -1113,12 +1113,110 @@ ok("le symbole d'un conseil porte la couleur de son sujet", await pg.evaluate(()
   const c = getComputedStyle(g).color;
   return c !== getComputedStyle(document.body).color;
 }));
-ok("les chiffres des mesures sont au moins à l'échelle du titre 2", await pg.evaluate(() => {
+/* Jalon 10 : les quatre chiffres passent sur une ligne, et le titre 3 les garde
+   au-dessus du corps de texte ; le titre 2 ne tenait pas dans une cellule. */
+ok("les chiffres des mesures sont au moins à l'échelle du titre 3", await pg.evaluate(() => {
   const b = document.querySelector(".bd-m b");
   const t2 = parseFloat(getComputedStyle(document.documentElement)
-    .getPropertyValue("--texte-titre2")) * parseFloat(getComputedStyle(document.documentElement).fontSize);
+    .getPropertyValue("--texte-titre3")) * parseFloat(getComputedStyle(document.documentElement).fontSize);
   return parseFloat(getComputedStyle(b).fontSize) >= t2 - 0.5;
 }));
+
+marquerSection("\n--- La bande horaire ---"); console.log("\n--- La bande horaire ---");
+
+/* Jalon 10, lot 1 : l'évolution de la journée d'un coup d'œil, sous le ciel,
+   après les avis urgents. */
+const bandeDit = await pg.evaluate(async () => {
+  const B = await import("/src/bande.js");
+  const bande = document.getElementById("bande");
+  const ordre = el => el ? [...document.querySelectorAll("#ecran *")].indexOf(el) : -1;
+  const heure = Array.from({ length: 24 }, (_, k) => (13 + k) % 24);
+  const serie = { n: 24, heure,
+    mm: heure.map(h => h >= 15 && h <= 17 ? 0.2 : 0),
+    pb: heure.map(h => h >= 15 && h <= 17 ? 90 : 10),
+    raf: heure.map(h => h === 16 ? 55 : 30),
+    t: heure.map(() => 20), v: heure.map(() => 20), code: heure.map(() => 3), clair: heure.map(() => 1) };
+  const seche = { ...serie, mm: serie.mm.map(() => 0), pb: serie.pb.map(() => 5), raf: serie.raf.map(() => 30) };
+  const defil = bande?.querySelector(".bande-defil");
+  const premiere = bande?.querySelector(".bh-heure");
+  return {
+    presente: !!bande,
+    /* Les avis urgents ne sont pas toujours là : chacun, quand il paraît, doit
+       précéder la bande. */
+    apresAvis: [".pp-c", ".vg-c"].every(q => {
+      const el = document.querySelector(q);
+      return !el || ordre(el) < ordre(bande);
+    }),
+    avantJour: ordre(bande) < ordre(document.querySelector('[data-bloc="jour"]')),
+    heures: bande ? bande.querySelectorAll(".bh-heure").length : 0,
+    glisse: defil ? defil.scrollWidth > defil.clientWidth : false,
+    icone: !!premiere?.querySelector("svg.ict"),
+    degre: /^-?\d+°$/.test(premiere?.querySelector(".bh-t")?.textContent || ""),
+    vents: bande ? [...bande.querySelectorAll(".bv .bh-v")].filter(x => /\d/.test(x.textContent)).length : 0,
+    trait: (bande?.querySelector(".bh-courbe polyline")?.getAttribute("points") || "").trim().split(/\s+/).length,
+    /* La rangée des heures seulement : celle du vent porte aussi une colonne
+       par lever ou coucher, pour que la barre de pluie reste continue. */
+    soleil: bande ? bande.querySelectorAll(".bande-ligne .bh.bh-soleil").length : 0,
+    phrase: B.phraseBande(serie), sechePhrase: B.phraseBande(seche),
+    plages: JSON.stringify(B.plagesDePluie(serie)),
+  };
+});
+ok("la bande horaire se pose sous les avis urgents, avant les chiffres du jour",
+  bandeDit.presente && bandeDit.apresAvis && bandeDit.avantJour);
+ok("elle compte vingt-quatre heures, qui glissent sous le doigt",
+  bandeDit.heures === 24 && bandeDit.glisse, `${bandeDit.heures} heures`);
+ok("chaque heure porte son symbole, son degré, son vent et ses rafales",
+  bandeDit.icone && bandeDit.degre && bandeDit.vents === 24, `${bandeDit.vents} vents`);
+ok("un trait relie les températures des vingt-quatre heures",
+  bandeDit.trait === 24, `${bandeDit.trait} points`);
+/* L'heure figée des contrôles tombe à neuf heures un 18 août : le coucher du
+   soir et le lever du lendemain entrent tous deux dans les vingt-quatre heures. */
+ok("le coucher et le lever du Soleil s'intercalent à leur minute",
+  bandeDit.soleil === 2, `${bandeDit.soleil} colonnes`);
+/* Sans avis, la bande et les chiffres du jour tiennent ensemble dans le premier
+   écran, au-dessus de la barre d'onglets. La page des contrôles porte un avis à
+   cet endroit de la suite : il est masqué le temps de la mesure, puis rendu. */
+const sansAvis = await pg.evaluate(() => {
+  const m = document.querySelector("#ecran .bd-mesures");
+  const o = document.getElementById("onglets");
+  if (!m || !o) return { reste: null };
+  const avis = [...document.querySelectorAll("#ecran .vg, #ecran .pp-c")];
+  const avant = avis.map(e => e.style.display);
+  avis.forEach(e => { e.style.display = "none"; });
+  const reste = o.getBoundingClientRect().top - m.getBoundingClientRect().bottom;
+  avis.forEach((e, k) => { e.style.display = avant[k]; });
+  return { reste, masques: avis.length };
+});
+ok("sans avis, la bande et les chiffres du jour tiennent dans la première vue",
+  sansAvis.reste !== null && sansAvis.reste >= 0,
+  `${sansAvis.reste === null ? "élément manquant" : sansAvis.reste.toFixed(0) + " points"}, `
+  + `${sansAvis.masques} avis masqués pour la mesure`);
+
+/* Les deux décisions du lot 2, vérifiées pour elles-mêmes : dans la fenêtre des
+   contrôles, sans avis, la marge est assez large pour qu'un ciel d'origine ou
+   des chiffres sur deux colonnes tiennent encore, et la garde du premier écran
+   ne les verrait pas. */
+const lot2 = await pg.evaluate(() => {
+  const ci = document.querySelector("#ecran .plein-accueil .ci");
+  const cellules = [...document.querySelectorAll("#ecran .bd-mesures .bd-m")];
+  const hauts = new Set(cellules.map(c => Math.round(c.getBoundingClientRect().top)));
+  return {
+    rapport: ci ? ci.getBoundingClientRect().height / ci.getBoundingClientRect().width : null,
+    cellules: cellules.length, rangees: hauts.size,
+  };
+});
+ok("le ciel de l'accueil est plus bas que celui des autres écrans",
+  lot2.rapport !== null && lot2.rapport <= 250 / 390 + 0.01,
+  lot2.rapport === null ? "ciel introuvable" : `rapport ${lot2.rapport.toFixed(3)}`);
+ok("les quatre chiffres du jour tiennent sur une ligne en taille ordinaire",
+  lot2.cellules === 4 && lot2.rangees === 1,
+  `${lot2.cellules} cellules sur ${lot2.rangees} rangées`);
+
+ok("la phrase dit la pluie avec son moment, et les rafales fortes",
+  bandeDit.plages === "[[2,4]]"
+  && bandeDit.phrase === "Pluie cet après-midi de 15 h à 18 h, 0,6 mm, rafales jusqu'à 55 km/h cet après-midi."
+  && bandeDit.sechePhrase === null,
+  `${bandeDit.phrase} | ${bandeDit.sechePhrase}`);
 
 marquerSection("\n--- Le ciel de l'accueil ---"); console.log("\n--- Le ciel de l'accueil ---");
 
@@ -2763,27 +2861,31 @@ ok("les faits d'horloge tiennent leur propre ligne sous la conduite",
    conséquence, c'est elle qu'on mesure désormais, avec un plafond large pour
    arrêter un emballement que l'écran de huit cent quarante-quatre points ne
    verrait pas. */
-ok("le panneau de vigilance ne repousse pas les mesures du jour hors de la vue",
+/* Jalon 10, le 23 septembre 2026 : sous un avis, c'est la bande horaire qui
+   doit rester dans le premier écran, puisqu'elle porte l'évolution du jour ;
+   les chiffres du jour la suivent. Les trois gardes qui suivent mesuraient le
+   bloc des chiffres et mesurent désormais la bande, heures, trait et vent. */
+ok("le panneau de vigilance ne repousse pas la bande horaire hors de la vue",
   await pg.evaluate(() => {
-    const m = document.querySelector("#ecran .bd-mesures");
+    const m = document.querySelector("#ecran #bande .bande-defil");
     const o = document.getElementById("onglets");
     if (!m || !o) return "élément manquant";
     const reste = o.getBoundingClientRect().top - m.getBoundingClientRect().bottom;
     const h = document.querySelector("#ecran .vg").getBoundingClientRect().height;
     if (h > 180) return `panneau de ${h.toFixed(0)} points`;
-    return reste >= 0 ? "" : `${reste.toFixed(0)} points sous les mesures`;
+    return reste >= 0 ? "" : `${reste.toFixed(0)} points sous la bande`;
   }) === "", await pg.evaluate(() =>
     `${document.querySelector("#ecran .vg").getBoundingClientRect().height.toFixed(0)} points`));
 
-ok("les mesures du jour tiennent dans la première vue malgré la vigilance",
+ok("la bande horaire tient dans la première vue malgré la vigilance",
   await pg.evaluate(() => {
-    const m = document.querySelector("#ecran .bd-mesures");
+    const m = document.querySelector("#ecran #bande .bande-defil");
     const o = document.getElementById("onglets");
     if (!m || !o) return "élément manquant";
     const reste = o.getBoundingClientRect().top - m.getBoundingClientRect().bottom;
-    return reste >= 0 ? "" : `${reste.toFixed(0)} points sous les mesures`;
+    return reste >= 0 ? "" : `${reste.toFixed(0)} points sous la bande`;
   }) === "", await pg.evaluate(() => {
-    const m = document.querySelector("#ecran .bd-mesures");
+    const m = document.querySelector("#ecran #bande .bande-defil");
     const o = document.getElementById("onglets");
     return m && o
       ? `${(o.getBoundingClientRect().top - m.getBoundingClientRect().bottom).toFixed(0)} points`
@@ -4202,17 +4304,17 @@ ok("la ligne d'annonce se lit depuis la gauche, en retrait",
    et vingt-sept points de dégagement sous le bloc du jour. C'est ce dégagement
    qui est gardé, avec un plafond large pour arrêter un emballement que l'écran
    de huit cent quarante-quatre points ne verrait pas. */
-ok("les mesures du jour tiennent encore sous un panneau qui annonce",
+ok("la bande horaire tient encore sous un panneau qui annonce",
   await echB.pg.evaluate(() => {
-    const m = document.querySelector("#ecran .bd-mesures");
+    const m = document.querySelector("#ecran #bande .bande-defil");
     const o = document.getElementById("onglets");
     if (!m || !o) return "élément manquant";
     const reste = o.getBoundingClientRect().top - m.getBoundingClientRect().bottom;
     const h = document.querySelector("#ecran .vg").getBoundingClientRect().height;
     if (h > 200) return `panneau de ${h.toFixed(0)} points`;
-    return reste >= 0 ? "" : `${reste.toFixed(0)} points sous les mesures`;
+    return reste >= 0 ? "" : `${reste.toFixed(0)} points sous la bande`;
   }) === "", await echB.pg.evaluate(() => {
-    const m = document.querySelector("#ecran .bd-mesures");
+    const m = document.querySelector("#ecran #bande .bande-defil");
     const o = document.getElementById("onglets");
     const h = document.querySelector("#ecran .vg").getBoundingClientRect().height;
     return `panneau ${h.toFixed(0)}, reste `
