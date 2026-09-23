@@ -64,6 +64,18 @@ case "$N" in
   15) # Le dessin revient à zéro avant le rendu : la saccade du glissement.
      perl -0pi -e 's/      deporter\(-reel \* LA\);/      deporter(0);/' src/ruban.js
      ATTENDU="au lâcher d.un glissement, le dessin reste là où le rendu le pose" ;;
+  16) # La version du module n'est pas montée avec celle de la coque.
+     perl -0pi -e 's/export const VERSION = "ma-meteo-v(\d+)";/export const VERSION = "ma-meteo-v1";/' src/version.js
+     ATTENDU="le numéro de version est celui de la coque" ;;
+  17) # Toute version publiée différente fait paraître l'offre, même plus ancienne.
+     perl -0pi -e 's/p !== null && n !== null && p > n \? p : null/p !== null \&\& n !== null \&\& p !== n ? p : null/' src/version.js
+     ATTENDU="une version plus ancienne publiée ne propose rien" ;;
+  18) # La recherche ne se relance plus au retour au premier plan.
+     perl -0pi -e 's/document\.addEventListener\("visibilitychange", \(\) => \{ if \(!document\.hidden\) chercherVersion\(\); \}\);//' src/app.js
+     ATTENDU="une version plus récente publiée fait paraître l.offre de recharger" ;;
+  19) # Le service worker repasse par le cache du navigateur.
+     perl -0pi -e 's/fetch\(ev\.request, \{ cache: "no-cache" \}\)/fetch(ev.request)/' sw.js
+     ATTENDU="le service worker redemande la coque sans le cache du navigateur" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
@@ -71,7 +83,9 @@ if diff -q "$OLD/src/bande.js" src/bande.js >/dev/null \
   && diff -q "$OLD/src/app.js" src/app.js >/dev/null \
   && diff -q "$OLD/styles.css" styles.css >/dev/null \
   && diff -q "$OLD/src/ecritures.js" src/ecritures.js >/dev/null \
-  && diff -q "$OLD/src/ruban.js" src/ruban.js >/dev/null; then
+  && diff -q "$OLD/src/ruban.js" src/ruban.js >/dev/null \
+  && diff -q "$OLD/src/version.js" src/version.js >/dev/null \
+  && diff -q "$OLD/sw.js" sw.js >/dev/null; then
   echo "FAUTE $N NON APPLIQUÉE"; exit 3
 fi
 

@@ -2074,3 +2074,12 @@ button.rangee:active{background:var(--surface-2)}
   font:inherit;font-size:var(--texte-corps);color:var(--accent);
 }
 .retour-ic{width:22px;height:22px;transform:rotate(90deg);stroke-width:2.2}
+
+/* Le bandeau de mise à jour, au même endroit que celui du hors ligne. */
+.mise-a-jour{
+  display:flex;align-items:center;justify-content:space-between;gap:var(--espace-md);
+  margin:0 0 var(--espace-md);padding:var(--espace-sm) var(--espace-md);
+  border-radius:var(--rayon-md);background:var(--surface);
+  font-size:var(--texte-note);color:var(--etiquette);
+}
+.rg-maj{flex-wrap:wrap;gap:var(--espace-sm)}

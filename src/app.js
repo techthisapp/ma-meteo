@@ -31,6 +31,7 @@ import * as Parapluie from "./parapluie.js";
 import * as Reponse from "./reponse.js";
 import * as Pluie from "./pluieproche.js";
 import * as Bande from "./bande.js";
+import * as Version from "./version.js";
 import * as Deplacement from "./deplacement.js";
 import * as Radar from "./radar.js";
 
@@ -149,6 +150,14 @@ const titreEcran = (titre, sous, cote) =>
   + (cote || "") + `</div>`
   + (sous ? `<p>${esc(sous)}</p>` : "")
   + `</div>`;
+
+/* Le bandeau de mise à jour, au même endroit que celui du hors ligne : une
+   version plus récente est publiée, et un toucher la charge. */
+let versionPlusRecente = null;
+const bandeauMiseAJour = () => !versionPlusRecente ? "" :
+  `<div class="mise-a-jour" role="status">`
+  + `<span>La version ${versionPlusRecente} est disponible.</span>`
+  + `<button type="button" class="bouton-borde" data-action="recharger">Recharger</button></div>`;
 
 const bandeauHorsLigne = () => navigator.onLine ? "" :
   `<div class="hors-ligne">${ico("sans_reseau", "")}`
@@ -638,7 +647,7 @@ function ecranAccueil() {
     titre: g.commune ? jour.charAt(0).toUpperCase() + jour.slice(1) : "Ma météo",
     sous: "",
     pleinCadre: plein,
-    corps: bandeauHorsLigne() + corps,
+    corps: bandeauMiseAJour() + bandeauHorsLigne() + corps,
     brancher(bloc) {
       Feu.poser(bloc.querySelector("#ciFeu"));
       Relief.poser(bloc.querySelector("#ciLune"));
@@ -672,7 +681,7 @@ function ecranVue(nom) {
     /* La commune est dans la barre de tête : la répéter sous chaque titre
        d'écran occupait une ligne pour une information déjà présente. */
     sous: f.sousEcran || "",
-    corps: bandeauHorsLigne() + f.corps,
+    corps: bandeauMiseAJour() + bandeauHorsLigne() + f.corps,
     brancher: f.brancher,
   };
 }
@@ -790,8 +799,10 @@ function poserOnglet(nom) {
      les autres écrans, l'appui répété n'a rien à défaire. */
   if (nom === "carte") ctx.cadreCarte = null;
   /* Toucher un onglet referme la page de détail, comme sur iPhone : l'onglet
-     courant ramène à sa racine. */
-  if (detail) detail = null;
+     courant ramène à sa racine. Le pas d'historique que la page avait posé est
+     retiré aussi : laissé en place, il décalait tout retour suivant d'un cran,
+     et la feuille ouverte ensuite ne se refermait plus au retour. */
+  if (detail) { detail = null; history.back(); }
   onglet = nom;
   for (const b of $("onglets").children) {
     const actif = b.dataset.onglet === onglet;
@@ -982,7 +993,14 @@ function fermerFeuille() {
   f.classList.remove("ouverte");
   $("voile").classList.remove("visible");
   document.body.classList.remove("fige");
-  setTimeout(() => { f.hidden = true; $("voile").hidden = true; }, 260);
+  /* Une fois refermée, la feuille se vide : son contenu masqué restait dans la
+     page, et les réglages y doublaient par exemple le sélecteur « Ruban » de
+     l'écran du temps. Elle ne se vide que si rien ne l'a rouverte entre-temps. */
+  setTimeout(() => {
+    if (f.classList.contains("ouverte")) return;
+    f.hidden = true; $("voile").hidden = true;
+    $("feuille-corps").innerHTML = "";
+  }, 260);
   pile = [];
   vueCourante = null;
 }
@@ -1228,6 +1246,7 @@ $("ecran").addEventListener("click", ev => {
   }
   const a = ev.target.closest('[data-action="geo"]');
   if (a) situerParPosition(a);
+  if (ev.target.closest('[data-action="recharger"]')) location.reload();
 });
 
 window.addEventListener("keydown", ev => {
@@ -1267,6 +1286,19 @@ if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("./sw.js").catch(() => { /* hors ligne indisponible */ });
   });
 }
+
+/* La recherche d'une version plus récente : quelques secondes après
+   l'ouverture, pour ne pas disputer le réseau à la prévision, puis à chaque
+   retour au premier plan. Le bandeau ne paraît que si la version publiée
+   dépasse celle qui tourne. */
+async function chercherVersion() {
+  const v = await Version.plusRecente();
+  if (v === versionPlusRecente) return;
+  versionPlusRecente = v;
+  rendre();
+}
+setTimeout(chercherVersion, 4000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) chercherVersion(); });
 
 charger();
 

@@ -28,6 +28,7 @@ import * as Atmo from "./atmo.js";
 import * as Nuages from "./nuages.js";
 import * as Feux from "./feux.js";
 import * as Ciel from "./ciel.js";
+import * as Version from "./version.js";
 import * as NappeCarte from "./nappe.js";
 import * as Vent from "./vent.js";
 import * as Vig from "./vigilance.js";
@@ -3423,10 +3424,31 @@ export function vueReglages(ctx, rendre, majEtat) {
         + `<span class="rangee-val">${esc(`${g.lat}, ${g.lon}`)}</span></div>` : "")
       + `</div>`
 
+      /* La version, et la recherche d'une plus récente à la demande. */
+      + `<div class="carte"><div class="carte-tete"><h3>Application</h3></div>`
+      + `<div class="rangee"><span class="rangee-txt">Version</span>`
+      + `<span class="rangee-val" id="rgVersion">${Version.numero()}</span></div>`
+      + `<div class="rangee rg-maj"><button type="button" class="bouton-borde" id="rgChercher">`
+      + `Rechercher une mise à jour</button><span class="note" id="rgMaj" role="status"></span></div>`
+      + `</div>`
+
       + `<p class="note">Aucun compte, aucune base de données, aucune donnée envoyée. `
       + `Les réglages restent sur cet appareil.</p>`,
 
     brancher(bloc) {
+      const chercher = bloc.querySelector("#rgChercher");
+      const dit = bloc.querySelector("#rgMaj");
+      if (chercher) {
+        chercher.addEventListener("click", async () => {
+          dit.textContent = "Recherche…";
+          const p = await Version.publiee();
+          if (p === null) { dit.textContent = "La recherche n'a pas abouti, hors ligne peut-être."; return; }
+          if (p <= Version.numero()) { dit.textContent = "Cette version est la plus récente."; return; }
+          dit.innerHTML = `La version ${p} est disponible. `
+            + `<button type="button" class="bouton-plein" id="rgRecharger">Recharger</button>`;
+          dit.querySelector("#rgRecharger").addEventListener("click", () => location.reload());
+        });
+      }
       for (const b of bloc.querySelectorAll("[data-ecriture]")) {
         b.addEventListener("click", () => {
           Reglages.poserEcriture(b.dataset.ecriture);

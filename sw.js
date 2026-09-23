@@ -2,7 +2,7 @@
    réponse d'API : une prévision périmée servie sans le dire vaut moins qu'un
    message d'indisponibilité. */
 
-const VERSION = "ma-meteo-v77";
+const VERSION = "ma-meteo-v78";
 const COQUE = [
   "./",
   "./index.html",
@@ -38,6 +38,7 @@ const COQUE = [
   "./src/feux.js",
   "./src/ciel.js",
   "./src/bande.js",
+  "./src/version.js",
   "./src/nappe.js",
   "./src/vent.js",
   "./src/deplacement.js",
@@ -72,9 +73,14 @@ self.addEventListener("fetch", ev => {
   if (u.origin !== self.location.origin) return;
 
   /* La coque suit le réseau d'abord, le cache en secours : une correction
-     déployée doit arriver sans attendre l'expiration d'un cache. */
+     déployée doit arriver sans attendre l'expiration d'un cache. Le réseau se
+     demande sans le cache du navigateur : GitHub sert les fichiers pour dix
+     minutes, et un simple `fetch` repassait par ce cache, si bien qu'une
+     version publiée restait invisible jusqu'à dix minutes, relevé le
+     23 septembre 2026. Le serveur répond d'un « inchangé » quand rien n'a
+     bougé, ce qui ne coûte presque rien. */
   ev.respondWith(
-    fetch(ev.request)
+    fetch(ev.request, { cache: "no-cache" })
       .then(r => {
         if (r.ok) {
           const copie = r.clone();

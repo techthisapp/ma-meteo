@@ -1303,6 +1303,58 @@ await pg.evaluate(async () => {
   window.scrollTo({ top: 0, behavior: "instant" });
 });
 
+/* La version et la mise à jour, demandées le 23 septembre 2026. Le numéro est
+   écrit deux fois, dans la coque et dans le module ; la garde rattrape un
+   oubli au moment de monter la version. La version publiée se lit dans le
+   sw.js servi ; une route la remplace ici le temps des gestes. */
+const versionDit = await pg.evaluate(async () => {
+  const V = await import("/src/version.js");
+  const t = await (await fetch("/sw.js", { cache: "no-store" })).text();
+  return { module: V.VERSION, coque: (/const VERSION = "([^"]+)"/.exec(t) || [])[1], numero: V.numero() };
+});
+/* La coque se redemande au serveur sans le cache du navigateur, sans quoi une
+   version publiée restait invisible jusqu'à dix minutes. */
+ok("le service worker redemande la coque sans le cache du navigateur",
+  await pg.evaluate(async () => /fetch\(ev\.request, \{ cache: "no-cache" \}\)/
+    .test(await (await fetch("/sw.js", { cache: "no-store" })).text())));
+
+ok("le numéro de version est celui de la coque",
+  versionDit.module === versionDit.coque && Number.isInteger(versionDit.numero),
+  `${versionDit.module} contre ${versionDit.coque}`);
+
+const publier = async corps => {
+  await pg.context().unroute(/sw\.js\?v=/);
+  await pg.context().route(/sw\.js\?v=/, r => corps === null ? r.abort()
+    : r.fulfill({ status: 200, contentType: "text/javascript", body: corps }));
+  await pg.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await pg.waitForTimeout(600);
+  return pg.evaluate(() => {
+    const b = document.querySelector("#ecran .mise-a-jour");
+    return b ? { texte: b.textContent, bouton: !!b.querySelector('[data-action="recharger"]') } : null;
+  });
+};
+const plusRecente = await publier(`const VERSION = "ma-meteo-v999";`);
+ok("une version plus récente publiée fait paraître l'offre de recharger",
+  plusRecente && /999/.test(plusRecente.texte) && plusRecente.bouton, JSON.stringify(plusRecente));
+const memeVersion = await publier(`const VERSION = "${versionDit.coque}";`);
+ok("la même version ne fait rien paraître", memeVersion === null, JSON.stringify(memeVersion));
+const plusAncienne = await publier(`const VERSION = "ma-meteo-v1";`);
+ok("une version plus ancienne publiée ne propose rien", plusAncienne === null, JSON.stringify(plusAncienne));
+const horsLigne = await publier(null);
+ok("hors ligne, la recherche ne propose rien", horsLigne === null, JSON.stringify(horsLigne));
+await pg.context().unroute(/sw\.js\?v=/);
+
+await pg.locator("#btnReglages").click();
+await pg.waitForTimeout(500);
+ok("les réglages disent la version",
+  await pg.evaluate(n => document.getElementById("rgVersion")?.textContent === String(n), versionDit.numero));
+await pg.evaluate(() => history.back());
+await pg.waitForTimeout(500);
+/* La feuille doit s'être refermée : laissée ouverte, elle double les
+   sélecteurs des sections suivantes. */
+ok("la feuille des réglages se referme au retour",
+  await pg.evaluate(() => document.getElementById("feuille").hidden === true));
+
 /* Les deux décisions du lot 2, vérifiées pour elles-mêmes : dans la fenêtre des
    contrôles, sans avis, la marge est assez large pour qu'un ciel d'origine ou
    des chiffres sur deux colonnes tiennent encore, et la garde du premier écran
