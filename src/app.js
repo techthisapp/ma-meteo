@@ -576,30 +576,16 @@ function ecranAccueil() {
       ? `<div class="section" data-bloc="${cle}"><h2${luSeul ? ' class="titre-lu"' : ""}>`
         + `${esc(titre)}</h2>${dedans}</div>` : "");
 
-    corps += `<div class="ecran-corps">`
-      + panneauVigilance()
-      + panneauPluieProche()
-      /* Les chiffres du jour d'abord, sous les avis urgents, puis la bande
-         horaire, puis les quatre portes en grille de deux sur deux, puis les
-         conseils du jour : l'ordre demandé par Jérôme le 24 septembre 2026.
-         Tout reste dans le bloc « Aujourd'hui » : l'accueil se lit en trois
-         blocs de temps, et un bloc à part pour les portes brisait cette
-         lecture. */
-      + bloc("jour", "Aujourd'hui",
-        (mesures.length ? `<div class="bd-mesures">`
-          + mesures.map(([n, v, e, c, voie]) =>
-            `<button type="button" class="bd-m" data-detail="${esc(voie)}" `
-            + `aria-label="${esc(n)}, ${esc(v)}, voir les vingt-quatre heures">`
-            + `<i>${esc(n)}${chevronM}</i><b${c ? ` class="${c}"` : ""}>${valeurUnite(v)}</b>`
-            + `<em>${esc(e)}</em></button>`).join("")
-          + `</div>` : "")
-        /* La bande horaire : l'évolution de la journée d'un coup d'œil, qu'il
-           fallait aller chercher dans « Le temps ». Jalon 10, lot 1. */
-        + Bande.bandeHoraire(s, g)
-        + `<div class="portes">`
-        /* L'écran de questions s'ouvre d'ici, sous les mesures du jour : c'est
-           là que se lit ce qui concerne la journée en cours, et la rangée est
-           atteignable sans dérouler la page entière.
+    /* Les quatre portes, en grille de deux sur deux. Jérôme les a voulues tout
+       en bas de l'accueil le 24 septembre 2026, après « Demain et
+       après-demain » : l'accueil dit le temps d'abord, les portes mènent
+       ailleurs. Elles avaient été gardées sous les chiffres pour être atteintes
+       sans dérouler la page ; la bande et le tableau disent désormais
+       l'essentiel avant elles. Sans titre, elles ne s'ajoutent pas aux trois
+       blocs de temps. */
+    const portesHTML = ""
+      + `<div class="portes">`
+        /* L'écran de questions s'ouvre d'ici.
 
            La seconde rangée mène à l'autre question, celle du lieu. Les deux se
            lisent comme une paire, quand et où, et gardent le même gabarit : une
@@ -626,6 +612,25 @@ function ecranAccueil() {
         + `<span>Records, normales et réchauffement</span></span>`
         + chevron + `</button>`
         + `</div>`
+      ;
+
+    corps += `<div class="ecran-corps">`
+      + panneauVigilance()
+      + panneauPluieProche()
+      /* Les chiffres du jour d'abord, sous les avis urgents, puis la bande
+         horaire, puis les conseils du jour : l'ordre demandé par Jérôme le
+         24 septembre 2026. Les quatre portes ferment la page, voir plus bas. */
+      + bloc("jour", "Aujourd'hui",
+        (mesures.length ? `<div class="bd-mesures">`
+          + mesures.map(([n, v, e, c, voie]) =>
+            `<button type="button" class="bd-m" data-detail="${esc(voie)}" `
+            + `aria-label="${esc(n)}, ${esc(v)}, voir les vingt-quatre heures">`
+            + `<i>${esc(n)}${chevronM}</i><b${c ? ` class="${c}"` : ""}>${valeurUnite(v)}</b>`
+            + `<em>${esc(e)}</em></button>`).join("")
+          + `</div>` : "")
+        /* La bande horaire : l'évolution de la journée d'un coup d'œil, qu'il
+           fallait aller chercher dans « Le temps ». Jalon 10, lot 1. */
+        + Bande.bandeHoraire(s, g)
         + (lJour.length ? `<div class="carte retenir">`
           + `<div class="conseils">${conseilsHTML(lJour)}</div></div>` : ""), true);
 
@@ -639,6 +644,8 @@ function ecranAccueil() {
     corps += bloc("suite", titreJours(lSuite), lSuite.length
       ? `<div class="carte retenir"><div class="conseils">${conseilsHTML(lSuite)}</div></div>`
       : "");
+
+    corps += `<div class="section" data-bloc="portes">${portesHTML}</div>`;
 
     corps += `<p class="pied">Source : Open-Meteo, modèle AROME de Météo-France. `
       + `Mise à jour toutes les heures.</p>`

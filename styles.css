@@ -2084,11 +2084,11 @@ button.rangee:active{background:var(--surface-2)}
 }
 .rg-maj{flex-wrap:wrap;gap:var(--espace-sm)}
 
-/* Les quatre portes en grille de deux sur deux, sous la bande horaire. Dans une
+/* Les quatre portes en grille de deux sur deux, en bas de l'accueil. Dans une
    demi-largeur, le symbole passe au-dessus du titre, et le chevron se loge en
    haut à droite. Quand le texte grandit, la grille repasse sur une colonne,
-   comme les chiffres du jour, par la même règle sur le bloc du jour. Demandé
-   le 24 septembre 2026. */
+   comme les chiffres du jour. Demandé le 24 septembre 2026. */
+[data-bloc="portes"]{container-type:inline-size}
 .portes{display:grid;grid-template-columns:1fr 1fr;gap:var(--espace-md)}
 .portes .porte{
   position:relative;margin:0;flex-direction:column;align-items:flex-start;

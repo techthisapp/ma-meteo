@@ -1150,9 +1150,16 @@ const bandeDit = await pg.evaluate(async () => {
     /* Depuis le 24 septembre 2026, les chiffres du jour précèdent la bande,
        et les portes la suivent en grille. */
     apresJour: ordre(bande) > ordre(document.querySelector('[data-bloc="jour"] .bd-mesures')),
-    avantPortes: ordre(bande) < ordre(document.querySelector('[data-bloc="jour"] .portes')),
+    avantPortes: ordre(bande) < ordre(document.querySelector(".portes")),
+    /* Les portes ferment l'accueil depuis le 24 septembre 2026 : après les
+       24 prochaines heures et demain, avant la ligne des sources. */
+    portesEnBas: (() => {
+      const p = ordre(document.querySelector(".portes"));
+      const avant = document.querySelector('[data-bloc="suite"]') || document.querySelector('[data-bloc="h24"]');
+      return p > ordre(avant) && p < ordre(document.querySelector("#ecran .pied"));
+    })(),
     portes: (() => {
-      const b = [...document.querySelectorAll('[data-bloc="jour"] .portes .porte')];
+      const b = [...document.querySelectorAll(".portes .porte")];
       const r = b.map(x => x.getBoundingClientRect());
       return { n: b.length, rangees: new Set(r.map(x => Math.round(x.top))).size,
         colonnes: new Set(r.map(x => Math.round(x.left))).size };
@@ -1172,6 +1179,8 @@ const bandeDit = await pg.evaluate(async () => {
 });
 ok("la bande horaire se pose sous les avis urgents et les chiffres du jour, avant les portes",
   bandeDit.presente && bandeDit.apresAvis && bandeDit.apresJour && bandeDit.avantPortes);
+ok("les quatre portes ferment l'accueil, après demain et après-demain",
+  bandeDit.portesEnBas);
 ok("les quatre portes se rangent en grille de deux sur deux",
   bandeDit.portes.n === 4 && bandeDit.portes.rangees === 2 && bandeDit.portes.colonnes === 2,
   JSON.stringify(bandeDit.portes));

@@ -84,6 +84,10 @@ case "$N" in
   22) # Les portes repassent sur une colonne.
      perl -0pi -e 's/\.portes\{display:grid;grid-template-columns:1fr 1fr;/.portes{display:grid;grid-template-columns:1fr;/' styles.css
      ATTENDU="les quatre portes se rangent en grille de deux sur deux" ;;
+  23) # Les portes remontent au-dessus des chiffres du jour.
+     perl -0pi -e 's/    corps \+= `<div class="section" data-bloc="portes">\$\{portesHTML\}<\/div>`;\n//' src/app.js
+     perl -0pi -e 's/(      \+ panneauPluieProche\(\)\n)/$1      + `<div class="section" data-bloc="portes">\$\{portesHTML\}<\/div>`\n/' src/app.js
+     ATTENDU="les quatre portes ferment l.accueil, après demain et après-demain" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
