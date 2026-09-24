@@ -855,12 +855,16 @@ window.addEventListener("resize", majPose);
    que la largeur le permet : basculer l'appareil change donc le dessin, non la
    seule mise en page. Le rendu se refait au passage du seuil, pas à chaque
    pixel de redimensionnement. */
-let largeAvant = Ruban.fenetre();
+let largeAvant = Ruban.fenetre(), traitAvant = Ruban.largeurVoulue();
 window.addEventListener("resize", () => {
-  const f = Ruban.fenetre();
-  if (f === largeAvant) return;
-  largeAvant = f;
-  if (onglet === "temps") rendre();
+  /* La largeur du dessin suit aussi celle de l'écran : le rendu se refait
+     quand elle change, et pas seulement au passage de la fenêtre de vingt-quatre
+     à quarante-huit heures. Le ruban ouvert en page de détail depuis l'accueil
+     se refait comme sur l'onglet. */
+  const f = Ruban.fenetre(), l = Ruban.largeurVoulue();
+  if (f === largeAvant && Math.abs(l - traitAvant) < 8) return;
+  largeAvant = f; traitAvant = l;
+  if (onglet === "temps" || detail) rendre();
 });
 
 /* La hauteur réelle de la barre d'onglets dépend de la taille du texte : elle se

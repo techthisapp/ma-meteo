@@ -49,8 +49,27 @@ import { plagesDe, dCardinal, CARD_ABR, iCard } from "./previsions.js";
 import { icoCiel, icoTemps, couleurT, couleurUV } from "./icones.js";
 import { alignerSur, LAME } from "./ensemble.js";
 
-const L = 358, M = 5, GOUT = 34;
-const P = L - M - GOUT;
+/* La largeur du dessin, en unités, suit celle de l'écran à la densité du
+   portrait : 358 unités pour 310 points d'écran. Elle était fixe, et en paysage
+   ces 358 unités s'étiraient sur 764 points : textes, marges, épaisseurs et
+   hauteurs grossissaient d'un facteur deux, relevé par Jérôme le
+   24 septembre 2026. Le portrait garde exactement sa géométrie : jusqu'à 430
+   points de large, la largeur reste 358. La largeur se lit sur la colonne des
+   voies quand elle existe ; au premier rendu, où elle n'existe pas encore, sur
+   l'écran, et le branchement corrige d'un seul rendu si la colonne posée
+   dément l'estimation. */
+const L_PORTRAIT = 358, POINTS_PORTRAIT = 318;
+const M = 5, GOUT = 34;
+let L = L_PORTRAIT, P = L - M - GOUT;
+
+export function largeurVoulue() {
+  if (typeof document === "undefined") return L_PORTRAIT;
+  const v = document.querySelector(".mg-v");
+  const e = document.getElementById("ecran");
+  const px = v ? v.getBoundingClientRect().width
+    : (e ? e.getBoundingClientRect().width - 76 : POINTS_PORTRAIT);
+  return px <= 430 ? L_PORTRAIT : Math.round(px * L_PORTRAIT / POINTS_PORTRAIT);
+}
 const ZOOM = 2.5;
 const H_VOIE = 86;
 const H_TEMP = 66;   // amplitude réservée à la température dans sa voie
@@ -166,6 +185,8 @@ const nomJour = (s, jour) => {
 };
 
 export function dessiner(s) {
+  L = largeurVoulue();
+  P = L - M - GOUT;
   serie = s;
   /* Les scénarios, alignés sur la série une fois pour toutes : la voie de
      température s'en sert, et la phrase de résumé aussi. Ils manquent tant que
@@ -976,6 +997,10 @@ export function dessiner(s) {
 /* Lecture au doigt. Le montant est posé dès le dessin, replié : le faire naître
    au toucher obligerait à recomposer le dessin à chaque déplacement. */
 export function brancher(bloc, surVoie) {
+  /* La colonne posée dit sa vraie largeur : si elle dément l'estimation du
+     rendu, un seul rendu de correction suit. Au second, la largeur mesurée est
+     celle que le dessin porte déjà, et rien ne se refait. */
+  if (Math.abs(largeurVoulue() - L) >= 8) { requestAnimationFrame(() => surVoie()); return; }
   const s = serie;
   if (!s) return;
   const FEN = fenetre();

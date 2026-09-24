@@ -1369,6 +1369,38 @@ await pg.waitForTimeout(500);
 ok("la feuille des réglages se referme au retour",
   await pg.evaluate(() => document.getElementById("feuille").hidden === true));
 
+/* Le ruban en paysage garde la densité du portrait. Sa largeur était fixe, 358
+   unités, et en paysage ces unités s'étiraient sur 764 points : tout grossissait
+   d'un facteur deux, relevé par Jérôme le 24 septembre 2026. Le rapport entre
+   points d'écran et unités de dessin doit être le même dans les deux sens, et
+   le portrait garder ses 358 unités. */
+const densite = () => pg.evaluate(() => {
+  const svg = document.querySelector(".mg-s");
+  if (!svg) return null;
+  const vb = Number(svg.getAttribute("viewBox").split(" ")[2]);
+  return { vb, rapport: svg.getBoundingClientRect().width / vb };
+});
+await pg.locator('[data-onglet="temps"]').click();
+await pg.waitForTimeout(700);
+const portrait = await densite();
+await pg.setViewportSize({ width: 844, height: 390 });
+await pg.waitForTimeout(1200);
+const paysage = await densite();
+await pg.setViewportSize({ width: 390, height: 844 });
+await pg.waitForTimeout(1200);
+await pg.locator('[data-onglet="accueil"]').click();
+await pg.waitForTimeout(500);
+await pg.evaluate(async () => {
+  const R = await import("/src/ruban.js");
+  R.auMaintenant(); R.poserHeure(-1); R.poserVoie(null);
+  window.scrollTo({ top: 0, behavior: "instant" });
+});
+ok("le ruban garde en paysage la densité du portrait",
+  portrait && paysage && portrait.vb === 358 && paysage.vb > 700
+  && Math.abs(paysage.rapport - portrait.rapport) < 0.02,
+  `portrait ${portrait?.vb} unités à ${portrait?.rapport.toFixed(3)}, `
+  + `paysage ${paysage?.vb} unités à ${paysage?.rapport.toFixed(3)}`);
+
 /* Les deux décisions du lot 2, vérifiées pour elles-mêmes : dans la fenêtre des
    contrôles, sans avis, la marge est assez large pour qu'un ciel d'origine ou
    des chiffres sur deux colonnes tiennent encore, et la garde du premier écran

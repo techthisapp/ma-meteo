@@ -79,6 +79,9 @@ case "$N" in
   20) # La découpe revient sur le groupe qui glisse, et glisse avec lui.
      perl -0pi -e 's/<g clip-path="url\(#\$\{id0\}\)"><g class="mg-mob">/<g><g class="mg-mob" clip-path="url(#\$\{id0\})">/' src/ruban.js
      ATTENDU="pendant le glissement, la suite du ruban paraît sous le doigt" ;;
+  21) # La largeur du dessin redevient fixe : le paysage grossit tout.
+     perl -0pi -e 's/  L = largeurVoulue\(\);/  L = L_PORTRAIT;/' src/ruban.js
+     ATTENDU="le ruban garde en paysage la densité du portrait" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

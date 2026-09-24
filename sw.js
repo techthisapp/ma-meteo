@@ -2,7 +2,7 @@
    réponse d'API : une prévision périmée servie sans le dire vaut moins qu'un
    message d'indisponibilité. */
 
-const VERSION = "ma-meteo-v79";
+const VERSION = "ma-meteo-v80";
 const COQUE = [
   "./",
   "./index.html",
