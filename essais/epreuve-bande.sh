@@ -15,12 +15,11 @@ PORT_ESSAIS=$((8360 + N))
 JUSQUA="La bande horaire"
 
 case "$N" in
-  1) # La bande descend sous les chiffres du jour. Une bande posée au-dessus des
-     # avis urgents ne se voit que quand un avis paraît, ce que la page des
-     # contrôles n'a pas à cet endroit.
-     perl -0pi -e 's/      \+ Bande\.bandeHoraire\(s, g\)\n      \+ bloc\("jour", "Aujourd.hui",/      + bloc("jour", "Aujourd\x27hui",/' src/app.js
-     perl -0pi -e 's/(    if \(s\) \{\n      corps \+= bloc\("h24")/    corps += Bande.bandeHoraire(s, g);\n$1/' src/app.js
-     ATTENDU="la bande horaire se pose sous les avis urgents, avant les chiffres du jour" ;;
+  1) # La bande repasse au-dessus des chiffres du jour, l'ordre d'avant le
+     # 24 septembre 2026.
+     perl -0pi -e 's/\n        \+ Bande\.bandeHoraire\(s, g\)\n/\n/' src/app.js
+     perl -0pi -e 's/(      \+ bloc\("jour", "Aujourd.hui",)/      + Bande.bandeHoraire(s, g)\n$1/' src/app.js
+     ATTENDU="la bande horaire se pose sous les avis urgents et les chiffres du jour, avant les portes" ;;
   2) # Douze heures seulement.
      perl -0pi -e 's/export const HEURES = 24;/export const HEURES = 12;/' src/bande.js
      ATTENDU="elle compte vingt-quatre heures, qui glissent sous le doigt" ;;
@@ -82,6 +81,9 @@ case "$N" in
   21) # La largeur du dessin redevient fixe : le paysage grossit tout.
      perl -0pi -e 's/  L = largeurVoulue\(\);/  L = L_PORTRAIT;/' src/ruban.js
      ATTENDU="le ruban garde en paysage la densité du portrait" ;;
+  22) # Les portes repassent sur une colonne.
+     perl -0pi -e 's/\.portes\{display:grid;grid-template-columns:1fr 1fr;/.portes{display:grid;grid-template-columns:1fr;/' styles.css
+     ATTENDU="les quatre portes se rangent en grille de deux sur deux" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

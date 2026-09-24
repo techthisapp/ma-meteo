@@ -2083,3 +2083,20 @@ button.rangee:active{background:var(--surface-2)}
   font-size:var(--texte-note);color:var(--etiquette);
 }
 .rg-maj{flex-wrap:wrap;gap:var(--espace-sm)}
+
+/* Les quatre portes en grille de deux sur deux, sous la bande horaire. Dans une
+   demi-largeur, le symbole passe au-dessus du titre, et le chevron se loge en
+   haut à droite. Quand le texte grandit, la grille repasse sur une colonne,
+   comme les chiffres du jour, par la même règle sur le bloc du jour. Demandé
+   le 24 septembre 2026. */
+.portes{display:grid;grid-template-columns:1fr 1fr;gap:var(--espace-md)}
+.portes .porte{
+  position:relative;margin:0;flex-direction:column;align-items:flex-start;
+  gap:var(--espace-sm);padding:var(--espace-md);text-align:left;
+}
+.portes .porte .rangee-txt b{font-size:var(--texte-appel)}
+.portes .porte .rangee-txt span{font-size:var(--texte-note)}
+.portes .porte > svg:last-child{position:absolute;top:var(--espace-md);right:var(--espace-sm)}
+@container (max-width:18rem){
+  .portes{grid-template-columns:1fr}
+}

@@ -579,10 +579,12 @@ function ecranAccueil() {
     corps += `<div class="ecran-corps">`
       + panneauVigilance()
       + panneauPluieProche()
-      /* La bande horaire, juste sous les deux avis urgents : l'évolution de la
-         journée d'un coup d'œil, qu'il fallait aller chercher dans « Le
-         temps ». Jalon 10, lot 1. */
-      + Bande.bandeHoraire(s, g)
+      /* Les chiffres du jour d'abord, sous les avis urgents, puis la bande
+         horaire, puis les quatre portes en grille de deux sur deux, puis les
+         conseils du jour : l'ordre demandé par Jérôme le 24 septembre 2026.
+         Tout reste dans le bloc « Aujourd'hui » : l'accueil se lit en trois
+         blocs de temps, et un bloc à part pour les portes brisait cette
+         lecture. */
       + bloc("jour", "Aujourd'hui",
         (mesures.length ? `<div class="bd-mesures">`
           + mesures.map(([n, v, e, c, voie]) =>
@@ -591,6 +593,10 @@ function ecranAccueil() {
             + `<i>${esc(n)}${chevronM}</i><b${c ? ` class="${c}"` : ""}>${valeurUnite(v)}</b>`
             + `<em>${esc(e)}</em></button>`).join("")
           + `</div>` : "")
+        /* La bande horaire : l'évolution de la journée d'un coup d'œil, qu'il
+           fallait aller chercher dans « Le temps ». Jalon 10, lot 1. */
+        + Bande.bandeHoraire(s, g)
+        + `<div class="portes">`
         /* L'écran de questions s'ouvre d'ici, sous les mesures du jour : c'est
            là que se lit ce qui concerne la journée en cours, et la rangée est
            atteignable sans dérouler la page entière.
@@ -619,6 +625,7 @@ function ecranAccueil() {
         + ico("jauge", "") + `<span class="rangee-txt"><b>Le climat d'ici</b>`
         + `<span>Records, normales et réchauffement</span></span>`
         + chevron + `</button>`
+        + `</div>`
         + (lJour.length ? `<div class="carte retenir">`
           + `<div class="conseils">${conseilsHTML(lJour)}</div></div>` : ""), true);
 

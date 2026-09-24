@@ -1147,7 +1147,16 @@ const bandeDit = await pg.evaluate(async () => {
       const el = document.querySelector(q);
       return !el || ordre(el) < ordre(bande);
     }),
-    avantJour: ordre(bande) < ordre(document.querySelector('[data-bloc="jour"]')),
+    /* Depuis le 24 septembre 2026, les chiffres du jour précèdent la bande,
+       et les portes la suivent en grille. */
+    apresJour: ordre(bande) > ordre(document.querySelector('[data-bloc="jour"] .bd-mesures')),
+    avantPortes: ordre(bande) < ordre(document.querySelector('[data-bloc="jour"] .portes')),
+    portes: (() => {
+      const b = [...document.querySelectorAll('[data-bloc="jour"] .portes .porte')];
+      const r = b.map(x => x.getBoundingClientRect());
+      return { n: b.length, rangees: new Set(r.map(x => Math.round(x.top))).size,
+        colonnes: new Set(r.map(x => Math.round(x.left))).size };
+    })(),
     heures: bande ? bande.querySelectorAll(".bh-heure").length : 0,
     glisse: defil ? defil.scrollWidth > defil.clientWidth : false,
     icone: !!premiere?.querySelector("svg.ict"),
@@ -1161,8 +1170,11 @@ const bandeDit = await pg.evaluate(async () => {
     plages: JSON.stringify(B.plagesDePluie(serie)),
   };
 });
-ok("la bande horaire se pose sous les avis urgents, avant les chiffres du jour",
-  bandeDit.presente && bandeDit.apresAvis && bandeDit.avantJour);
+ok("la bande horaire se pose sous les avis urgents et les chiffres du jour, avant les portes",
+  bandeDit.presente && bandeDit.apresAvis && bandeDit.apresJour && bandeDit.avantPortes);
+ok("les quatre portes se rangent en grille de deux sur deux",
+  bandeDit.portes.n === 4 && bandeDit.portes.rangees === 2 && bandeDit.portes.colonnes === 2,
+  JSON.stringify(bandeDit.portes));
 ok("elle compte vingt-quatre heures, qui glissent sous le doigt",
   bandeDit.heures === 24 && bandeDit.glisse, `${bandeDit.heures} heures`);
 ok("chaque heure porte son symbole, son degré, son vent et ses rafales",
@@ -1177,7 +1189,9 @@ ok("le coucher et le lever du Soleil s'intercalent à leur minute",
    écran, au-dessus de la barre d'onglets. La page des contrôles porte un avis à
    cet endroit de la suite : il est masqué le temps de la mesure, puis rendu. */
 const sansAvis = await pg.evaluate(() => {
-  const m = document.querySelector("#ecran .bd-mesures");
+  /* La bande vient après les chiffres depuis le 24 septembre 2026 : c'est
+     elle, la plus basse des deux, qui se mesure. */
+  const m = document.querySelector("#ecran #bande .bande-defil");
   const o = document.getElementById("onglets");
   if (!m || !o) return { reste: null };
   const avis = [...document.querySelectorAll("#ecran .vg, #ecran .pp-c")];
