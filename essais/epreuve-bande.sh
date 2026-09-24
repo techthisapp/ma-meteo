@@ -15,11 +15,10 @@ PORT_ESSAIS=$((8360 + N))
 JUSQUA="La bande horaire"
 
 case "$N" in
-  1) # La bande repasse au-dessus des chiffres du jour, l'ordre d'avant le
-     # 24 septembre 2026.
-     perl -0pi -e 's/\n        \+ Bande\.bandeHoraire\(s, g\)\n/\n/' src/app.js
-     perl -0pi -e 's/(      \+ bloc\("jour", "Aujourd.hui",)/      + Bande.bandeHoraire(s, g)\n$1/' src/app.js
-     ATTENDU="la bande horaire se pose sous les avis urgents et les chiffres du jour, avant les portes" ;;
+  1) # La bande descend sous les tuiles des paramètres.
+     perl -0pi -e 's/        Bande\.bandeHoraire\(s, g\)\n        \+ \(lJour/        (lJour/' src/app.js
+     perl -0pi -e 's/(          \+ `<\/div>` : ""\)), true\);/$1 + Bande.bandeHoraire(s, g), true);/' src/app.js
+     ATTENDU="la bande horaire se pose sous les avis urgents, avant les tuiles et les portes" ;;
   2) # Douze heures seulement.
      perl -0pi -e 's/export const HEURES = 24;/export const HEURES = 12;/' src/bande.js
      ATTENDU="elle compte vingt-quatre heures, qui glissent sous le doigt" ;;
@@ -38,9 +37,9 @@ case "$N" in
   7) # Le ciel de l'accueil reprend sa hauteur d'origine.
      perl -0pi -e 's/\.plein-accueil \.ci\{aspect-ratio:390 \/ 250\}/.plein-accueil .ci{aspect-ratio:390 \/ 306}/' styles.css
      ATTENDU="le ciel de l.accueil est plus bas que celui des autres écrans" ;;
-  8) # Les chiffres repassent sur deux colonnes quelle que soit la taille du texte.
-     perl -0pi -e 's/\@container \(max-width:18rem\)\{\n  \.bd-mesures\{/\@container (max-width:60rem){\n  .bd-mesures{/' styles.css
-     ATTENDU="les quatre chiffres du jour tiennent sur une ligne en taille ordinaire" ;;
+  8) # Les tuiles passent sur une colonne quelle que soit la taille du texte.
+     perl -0pi -e 's/\@container \(max-width:18rem\)\{\n  \.bd-mesures\.tuiles\{/\@container (max-width:60rem){\n  .bd-mesures.tuiles{/' styles.css
+     ATTENDU="les huit tuiles des paramètres se rangent sur deux colonnes" ;;
   9) # La bande compte de nouveau les heures à fort risque sans quantité, le
      # défaut qui la faisait contredire la suite de la page.
      perl -0pi -e 's/export const pluvieuse = \(s, k\) => \(s\.mm\[k\] \?\? 0\) >= SEUIL_LAME;/export const pluvieuse = (s, k) => (s.mm[k] ?? 0) >= SEUIL_LAME || (s.pb[k] ?? 0) >= 50;/' src/bande.js
@@ -88,6 +87,9 @@ case "$N" in
      perl -0pi -e 's/    corps \+= `<div class="section" data-bloc="portes">\$\{portesHTML\}<\/div>`;\n//' src/app.js
      perl -0pi -e 's/(      \+ panneauPluieProche\(\)\n)/$1      + `<div class="section" data-bloc="portes">\$\{portesHTML\}<\/div>`\n/' src/app.js
      ATTENDU="les quatre portes ferment l.accueil, après demain et après-demain" ;;
+  24) # La tuile de l'air perd sa feuille.
+     perl -0pi -e 's/"pas de mesure", "", null, "brume", "nuage", "air"\]/"pas de mesure", "", "air", "brume", "nuage", null]/' src/app.js
+     ATTENDU="chaque tuile mène au détail de son paramètre" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

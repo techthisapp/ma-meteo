@@ -1009,9 +1009,11 @@ ok("le jour est porté par le ciel, non par un titre d'écran",
 ok("la commune ne s'écrit pas deux fois sur l'accueil",
   !(await txt(".plein-titre")).includes("Fain"), await txt(".plein-titre"));
 ok("le bandeau porte un grand chiffre", /\d+°/.test(await txt(".bd-deg")), await txt(".bd-deg"));
-ok("le bandeau porte quatre mesures", await pg.locator(".bd-m").count() === 4);
+/* Jalon 11 : huit tuiles, une par paramètre suivi, au lieu de quatre mesures. */
+ok("l'accueil porte une tuile par paramètre suivi", await pg.locator(".bd-m").count() === 8);
 const mes = (await pg.locator(".bd-m i").allInnerTexts()).join(", ");
-ok("les quatre mesures sont nommées", mes.toLowerCase() === "pluie, vent, humidité, indice uv", mes);
+ok("les tuiles sont nommées",
+  mes.toLowerCase() === "ressenti, pluie, vent, ciel, humidité, indice uv, pression, air", mes);
 const cj = await pg.locator(".cj-l").allInnerTexts();
 /* Trois lignes par bloc au plus : au-delà, un bloc cesse d'être un résumé. Six
    en tout au pire, comme du temps de la carte unique. */
@@ -1149,7 +1151,11 @@ const bandeDit = await pg.evaluate(async () => {
     }),
     /* Depuis le 24 septembre 2026, les chiffres du jour précèdent la bande,
        et les portes la suivent en grille. */
-    apresJour: ordre(bande) > ordre(document.querySelector('[data-bloc="jour"] .bd-mesures')),
+    /* Depuis le second dessin, jalon 11 : la bande précède les conseils et les
+       tuiles des paramètres. */
+    avantTuiles: ordre(bande) < ordre(document.querySelector('[data-bloc="jour"] .tuiles')),
+    destinations: [...document.querySelectorAll(".tuiles .tuile")].map(t =>
+      t.dataset.detail || (t.dataset.feuille ? "feuille:" + t.dataset.feuille : "")),
     avantPortes: ordre(bande) < ordre(document.querySelector(".portes")),
     /* Les portes ferment l'accueil depuis le 24 septembre 2026 : après les
        24 prochaines heures et demain, avant la ligne des sources. */
@@ -1177,8 +1183,13 @@ const bandeDit = await pg.evaluate(async () => {
     plages: JSON.stringify(B.plagesDePluie(serie)),
   };
 });
-ok("la bande horaire se pose sous les avis urgents et les chiffres du jour, avant les portes",
-  bandeDit.presente && bandeDit.apresAvis && bandeDit.apresJour && bandeDit.avantPortes);
+ok("la bande horaire se pose sous les avis urgents, avant les tuiles et les portes",
+  bandeDit.presente && bandeDit.apresAvis && bandeDit.avantTuiles && bandeDit.avantPortes);
+/* Les huit paramètres suivis, chacun vers son détail : sept voies du ruban,
+   et la feuille de l'air. */
+ok("chaque tuile mène au détail de son paramètre",
+  bandeDit.destinations.join(" ") === "t mm v nua hum uv pres feuille:air",
+  bandeDit.destinations.join(" "));
 ok("les quatre portes ferment l'accueil, après demain et après-demain",
   bandeDit.portesEnBas);
 ok("les quatre portes se rangent en grille de deux sur deux",
@@ -1210,7 +1221,7 @@ const sansAvis = await pg.evaluate(() => {
   avis.forEach((e, k) => { e.style.display = avant[k]; });
   return { reste, masques: avis.length };
 });
-ok("sans avis, la bande et les chiffres du jour tiennent dans la première vue",
+ok("sans avis, la bande horaire tient dans la première vue",
   sansAvis.reste !== null && sansAvis.reste >= 0,
   `${sansAvis.reste === null ? "élément manquant" : sansAvis.reste.toFixed(0) + " points"}, `
   + `${sansAvis.masques} avis masqués pour la mesure`);
@@ -1432,17 +1443,20 @@ const lot2 = await pg.evaluate(() => {
   const ci = document.querySelector("#ecran .plein-accueil .ci");
   const cellules = [...document.querySelectorAll("#ecran .bd-mesures .bd-m")];
   const hauts = new Set(cellules.map(c => Math.round(c.getBoundingClientRect().top)));
+  const gauches = new Set(cellules.map(c => Math.round(c.getBoundingClientRect().left)));
   return {
     rapport: ci ? ci.getBoundingClientRect().height / ci.getBoundingClientRect().width : null,
-    cellules: cellules.length, rangees: hauts.size,
+    cellules: cellules.length, rangees: hauts.size, colonnes: gauches.size,
   };
 });
 ok("le ciel de l'accueil est plus bas que celui des autres écrans",
   lot2.rapport !== null && lot2.rapport <= 250 / 390 + 0.01,
   lot2.rapport === null ? "ciel introuvable" : `rapport ${lot2.rapport.toFixed(3)}`);
-ok("les quatre chiffres du jour tiennent sur une ligne en taille ordinaire",
-  lot2.cellules === 4 && lot2.rangees === 1,
-  `${lot2.cellules} cellules sur ${lot2.rangees} rangées`);
+/* Jalon 11 : les quatre chiffres sur une ligne deviennent huit tuiles sur deux
+   colonnes, une par paramètre suivi. */
+ok("les huit tuiles des paramètres se rangent sur deux colonnes",
+  lot2.cellules === 8 && lot2.rangees === 4 && lot2.colonnes === 2,
+  `${lot2.cellules} tuiles, ${lot2.rangees} rangées, ${lot2.colonnes} colonnes`);
 
 ok("la phrase dit la pluie avec son moment, et les rafales fortes",
   bandeDit.plages === "[[2,4]]"
@@ -1731,8 +1745,11 @@ ok("la journée qui vient tient sous quatre cents points", await pg.evaluate(() 
   Math.round(document.querySelector("#ecran .mt").closest(".carte").getBoundingClientRect().height))));
 
 marquerSection("\n--- Un chiffre mène à sa voie ---"); console.log("\n--- Un chiffre mène à sa voie ---");
+/* Huit tuiles depuis le jalon 11 : sept vers une voie du ruban, celle de l'air
+   vers sa feuille. */
 ok("chaque mesure de l'accueil porte une destination",
-  await pg.locator(".bd-m[data-detail]").count() === 4);
+  await pg.locator(".bd-m[data-detail]").count() === 7
+  && await pg.locator(".bd-m[data-feuille]").count() === 1);
 ok("le grand chiffre et le ciel en portent une aussi",
   await pg.locator(".bd-deg[data-detail]").count() === 1
   && await pg.locator(".bd-ciel[data-detail]").count() === 1);
@@ -3714,7 +3731,9 @@ ok("l'accueil porte la porte de l'écran de questions, sous les mesures du jour"
 ok("les trois portes se suivent et partagent leur gabarit",
   await pg.evaluate(() => {
     const cles = ["activites", "beautemps", "air"];
-    const p = cles.map(c => document.querySelector(`[data-feuille="${c}"]`));
+    /* Les portes seules : la tuile de l'air ouvre la même feuille que la porte
+       « L'air qu'on respire », et la précéderait dans la page. */
+    const p = cles.map(c => document.querySelector(`.porte[data-feuille="${c}"]`));
     if (p.some(x => !x)) return "une porte manque";
     for (let i = 1; i < p.length; i++) {
       if (p[i - 1].nextElementSibling !== p[i]) return `${cles[i]} ne suit pas ${cles[i - 1]}`;
@@ -6546,7 +6565,7 @@ marquerSection("\n--- L'air qu'on respire ---"); console.log("\n--- L'air qu'on 
 const METEO_NUE = () => JSON.parse(JSON.stringify(METEO));
 
 const ouvrirAir = async p => {
-  await p.locator('[data-feuille="air"]').click();
+  await p.locator('.porte[data-feuille="air"]').click();
   await p.waitForTimeout(600);
   return p.evaluate(() =>
     [...document.querySelectorAll("#feuille-corps .rangee")].map(r => ({
@@ -6637,7 +6656,7 @@ await ctxAir.close();
 appelsAtmo.length = 0;
 atmoLent = 1200;
 const [ctxOff, pgOff] = await ctxReponse(METEO_NUE);
-await pgOff.locator('[data-feuille="air"]').click();
+await pgOff.locator('.porte[data-feuille="air"]').click();
 
 const avantOff = await lignesApres(pgOff, 400);
 ok("la feuille s'ouvre sans attendre l'indice officiel",
@@ -6690,7 +6709,7 @@ await ctxOff.close();
 appelsAtmo.length = 0;
 atmoLent = 0; atmoMuet = true;
 const [ctxOffMuet, pgOffMuet] = await ctxReponse(METEO_NUE);
-await pgOffMuet.locator('[data-feuille="air"]').click();
+await pgOffMuet.locator('.porte[data-feuille="air"]').click();
 const muetDit = await lignesApres(pgOffMuet, 1200);
 ok("un service muet ne prive la feuille de rien",
   muetDit.some(l => l.nom === "Maintenant") && appelsAtmo.length > 0

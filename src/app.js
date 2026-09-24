@@ -455,21 +455,6 @@ function ecranAccueil() {
     /* Deux degrés d'écart, non un seul : le ressenti se compare ici à un maximum
        de journée, non à la valeur de l'heure, et un degré de différence entre
        deux maximums ne vaut pas la place d'une tuile. */
-    const premiere = jh && Math.abs(jh.res - tx) >= 2
-      ? ["Ressenti", `${res}°`, "au plus chaud",
-        res >= SEUILS.chaleur ? "v-chaud" : res <= SEUILS.gel ? "v-froid" : "", "t"]
-      : jh && jh.mm >= SEUILS.lame
-        ? ["Pluie", `${nombreFr(jh.mm)} mm`, "aujourd'hui", jh.mm >= 5 ? "v-eau" : "", "mm"]
-        : ["Pluie", `${pb} %`, "de risque", pb >= 60 ? "v-eau" : "", "mm"];
-
-    const mesures = jh ? [
-      premiere,
-      ["Vent", `${vent} km/h`, `rafales ${raf} km/h`,
-        raf >= SEUILS.rafale || vent >= SEUILS.ventMoyen ? "v-attention" : "", "v"],
-      ["Humidité", `${hum} %`, "au plus", hum >= SEUILS.humidite ? "v-eau" : "", "hum"],
-      ["Indice UV", `${uv}`, uv >= SEUILS.uv ? "élevé" : "au plus",
-        uv >= 8 ? "v-brulant" : uv >= SEUILS.uv ? "v-chaud" : uv >= 3 ? "v-attention" : "", "uv"],
-    ] : [];
 
     const chevronM = ico("chevron_bas", "bd-chev");
     /* Le nombre à la taille du titre, l'unité plus petite : sur une ligne de
@@ -576,6 +561,38 @@ function ecranAccueil() {
       ? `<div class="section" data-bloc="${cle}"><h2${luSeul ? ' class="titre-lu"' : ""}>`
         + `${esc(titre)}</h2>${dedans}</div>` : "");
 
+    /* Les tuiles des paramètres, jalon 11, lot 1. Elles couvrent la totalité
+       des paramètres que l'application suit, sept dans le ruban et l'air dans
+       sa feuille, une tuile chacun, et chacune mène à son détail. Elles
+       remplacent les quatre chiffres du jour et se placent après la bande et
+       les conseils, demandé par Jérôme le 24 septembre 2026. Chaque symbole
+       sert une seule fois : le parapluie pour la pluie, la goutte pour
+       l'humidité, la brume pour l'air. La pastille prend la couleur des
+       symboles de temps ; le libellé porte toujours l'information. */
+    const serieJour = sJour || s;
+    const nuaMax = serieJour ? Math.round(Math.max(...serieJour.nua.filter(Number.isFinite))) : null;
+    const pres0 = serieJour && Number.isFinite(serieJour.pres[0]) ? serieJour.pres[0] : null;
+    const presFin = serieJour ? serieJour.pres[Math.min(serieJour.n - 1, 6)] : null;
+    const tendance = pres0 === null || !Number.isFinite(presFin) ? ""
+      : presFin - pres0 > 1 ? "en hausse" : presFin - pres0 < -1 ? "en baisse" : "stable";
+    const airJour = serieJour ? Air.pire(Air.alignerSur(serieJour)) : null;
+    const tuiles = jh ? [
+      ["Ressenti", `${res}°`, "au plus chaud",
+        res >= SEUILS.chaleur ? "v-chaud" : res <= SEUILS.gel ? "v-froid" : "", "t", "thermo", "soleil"],
+      jh.mm >= SEUILS.lame
+        ? ["Pluie", `${nombreFr(jh.mm)} mm`, "aujourd'hui", jh.mm >= 5 ? "v-eau" : "", "mm", "parapluie", "pluie"]
+        : ["Pluie", `${pb} %`, pb === 0 ? "Aucun risque" : "de risque", pb >= 60 ? "v-eau" : "", "mm", "parapluie", "pluie"],
+      ["Vent", `${vent} km/h`, `rafales ${raf} km/h`,
+        raf >= SEUILS.rafale || vent >= SEUILS.ventMoyen ? "v-attention" : "", "v", "vent", "nuage"],
+      ["Ciel", nuaMax === null ? "—" : `${nuaMax} %`, "de nuages au plus", "", "nua", "nuage", "nuage"],
+      ["Humidité", `${hum} %`, "au plus", hum >= SEUILS.humidite ? "v-eau" : "", "hum", "goutte", "pluie"],
+      ["Indice UV", `${uv}`, uv >= SEUILS.uv ? "élevé" : "au plus",
+        uv >= 8 ? "v-brulant" : uv >= SEUILS.uv ? "v-chaud" : uv >= 3 ? "v-attention" : "", "uv", "soleil", "soleil"],
+      ["Pression", pres0 === null ? "—" : `${Math.round(pres0)} hPa`, tendance || "maintenant", "", "pres", "jauge", "nuage"],
+      ["Air", airJour ? `${airJour.indice}` : "—",
+        airJour ? (Air.niveauDe(airJour.indice)?.nom || "indice européen") : "pas de mesure", "", null, "brume", "nuage", "air"],
+    ] : [];
+
     /* Les quatre portes, en grille de deux sur deux. Jérôme les a voulues tout
        en bas de l'accueil le 24 septembre 2026, après « Demain et
        après-demain » : l'accueil dit le temps d'abord, les portes mènent
@@ -617,22 +634,25 @@ function ecranAccueil() {
     corps += `<div class="ecran-corps">`
       + panneauVigilance()
       + panneauPluieProche()
-      /* Les chiffres du jour d'abord, sous les avis urgents, puis la bande
-         horaire, puis les conseils du jour : l'ordre demandé par Jérôme le
-         24 septembre 2026. Les quatre portes ferment la page, voir plus bas. */
+      /* Sous les avis urgents, la bande horaire, puis les conseils du jour,
+         puis les tuiles des paramètres : l'ordre du second dessin, jalon 11,
+         demandé par Jérôme le 24 septembre 2026. Les quatre portes ferment la
+         page, voir plus bas. */
       + bloc("jour", "Aujourd'hui",
-        (mesures.length ? `<div class="bd-mesures">`
-          + mesures.map(([n, v, e, c, voie]) =>
-            `<button type="button" class="bd-m" data-detail="${esc(voie)}" `
-            + `aria-label="${esc(n)}, ${esc(v)}, voir les vingt-quatre heures">`
-            + `<i>${esc(n)}${chevronM}</i><b${c ? ` class="${c}"` : ""}>${valeurUnite(v)}</b>`
-            + `<em>${esc(e)}</em></button>`).join("")
-          + `</div>` : "")
         /* La bande horaire : l'évolution de la journée d'un coup d'œil, qu'il
            fallait aller chercher dans « Le temps ». Jalon 10, lot 1. */
-        + Bande.bandeHoraire(s, g)
+        Bande.bandeHoraire(s, g)
         + (lJour.length ? `<div class="carte retenir">`
-          + `<div class="conseils">${conseilsHTML(lJour)}</div></div>` : ""), true);
+          + `<div class="conseils">${conseilsHTML(lJour)}</div></div>` : "")
+        + (tuiles.length ? `<div class="bd-mesures tuiles">`
+          + tuiles.map(([n, v, e, c, voie, sym, teinte, feuille]) =>
+            `<button type="button" class="bd-m tuile" `
+            + (feuille ? `data-feuille="${feuille}" aria-label="${esc(n)}, ${esc(v)}, ${esc(e)}, voir l'air qu'on respire">`
+              : `data-detail="${esc(voie)}" aria-label="${esc(n)}, ${esc(v)}, ${esc(e)}, voir les vingt-quatre heures">`)
+            + `<span class="tu-pa pa-${teinte}">${ico(sym, "")}</span>`
+            + `<span class="tu-t"><i>${esc(n)}</i><b${c ? ` class="${c}"` : ""}>${valeurUnite(v)}</b>`
+            + `<em>${esc(e)}</em></span>${chevronM}</button>`).join("")
+          + `</div>` : ""), true);
 
     /* La table des moments couvre exactement les vingt-quatre heures qui
        viennent, tranche par tranche. Elle s'appelait « la journée qui vient »,
