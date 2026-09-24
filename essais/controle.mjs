@@ -1270,6 +1270,7 @@ await pg.evaluate(() => {
   new MutationObserver(() => window.__tr.push(g.getAttribute("transform") || ""))
     .observe(g, { attributes: true, attributeFilter: ["transform"] });
 });
+let sousLeDoigt = "pas de glissement";
 const tracé = await pg.locator(".mg-s").first().boundingBox();
 if (tracé) {
   const y = tracé.y + tracé.height / 2, x = tracé.x + tracé.width * 0.7;
@@ -1277,10 +1278,23 @@ if (tracé) {
   await pg.mouse.down();
   await pg.mouse.move(x - 40, y, { steps: 3 });
   await pg.mouse.move(x - 120, y, { steps: 4 });
+  /* Doigt encore posé : un point proche du bord droit de la courbe de
+     température doit toucher le dessin. Une zone découpée ne reçoit pas le
+     pointeur ; tant que la découpe glissait avec le dessin, ce point tombait
+     dans le vide et la suite du ruban ne paraissait qu'au lâcher. */
+  sousLeDoigt = await pg.evaluate(() => {
+    const v = document.querySelector('.mg-v[data-cle="t"] .mg-s');
+    if (!v) return "voie de température introuvable";
+    const r = v.getBoundingClientRect();
+    const el = document.elementFromPoint(r.left + r.width * 0.7, r.top + r.height * 0.85);
+    return el && el.closest(".mg-mob") ? "" : `touché : ${el ? el.tagName + "." + (el.getAttribute("class") || "") : "rien"}`;
+  });
   await pg.mouse.up();
   await pg.waitForTimeout(500);
 }
 const translations = await pg.evaluate(() => window.__tr || []);
+ok("pendant le glissement, la suite du ruban paraît sous le doigt",
+  sousLeDoigt === "", sousLeDoigt);
 ok("au lâcher d'un glissement, le dessin reste là où le rendu le pose",
   translations.length > 2 && /^translate\(-?\d/.test(translations[translations.length - 1])
   && translations[translations.length - 1] !== "translate(0.00,0)",
@@ -2024,7 +2038,10 @@ ok("les symboles du ciel tiennent dans leur bande", await pg.evaluate(`(() => {
     if (b.height > 22 || b.width > 22) return "symbole de " + b.width.toFixed(0) + " sur " + b.height.toFixed(0);
     const cx = (b.left + b.right) / 2;
     if (cx < c.gauche || cx > c.droite) {
-      if (!e.closest("g.mg-mob[clip-path]")) return "symbole hors cadre et hors découpe";
+      /* La découpe est portée par un groupe parent, fixe, depuis le
+         24 septembre 2026 : posée sur le groupe mobile, elle glissait avec
+         lui. */
+      if (!e.closest("g.mg-mob") || !e.closest("g[clip-path]")) return "symbole hors cadre et hors découpe";
       continue;
     }
     dedans++;
@@ -2121,7 +2138,8 @@ ok("la fenêtre porte vingt-quatre heures", await pg.evaluate(`(() => {
 })()`));
 ok("le dessin déborde le cadre et la découpe le retient", await pg.evaluate(() => {
   const svg = document.querySelector('.mg-v[data-cle="t"] svg.mg-s');
-  const mob = svg.querySelector("g.mg-mob[clip-path]");
+  /* Le groupe mobile, sous un groupe fixe qui porte la découpe. */
+  const mob = svg.querySelector("g[clip-path] > g.mg-mob");
   if (!mob) return "aucun groupe découpé";
   const pl = svg.querySelector("polyline");
   const b = pl.getBBox(), r = svg.querySelector("defs clipPath rect");

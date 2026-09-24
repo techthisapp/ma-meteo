@@ -531,7 +531,12 @@ export function dessiner(s) {
     const marque = s.ici > dec && s.ici >= kA && s.ici <= kB
       ? `<circle class="mg-ici-p" cx="${u(X(s.ici))}" cy="5.5" r="2.8"/>` : "";
     return `<svg class="mg-a" viewBox="0 0 ${L} ${H_AXE}" aria-hidden="true">${defs}`
-      + `<g class="mg-mob" clip-path="url(#${id})">`
+      /* La découpe est portée par un groupe fixe, la translation par le groupe
+         intérieur. Posée sur le groupe qui glisse, la découpe glissait avec
+         lui : pendant le geste, la fenêtre découvrait la réserve de gauche
+         jusque dans la marge et tranchait celle de droite, qui ne paraissait
+         qu'au lâcher. Relevé sur l'appareil le 24 septembre 2026. */
+      + `<g clip-path="url(#${id})"><g class="mg-mob">`
       /* Un libellé à cheval sur le bord gauche est tranché par la découpe et se
          lit alors « h » pour « 18 h ». Il est écarté : celui d'à côté suit six
          heures plus loin, l'axe n'y perd rien. Ceux qui tombent entièrement hors
@@ -539,7 +544,7 @@ export function dessiner(s) {
       + montants.filter(([k, lib]) => !(marque && surIci(k))
         && !(X(k) + 2 < M && X(k) + 2 + lib.length * 5.6 > M)).map(([k, lib]) =>
         `<text class="mg-c" x="${u(X(k) + 2)}" y="9">${esc(lib)}</text>`).join("")
-      + marque + `</g></svg>`;
+      + marque + `</g></g></svg>`;
   };
 
   /* La hauteur dépliée est propre à la voie. L'agrandissement vaut pour une
@@ -563,8 +568,8 @@ export function dessiner(s) {
        glissent avec le dessin et couvrent tout ce qui y a été posé. L'écriture
        d'échelle, elle, vient après, hors du groupe, et reste lisible. */
     const dessin = `<svg class="mg-s" viewBox="0 0 ${L} ${haut}" aria-hidden="true">${defs}`
-      + `<g class="mg-mob" clip-path="url(#${id0})">${dedans}`
-      + `${passe(0, haut)}${repere(0, haut)}</g>${dedansFixe}`
+      + `<g clip-path="url(#${id0})"><g class="mg-mob">${dedans}`
+      + `${passe(0, haut)}${repere(0, haut)}</g></g>${dedansFixe}`
       + `<line class="mg-cur" x1="0" y1="0" x2="0" y2="${haut}" hidden/></svg>`;
     const id = `mgl${++n}`;
     const bas = resume ? `<p class="mg-l" id="${id}"${g ? "" : " hidden"}>${esc(resume)}</p>` : "";

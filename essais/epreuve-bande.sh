@@ -76,6 +76,9 @@ case "$N" in
   19) # Le service worker repasse par le cache du navigateur.
      perl -0pi -e 's/fetch\(ev\.request, \{ cache: "no-cache" \}\)/fetch(ev.request)/' sw.js
      ATTENDU="le service worker redemande la coque sans le cache du navigateur" ;;
+  20) # La découpe revient sur le groupe qui glisse, et glisse avec lui.
+     perl -0pi -e 's/<g clip-path="url\(#\$\{id0\}\)"><g class="mg-mob">/<g><g class="mg-mob" clip-path="url(#\$\{id0\})">/' src/ruban.js
+     ATTENDU="pendant le glissement, la suite du ruban paraît sous le doigt" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
