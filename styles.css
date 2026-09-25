@@ -2136,3 +2136,16 @@ button.rangee:active{background:var(--surface-2)}
 .cj-t b{font-weight:var(--graisse-medium)}
 .cj-t em{font-style:normal;font-size:var(--texte-note);color:var(--etiquette-2)}
 .cj-chev{flex:none;width:14px;height:14px;transform:rotate(-90deg);color:var(--etiquette-3)}
+
+/* La bande, jalon 11, lot 3 : la colonne du moment présent sur un fond léger,
+   et une ligne de vent avec sa flèche de direction. */
+.bande-rang{position:relative}
+.bh-fond{
+  position:absolute;left:8px;top:0;bottom:0;width:56px;
+  border-radius:var(--rayon-md);background:color-mix(in srgb, var(--accent) 9%, transparent);
+  pointer-events:none;
+}
+.bande-ligne,.bh-courbe{position:relative}
+.bh-v{display:inline-flex;align-items:center;gap:2px}
+.bh-fl{width:12px;height:12px;flex:none}
+.bh-r{color:var(--attention, #b7791f)}

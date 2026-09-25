@@ -44,6 +44,7 @@
    l'indice ultraviolet, dont l'échelle se lit d'un coup d'œil. Ailleurs elle
    ferait du bruit : la forme, les symboles et les seuils nommés suffisent. */
 
+import { angleFleche, TRACE_FLECHE } from "./fleche.js";
 import { nombreFr, jourCourt, heureTxt, esc, cleJour } from "./horloge.js";
 import { plagesDe, dCardinal, CARD_ABR, iCard } from "./previsions.js";
 import { icoCiel, icoTemps, couleurT, couleurUV } from "./icones.js";
@@ -489,14 +490,9 @@ export function dessiner(s) {
     return o;
   };
 
-  const flecheVent = d => {
-    /* La flèche montre où va le vent, non d'où il vient : un vent de nord
-       pousse vers le sud. Zéro degré pointe donc vers le bas. */
-    const a = (((d % 360) + 360) % 360) + 180;
-    return `<g class="mg-fl" transform="rotate(${a.toFixed(0)} 7 7)">`
-      + `<path d="M7 1.5v11M3.4 9.2 7 12.9l3.6-3.7" fill="none" stroke="currentColor" `
-      + `stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></g>`;
-  };
+  /* La flèche montre où va le vent : voir fleche.js, partagé avec la bande. */
+  const flecheVent = d =>
+    `<g class="mg-fl" transform="rotate(${angleFleche(d)} 7 7)">${TRACE_FLECHE}</g>`;
 
   const flecheTend = d =>
     `<g class="mg-fl">` + (Math.abs(d) < 0.4

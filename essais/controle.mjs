@@ -1206,7 +1206,7 @@ ok("les quatre portes se rangent en grille de deux sur deux",
   JSON.stringify(bandeDit.portes));
 ok("elle compte vingt-quatre heures, qui glissent sous le doigt",
   bandeDit.heures === 24 && bandeDit.glisse, `${bandeDit.heures} heures`);
-ok("chaque heure porte son symbole, son degré, son vent et ses rafales",
+ok("chaque heure porte son symbole, son degré et son vent",
   bandeDit.icone && bandeDit.degre && bandeDit.vents === 24, `${bandeDit.vents} vents`);
 ok("un trait relie les températures des vingt-quatre heures",
   bandeDit.trait === 24, `${bandeDit.trait} points`);
@@ -1375,6 +1375,18 @@ ok("le service worker redemande la coque sans le cache du navigateur",
   await pg.evaluate(async () => /fetch\(ev\.request, \{ cache: "no-cache" \}\)/
     .test(await (await fetch("/sw.js", { cache: "no-store" })).text())));
 
+/* La coque ne liste aucun fichier deux fois : un doublon peut faire échouer
+   l'installation du service worker, et une première version du lot 3 du
+   jalon 11 en avait posé un. */
+ok("la coque hors ligne ne liste aucun fichier deux fois", await pg.evaluate(async () => {
+  const t = await (await fetch("/sw.js", { cache: "no-store" })).text();
+  /* La liste seule : le fichier cite aussi la page de secours hors ligne. */
+  const liste = (t.match(/=\s*\[([\s\S]*?)\]/) || [])[1] || "";
+  const l = [...liste.matchAll(/"(\.\/[^"]*)"/g)].map(m => m[1]);
+  const doubles = l.filter((x, i) => l.indexOf(x) !== i);
+  return l.length > 10 && !doubles.length ? "" : `doublons : ${doubles.join(", ")}`;
+}) === "");
+
 ok("le numéro de version est celui de la coque",
   versionDit.module === versionDit.coque && Number.isInteger(versionDit.numero),
   `${versionDit.module} contre ${versionDit.coque}`);
@@ -1443,6 +1455,41 @@ ok("le ruban garde en paysage la densité du portrait",
   && Math.abs(paysage.rapport - portrait.rapport) < 0.02,
   `portrait ${portrait?.vb} unités à ${portrait?.rapport.toFixed(3)}, `
   + `paysage ${paysage?.vb} unités à ${paysage?.rapport.toFixed(3)}`);
+
+/* Jalon 11, lot 3 : la bande porte une ligne de vent avec sa flèche, les
+   rafales ne paraissent que fortes, la colonne du moment présent se détache.
+   La flèche montre où va le vent ; le ruban montrait d'où il venait, à
+   l'inverse de son commentaire, et la flèche est désormais partagée. */
+const ventDit = await pg.evaluate(async () => {
+  const V = await import("/src/fleche.js");
+  const B = await import("/src/bande.js");
+  const heure = Array.from({ length: 24 }, (_, k) => (9 + k) % 24);
+  const serie = raf => ({ n: 24, heure, mm: heure.map(() => 0), pb: heure.map(() => 5), raf,
+    t: heure.map(() => 15), v: heure.map(() => 20), dir: heure.map(() => 90),
+    code: heure.map(() => 3), clair: heure.map(() => 1) });
+  const g = { lat: 48.86, lon: 2.35 };
+  const compte = raf => {
+    const d = document.createElement("div");
+    d.innerHTML = B.bandeHoraire(serie(raf), g);
+    return [...d.querySelectorAll(".bh-r")].filter(x => x.textContent.trim()).length;
+  };
+  const bande = document.getElementById("bande");
+  return {
+    angles: [V.angleFleche(0), V.angleFleche(90), V.angleFleche(-90), V.angleFleche(450)],
+    fleches: bande ? bande.querySelectorAll(".bv .bh-fl").length : 0,
+    calmes: compte(heure.map(() => 30)),
+    fortes: compte(heure.map((_, k) => (k === 3 ? 55 : 30))),
+    fond: !!bande?.querySelector(".bh-fond"),
+    titre: bande?.querySelector(".bande-tete h3")?.textContent || "",
+  };
+});
+ok("la flèche du vent montre où il va",
+  ventDit.angles.join(" ") === "0 90 270 90", ventDit.angles.join(" "));
+ok("chaque heure de la bande porte la flèche de son vent", ventDit.fleches === 24, String(ventDit.fleches));
+ok("les rafales ne paraissent dans la bande que fortes",
+  ventDit.calmes === 0 && ventDit.fortes === 1, `${ventDit.calmes} calmes, ${ventDit.fortes} fortes`);
+ok("la colonne du moment présent se détache, sous le titre « Maintenant et prochaines heures »",
+  ventDit.fond && ventDit.titre === "Maintenant et prochaines heures", ventDit.titre);
 
 /* Jalon 11, lot 2 : les conseils en deux lignes, titre et précision, avec un
    chevron vers le détail qu'ils décrivent. Et l'écriture des plages, qui

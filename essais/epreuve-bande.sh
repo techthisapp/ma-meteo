@@ -99,6 +99,18 @@ case "$N" in
   27) # La journée entière retombe dans la forme mécanique.
      perl -0pi -e 's/  if \(ha === 0 && hb === 23 && ja === jb/  if (false \&\& ha === 0 \&\& hb === 23 \&\& ja === jb/' src/conseils.js
      ATTENDU="une journée entière se dit « toute la journée », avec l.élision" ;;
+  28) # La flèche retrouve ses cent quatre-vingts degrés de trop.
+     perl -0pi -e 's/export const angleFleche = d => \(\(Math\.round\(d\) % 360\) \+ 360\) % 360;/export const angleFleche = d => (((Math.round(d) + 180) % 360) + 360) % 360;/' src/fleche.js
+     ATTENDU="la flèche du vent montre où il va" ;;
+  29) # Les rafales paraissent à toute heure.
+     perl -0pi -e 's/\$\{r >= SEUIL_RAFALES \? `raf\. \$\{r\}` : ""\}/raf. \$\{r\}/; s/const avecRafales = s\.raf\.slice\(0, n\)\.some\(r => \(r \?\? 0\) >= SEUIL_RAFALES\);/const avecRafales = true;/' src/bande.js
+     ATTENDU="les rafales ne paraissent dans la bande que fortes" ;;
+  30) # La colonne du moment présent perd son fond.
+     perl -0pi -e 's/    \+ `<span class="bh-fond" aria-hidden="true"><\/span>`\n//' src/bande.js
+     ATTENDU="la colonne du moment présent se détache, sous le titre « Maintenant et prochaines heures »" ;;
+  31) # Un fichier listé deux fois dans la coque.
+     perl -0pi -e 's/  "\.\/src\/fleche\.js",\n/  "\.\/src\/fleche\.js",\n  "\.\/src\/vent\.js",\n/' sw.js
+     ATTENDU="la coque hors ligne ne liste aucun fichier deux fois" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
@@ -109,7 +121,8 @@ if diff -q "$OLD/src/bande.js" src/bande.js >/dev/null \
   && diff -q "$OLD/src/ruban.js" src/ruban.js >/dev/null \
   && diff -q "$OLD/src/version.js" src/version.js >/dev/null \
   && diff -q "$OLD/sw.js" sw.js >/dev/null \
-  && diff -q "$OLD/src/conseils.js" src/conseils.js >/dev/null; then
+  && diff -q "$OLD/src/conseils.js" src/conseils.js >/dev/null \
+  && diff -q "$OLD/src/fleche.js" src/fleche.js >/dev/null; then
   echo "FAUTE $N NON APPLIQUÉE"; exit 3
 fi
 

@@ -18,6 +18,7 @@ import { icoCiel, icoTemps, ico } from "./icones.js";
 import { esc } from "./horloge.js";
 import * as Astres from "./astres.js";
 import { plagesDe, SEUIL_LAME } from "./previsions.js";
+import { flecheSVG } from "./fleche.js";
 
 export const HEURES = 24;
 export const LARGEUR_HEURE = 56;
@@ -119,6 +120,10 @@ export function bandeHoraire(s, g, maintenant = new Date()) {
   /* La rangée des risques ne paraît que si une heure au moins atteint le seuil :
      une rangée vide de bout en bout coûtait une ligne au premier écran. */
   const avecRisque = s.pb.slice(0, n).some(p => (p ?? 0) >= SEUIL_RISQUE);
+  /* Jalon 11, lot 3 : une seule ligne de vent, la flèche de direction et la
+     vitesse. Les rafales ne paraissent que fortes, sur une seconde ligne qui
+     n'existe que si une heure au moins les porte. */
+  const avecRafales = s.raf.slice(0, n).some(r => (r ?? 0) >= SEUIL_RAFALES);
   const haut = [], bas = [];
   for (const c of colonnes) {
     if (c.soleil) {
@@ -154,8 +159,9 @@ export function bandeHoraire(s, g, maintenant = new Date()) {
       + (avecRisque ? `<span class="bh-pb">${risque}</span>` : "")
       + `<span class="bh-t">${t}°</span></button>`);
     bas.push(`<div class="bv${pluvieuse(s, k) ? " bh-pluie" : ""}" aria-hidden="true">`
-      + `<span class="bh-v">${k === 0 ? "Vent " : ""}${v}</span>`
-      + `<span class="bh-r">${k === 0 ? "Raf. " : ""}${r}</span></div>`);
+      + `<span class="bh-v">${flecheSVG(s.dir?.[k] ?? 0, "bh-fl")}${v}</span>`
+      + (avecRafales ? `<span class="bh-r">${r >= SEUIL_RAFALES ? `raf. ${r}` : ""}</span>` : "")
+      + `</div>`);
   }
   const trait = `<svg class="bh-courbe" width="${x}" height="18" viewBox="0 0 ${x} 18" aria-hidden="true">`
     + `<polyline points="${points.map(([px, py]) => `${px.toFixed(1)},${py.toFixed(1)}`).join(" ")}" `
@@ -165,9 +171,12 @@ export function bandeHoraire(s, g, maintenant = new Date()) {
 
   const phrase = phraseBande(s, n);
   return `<div class="carte bande" id="bande">`
-    + `<div class="bande-tete"><h3>Prochaines heures</h3>`
+    + `<div class="bande-tete"><h3>Maintenant et prochaines heures</h3>`
     + `<button type="button" class="bande-plus" data-detail="t">Plus de détails</button></div>`
     + `<div class="bande-defil"><div class="bande-rang" style="width:${x}px">`
+    /* La colonne du moment présent se détache sur un fond léger, sur toute la
+       hauteur de la bande. */
+    + `<span class="bh-fond" aria-hidden="true"></span>`
     + html + `</div></div>`
     + (phrase ? `<p class="bande-phrase">${esc(phrase)}</p>` : "")
     + `</div>`;
