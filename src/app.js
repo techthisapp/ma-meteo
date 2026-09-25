@@ -62,7 +62,9 @@ let deplacement = null;
 
 const ONGLETS = [
   ["accueil", "maison", "Accueil"],
-  ["temps", "horloge", "Le temps"],
+  /* « Le temps » a quitté la barre le 25 septembre 2026, jalon 10, lot 6 : il
+     s'ouvre en page de détail depuis la bande horaire, les tuiles et les
+     conseils, et depuis tout écran qui mène à une voie du ruban. */
   ["semaine", "semaine", "La semaine"],
   /* Le soleil et la lune tiennent une seule destination depuis le 3 septembre
      2026 : deux écrans d'un même sujet, choisis par un sélecteur en tête de
@@ -778,9 +780,10 @@ function rendre() {
       titre: nom, sous: "",
       corps: onglet === "accueil" ? ossatureAccueil() : etatChargement(),
     };
-  } else if (onglet === "accueil" && detail) {
+  } else if (detail) {
     f = ecranVue("temps");
     f.retour = true;
+    f.retourVers = (ONGLETS.find(o => o[0] === onglet) || [, , "Accueil"])[2];
   } else if (onglet === "accueil") {
     f = ecranAccueil();
   } else {
@@ -809,13 +812,21 @@ function rendre() {
   ecran.classList.toggle("ecran-carte", f.carte === true);
   ecran.classList.toggle("ecran-large", f.large === true);
   ecran.classList.toggle("ecran-detail", f.retour === true);
-  ecran.innerHTML = (f.retour
-      ? `<button type="button" class="retour" id="btnRetour">`
-        + ico("chevron_bas", "retour-ic") + `<span>Accueil</span></button>` : "")
-    + (f.pleinCadre || f.carte ? "" : titreEcran(f.titre, f.sous, f.cote))
+  ecran.innerHTML = (f.pleinCadre || f.carte ? "" : titreEcran(f.titre, f.sous, f.cote))
     + f.corps;
-  const retour = ecran.querySelector("#btnRetour");
-  if (retour) retour.addEventListener("click", () => history.back());
+  /* Le retour d'une page de détail prend, dans la barre de tête, la place du
+     nom de la commune, comme dans les pages d'iOS. Posé au-dessus du titre, il
+     descendait le ruban d'une ligne sous la ligne de flottaison. */
+  const ancienRetour = $("btnRetour");
+  if (ancienRetour) ancienRetour.remove();
+  if (f.retour) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "retour nav-retour"; b.id = "btnRetour";
+    b.innerHTML = ico("chevron_bas", "retour-ic") + `<span>${esc(f.retourVers || "Accueil")}</span>`;
+    b.addEventListener("click", () => history.back());
+    $("navLieu").before(b);
+    $("navLieu").hidden = true;
+  }
   if (typeof f.brancher === "function") f.brancher(ecran);
   if (y) window.scrollTo({ top: y, behavior: "instant" });
 
@@ -904,7 +915,7 @@ window.addEventListener("resize", () => {
   const f = Ruban.fenetre(), l = Ruban.largeurVoulue();
   if (f === largeAvant && Math.abs(l - traitAvant) < 8) return;
   largeAvant = f; traitAvant = l;
-  if (onglet === "temps" || detail) rendre();
+  if (detail) rendre();
 });
 
 /* La hauteur réelle de la barre d'onglets dépend de la taille du texte : elle se
@@ -1250,11 +1261,25 @@ function quitterDetail() {
   window.scrollTo({ top: y, behavior: "instant" });
 }
 
+/* « Le temps » tel qu'on l'a laissé, ruban ou liste, sans voie imposée : le
+   lien « Plus de détails » de la bande. */
+function ouvrirLeTemps() {
+  sentir(8);
+  Ruban.poserHeure(-1);
+  detail = { y: window.scrollY };
+  history.pushState({ detail: true }, "");
+  rendre();
+  window.scrollTo({ top: 0, behavior: "instant" });
+}
+
 function allerAuDetail(cle, heure = null) {
   Reglages.poserEcriture("ruban");
   Ruban.poserVoie(cle);
   sentir(8);
-  if (onglet === "accueil") {
+  /* Depuis le 25 septembre 2026, la page de détail s'ouvre dans l'onglet où
+     l'on se trouve, et non plus seulement sur l'accueil : l'onglet « Le temps »
+     n'existe plus. */
+  {
     /* Sans heure désignée, aucune lecture ne reste d'une ouverture précédente. */
     if (heure === null) Ruban.poserHeure(-1);
     detail = { y: window.scrollY };
@@ -1271,18 +1296,13 @@ function allerAuDetail(cle, heure = null) {
         rendre();
       }
     }
-    return;
   }
-  poserOnglet("temps");
-  requestAnimationFrame(() => {
-    const v = document.querySelector(`.mg-v[data-cle="${cle}"]`);
-    if (v) v.scrollIntoView({ block: "center", behavior: "smooth" });
-  });
 }
 
 $("ecran").addEventListener("click", ev => {
   const f = ev.target.closest("[data-feuille]");
   if (f) { ouvrirFeuille(f.dataset.feuille); return; }
+  if (ev.target.closest("[data-temps]")) { ouvrirLeTemps(); return; }
   const d = ev.target.closest("[data-detail]");
   if (d) {
     allerAuDetail(d.dataset.detail, d.dataset.heure != null ? Number(d.dataset.heure) : null);

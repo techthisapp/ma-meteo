@@ -946,6 +946,16 @@ const finir = (anticipe = false) => {
 /* La phrase entière d'un conseil. Depuis le jalon 11 le conseil s'affiche en
    deux lignes, titre et précision ; sa phrase reste dans `data-phrase`, et
    c'est elle que les gardes comparent. */
+/* « Le temps » n'a plus d'onglet depuis le 25 septembre 2026 : il s'ouvre par
+   le lien « Plus de détails » de la bande, sur l'accueil, tel qu'on l'a
+   laissé, ruban ou liste. */
+const ouvrirLeTemps = async page => {
+  await page.locator('[data-onglet="accueil"]').click();
+  await page.waitForTimeout(350);
+  await page.locator("#bande [data-temps]").click();
+  await page.waitForTimeout(350);
+};
+
 const phrasesConseils = (page, q = "#ecran .cj-l") => page.evaluate(sel =>
   [...document.querySelectorAll(sel)].map(l => l.dataset.phrase || l.textContent), q);
 
@@ -957,8 +967,10 @@ const ok = (nom, cond, detail) => {
 const txt = async s => (await pg.locator(s).count()) ? (await pg.locator(s).first().innerText()) : "";
 const txtDe = async (p, s) => (await p.locator(s).count())
   ? (await p.locator(s).first().innerText()) : "";
+/* « temps » n'est plus un onglet : sa demande passe par le lien de la bande. */
 const onglet = async cle => {
-  await pg.locator(`[data-onglet="${cle}"]`).click();
+  if (cle === "temps") { await ouvrirLeTemps(pg); return; }
+  await (cle === "temps" ? ouvrirLeTemps(pg) : pg.locator(`[data-onglet="${cle}"]`).click());
   await pg.waitForTimeout(500);
 };
 
@@ -980,14 +992,15 @@ const ouvrirEcran = async cle => {
 };
 
 marquerSection("\n--- Couche navigation ---"); console.log("\n--- Couche navigation ---");
-/* Cinq destinations : la fusion du soleil et de la lune a libéré une place, et
-   La carte l'a prise. Les quatre premières se lisent en échelle de temps, de
-   l'instant à la semaine ; la carte lit l'espace, elle vient après. */
-ok("la barre d'onglets porte cinq destinations",
-  await pg.locator(".onglet").count() === 5, String(await pg.locator(".onglet").count()));
+/* Quatre destinations depuis le 25 septembre 2026 : « Le temps » a quitté la
+   barre et s'ouvre en page de détail. Les trois premières se lisent en
+   échelle de temps, de l'instant au ciel de la nuit ; la carte lit l'espace,
+   elle vient après. */
+ok("la barre d'onglets porte quatre destinations",
+  await pg.locator(".onglet").count() === 4, String(await pg.locator(".onglet").count()));
 const nomsOnglets = (await pg.locator(".onglet span").allInnerTexts()).join(",");
 ok("les destinations sont les bonnes",
-  nomsOnglets === "Accueil,Le temps,La semaine,Le ciel,La carte", nomsOnglets);
+  nomsOnglets === "Accueil,La semaine,Le ciel,La carte", nomsOnglets);
 ok("aucun libellé d'onglet n'est tronqué", await pg.evaluate(() =>
   [...document.querySelectorAll(".onglet span")]
     .every(e => e.scrollWidth <= e.clientWidth + 1)));
@@ -1435,7 +1448,7 @@ const densite = () => pg.evaluate(() => {
   const vb = Number(svg.getAttribute("viewBox").split(" ")[2]);
   return { vb, rapport: svg.getBoundingClientRect().width / vb };
 });
-await pg.locator('[data-onglet="temps"]').click();
+await ouvrirLeTemps(pg);
 await pg.waitForTimeout(700);
 const portrait = await densite();
 await pg.setViewportSize({ width: 844, height: 390 });
@@ -4766,7 +4779,7 @@ await ctxSerein.route(/api-adresse\.data\.gouv\.fr|object\.files\.data\.gouv\.fr
 const pgSerein = await ctxSerein.newPage();
 await ouvrirPage(pgSerein);
 await pgSerein.waitForTimeout(1400);
-await pgSerein.locator('[data-onglet="temps"]').click();
+await ouvrirLeTemps(pgSerein);
 await pgSerein.waitForTimeout(600);
 
 ok("sans pluie, la voie se réduit à sa ligne de titre", await pgSerein.evaluate(() => {
@@ -5023,7 +5036,7 @@ await pageA("2026-08-18T09:00:00+02:00", null, async pg => {
     demain: [...document.querySelectorAll('.section[data-bloc="suite"] .cj-l')]
       .map(e => e.dataset.phrase || e.textContent).find(x => /^Pluie demain/.test(x)) || "",
   }));
-  await pg.locator('[data-onglet="temps"]').click();
+  await ouvrirLeTemps(pg);
   await pg.waitForTimeout(500);
   const sous = await pg.locator(".titre-ecran p").innerText();
   await pg.locator('[data-onglet="semaine"]').click();
@@ -5064,7 +5077,7 @@ await pageA("2026-08-18T09:00:00+02:00", d => {
     }
   });
 }, async pg => {
-  await pg.locator('[data-onglet="temps"]').click();
+  await ouvrirLeTemps(pg);
   await pg.waitForTimeout(500);
   const sous = await pg.locator(".titre-ecran p").innerText();
   ok("le sous-titre du temps s'écrit sans décimale",
@@ -5393,7 +5406,7 @@ ok("la dispersion s'élargit avec l'échéance, sur chaque grandeur",
 /* L'enveloppe, peinte dans le groupe mobile de la voie de température, sous les
    courbes et au-dessus du lavis de nuit. Elle suit donc le glissement sans
    travail supplémentaire. */
-await pgSc.locator('[data-onglet="temps"]').click();
+await ouvrirLeTemps(pgSc);
 await pgSc.waitForTimeout(700);
 ok("l'enveloppe est peinte dans la voie de température",
   await pgSc.locator('.mg-v[data-cle="t"] .mg-sc-q path').count() >= 1
@@ -5639,7 +5652,7 @@ await ctxMuet.route(/ensemble-api\.open-meteo\.com/, r => r.abort());
 const pgMuet = await ctxMuet.newPage();
 await ouvrirPage(pgMuet);
 await pgMuet.waitForTimeout(1500);
-await pgMuet.locator('[data-onglet="temps"]').click();
+await ouvrirLeTemps(pgMuet);
 await pgMuet.waitForTimeout(700);
 ok("sans scénarios, la voie de température se dessine quand même",
   await pgMuet.locator('.mg-v[data-cle="t"] polyline').count() >= 3
@@ -5872,7 +5885,7 @@ ok("la barre de tête garde sa hauteur et le jeton tient dedans",
 ok("le jeton garde sa place sur les cinq écrans", await (async () => {
   const vus = [];
   for (const cle of ["accueil", "temps", "semaine", "ciel", "carte"]) {
-    await pgPluie.locator(`[data-onglet="${cle}"]`).click();
+    await (cle === "temps" ? ouvrirLeTemps(pgPluie) : pgPluie.locator(`[data-onglet="${cle}"]`).click());
     await pgPluie.waitForTimeout(400);
     const b = await pgPluie.locator("#navJeton").boundingBox();
     vus.push(b ? `${Math.round(b.x)},${Math.round(b.y)}` : "absent");
@@ -10072,7 +10085,7 @@ await ouvrirPage(pgPP);
 await pgPP.waitForTimeout(700);
 const appelsUn = appelsPluie.length;
 for (const cle of ["temps", "semaine", "accueil", "carte", "accueil"]) {
-  await pgPP.locator(`[data-onglet="${cle}"]`).click();
+  await (cle === "temps" ? ouvrirLeTemps(pgPP) : pgPP.locator(`[data-onglet="${cle}"]`).click());
   await pgPP.waitForTimeout(350);
 }
 ok("changer d'écran ne redemande pas la pluie",

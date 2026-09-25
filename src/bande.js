@@ -172,7 +172,7 @@ export function bandeHoraire(s, g, maintenant = new Date()) {
   const phrase = phraseBande(s, n);
   return `<div class="carte bande" id="bande">`
     + `<div class="bande-tete"><h3>Maintenant et prochaines heures</h3>`
-    + `<button type="button" class="bande-plus" data-detail="t">Plus de détails</button></div>`
+    + `<button type="button" class="bande-plus" data-temps>Plus de détails</button></div>`
     + `<div class="bande-defil"><div class="bande-rang" style="width:${x}px">`
     /* La colonne du moment présent se détache sur un fond léger, sur toute la
        hauteur de la bande. */

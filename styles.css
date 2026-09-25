@@ -2159,3 +2159,6 @@ button.rangee:active{background:var(--surface-2)}
 /* Les cartes de l'accueil prennent l'arrondi de 24 points que le système de
    design publiait sans l'employer, comme les tuiles et les portes. */
 [data-bloc] .carte,.portes .porte{border-radius:var(--rayon-carte)}
+
+/* Le retour dans la barre de tête, à la place de la commune. */
+.nav .nav-retour{flex:1 1 auto;margin:0 0 0 calc(var(--espace-sm) * -1);height:var(--touche);justify-content:flex-start}

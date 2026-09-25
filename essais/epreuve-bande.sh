@@ -117,6 +117,9 @@ case "$N" in
   33) # Les cartes de l'accueil perdent leur arrondi.
      perl -0pi -e 's/\[data-bloc\] \.carte,\.portes \.porte\{border-radius:var\(--rayon-carte\)\}//' styles.css
      ATTENDU="les cartes de l.accueil prennent l.arrondi de 24 points" ;;
+  34) # L'onglet « Le temps » revient dans la barre.
+     perl -0pi -e 's/(  \["accueil", "maison", "Accueil"\],\n)/$1  ["temps", "horloge", "Le temps"],\n/' src/app.js
+     ATTENDU="les destinations sont les bonnes" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
