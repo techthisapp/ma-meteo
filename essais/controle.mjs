@@ -1504,6 +1504,31 @@ ok("les rafales ne paraissent dans la bande que fortes",
 ok("la colonne du moment présent se détache, sous le titre « Maintenant et prochaines heures »",
   ventDit.fond && ventDit.titre === "Maintenant et prochaines heures", ventDit.titre);
 
+/* Jalon 12, lot 2 : la confiance se lit sur chaque ligne de La semaine, sans
+   déplier, et la barre s'estompe quand elle baisse. Les jours passés n'en
+   portent pas. */
+await onglet("semaine");
+const semConf = await pg.evaluate(() => {
+  const lignes = [...document.querySelectorAll("#ecran .sem-j")];
+  const mots = lignes.filter(l => !l.classList.contains("sem-passe"))
+    .map(l => l.querySelector(".sem-conf")?.textContent || "").filter(Boolean);
+  const passes = lignes.filter(l => l.classList.contains("sem-passe") && l.querySelector(".sem-conf")).length;
+  const estompe = [...document.querySelectorAll("#ecran .sem-plage.sem-faible, #ecran .sem-plage.sem-moyenne")]
+    .every(x => (getComputedStyle(x).maskImage || getComputedStyle(x).webkitMaskImage || "none") !== "none");
+  const nettes = [...document.querySelectorAll("#ecran .sem-plage:not(.sem-faible):not(.sem-moyenne)")]
+    .every(x => (getComputedStyle(x).maskImage || "none") === "none");
+  return { mots, passes, estompe, nettes,
+    incertaines: document.querySelectorAll("#ecran .sem-plage.sem-faible, #ecran .sem-plage.sem-moyenne").length };
+});
+await onglet("accueil");
+ok("chaque journée à venir porte son niveau de confiance, en un mot",
+  semConf.mots.length >= 3 && semConf.passes === 0
+  && semConf.mots.every(m => ["fiable", "à confirmer", "incertain"].includes(m)),
+  `${semConf.mots.join(", ")} ; jours passés marqués : ${semConf.passes}`);
+ok("la barre s'estompe aux journées moins sûres, et elles seules",
+  semConf.incertaines > 0 && semConf.estompe && semConf.nettes,
+  `${semConf.incertaines} barres estompées`);
+
 /* Jalon 11, lot 4 : le département sous la commune, qu'il se déduise du code
    postal ou manque, et l'arrondi de 24 points des cartes de l'accueil. */
 const enteteDit = await pg.evaluate(async () => {

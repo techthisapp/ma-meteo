@@ -188,14 +188,27 @@ export function vueSemaine() {
     const mo = P.momentsJour(d.time[k]);
     const cle = `sm-${d.time[k]}`;
 
+    /* Le niveau de confiance se lit sur la ligne, sans déplier, demandé par
+       Jérôme le 25 septembre 2026, jalon 12, lot 2. Il se pose sous la barre,
+       où la colonne est la plus large, et la barre s'estompe à ses extrémités
+       quand la confiance baisse. Les jours passés et ceux que les scénarios
+       ne couvrent pas n'en portent pas. */
+    const ens = k >= i ? Ensemble.journee(d.time[k]) : null;
+    const accord = ens ? Ensemble.accordDe(ens.etendue).nom : null;
+
     const corps = `<span class="j"><b>${esc(nom)}</b><em>${esc(date)}</em></span>`
       + `<span class="c">${icoTemps(icoCiel(code, true), "")}`
       + (eau ? `<em>${esc(eau)}</em>` : "") + `</span>`
       + `<span class="b"><b class="sem-min">${Math.round(tn)}°</b>`
-      + `<i class="sem-piste"><s class="sem-plage" style="left:${gauche.toFixed(1)}%;`
+      + `<span class="sem-pc"><i class="sem-piste"><s class="sem-plage${accord ? ` sem-${accord}` : ""}" `
+      + `style="left:${gauche.toFixed(1)}%;`
       + `width:${large.toFixed(1)}%;`
       + `background:linear-gradient(90deg, ${couleurT(tn)}, ${couleurT(tx)})"></s>`
       + pointe + `</i>`
+      /* Trois mots qui tiennent seuls dans la largeur de la barre : « confiance
+         moyenne » passait sur deux lignes. Le volet garde la phrase complète. */
+      + (accord ? `<em class="sem-conf">${esc({ bonne: "fiable", moyenne: "à confirmer", faible: "incertain" }[accord])}</em>` : "")
+      + `</span>`
       + `<b class="sem-max">${Math.round(tx)}°</b></span>`;
 
     /* Une journée sans heures complètes ne s'ouvre pas, et ne porte alors pas

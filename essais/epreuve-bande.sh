@@ -120,6 +120,12 @@ case "$N" in
   34) # L'onglet « Le temps » revient dans la barre.
      perl -0pi -e 's/(  \["accueil", "maison", "Accueil"\],\n)/$1  ["temps", "horloge", "Le temps"],\n/' src/app.js
      ATTENDU="les destinations sont les bonnes" ;;
+  35) # Le niveau de confiance ne paraît plus sur la ligne.
+     perl -0pi -e 's/      \+ \(accord \? `<em class="sem-conf">/      + (false \&\& accord ? `<em class="sem-conf">/' src/vues.js
+     ATTENDU="chaque journée à venir porte son niveau de confiance, en un mot" ;;
+  36) # La barre ne s'estompe plus.
+     perl -0pi -e 's/<s class="sem-plage\$\{accord \? ` sem-\$\{accord\}` : ""\}" `/<s class="sem-plage" `/' src/vues.js
+     ATTENDU="la barre s.estompe aux journées moins sûres, et elles seules" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
@@ -131,7 +137,8 @@ if diff -q "$OLD/src/bande.js" src/bande.js >/dev/null \
   && diff -q "$OLD/src/version.js" src/version.js >/dev/null \
   && diff -q "$OLD/sw.js" sw.js >/dev/null \
   && diff -q "$OLD/src/conseils.js" src/conseils.js >/dev/null \
-  && diff -q "$OLD/src/fleche.js" src/fleche.js >/dev/null; then
+  && diff -q "$OLD/src/fleche.js" src/fleche.js >/dev/null \
+  && diff -q "$OLD/src/vues.js" src/vues.js >/dev/null; then
   echo "FAUTE $N NON APPLIQUÉE"; exit 3
 fi
 

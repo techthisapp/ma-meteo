@@ -2162,3 +2162,17 @@ button.rangee:active{background:var(--surface-2)}
 
 /* Le retour dans la barre de tête, à la place de la commune. */
 .nav .nav-retour{flex:1 1 auto;margin:0 0 0 calc(var(--espace-sm) * -1);height:var(--touche);justify-content:flex-start}
+
+/* La semaine, jalon 12, lot 2 : le niveau de confiance sous la barre, et la
+   barre estompée à ses extrémités quand la confiance baisse. */
+.sem-pc{flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;gap:3px;min-width:0}
+.sem-pc .sem-piste{width:100%}
+.sem-conf{font-style:normal;font-size:var(--texte-legende);color:var(--etiquette-2);text-align:center;line-height:1;white-space:nowrap}
+.sem-plage.sem-moyenne{
+  -webkit-mask-image:linear-gradient(90deg, transparent 0, #000 14%, #000 86%, transparent 100%);
+  mask-image:linear-gradient(90deg, transparent 0, #000 14%, #000 86%, transparent 100%);
+}
+.sem-plage.sem-faible{
+  -webkit-mask-image:linear-gradient(90deg, transparent 0, #000 30%, #000 70%, transparent 100%);
+  mask-image:linear-gradient(90deg, transparent 0, #000 30%, #000 70%, transparent 100%);
+}
