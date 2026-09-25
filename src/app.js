@@ -798,6 +798,12 @@ function rendre() {
   $("navLieuNom").textContent = enPos
     ? (g.commune || "Ma position") : (g.commune || "Ma météo");
   $("navPos").hidden = !enPos;
+  /* Le département sous la commune, d'après la troisième maquette : il lève
+     l'ambiguïté des homonymes. Il se déduit du code postal, et son nom vient
+     de la table de la vigilance, qui porte les cent un départements. */
+  const nomDep = Vig.nomDe(departementDe(g.codePostal));
+  $("navLieuDep").textContent = nomDep || "";
+  $("navLieuDep").hidden = !nomDep;
   $("navLieu").hidden = false;
   ecran.classList.toggle("plein-cadre", f.pleinCadre === true);
   ecran.classList.toggle("ecran-carte", f.carte === true);

@@ -111,6 +111,12 @@ case "$N" in
   31) # Un fichier listé deux fois dans la coque.
      perl -0pi -e 's/  "\.\/src\/fleche\.js",\n/  "\.\/src\/fleche\.js",\n  "\.\/src\/vent\.js",\n/' sw.js
      ATTENDU="la coque hors ligne ne liste aucun fichier deux fois" ;;
+  32) # Le département n'est plus écrit.
+     perl -0pi -e 's/  \$\("navLieuDep"\)\.textContent = nomDep \|\| "";\n//' src/app.js
+     ATTENDU="l.en-tête porte le département sous la commune, sans grandir" ;;
+  33) # Les cartes de l'accueil perdent leur arrondi.
+     perl -0pi -e 's/\[data-bloc\] \.carte,\.portes \.porte\{border-radius:var\(--rayon-carte\)\}//' styles.css
+     ATTENDU="les cartes de l.accueil prennent l.arrondi de 24 points" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

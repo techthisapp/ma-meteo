@@ -1491,6 +1491,28 @@ ok("les rafales ne paraissent dans la bande que fortes",
 ok("la colonne du moment présent se détache, sous le titre « Maintenant et prochaines heures »",
   ventDit.fond && ventDit.titre === "Maintenant et prochaines heures", ventDit.titre);
 
+/* Jalon 11, lot 4 : le département sous la commune, qu'il se déduise du code
+   postal ou manque, et l'arrondi de 24 points des cartes de l'accueil. */
+const enteteDit = await pg.evaluate(async () => {
+  const V = await import("/src/vigilance.js");
+  const H = await import("/src/horloge.js");
+  const r = JSON.parse(localStorage.getItem("mameteo.reglages.v1") || "{}");
+  const attendu = V.nomDe(H.departementDe(r.codePostal)) || "";
+  const dep = document.getElementById("navLieuDep");
+  const rayon = el => el ? getComputedStyle(el).borderTopLeftRadius : "";
+  return {
+    lecci: V.nomDe(H.departementDe("20137")), paris: V.nomDe(H.departementDe("75011")),
+    accord: dep.textContent === attendu && dep.hidden === !attendu,
+    hauteur: Math.round(document.getElementById("navLieu").getBoundingClientRect().height),
+    rayons: [rayon(document.getElementById("bande")), rayon(document.querySelector("[data-bloc] .carte.retenir"))],
+  };
+});
+ok("l'en-tête porte le département sous la commune, sans grandir",
+  enteteDit.lecci === "Corse-du-Sud" && enteteDit.paris === "Paris" && enteteDit.accord && enteteDit.hauteur <= 46,
+  JSON.stringify(enteteDit));
+ok("les cartes de l'accueil prennent l'arrondi de 24 points",
+  enteteDit.rayons.every(x => x === "24px"), enteteDit.rayons.join(" "));
+
 /* Jalon 11, lot 2 : les conseils en deux lignes, titre et précision, avec un
    chevron vers le détail qu'ils décrivent. Et l'écriture des plages, qui
    donnait « de après-demain 00 h à 00 h » pour une journée entière. */

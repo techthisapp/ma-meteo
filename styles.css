@@ -2149,3 +2149,13 @@ button.rangee:active{background:var(--surface-2)}
 .bh-v{display:inline-flex;align-items:center;gap:2px}
 .bh-fl{width:12px;height:12px;flex:none}
 .bh-r{color:var(--attention, #b7791f)}
+
+/* L'en-tête, jalon 11, lot 4 : la commune et son département sur deux lignes,
+   dans la hauteur du bouton. */
+.nav-lieu > .nav-noms{display:flex;flex-direction:column;justify-content:center;line-height:1.15}
+.nav-noms > span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nav-dep{font-size:var(--texte-legende);font-weight:400;letter-spacing:0;opacity:.72}
+
+/* Les cartes de l'accueil prennent l'arrondi de 24 points que le système de
+   design publiait sans l'employer, comme les tuiles et les portes. */
+[data-bloc] .carte,.portes .porte{border-radius:var(--rayon-carte)}
