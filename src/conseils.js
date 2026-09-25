@@ -84,15 +84,8 @@ export function conseils(s, g) {
   const jFin = k => (k + 1 < s.n ? jDe(k + 1) : jDe(k) + (s.heure[k] === 23 ? 1 : 0));
   const fin = k => motJour(jFin(k)) + heureTxt((s.heure[k] + 1) % 24);
 
-  /* Une plage s'écrit avec le nom du jour une seule fois. « De demain 03 h à
-     demain 06 h » se lisait deux fois pour une seule journée. */
-  const plage = (a, b) => {
-    const ja = jDe(a), jb = jFin(b);
-    if (ja === jb && ja > 0) {
-      return `${motJour(ja)}de ${H(a)} à ${heureTxt((s.heure[b] + 1) % 24)}`;
-    }
-    return `de ${dem(a)} à ${fin(b)}`;
-  };
+  /* L'écriture d'une plage est une fonction pure, `ecrirePlage`, plus bas. */
+  const plage = (a, b) => ecrirePlage(jDe(a), s.heure[a], jDe(b), s.heure[b], jFin(b));
 
   const lignes = [];
   /* `h` est la portée de la ligne, en heures à partir de maintenant : c'est
@@ -100,8 +93,12 @@ export function conseils(s, g) {
      dont elle parle, comptée depuis aujourd'hui : c'est elle qui nomme le bloc
      qui la porte. */
   const decalage = (g && g.decalage) || 0;
-  const dire = (i, grav, k, t) =>
-    lignes.push({ i, g: grav, h: decalage + k + 1, j: jDe(Math.min(k, s.n - 1)), t });
+  /* Chaque conseil porte le détail où il mène, jalon 11, lot 2 : la voie du
+     ruban qui le montre, ou la feuille de l'air. Le symbole le donne par
+     défaut ; le soleil et la brume servent chacun à deux sortes de conseils,
+     et leurs appels le précisent. */
+  const dire = (i, grav, k, t, d = DESTINATIONS[i] || null) =>
+    lignes.push({ i, g: grav, h: decalage + k + 1, j: jDe(Math.min(k, s.n - 1)), t, d });
   const plagesCode = codes => plagesDe(s.n, k => codes.includes(s.code[k]));
 
   // 1. L'orage, qui passe avant tout le reste.
@@ -334,7 +331,7 @@ export function conseils(s, g) {
   const uvx = Math.max(...s.uv);
   if (uvx >= SEUILS.uv) {
     const ku = s.uv.indexOf(uvx);
-    dire("soleil", 1, ku, `Indice UV ${Math.round(uvx)} vers ${dem(ku)}. Exposition à limiter.`);
+    dire("soleil", 1, ku, `Indice UV ${Math.round(uvx)} vers ${dem(ku)}. Exposition à limiter.`, "uv");
   }
 
   /* 18. L'air. Il ne se dit qu'au delà du niveau dégradé : en deçà, c'est une
@@ -353,7 +350,7 @@ export function conseils(s, g) {
       for (let k = a; k <= b; k++) if ((air.aqi[k] || 0) > (air.aqi[pirek] || 0)) pirek = k;
       const niv = niveauDe(air.aqi[pirek]);
       dire("brume", 4.5 + niv.rang * 0.7, b,
-        `Air ${niv.nom} ${plage(a, b)}, indice ${air.aqi[pirek]}.`);
+        `Air ${niv.nom} ${plage(a, b)}, indice ${air.aqi[pirek]}.`, "feuille:air");
     }
   }
 
@@ -393,8 +390,54 @@ export function titreJours(lignes) {
   return `Demain et après-demain`;
 }
 
+/* Une plage horaire en mots, à partir du jour et de l'heure de son début, du
+   jour et de l'heure de sa dernière heure, et du jour de l'heure qui suit. Le
+   nom du jour ne s'écrit qu'une fois : « demain de 03 h à 06 h ». Une journée
+   entière se dit « toute la journée de demain » ; la forme mécanique donnait
+   « de après-demain 00 h à 00 h », relevé le 24 septembre 2026 quand les
+   conseils sont passés en deux lignes. « De » s'élide devant une voyelle, et
+   une fin à minuit s'écrit « minuit » quand le jour qui suit n'a pas de nom :
+   « 00 h » seul ne se situait pas. */
+const deMot = x => (/^[aeiouyàâéèêh]/i.test(x) ? `d'${x}` : `de ${x}`);
+const nomJour = j => (MOTS_JOUR[j] !== undefined ? MOTS_JOUR[j] : "");
+export function ecrirePlage(ja, ha, jb, hb, jFinB) {
+  if (ha === 0 && hb === 23 && ja === jb && ja > 0 && nomJour(ja)) {
+    return `toute la journée ${deMot(nomJour(ja).trim())}`;
+  }
+  const hFin = heureTxt((hb + 1) % 24);
+  if (ja === jFinB && ja > 0) return `${nomJour(ja)}de ${heureTxt(ha)} à ${hFin}`;
+  const fin = (hb + 1) % 24 === 0 && !nomJour(jFinB) ? "minuit" : `${nomJour(jFinB)}${hFin}`;
+  return `${deMot(`${nomJour(ja)}${heureTxt(ha)}`)} à ${fin}`;
+}
+
+/* La destination de chaque sorte de conseil, par son symbole. Le brouillard
+   mène à l'humidité, faute de voie de la visibilité ; le gel et la chaleur à
+   la température. */
+const DESTINATIONS = {
+  goutte: "mm", orage: "mm", neige: "mm", thermo: "t", alerte: "t", soleil: "t",
+  jauge: "pres", vent: "v", brume: "hum", pollen: "feuille:air",
+};
+
+/* Un conseil en deux lignes, jalon 11, lot 2, d'après la troisième maquette :
+   la phrase se coupe à sa première virgule ou à son premier point, le début
+   en titre, la suite en précision. « Air dégradé de 16 h à 18 h, indice 40 »
+   donne « Air dégradé de 16 h à 18 h » et « Indice 40 ». Une phrase sans
+   coupure reste d'une ligne. Le conseil qui a un détail devient un bouton
+   avec un chevron. */
 export const conseilsHTML = l => {
   if (!l || !l.length) return "";
-  return l.map(x =>
-    `<p class="cj-l">${ico(x.i, `cj-ic icv-${x.i}`)}<span>${esc(x.t)}</span></p>`).join("");
+  return l.map(x => {
+    const phrase = x.t.replace(/\.\s*$/, "");
+    const m = /^(.*?)(?:, |\. )(.*)$/.exec(phrase);
+    const titre = m ? m[1] : phrase;
+    const prec = m ? m[2].charAt(0).toUpperCase() + m[2].slice(1) : "";
+    const tete = ico(x.i, `cj-ic icv-${x.i}`)
+      + `<span class="cj-t"><b>${esc(titre)}</b>${prec ? `<em>${esc(prec)}</em>` : ""}</span>`;
+    /* La phrase entière reste attachée au conseil : elle est ce que les
+       contrôles comparent, et ce qu'une lecture à voix haute doit dire. */
+    if (!x.d) return `<p class="cj-l" data-phrase="${esc(x.t)}">${tete}</p>`;
+    const cible = x.d.startsWith("feuille:") ? `data-feuille="${x.d.slice(8)}"` : `data-detail="${x.d}"`;
+    return `<button type="button" class="cj-l cj-porte" ${cible} data-phrase="${esc(x.t)}" aria-label="${esc(x.t)}">`
+      + tete + ico("chevron_bas", "cj-chev") + `</button>`;
+  }).join("");
 };

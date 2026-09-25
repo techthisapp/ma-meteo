@@ -90,6 +90,15 @@ case "$N" in
   24) # La tuile de l'air perd sa feuille.
      perl -0pi -e 's/"pas de mesure", "", null, "brume", "nuage", "air"\]/"pas de mesure", "", "air", "brume", "nuage", null]/' src/app.js
      ATTENDU="chaque tuile mène au détail de son paramètre" ;;
+  25) # Le conseil ne se coupe plus en titre et précision.
+     perl -0pi -e 's/    const m = \/\^\(\.\*\?\)\(\?:, \|\\\. \)\(\.\*\)\$\/\.exec\(phrase\);/    const m = null;/' src/conseils.js
+     ATTENDU="un conseil se lit en deux lignes, titre et précision, avec son chevron" ;;
+  26) # Les conseils perdent leur destination.
+     perl -0pi -e 's/d = DESTINATIONS\[i\] \|\| null\) =>/d = null) =>/' src/conseils.js
+     ATTENDU="chaque conseil de l.accueil mène au détail qu.il décrit" ;;
+  27) # La journée entière retombe dans la forme mécanique.
+     perl -0pi -e 's/  if \(ha === 0 && hb === 23 && ja === jb/  if (false \&\& ha === 0 \&\& hb === 23 \&\& ja === jb/' src/conseils.js
+     ATTENDU="une journée entière se dit « toute la journée », avec l.élision" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
@@ -99,7 +108,8 @@ if diff -q "$OLD/src/bande.js" src/bande.js >/dev/null \
   && diff -q "$OLD/src/ecritures.js" src/ecritures.js >/dev/null \
   && diff -q "$OLD/src/ruban.js" src/ruban.js >/dev/null \
   && diff -q "$OLD/src/version.js" src/version.js >/dev/null \
-  && diff -q "$OLD/sw.js" sw.js >/dev/null; then
+  && diff -q "$OLD/sw.js" sw.js >/dev/null \
+  && diff -q "$OLD/src/conseils.js" src/conseils.js >/dev/null; then
   echo "FAUTE $N NON APPLIQUÉE"; exit 3
 fi
 

@@ -943,6 +943,12 @@ const finir = (anticipe = false) => {
   process.exit(ko ? 1 : 0);
 };
 
+/* La phrase entière d'un conseil. Depuis le jalon 11 le conseil s'affiche en
+   deux lignes, titre et précision ; sa phrase reste dans `data-phrase`, et
+   c'est elle que les gardes comparent. */
+const phrasesConseils = (page, q = "#ecran .cj-l") => page.evaluate(sel =>
+  [...document.querySelectorAll(sel)].map(l => l.dataset.phrase || l.textContent), q);
+
 const ok = (nom, cond, detail) => {
   if (arretDemande) { finir(true); return; }
   n++; if (!cond) { ko++; console.log(`  ÉCHEC  ${nom}${detail ? " | " + detail : ""}`); }
@@ -1014,7 +1020,7 @@ ok("l'accueil porte une tuile par paramètre suivi", await pg.locator(".bd-m").c
 const mes = (await pg.locator(".bd-m i").allInnerTexts()).join(", ");
 ok("les tuiles sont nommées",
   mes.toLowerCase() === "ressenti, pluie, vent, ciel, humidité, indice uv, pression, air", mes);
-const cj = await pg.locator(".cj-l").allInnerTexts();
+const cj = await phrasesConseils(pg, ".cj-l");
 /* Trois lignes par bloc au plus : au-delà, un bloc cesse d'être un résumé. Six
    en tout au pire, comme du temps de la carte unique. */
 ok("trois lignes par bloc au plus", await pg.evaluate(() =>
@@ -1038,7 +1044,7 @@ ok("l'accueil se lit en trois blocs de temps",
    porte, ni plus ni moins. */
 ok("chaque bloc s'en tient à sa fenêtre", await pg.evaluate(() => {
   const q = c => document.querySelector(`#ecran .section[data-bloc="${c}"]`);
-  const lignes = s => (s ? [...s.querySelectorAll(".cj-l")].map(e => e.textContent) : []);
+  const lignes = s => (s ? [...s.querySelectorAll(".cj-l")].map(e => (e.dataset.phrase || e.textContent)) : []);
   const jour = lignes(q("jour")).join(" ");
   if (/demain/.test(jour)) return `aujourd'hui parle de demain : ${jour}`;
   const suite = q("suite");
@@ -1062,14 +1068,17 @@ ok("aucune ligne ne se répète", new Set(cj).size === cj.length);
    à quelque chose, et la veille est la seule référence que tout le monde a en
    tête. La charge d'essai porte vingt-trois degrés hier à neuf heures et
    dix-sept aujourd'hui. */
-const cjVeille = cj.find(x => /qu'hier/.test(x)) || "";
+/* Depuis le jalon 11, le conseil s'affiche en deux lignes ; sa phrase entière
+   reste dans le libellé lu à voix haute, qui se compare ici. */
+const cjVeille = await pg.evaluate(() => [...document.querySelectorAll("#ecran .cj-l")]
+  .map(l => l.dataset.phrase || l.textContent).find(t => /qu'hier/.test(t)) || "");
 ok("la comparaison avec la même heure la veille s'écrit",
   cjVeille.trim() === "6 degrés de moins qu'hier à la même heure, 17° contre 23°.",
   cjVeille || "aucune ligne");
 ok("elle se pose dans le bloc du jour, non dans celui qui suit",
   await pg.evaluate(() => {
     const dans = c => [...document.querySelectorAll(
-      `#ecran .section[data-bloc="${c}"] .cj-l`)].some(e => /qu'hier/.test(e.textContent));
+      `#ecran .section[data-bloc="${c}"] .cj-l`)].some(e => /qu'hier/.test((e.dataset.phrase || e.textContent)));
     return dans("jour") && !dans("suite");
   }));
 /* Les fenêtres partent toutes de l'heure en cours : aucune règle ne peut parler
@@ -1078,13 +1087,13 @@ ok("elle se pose dans le bloc du jour, non dans celui qui suit",
 ok("aucune règle ne se déclenche sur une heure écoulée", await pg.evaluate(() => {
   const h = new Date().getHours();
   const t = [...document.querySelectorAll('#ecran .section[data-bloc="jour"] .cj-l')]
-    .map(e => e.textContent).join(" ");
+    .map(e => e.dataset.phrase || e.textContent).join(" ");
   const vues = [...t.matchAll(/(\d\d) h/g)].map(m => Number(m[1]));
   const tot = vues.filter(x => x < h);
   return tot.length ? `${tot.join(", ")} avant ${h} h` : "";
 }) === "", await pg.evaluate(() =>
   [...document.querySelectorAll('#ecran .section[data-bloc="jour"] .cj-l')]
-    .map(e => e.textContent).join(" | ")));
+    .map(e => e.dataset.phrase || e.textContent).join(" | ")));
 ok("aucun verbe de jardin", !/arros|voiler|tuteur|repiquage|ombrer|plant/i.test(cj.join(" ")), cj.join(" | "));
 const alertesTxt = (await pg.locator(".al").allInnerTexts()).join(" ").toLowerCase();
 const conseilsTxt = cj.join(" ").toLowerCase();
@@ -1435,6 +1444,30 @@ ok("le ruban garde en paysage la densité du portrait",
   `portrait ${portrait?.vb} unités à ${portrait?.rapport.toFixed(3)}, `
   + `paysage ${paysage?.vb} unités à ${paysage?.rapport.toFixed(3)}`);
 
+/* Jalon 11, lot 2 : les conseils en deux lignes, titre et précision, avec un
+   chevron vers le détail qu'ils décrivent. Et l'écriture des plages, qui
+   donnait « de après-demain 00 h à 00 h » pour une journée entière. */
+const conseilDit = await pg.evaluate(async () => {
+  const C = await import("/src/conseils.js");
+  const html = C.conseilsHTML([{ i: "brume", t: "Air dégradé de 16 h à 18 h, indice 40.", d: "feuille:air" }]);
+  const lignes = [...document.querySelectorAll("#ecran .carte.retenir .cj-l")];
+  const voies = new Set(["t", "mm", "v", "nua", "hum", "uv", "pres"]);
+  return {
+    deuxLignes: html.includes("<b>Air dégradé de 16 h à 18 h</b><em>Indice 40</em>")
+      && html.includes('data-feuille="air"') && html.includes("cj-chev"),
+    lignes: lignes.length,
+    menent: lignes.every(l => l.classList.contains("cj-porte")
+      && (voies.has(l.dataset.detail) || l.dataset.feuille === "air")),
+    plages: [C.ecrirePlage(2, 0, 2, 23, 3), C.ecrirePlage(2, 13, 2, 23, 3), C.ecrirePlage(1, 3, 1, 5, 1)],
+  };
+});
+ok("un conseil se lit en deux lignes, titre et précision, avec son chevron", conseilDit.deuxLignes);
+ok("chaque conseil de l'accueil mène au détail qu'il décrit",
+  conseilDit.lignes > 0 && conseilDit.menent, `${conseilDit.lignes} conseils`);
+ok("une journée entière se dit « toute la journée », avec l'élision",
+  conseilDit.plages.join(" | ") === "toute la journée d'après-demain | d'après-demain 13 h à minuit | demain de 03 h à 06 h",
+  conseilDit.plages.join(" | "));
+
 /* Les deux décisions du lot 2, vérifiées pour elles-mêmes : dans la fenêtre des
    contrôles, sans avis, la marge est assez large pour qu'un ciel d'origine ou
    des chiffres sur deux colonnes tiennent encore, et la garde du premier écran
@@ -1521,10 +1554,10 @@ ok("chaque mesure dit sa portée", await pg.evaluate(() =>
    dire. */
 ok("aucun renversement annoncé quand demain vaut aujourd'hui", await pg.evaluate(() =>
   [...document.querySelectorAll(".conseils .cj-l")]
-    .filter(e => /Refroidissement|Réchauffement/.test(e.textContent))
-    .map(e => e.textContent).join(" | ")) === "",
+    .filter(e => /Refroidissement|Réchauffement/.test(e.dataset.phrase || e.textContent))
+    .map(e => e.dataset.phrase || e.textContent).join(" | ")) === "",
   await pg.evaluate(() => [...document.querySelectorAll(".conseils .cj-l")]
-    .map(e => e.textContent.trim()).join(" | ")));
+    .map(e => (e.dataset.phrase || e.textContent).trim()).join(" | ")));
 
 /* Le Soleil et la Lune partagent le ciel dès qu'ils sont levés tous les deux.
    À neuf heures du matin la Lune est à quarante degrés sous l'horizon : le
@@ -4024,9 +4057,9 @@ await pgCalme.waitForTimeout(1600);
 ok("sur un temps calme, aucune ligne à savoir",
   await pgCalme.locator("#ecran .cj-l").count() === 0
   && await pgCalme.locator("#ecran .al").count() === 0,
-  await pgCalme.locator("#ecran .cj-l").allInnerTexts().then(x => x.join(" | ")));
+  await phrasesConseils(pgCalme, "#ecran .cj-l").then(x => x.join(" | ")));
 ok("sur un temps calme, la section entière disparaît", await pgCalme.evaluate(() =>
-  ![...document.querySelectorAll("#ecran .section h2")].some(x => x.textContent.startsWith("Dans les"))
+  ![...document.querySelectorAll("#ecran .section h2")].some(x => (x.dataset.phrase || x.textContent).startsWith("Dans les"))
   && document.querySelectorAll("#ecran .retenir").length === 0));
 ok("sur un temps calme, le reste de l'accueil tient",
   await pgCalme.locator("#ecran .bd-mesures").count() === 1
@@ -4742,7 +4775,7 @@ const pgFrais = await ctxFrais.newPage();
 await ouvrirPage(pgFrais);
 await pgFrais.waitForTimeout(1400);
 
-const bascule = (await pgFrais.locator(".conseils .cj-l").allInnerTexts())
+const bascule = (await phrasesConseils(pgFrais, ".conseils .cj-l"))
   .find(x => /Refroidissement|Réchauffement/.test(x)) || "";
 ok("un vrai renversement de température se dit",
   /^Refroidissement de 12 degrés demain/.test(bascule.trim()), bascule || "aucune ligne");
@@ -4805,9 +4838,9 @@ ok("la même heure la veille se cherche par son horodatage, non par son rang",
     return JSON.stringify(P.ecartVeille());
   }));
 ok("la ligne de comparaison le dit sur l'écran",
-  (await pgDecale.locator("#ecran .cj-l").allInnerTexts())
+  (await phrasesConseils(pgDecale, "#ecran .cj-l"))
     .some(x => /6 degrés de moins qu'hier/.test(x)),
-  (await pgDecale.locator("#ecran .cj-l").allInnerTexts()).join(" | "));
+  (await phrasesConseils(pgDecale, "#ecran .cj-l")).join(" | "));
 await ctxDecale.close();
 
 /* Sous le seuil, la comparaison se tait : une oscillation ordinaire d'un ou deux
@@ -4838,8 +4871,8 @@ const pgPareil = await ctxPareil.newPage();
 await ouvrirPage(pgPareil);
 await pgPareil.waitForTimeout(1500);
 ok("un écart de quatre degrés avec la veille ne s'écrit pas",
-  !(await pgPareil.locator("#ecran .cj-l").allInnerTexts()).some(x => /qu'hier/.test(x)),
-  (await pgPareil.locator("#ecran .cj-l").allInnerTexts()).join(" | "));
+  !(await phrasesConseils(pgPareil, "#ecran .cj-l")).some(x => /qu'hier/.test(x)),
+  (await phrasesConseils(pgPareil, "#ecran .cj-l")).join(" | "));
 await ctxPareil.close();
 
 /* Le ciel à deux astres. Le 18 août 2026 à dix-neuf heures, le Soleil est à
@@ -4919,7 +4952,7 @@ await pageA("2026-08-18T09:00:00+02:00", null, async pg => {
       [e.querySelector("i").textContent.trim(), e.querySelector("b").textContent.trim()])
       .find(([n]) => n === "Pluie")?.[1],
     demain: [...document.querySelectorAll('.section[data-bloc="suite"] .cj-l')]
-      .map(e => e.textContent).find(x => /^Pluie demain/.test(x)) || "",
+      .map(e => e.dataset.phrase || e.textContent).find(x => /^Pluie demain/.test(x)) || "",
   }));
   await pg.locator('[data-onglet="temps"]').click();
   await pg.waitForTimeout(500);
@@ -4990,7 +5023,7 @@ await pageA("2026-08-18T09:00:00+02:00", d => {
     }
   });
 }, async pg => {
-  const gel = (await pg.locator("#ecran .cj-l").allInnerTexts())
+  const gel = (await phrasesConseils(pg, "#ecran .cj-l"))
     .find(x => /^Gel probable/.test(x)) || "";
   ok("le gel s'annonce au degré rond, le mot accordé",
     /jusqu'à -?\d+ degré(s)?\./.test(gel) && !/\d,\d degré/.test(gel),
@@ -5005,7 +5038,7 @@ await pageA("2026-08-18T09:00:00+02:00", d => {
   decaler("2026-08-21", 6)(d);   // i + 3, hors de portée
   decaler("2026-08-22", 6)(d);   // i + 4, hors de portée
 }, async pg => {
-  const dit = (await pg.locator("#ecran .cj-l").allInnerTexts()).join(" | ");
+  const dit = (await phrasesConseils(pg, "#ecran .cj-l")).join(" | ");
   /* Aucune journée au-delà d'après-demain n'est nommée. Un jour de la semaine
      écrit en toutes lettres est la marque de l'ancien mécanisme d'alertes, qui
      portait jusqu'à quatre jours. */
@@ -5017,8 +5050,7 @@ await pageA("2026-08-18T09:00:00+02:00", d => {
   d.hourly.precipitation = d.hourly.precipitation.map(() => 0);
   d.hourly.precipitation_probability = d.hourly.precipitation_probability.map(() => 0);
 }, async pg => {
-  const dit = (await pg.locator('#ecran .section[data-bloc="suite"] .cj-l')
-    .allInnerTexts()).join(" | ");
+  const dit = (await phrasesConseils(pg, '#ecran .section[data-bloc="suite"] .cj-l')).join(" | ");
   ok("après-demain se dit encore", /34 degrés vers après-demain/.test(dit), dit || "aucune ligne");
   const titre = await pg.locator('#ecran .section[data-bloc="suite"] h2').innerText();
   ok("le titre nomme les journées portées",
@@ -5033,7 +5065,7 @@ await pageA("2026-08-18T22:00:00+02:00", d => {
   d.hourly.precipitation = d.hourly.precipitation.map(() => 0);
   d.hourly.precipitation_probability = d.hourly.precipitation_probability.map(() => 0);
 }, async pg => {
-  const cj = await pg.locator(".conseils .cj-l").allInnerTexts();
+  const cj = await phrasesConseils(pg, ".conseils .cj-l");
   const avec33 = cj.filter(x => /33/.test(x));
   ok("un même maximum n'est pas annoncé deux fois",
     avec33.length === 1 && /Réchauffement/.test(avec33[0]), cj.join(" | "));
@@ -5437,7 +5469,7 @@ await ctxFourch.route(/https:\/\/api\.open-meteo\.com/, route => {
 const pgFourch = await ctxFourch.newPage();
 await ouvrirPage(pgFourch);
 await pgFourch.waitForTimeout(1600);
-const cjF = await pgFourch.locator("#ecran .cj-l").allInnerTexts();
+const cjF = await phrasesConseils(pgFourch, "#ecran .cj-l");
 ok("la fourchette des scénarios s'écrit là où elle a de la matière",
   cjF.some(x => /^Scénarios partagés sur le maximum, de -?\d+ à -?\d+°\.$/.test(x.trim())),
   cjF.join(" | ") || "aucune ligne");
@@ -5446,7 +5478,7 @@ ok("la fourchette des scénarios s'écrit là où elle a de la matière",
 ok("elle se pose dans un bloc qui suit, non dans celui du jour",
   await pgFourch.evaluate(() => {
     const dans = c => [...document.querySelectorAll(
-      `#ecran .section[data-bloc="${c}"] .cj-l`)].some(e => /Scénarios partagés/.test(e.textContent));
+      `#ecran .section[data-bloc="${c}"] .cj-l`)].some(e => /Scénarios partagés/.test((e.dataset.phrase || e.textContent)));
     return !dans("jour") && dans("suite");
   }));
 /* Deux degrés d'écart entre modèles ne sont pas un désaccord : c'est
@@ -5505,7 +5537,7 @@ await ctxDesac.route(/ensemble-api\.open-meteo\.com/, r => {
 const pgDesac = await ctxDesac.newPage();
 await ouvrirPage(pgDesac);
 await pgDesac.waitForTimeout(1600);
-const cjD = await pgDesac.locator("#ecran .cj-l").allInnerTexts();
+const cjD = await phrasesConseils(pgDesac, "#ecran .cj-l");
 const ligneD = cjD.find(x => /ne s'accordent pas/.test(x)) || "";
 ok("le désaccord entre modèles se dit, avec ses extrêmes et son échéance",
   /^Les modèles ne s'accordent pas vers .+, de -?\d+ à -?\d+ degrés\.$/.test(ligneD.trim()),
@@ -5519,7 +5551,7 @@ ok("les extrêmes nommés encadrent les six degrés d'écart posés", (() => {
 ok("elle passe devant la fourchette des scénarios",
   await pgDesac.evaluate(() => {
     const l = [...document.querySelectorAll('#ecran .section[data-bloc="suite"] .cj-l')]
-      .map(e => e.textContent);
+      .map(e => e.dataset.phrase || e.textContent);
     const d = l.findIndex(x => /ne s'accordent pas/.test(x));
     const f = l.findIndex(x => /Scénarios partagés/.test(x));
     return d >= 0 && (f < 0 || d < f);
@@ -6723,7 +6755,7 @@ atmoMuet = false;
 const conseilsDe = async profil => {
   profilAir = profil;
   const [c, p] = await ctxReponse(METEO_NUE);
-  const dit = (await p.locator("#ecran .conseils .cj-l").allInnerTexts()).join(" | ");
+  const dit = (await phrasesConseils(p, "#ecran .conseils .cj-l")).join(" | ");
   await c.close();
   profilAir = "base";
   return dit;
@@ -6739,12 +6771,11 @@ ok("un air ordinaire ne se dit pas", !/Air /.test(ditBase), ditBase);
    différence entre les deux contextes. */
 profilAir = "ambroisie";
 const [ctxPic, pgPic] = await ctxReponse(METEO_NUE);
-const ditPic = (await pgPic.locator("#ecran .conseils .cj-l").allInnerTexts()).join(" | ");
+const ditPic = (await phrasesConseils(pgPic, "#ecran .conseils .cj-l")).join(" | ");
 await ctxPic.close();
 const [ctxSansAmbroisie, pgSansAmbroisie] = await ctxReponse(METEO_NUE,
   { ...FAIN, pollensMuets: ["ambroisie"] });
-const ditMuet = (await pgSansAmbroisie.locator("#ecran .conseils .cj-l")
-  .allInnerTexts()).join(" | ");
+const ditMuet = (await phrasesConseils(pgSansAmbroisie, "#ecran .conseils .cj-l")).join(" | ");
 await ctxSansAmbroisie.close();
 profilAir = "base";
 ok("un pollen du profil au pic se dit",

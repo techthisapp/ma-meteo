@@ -2128,3 +2128,11 @@ button.rangee:active{background:var(--surface-2)}
 @container (max-width:18rem){
   .bd-mesures.tuiles{grid-template-columns:1fr}
 }
+
+/* Les conseils en deux lignes, jalon 11, lot 2 : le titre à la taille du corps,
+   la précision en note, et un chevron quand le conseil mène à un détail. */
+.cj-porte{width:100%;background:none;border:0;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.cj-t{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.cj-t b{font-weight:var(--graisse-medium)}
+.cj-t em{font-style:normal;font-size:var(--texte-note);color:var(--etiquette-2)}
+.cj-chev{flex:none;width:14px;height:14px;transform:rotate(-90deg);color:var(--etiquette-3)}
