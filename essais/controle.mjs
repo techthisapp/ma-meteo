@@ -1669,16 +1669,43 @@ ok("la justesse se calcule par échéance : écart, biais et part à 2° près",
   && justesseDit.nom.join(" | ") === "dans 6 h | à 1 jour | à 3 jours",
   JSON.stringify(justesseDit));
 ok("une échéance ne paraît qu'avec assez de relevés", justesseDit.peu === undefined, String(justesseDit.peu));
+/* La page des contrôles n'a pas encore de relevé à cet endroit : la carte y
+   montrerait sa phrase d'attente, et une phrase sur le délai, qui ne vit que
+   dans la carte chiffrée, passerait inaperçue. Un journal de six relevés est
+   posé le temps de la mesure, puis le journal d'origine est rendu. */
+const journalAvant = await pg.evaluate(() => {
+  const avant = localStorage.getItem("mameteo.justesse.v1");
+  const l = [];
+  for (let d = 1; d <= 6; d++) l.push({ l: "x", c: `2026-08-0${d}T15`, e: 24, t: 21, r: 20 });
+  localStorage.setItem("mameteo.justesse.v1", JSON.stringify({ v: 1, lignes: l }));
+  return avant;
+});
 await pg.locator("#btnReglages").click();
 await pg.waitForTimeout(600);
 const carteJustesse = await pg.evaluate(() => {
   const c = [...document.querySelectorAll("#feuille-corps .carte")].find(x => /Justesse des prévisions/.test(x.textContent));
+  /* Aucune phrase sur le délai, retirées le 27 septembre 2026. */
+  if (c && /assiéront|paraît dès|relevés depuis/.test(c.textContent)) return "délai";
   return c ? (c.querySelectorAll(".rangee").length ? "chiffres" : /Aucun relevé/.test(c.textContent) ? "attente" : "vide") : "absente";
 });
 await pg.evaluate(() => history.back());
 await pg.waitForTimeout(500);
-ok("les réglages disent la justesse, ou qu'aucun relevé n'est encore arrivé",
-  carteJustesse === "chiffres" || carteJustesse === "attente", carteJustesse);
+await pg.evaluate(a => (a === null ? localStorage.removeItem("mameteo.justesse.v1")
+  : localStorage.setItem("mameteo.justesse.v1", a)), journalAvant);
+ok("les réglages disent la justesse sans phrase sur le délai",
+  carteJustesse === "chiffres", carteJustesse);
+
+/* L'accueil ne parle que de demain : après-demain se lit dans La semaine
+   seulement, demandé le 27 septembre 2026. */
+const suiteDit = await pg.evaluate(() => {
+  const b = document.querySelector('#ecran [data-bloc="suite"]');
+  return { titre: b?.querySelector("h2")?.textContent || "",
+    apres: [...document.querySelectorAll('#ecran [data-bloc="suite"] .cj-l')]
+      .map(l => l.dataset.phrase || l.textContent).filter(t => /après-demain/i.test(t)) };
+});
+ok("l'accueil ne parle que de demain, après-demain restant dans La semaine",
+  (suiteDit.titre === "" || suiteDit.titre === "Demain") && suiteDit.apres.length === 0,
+  `« ${suiteDit.titre} » ${suiteDit.apres.join(" | ")}`);
 
 /* Jalon 11, lot 4 : le département sous la commune, qu'il se déduise du code
    postal ou manque, et l'arrondi de 24 points des cartes de l'accueil. */
@@ -5310,11 +5337,13 @@ await pageA("2026-08-18T09:00:00+02:00", d => {
   d.hourly.precipitation = d.hourly.precipitation.map(() => 0);
   d.hourly.precipitation_probability = d.hourly.precipitation_probability.map(() => 0);
 }, async pg => {
+  /* Depuis le 27 septembre 2026, l'accueil ne parle plus d'après-demain : la
+     chaleur d'après-demain se lit dans La semaine. */
   const dit = (await phrasesConseils(pg, '#ecran .section[data-bloc="suite"] .cj-l')).join(" | ");
-  ok("après-demain se dit encore", /34 degrés vers après-demain/.test(dit), dit || "aucune ligne");
-  const titre = await pg.locator('#ecran .section[data-bloc="suite"] h2').innerText();
-  ok("le titre nomme les journées portées",
-    titre === "Après-demain" || titre === "Demain et après-demain", titre);
+  ok("après-demain ne se dit plus sur l'accueil", !/après-demain/.test(dit), dit || "aucune ligne");
+  const titre = await pg.evaluate(() =>
+    document.querySelector('#ecran .section[data-bloc="suite"] h2')?.textContent || "");
+  ok("le titre nomme la seule journée portée", titre === "" || titre === "Demain", titre);
 });
 
 /* La chaleur et le renversement de température ne nomment pas deux fois le même
@@ -5730,16 +5759,26 @@ const pgFourch = await ctxFourch.newPage();
 await ouvrirPage(pgFourch);
 await pgFourch.waitForTimeout(1600);
 const cjF = await phrasesConseils(pgFourch, "#ecran .cj-l");
+/* Depuis le 27 septembre 2026, l'accueil ne parle que de demain : la fourchette
+   d'après-demain s'écrit dans La semaine, au volet de la journée. */
+await pgFourch.locator('[data-onglet="semaine"]').click();
+await pgFourch.waitForTimeout(600);
+const semF = await pgFourch.evaluate(() => [...document.querySelectorAll("#ecran .md-sc")]
+  .map(e => e.textContent).filter(t => /de -?\d+ à -?\d+° au plus chaud/.test(t)));
+await pgFourch.locator('[data-onglet="accueil"]').click();
+await pgFourch.waitForTimeout(600);
 ok("la fourchette des scénarios s'écrit là où elle a de la matière",
-  cjF.some(x => /^Scénarios partagés sur le maximum, de -?\d+ à -?\d+°\.$/.test(x.trim())),
-  cjF.join(" | ") || "aucune ligne");
+  cjF.some(x => /^Scénarios partagés sur le maximum, de -?\d+ à -?\d+°\.$/.test(x.trim())) || semF.length > 0,
+  (cjF.join(" | ") || "aucune ligne") + ` ; La semaine : ${semF.length}`);
 /* Elle parle de la journée de son bloc, non de l'heure en cours : la dispersion
    de maintenant vaut un demi-degré et n'a rien à dire. */
 ok("elle se pose dans un bloc qui suit, non dans celui du jour",
   await pgFourch.evaluate(() => {
     const dans = c => [...document.querySelectorAll(
       `#ecran .section[data-bloc="${c}"] .cj-l`)].some(e => /Scénarios partagés/.test((e.dataset.phrase || e.textContent)));
-    return !dans("jour") && dans("suite");
+    /* Jamais dans le bloc du jour. Dans celui de demain seulement si demain a
+       la matière d'une fourchette ; celle d'après-demain est dans La semaine. */
+    return !dans("jour");
   }));
 /* Deux degrés d'écart entre modèles ne sont pas un désaccord : c'est
    l'ordinaire, et une phrase qui le dirait tous les jours ne dirait rien. */

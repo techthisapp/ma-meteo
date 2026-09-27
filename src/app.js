@@ -527,7 +527,6 @@ function ecranAccueil() {
     const restant = 24 - new Date().getHours();
     const sJour = P.serieHoraire(0, restant, 1);
     const sDemain = P.serieHoraire(restant, 24, 12);
-    const sApres = P.serieHoraire(restant + 24, 24, 12);
 
     /* La comparaison avec la veille ne se pose que sur la fenêtre de la journée
        en cours : c'est la seule dont l'heure en cours fasse partie. */
@@ -545,15 +544,13 @@ function ecranAccueil() {
        s'écrit avec la journée qu'elle concerne, non sur l'accueil au dessus du
        grand chiffre où elle n'aurait rien à dire, la dispersion de l'heure en
        cours valant un demi-degré. */
+    /* Le bloc de l'accueil ne parle plus que de demain : après-demain se lit
+       dans La semaine seulement, demandé par Jérôme le 27 septembre 2026. */
     const lSuite = [
       ...(sDemain ? conseils(sDemain, { maxima: maximaJour(), aujourdhui: cejour,
         decalage: restant, scenarios: Ensemble.journee(d.time[i + 1]),
         medianes: Ensemble.alignerSur(sDemain)?.q.t.med,
         air: Air.alignerSur(sDemain), pollens: suivis }) : []),
-      ...(sApres ? conseils(sApres, { aujourdhui: cejour, decalage: restant + 24,
-        scenarios: Ensemble.journee(d.time[i + 2]),
-        medianes: Ensemble.alignerSur(sApres)?.q.t.med,
-        air: Air.alignerSur(sApres), pollens: suivis }) : []),
     ].sort((a, b) => b.g - a.g).slice(0, LIGNES_MAX);
 
     /* Un titre peut n'être lu que par la voix de synthèse : celui des chiffres du

@@ -293,9 +293,14 @@ export function conseils(s, g) {
      porte au-delà de la fenêtre. */
   const dp = Math.round(s.pres[s.n - 1] - s.pres[0]);
   if (Math.abs(dp) >= SEUILS.pression) {
+    /* La ligne nomme sa journée hors du jour même : dans le bloc de demain, une
+       pression sans jour ne se situait pas, ce que la garde des fenêtres a
+       relevé le 27 septembre 2026. */
+    const quandP = nomJour(jDe(s.n - 1)).trim();
+    const leJour = quandP ? ` ${quandP}` : "";
     dire("jauge", 2.5, s.n - 1, dp < 0
-      ? `Pression en baisse de ${-dp} hPa, dégradation probable.`
-      : `Pression en hausse de ${dp} hPa, amélioration probable.`);
+      ? `Pression en baisse${leJour} de ${-dp} hPa, dégradation probable.`
+      : `Pression en hausse${leJour} de ${dp} hPa, amélioration probable.`);
   }
 
   /* 15. La bascule du ciel. Le premier passage d'un régime à l'autre qui tienne

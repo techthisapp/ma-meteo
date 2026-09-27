@@ -269,18 +269,15 @@ function justesseHTML() {
     return tete + `<p class="note">Le journal note chaque jour ce que la prévision annonçait, puis ce qui a `
       + `été relevé. Aucun relevé n'est encore arrivé sur cet appareil.</p></div>`;
   }
-  const depuis = new Date(`${b.depuis}T12:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })
-    .replace(/^1 /, "1er ");
-  const etat = b.assis
-    ? `${b.jours} jours relevés depuis le ${depuis} : les chiffres sont assis.`
-    : `${b.jours} jours relevés depuis le ${depuis}, sur les ${Justesse.JOURS_VISES} qui assiéront les chiffres.`;
   const lignes = b.paliers.filter(p => p.ecart !== undefined).map(p =>
     `<div class="rangee"><span class="rangee-txt"><b>${esc(Justesse.nomEcheance(p.e).replace(/^./, c => c.toUpperCase()))}</b>`
     + `<span>${p.part2} % à 2° près, ${p.n} relevés${Math.abs(p.biais) >= 0.5 ? `, ${p.biais > 0 ? "trop chaude" : "trop fraîche"} de ${fr(Math.abs(p.biais))}°` : ""}</span></span>`
     + `<span class="rangee-val"><b>± ${fr(p.ecart)}°</b></span></div>`).join("");
-  return tete + `<p class="note">${esc(etat)}</p>` + lignes
+  /* Sans phrase sur le délai, retirée à la demande de Jérôme le 27 septembre
+     2026 : la carte donne les chiffres et la façon de les lire. */
+  return tete + lignes
     + `<p class="note">L'écart est la distance moyenne entre la température annoncée et celle relevée, `
-    + `à 6 h et à 15 h, toutes communes confondues. Une échéance paraît dès ${Justesse.COUPLES_MIN} relevés.</p></div>`;
+    + `à 6 h et à 15 h, toutes communes confondues.</p></div>`;
 }
 
 /* Le graphique de tête de La semaine, jalon 12, lot 3 : la courbe des

@@ -162,6 +162,12 @@ case "$N" in
   48) # Une échéance paraît même sans assez de relevés.
      perl -0pi -e 's/export const COUPLES_MIN = 5;/export const COUPLES_MIN = 1;/' src/justesse.js
      ATTENDU="une échéance ne paraît qu.avec assez de relevés" ;;
+  49) # Après-demain revient dans le bloc de l'accueil.
+     perl -0pi -e 's/(    const lSuite = \[\n)/$1      ...((x => x ? conseils(x, { aujourdhui: cejour, decalage: restant + 24 }) : [])(P.serieHoraire(restant + 24, 24, 12))),\n/' src/app.js
+     ATTENDU="l.accueil ne parle que de demain, après-demain restant dans La semaine" ;;
+  50) # La phrase sur le délai revient dans la carte de la justesse.
+     perl -0pi -e 's/  return tete \+ lignes\n/  return tete + `<p class="note">12 jours relevés, sur les 60 qui assiéront les chiffres.<\/p>` + lignes\n/' src/vues.js
+     ATTENDU="les réglages disent la justesse sans phrase sur le délai" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
