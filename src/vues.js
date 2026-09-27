@@ -203,7 +203,15 @@ export function vueSemaine() {
 
     const corps = `<span class="j"><b>${esc(nom)}</b><em>${esc(date)}</em></span>`
       + `<span class="c">${icoTemps(icoCiel(code, true), "")}`
-      + (eau ? `<em>${esc(eau)}</em>` : "") + `</span>`
+      /* Les rafales fortes sur la ligne, jalon 12, lot 5, comme dans la bande :
+         seulement à 50 km/h et plus, là où les heures les donnent, la charge
+         quotidienne n'en portant pas. Et seulement quand la pluie n'occupe
+         pas déjà la ligne : trois lignes sous le symbole faisaient dépasser
+         la rangée de sa hauteur de deux lignes. Quand les deux se
+         rencontrent, les rafales restent dans le volet, où chaque moment les
+         dit. */
+      + (eau ? `<em>${esc(eau)}</em>`
+        : h?.raf >= 50 ? `<em class="sem-raf">raf. ${Math.round(h.raf)}</em>` : "") + `</span>`
       + `<span class="b"><b class="sem-min">${Math.round(tn)}°</b>`
       + `<span class="sem-pc"><i class="sem-piste"><s class="sem-plage${accord ? ` sem-${accord}` : ""}" `
       + `style="left:${gauche.toFixed(1)}%;`
@@ -227,17 +235,24 @@ export function vueSemaine() {
     /* Une journée écoulée s'efface, comme un moment passé dans un volet ou la
        part écoulée de la course du Soleil. Sans cela la table paraissait
        commencer avant-hier, et l'œil cherchait aujourd'hui. */
+    /* Le week-end se repère d'un fond léger, jalon 12, lot 5 : c'est là qu'on
+       cherche d'abord dans une semaine. Et le volet mène aux heures de la
+       journée, dans le ruban calé sur elle. */
+    const jourSem = new Date(`${d.time[k]}T12:00`).getDay();
+    const weekEnd = jourSem === 0 || jourSem === 6;
     lignes.push(`<div class="sem-j${k === i ? " sem-auj" : ""}`
-      + `${k < i ? " sem-passe" : ""}">${tete}`
+      + `${k < i ? " sem-passe" : ""}${weekEnd ? " sem-we" : ""}">${tete}`
       + (mo ? `<div class="md" id="${cle}" hidden>${volet(mo, k === i, heureCourante)}`
-        + `${confiance(d.time[k])}</div>` : "")
+        + `${confiance(d.time[k])}`
+        + `<button type="button" class="sem-heures" data-jour-heures="${esc(d.time[k])}">Voir les heures</button>`
+        + `</div>` : "")
       + `</div>`);
   }
 
   return {
     titre: "La semaine",
     corps: grapheSemaine(jours) + grandesLignesHTML(jours)
-      + `<div class="carte"><div class="sem">${lignes.join("")}</div>`
+      + `<div class="carte sem-carte"><div class="sem">${lignes.join("")}</div>`
       + `<p class="note">Chaque journée se résume de ses heures. Jusqu'à trois jours, `
       + `la prévision est affinée par AROME ; au delà, elle vient du modèle `
       + `global.</p></div>`,

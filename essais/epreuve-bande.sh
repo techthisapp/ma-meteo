@@ -144,6 +144,12 @@ case "$N" in
   42) # Le jour de l'orage se répète toujours.
      perl -0pi -e 's/mm attendus\$\{orages\.length > 1 \? ` \$\{o\.nom\}` : ""\}\./mm attendus \$\{o.nom\}./' src/conseils.js
      ATTENDU="un orage seul ne répète pas son jour" ;;
+  43) # La journée ouvre le ruban sans le caler sur son minuit.
+     perl -0pi -e 's/  Ruban\.glisser\(cible - Ruban\.decalageCourant\(\)\);\n//' src/app.js
+     ATTENDU="une journée dépliée mène à ses heures, le ruban ouvert à son minuit" ;;
+  44) # Le week-end n'est plus repéré.
+     perl -0pi -e 's/\$\{weekEnd \? " sem-we" : ""\}//' src/vues.js
+     ATTENDU="le week-end de La semaine se repère d.un fond léger, et lui seul" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

@@ -1577,6 +1577,36 @@ ok("un orage seul ne répète pas son jour", /^Orage probable demain, [\d,]+ mm 
 ok("les grandes lignes se posent entre le graphique et la liste, trois au plus",
   lignesDit.place && lignesDit.nombre >= 1 && lignesDit.nombre <= 3, `${lignesDit.nombre} lignes`);
 
+/* Jalon 12, lot 5 : le week-end se repère d'un fond léger, et une journée
+   dépliée mène à ses heures, dans le ruban ouvert à son minuit. */
+const weDit = await pg.evaluate(() => [...document.querySelectorAll("#ecran .sem-j")].map(l => {
+  const j = l.querySelector("[data-jour]")?.dataset.jour;
+  const js = j ? new Date(`${j}T12:00`).getDay() : -1;
+  return { we: js === 0 || js === 6, marque: l.classList.contains("sem-we"), j };
+}).filter(x => x.j));
+const ligneJour = pg.locator("#ecran .sem-j:not(.sem-passe) .sem-r[data-jour]").nth(2);
+const jourVise = await ligneJour.getAttribute("data-jour");
+await ligneJour.click();
+await pg.waitForTimeout(500);
+await pg.locator(`[data-jour-heures="${jourVise}"]`).click();
+await pg.waitForTimeout(900);
+const heuresDit = await pg.evaluate(() => ({
+  fenetre: document.querySelector(".mg-fenl")?.textContent || "",
+  retour: document.getElementById("btnRetour")?.textContent || "",
+}));
+await pg.evaluate(() => history.back());
+await pg.waitForTimeout(600);
+await pg.evaluate(async () => {
+  const R = await import("/src/ruban.js");
+  R.auMaintenant(); R.poserHeure(-1); R.poserVoie(null);
+});
+ok("le week-end de La semaine se repère d'un fond léger, et lui seul",
+  weDit.some(x => x.we) && weDit.every(x => x.we === x.marque),
+  weDit.map(x => `${x.j}${x.marque ? "*" : ""}`).join(" "));
+ok("une journée dépliée mène à ses heures, le ruban ouvert à son minuit",
+  /^\S+ 00 h à /.test(heuresDit.fenetre) && heuresDit.retour.trim() === "La semaine",
+  `${jourVise} : « ${heuresDit.fenetre} », retour « ${heuresDit.retour.trim()} »`);
+
 await onglet("accueil");
 ok("La semaine s'ouvre sur son graphique, un point par journée",
   semGraphe.avant && semGraphe.max === semGraphe.jours && semGraphe.min === semGraphe.jours && semGraphe.jours >= 7,
@@ -2731,7 +2761,9 @@ const voletsKO = await pg.evaluate(async () => {
     /* Le volet porte ses quatre moments, et sous eux la ligne d'accord des
        scénarios quand l'ensemble couvre la journée entière. */
     const dedans = [...document.getElementById(j.getAttribute("aria-controls")).children];
-    const cases = dedans.filter(e => !e.classList.contains("md-sc"));
+    /* Ni la ligne des scénarios, ni le bouton « Voir les heures » du jalon 12
+       ne sont des moments de la journée. */
+    const cases = dedans.filter(e => !e.classList.contains("md-sc") && !e.classList.contains("sem-heures"));
     if (cases.length !== 4) { maux.push(`${date}: ${cases.length} cases`); continue; }
     cases.forEach((c, q) => {
       const m = mo[q];

@@ -2165,9 +2165,12 @@ button.rangee:active{background:var(--surface-2)}
 
 /* La semaine, jalon 12, lot 2 : le niveau de confiance sous la barre, et la
    barre estompée à ses extrémités quand la confiance baisse. */
-.sem-pc{flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;gap:3px;min-width:0}
+/* Le mot se pose sous la barre sans ajouter de hauteur à la rangée : une
+   rangée ne dépasse pas deux lignes, ce qu'une garde protège. */
+.sem-pc{flex:1 1 auto;position:relative;display:flex;flex-direction:column;justify-content:center;min-width:0}
 .sem-pc .sem-piste{width:100%}
-.sem-conf{font-style:normal;font-size:var(--texte-legende);color:var(--etiquette-2);text-align:center;line-height:1;white-space:nowrap}
+.sem-conf{position:absolute;left:0;right:0;top:calc(50% + 6px);font-style:normal;font-size:var(--texte-legende);
+  color:var(--etiquette-2);text-align:center;line-height:1;white-space:nowrap}
 .sem-plage.sem-moyenne{
   -webkit-mask-image:linear-gradient(90deg, transparent 0, #000 14%, #000 86%, transparent 100%);
   mask-image:linear-gradient(90deg, transparent 0, #000 14%, #000 86%, transparent 100%);
@@ -2193,3 +2196,19 @@ button.rangee:active{background:var(--surface-2)}
 .sg-pluie{fill:var(--ic-pluie);opacity:.8}
 .sg-passe{fill:var(--etiquette-2);opacity:.07}
 .sg-auj{fill:color-mix(in srgb, var(--accent) 9%, transparent)}
+
+/* La semaine, jalon 12, lot 5 : cartes arrondies, week-end sur un fond léger,
+   rafales fortes sur la ligne, et le lien vers les heures dans le volet. */
+.sem-carte,.sem-graphe,.sem-lignes{border-radius:var(--rayon-carte)}
+.sem-j.sem-we{background:color-mix(in srgb, var(--etiquette-2) 6%, transparent);border-radius:var(--rayon-md)}
+.sem-raf{color:var(--attention, #b7791f);font-style:normal;font-size:var(--texte-legende)}
+/* Le volet est une grille de quatre moments : le bouton prend toute la
+   largeur de la grille et se centre, sans quoi il tenait dans une colonne et
+   s'écrivait sur trois lignes. */
+.sem-heures{
+  grid-column:1 / -1;justify-self:center;white-space:nowrap;width:auto;
+  display:block;margin:var(--espace-sm) auto var(--espace-md);min-height:var(--touche);
+  padding:0 var(--espace-lg);border:0;border-radius:var(--rayon-plein);font:inherit;font-size:var(--texte-note);
+  font-weight:var(--graisse-semibold);color:var(--accent);
+  background:color-mix(in srgb, var(--accent) 10%, transparent);
+}

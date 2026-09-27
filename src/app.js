@@ -1272,6 +1272,23 @@ function ouvrirLeTemps() {
   window.scrollTo({ top: 0, behavior: "instant" });
 }
 
+/* Une journée de La semaine ouvre « Le temps » calé sur elle : la fenêtre du
+   ruban commence à son minuit. Jalon 12, lot 5. */
+function ouvrirJour(jour) {
+  ouvrirLeTemps();
+  const sr = Ruban.serieCourante();
+  if (!sr) return;
+  /* Le ruban compte ses heures depuis le début de l'heure en cours : l'écart se
+     mesure depuis lui. Mesuré depuis l'instant présent et arrondi, il ouvrait
+     la fenêtre à 23 h la veille. */
+  const debutHeure = new Date();
+  debutHeure.setMinutes(0, 0, 0);
+  const h = Math.round((new Date(`${jour}T00:00`) - debutHeure) / 3600000);
+  const cible = Math.max(0, Math.min(sr.n - 1, sr.ici + h));
+  Ruban.glisser(cible - Ruban.decalageCourant());
+  rendre();
+}
+
 function allerAuDetail(cle, heure = null) {
   Reglages.poserEcriture("ruban");
   Ruban.poserVoie(cle);
@@ -1303,6 +1320,8 @@ $("ecran").addEventListener("click", ev => {
   const f = ev.target.closest("[data-feuille]");
   if (f) { ouvrirFeuille(f.dataset.feuille); return; }
   if (ev.target.closest("[data-temps]")) { ouvrirLeTemps(); return; }
+  const jourH = ev.target.closest("[data-jour-heures]");
+  if (jourH) { ouvrirJour(jourH.dataset.jourHeures); return; }
   const d = ev.target.closest("[data-detail]");
   if (d) {
     allerAuDetail(d.dataset.detail, d.dataset.heure != null ? Number(d.dataset.heure) : null);
