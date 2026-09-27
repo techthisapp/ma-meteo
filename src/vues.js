@@ -55,7 +55,7 @@ const rangeeAstre = (maintenant, prochain) => ([sym, nom, sous, parts, quand]) =
   const passe = quand && quand < maintenant;
   const courant = prochain && quand && quand.getTime() === prochain[0].getTime();
   return `<div class="rangee${passe ? " passe" : ""}${courant ? " courant" : ""}">`
-    + ico(sym, "")
+    + ico(sym, /^lune/.test(sym) ? "pa-lune" : "pa-soleil")
     + `<span class="rangee-txt"><b>${esc(nom)}</b>`
     + (sous ? `<span>${esc(sous)}</span>` : "") + `</span>`
     + valeur(...parts) + `</div>`;

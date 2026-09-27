@@ -1626,6 +1626,31 @@ ok("la barre s'estompe aux journées moins sûres, et elles seules",
   semConf.incertaines > 0 && semConf.estompe && semConf.nettes,
   `${semConf.incertaines} barres estompées`);
 
+/* Jalon 12, lot 6 : le second dessin sur Le ciel. Toute carte prend l'arrondi
+   de 24 points, et le premier symbole d'une rangée se pose dans une pastille,
+   teintée de la couleur du Soleil dans la course du jour. */
+await onglet("ciel");
+const cielDessin = await pg.evaluate(() => {
+  const rayons = [...document.querySelectorAll("#ecran .carte")].map(c => getComputedStyle(c).borderTopLeftRadius);
+  const symboles = [...document.querySelectorAll("#ecran .rangee > svg:first-child")];
+  const soleil = document.createElement("span");
+  soleil.style.color = "var(--ic-soleil)"; document.body.append(soleil);
+  const teinte = getComputedStyle(soleil).color; soleil.remove();
+  const course = symboles.filter(x => x.classList.contains("pa-soleil"));
+  return {
+    cartes: rayons.length, rondes: rayons.every(r => r === "24px"),
+    symboles: symboles.length,
+    pastilles: symboles.every(x => !/rgba\(0, 0, 0, 0\)|transparent/.test(getComputedStyle(x).backgroundColor)),
+    course: course.length, soleil: course.every(x => getComputedStyle(x).color === teinte),
+  };
+});
+await onglet("accueil");
+ok("toute carte prend l'arrondi de 24 points, Le ciel compris",
+  cielDessin.cartes > 2 && cielDessin.rondes, `${cielDessin.cartes} cartes`);
+ok("le premier symbole d'une rangée se pose dans une pastille, teintée du Soleil dans la course du jour",
+  cielDessin.symboles > 0 && cielDessin.pastilles && cielDessin.course >= 2 && cielDessin.soleil,
+  JSON.stringify(cielDessin));
+
 /* Jalon 11, lot 4 : le département sous la commune, qu'il se déduise du code
    postal ou manque, et l'arrondi de 24 points des cartes de l'accueil. */
 const enteteDit = await pg.evaluate(async () => {

@@ -150,6 +150,12 @@ case "$N" in
   44) # Le week-end n'est plus repéré.
      perl -0pi -e 's/\$\{weekEnd \? " sem-we" : ""\}//' src/vues.js
      ATTENDU="le week-end de La semaine se repère d.un fond léger, et lui seul" ;;
+  45) # Les cartes reprennent l'ancien arrondi.
+     perl -0pi -e 's/\.carte,\.groupe\{\n  background:var\(--surface\);\n  border-radius:var\(--rayon-carte\);/.carte,.groupe{\n  background:var(--surface);\n  border-radius:var(--rayon-lg);/' styles.css
+     ATTENDU="toute carte prend l.arrondi de 24 points, Le ciel compris" ;;
+  46) # Le symbole de rangée perd sa pastille.
+     perl -0pi -e 's/  border-radius:var\(--rayon-md\);background:color-mix\(in srgb, currentColor 14%, transparent\);\n\}/  border-radius:var(--rayon-md);\n}/' styles.css
+     ATTENDU="le premier symbole d.une rangée se pose dans une pastille, teintée du Soleil dans la course du jour" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

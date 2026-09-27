@@ -427,9 +427,12 @@ main:focus{outline:none}
 }
 
 /* Groupe encarté : l'unique surface du contenu, sans ombre. */
+/* Toute carte prend l'arrondi de 24 points du second dessin, jalon 12, lot 6 :
+   l'accueil et La semaine l'avaient déjà, Le ciel et les feuilles le
+   prennent aussi. */
 .carte,.groupe{
   background:var(--surface);
-  border-radius:var(--rayon-lg);
+  border-radius:var(--rayon-carte);
   padding:var(--espace-base);
 }
 .groupe-plat{padding:0}
@@ -454,7 +457,16 @@ main:focus{outline:none}
   font-size:var(--texte-corps);color:inherit;
 }
 .rangee + .rangee{box-shadow:inset 0 1px 0 var(--filet-clair)}
-.rangee > svg:first-child{width:22px;height:22px;flex:0 0 auto;color:var(--accent)}
+/* Le premier symbole d'une rangée se pose dans une pastille teintée de sa
+   propre couleur, comme les tuiles de l'accueil, jalon 12, lot 6. La couleur
+   reste celle de l'action ; la course du jour prend celle du Soleil ou de la
+   Lune. */
+.rangee > svg:first-child{
+  width:36px;height:36px;padding:8px;box-sizing:border-box;flex:0 0 auto;color:var(--accent);
+  border-radius:var(--rayon-md);background:color-mix(in srgb, currentColor 14%, transparent);
+}
+.rangee > svg.pa-soleil:first-child{color:var(--ic-soleil)}
+.rangee > svg.pa-lune:first-child{color:var(--ic-lune)}
 .rangee-txt{display:flex;flex-direction:column;min-width:0;flex:1 1 auto;gap:1px}
 .rangee-txt b{font-weight:var(--graisse-regular)}
 .rangee-txt span{font-size:var(--texte-note);color:var(--etiquette-2)}
