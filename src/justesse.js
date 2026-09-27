@@ -151,3 +151,35 @@ export function noter(charge, lieu, maintenant = new Date(), scenarios = null) {
 export function oublier() {
   try { localStorage.removeItem(CACHE); } catch { /* rien à faire */ }
 }
+
+/* La justesse publiée, jalon 6, préparée le 27 septembre 2026 au jalon 12,
+   lot 7. Des couples déjà relevés, tire par échéance l'écart moyen entre la
+   température annoncée et celle relevée, en valeur absolue, le biais, qui dit
+   si la prévision penche vers le chaud ou le froid, et la part des prévisions
+   tombées à deux degrés près. Toutes communes confondues : c'est la justesse de
+   la source telle que l'application l'a servie. Le nombre de jours relevés dit
+   au lecteur si les chiffres sont déjà assis ; deux mois sont visés. */
+export const JOURS_VISES = 60;
+export const COUPLES_MIN = 5;
+
+export function bilan(lignes) {
+  const faits = (lignes || []).filter(l => Number.isFinite(l.r) && Number.isFinite(l.t));
+  const jours = new Set(faits.map(l => l.c.slice(0, 10)));
+  const depuis = faits.length ? faits.map(l => l.c.slice(0, 10)).sort()[0] : null;
+  const paliers = PALIERS.map(e => {
+    const x = faits.filter(l => l.e === e);
+    if (x.length < COUPLES_MIN) return { e, n: x.length };
+    const d = x.map(l => l.t - l.r);
+    const moy = a => a.reduce((s, v) => s + v, 0) / a.length;
+    return {
+      e, n: x.length,
+      ecart: Math.round(moy(d.map(Math.abs)) * 10) / 10,
+      biais: Math.round(moy(d) * 10) / 10,
+      part2: Math.round(d.filter(v => Math.abs(v) <= 2).length / d.length * 100),
+    };
+  });
+  return { jours: jours.size, depuis, paliers, assis: jours.size >= JOURS_VISES };
+}
+
+/* Le nom d'une échéance en toutes lettres. */
+export const nomEcheance = e => (e < 24 ? `dans ${e} h` : e === 24 ? "à 1 jour" : `à ${e / 24} jours`);

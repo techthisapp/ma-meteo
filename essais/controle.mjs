@@ -1651,6 +1651,35 @@ ok("le premier symbole d'une rangée se pose dans une pastille, teintée du Sole
   cielDessin.symboles > 0 && cielDessin.pastilles && cielDessin.course >= 2 && cielDessin.soleil,
   JSON.stringify(cielDessin));
 
+/* Jalon 12, lot 7 : la justesse publiée, préparée. Le bilan par échéance se
+   vérifie sur un journal d'essai connu, et la carte paraît dans les réglages. */
+const justesseDit = await pg.evaluate(async () => {
+  const J = await import("/src/justesse.js");
+  const l = [];
+  for (let d = 1; d <= 12; d++) for (const [e, err] of [[24, 1], [72, -2.5]]) {
+    l.push({ l: "x", c: `2026-09-${String(d).padStart(2, "0")}T15`, e, t: 20 + err * (d % 2 ? 1 : 0.5), r: 20 });
+  }
+  const b = J.bilan(l);
+  const peu = J.bilan(l.slice(0, 8)).paliers.find(p => p.e === 24);
+  return { b: { jours: b.jours, assis: b.assis, p: b.paliers.filter(p => p.n).map(p => [p.e, p.ecart, p.biais, p.part2]) },
+    peu: peu ? peu.ecart : "absent", nom: [J.nomEcheance(6), J.nomEcheance(24), J.nomEcheance(72)] };
+});
+ok("la justesse se calcule par échéance : écart, biais et part à 2° près",
+  JSON.stringify(justesseDit.b) === JSON.stringify({ jours: 12, assis: false, p: [[24, 0.8, 0.8, 100], [72, 1.9, -1.9, 50]] })
+  && justesseDit.nom.join(" | ") === "dans 6 h | à 1 jour | à 3 jours",
+  JSON.stringify(justesseDit));
+ok("une échéance ne paraît qu'avec assez de relevés", justesseDit.peu === undefined, String(justesseDit.peu));
+await pg.locator("#btnReglages").click();
+await pg.waitForTimeout(600);
+const carteJustesse = await pg.evaluate(() => {
+  const c = [...document.querySelectorAll("#feuille-corps .carte")].find(x => /Justesse des prévisions/.test(x.textContent));
+  return c ? (c.querySelectorAll(".rangee").length ? "chiffres" : /Aucun relevé/.test(c.textContent) ? "attente" : "vide") : "absente";
+});
+await pg.evaluate(() => history.back());
+await pg.waitForTimeout(500);
+ok("les réglages disent la justesse, ou qu'aucun relevé n'est encore arrivé",
+  carteJustesse === "chiffres" || carteJustesse === "attente", carteJustesse);
+
 /* Jalon 11, lot 4 : le département sous la commune, qu'il se déduise du code
    postal ou manque, et l'arrondi de 24 points des cartes de l'accueil. */
 const enteteDit = await pg.evaluate(async () => {

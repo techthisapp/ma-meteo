@@ -156,6 +156,12 @@ case "$N" in
   46) # Le symbole de rangée perd sa pastille.
      perl -0pi -e 's/  border-radius:var\(--rayon-md\);background:color-mix\(in srgb, currentColor 14%, transparent\);\n\}/  border-radius:var(--rayon-md);\n}/' styles.css
      ATTENDU="le premier symbole d.une rangée se pose dans une pastille, teintée du Soleil dans la course du jour" ;;
+  47) # La part se compte à un degré près au lieu de deux.
+     perl -0pi -e 's/part2: Math\.round\(d\.filter\(v => Math\.abs\(v\) <= 2\)/part2: Math.round(d.filter(v => Math.abs(v) <= 1)/' src/justesse.js
+     ATTENDU="la justesse se calcule par échéance : écart, biais et part à 2° près" ;;
+  48) # Une échéance paraît même sans assez de relevés.
+     perl -0pi -e 's/export const COUPLES_MIN = 5;/export const COUPLES_MIN = 1;/' src/justesse.js
+     ATTENDU="une échéance ne paraît qu.avec assez de relevés" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
@@ -168,7 +174,8 @@ if diff -q "$OLD/src/bande.js" src/bande.js >/dev/null \
   && diff -q "$OLD/sw.js" sw.js >/dev/null \
   && diff -q "$OLD/src/conseils.js" src/conseils.js >/dev/null \
   && diff -q "$OLD/src/fleche.js" src/fleche.js >/dev/null \
-  && diff -q "$OLD/src/vues.js" src/vues.js >/dev/null; then
+  && diff -q "$OLD/src/vues.js" src/vues.js >/dev/null \
+  && diff -q "$OLD/src/justesse.js" src/justesse.js >/dev/null; then
   echo "FAUTE $N NON APPLIQUÉE"; exit 3
 fi
 

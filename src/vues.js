@@ -29,6 +29,7 @@ import * as Nuages from "./nuages.js";
 import * as Feux from "./feux.js";
 import * as Ciel from "./ciel.js";
 import * as Version from "./version.js";
+import * as Justesse from "./justesse.js";
 import * as NappeCarte from "./nappe.js";
 import * as Vent from "./vent.js";
 import * as Vig from "./vigilance.js";
@@ -258,6 +259,28 @@ export function vueSemaine() {
       + `global.</p></div>`,
     brancher(bloc) { brancherSemaine(bloc); },
   };
+}
+
+function justesseHTML() {
+  const b = Justesse.bilan(Justesse.lire().lignes);
+  const fr = n => String(n).replace(".", ",");
+  const tete = `<div class="carte"><div class="carte-tete"><h3>Justesse des prévisions</h3></div>`;
+  if (!b.jours) {
+    return tete + `<p class="note">Le journal note chaque jour ce que la prévision annonçait, puis ce qui a `
+      + `été relevé. Aucun relevé n'est encore arrivé sur cet appareil.</p></div>`;
+  }
+  const depuis = new Date(`${b.depuis}T12:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })
+    .replace(/^1 /, "1er ");
+  const etat = b.assis
+    ? `${b.jours} jours relevés depuis le ${depuis} : les chiffres sont assis.`
+    : `${b.jours} jours relevés depuis le ${depuis}, sur les ${Justesse.JOURS_VISES} qui assiéront les chiffres.`;
+  const lignes = b.paliers.filter(p => p.ecart !== undefined).map(p =>
+    `<div class="rangee"><span class="rangee-txt"><b>${esc(Justesse.nomEcheance(p.e).replace(/^./, c => c.toUpperCase()))}</b>`
+    + `<span>${p.part2} % à 2° près, ${p.n} relevés${Math.abs(p.biais) >= 0.5 ? `, ${p.biais > 0 ? "trop chaude" : "trop fraîche"} de ${fr(Math.abs(p.biais))}°` : ""}</span></span>`
+    + `<span class="rangee-val"><b>± ${fr(p.ecart)}°</b></span></div>`).join("");
+  return tete + `<p class="note">${esc(etat)}</p>` + lignes
+    + `<p class="note">L'écart est la distance moyenne entre la température annoncée et celle relevée, `
+    + `à 6 h et à 15 h, toutes communes confondues. Une échéance paraît dès ${Justesse.COUPLES_MIN} relevés.</p></div>`;
 }
 
 /* Le graphique de tête de La semaine, jalon 12, lot 3 : la courbe des
@@ -3512,6 +3535,11 @@ export function vueReglages(ctx, rendre, majEtat) {
       + (g.lat !== null ? `<div class="rangee"><span class="rangee-txt">Coordonnées</span>`
         + `<span class="rangee-val">${esc(`${g.lat}, ${g.lon}`)}</span></div>` : "")
       + `</div>`
+
+      /* La justesse des prévisions, jalon 6 préparé au jalon 12, lot 7 : ce que
+         le journal a déjà mesuré, par échéance, avec le nombre de jours
+         relevés, pour que le lecteur sache si les chiffres sont assis. */
+      + justesseHTML()
 
       /* La version, et la recherche d'une plus récente à la demande. */
       + `<div class="carte"><div class="carte-tete"><h3>Application</h3></div>`
