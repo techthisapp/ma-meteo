@@ -1545,6 +1545,38 @@ const semGraphe = await pg.evaluate(async () => {
     resume: (/aria-label="([^"]*)"/.exec(essai) || [])[1] || "",
   };
 });
+/* Jalon 12, lot 4 : les grandes lignes de la semaine, trois phrases au plus par
+   ordre de gravité, vérifiées sur des semaines d'essai connues. */
+const lignesDit = await pg.evaluate(async () => {
+  const C = await import("/src/conseils.js");
+  const j = (nom, tn, tx, mm, code, pb = 10, vent = 15) => ({ nom, tn, tx, mm, code, pb, vent });
+  const semaine = [j("aujourd'hui", 9, 25, 0, 2), j("demain", 9, 25, 5.4, 61, 80), j("jeudi", 16, 28, 3.2, 3),
+    j("vendredi", 16, 29, 0, 3), j("samedi", 17, 30, 3.9, 61), j("dimanche", 17, 30, 3.1, 95, 70), j("lundi", 17, 30, 1.6, 95)];
+  const seche = [j("aujourd'hui", 10, 22, 0, 1), j("demain", 11, 23, 0, 1), j("jeudi", 12, 24, 0, 2), j("vendredi", 12, 23, 0, 1)];
+  const unOrage = [j("aujourd'hui", 10, 22, 0, 1), j("demain", 11, 23, 2.4, 95), j("jeudi", 12, 24, 0, 2)];
+  const bloc = document.querySelector("#ecran .sem-lignes");
+  const liste = document.querySelector("#ecran .sem");
+  const graphe = document.querySelector("#ecran .sem-graphe");
+  const apres = (a, b) => !!a && !!b && (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) > 0;
+  return {
+    semaine: C.grandesLignes(semaine).map(l => l.t),
+    seche: C.grandesLignes(seche).map(l => l.t),
+    unOrage: C.grandesLignes(unOrage).map(l => l.t)[0] || "",
+    place: apres(graphe, bloc) && apres(bloc, liste),
+    nombre: bloc ? bloc.querySelectorAll(".cj-l").length : 0,
+  };
+});
+ok("les grandes lignes disent l'orage, la chaleur et la pluie la plus forte, par gravité",
+  lignesDit.semaine.join(" | ") === "Orages probables dimanche et lundi, 3,1 mm attendus dimanche. | "
+    + "Chaleur jusqu'à 30° samedi, 5 jours à 28° et plus. | Pluie la plus forte demain, 5,4 mm attendus.",
+  lignesDit.semaine.join(" | "));
+ok("une semaine sans pluie se dit sèche", lignesDit.seche.join(" | ") === "Semaine sèche, aucune pluie notable d'ici vendredi.",
+  lignesDit.seche.join(" | "));
+ok("un orage seul ne répète pas son jour", /^Orage probable demain, [\d,]+ mm attendus\.$/.test(lignesDit.unOrage),
+  lignesDit.unOrage);
+ok("les grandes lignes se posent entre le graphique et la liste, trois au plus",
+  lignesDit.place && lignesDit.nombre >= 1 && lignesDit.nombre <= 3, `${lignesDit.nombre} lignes`);
+
 await onglet("accueil");
 ok("La semaine s'ouvre sur son graphique, un point par journée",
   semGraphe.avant && semGraphe.max === semGraphe.jours && semGraphe.min === semGraphe.jours && semGraphe.jours >= 7,

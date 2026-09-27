@@ -135,6 +135,15 @@ case "$N" in
   39) # Le graphique n'est plus borné en largeur.
      perl -0pi -e 's/\.sg\{display:block;width:100%;max-width:520px;margin:0 auto\}/.sg{display:block;width:100%;margin:0 auto}/' styles.css
      ATTENDU="le graphique borne sa largeur, et se résume en une phrase" ;;
+  40) # La chaleur n'est plus relevée.
+     perl -0pi -e 's/  if \(chaud\.tx >= SEUILS\.chaleur\) \{/  if (chaud.tx >= 99) {/' src/conseils.js
+     ATTENDU="les grandes lignes disent l.orage, la chaleur et la pluie la plus forte, par gravité" ;;
+  41) # Une semaine sans pluie ne se dit plus.
+     perl -0pi -e 's/    dire\("soleil", 5, `Semaine sèche, aucune pluie notable d.ici \$\{jours\[jours\.length - 1\]\.nom\}\.`\);//' src/conseils.js
+     ATTENDU="une semaine sans pluie se dit sèche" ;;
+  42) # Le jour de l'orage se répète toujours.
+     perl -0pi -e 's/mm attendus\$\{orages\.length > 1 \? ` \$\{o\.nom\}` : ""\}\./mm attendus \$\{o.nom\}./' src/conseils.js
+     ATTENDU="un orage seul ne répète pas son jour" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

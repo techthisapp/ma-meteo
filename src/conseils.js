@@ -410,6 +410,59 @@ export function ecrirePlage(ja, ha, jb, hb, jFinB) {
   return `${deMot(`${nomJour(ja)}${heureTxt(ha)}`)} à ${fin}`;
 }
 
+/* Les grandes lignes de la semaine, jalon 12, lot 4 : trois phrases au plus
+   sur les jours à venir, tirées de la charge quotidienne, par ordre de
+   gravité. Chaque phrase porte une virgule qui la coupe en titre et
+   précision, comme les conseils de l'accueil. Les seuils sont ceux de
+   l'accueil : chaleur à 30°, gel à 1°. La charge quotidienne ne porte pas de
+   rafales ; le vent se juge sur sa vitesse moyenne la plus forte.
+
+   Chaque journée : { nom, tn, tx, mm, pb, code, vent }, le nom étant
+   « aujourd'hui », « demain » ou le jour de la semaine en toutes lettres. */
+export function grandesLignes(jours) {
+  if (!jours || jours.length < 2) return [];
+  const out = [];
+  const dire = (i, g, t) => out.push({ i, g, t });
+  const orages = jours.filter(j => ORAGE.includes(j.code));
+  if (orages.length) {
+    const o = orages[0];
+    const noms = orages.slice(0, 2).map(j => j.nom).join(" et ");
+    dire("orage", 10, `${orages.length > 1 ? "Orages probables" : "Orage probable"} ${noms}, `
+      /* Le jour ne se répète dans la précision que si le titre en nomme deux. */
+      + (o.mm >= SEUILS.lame ? `${nombreFr(o.mm)} mm attendus${orages.length > 1 ? ` ${o.nom}` : ""}.`
+        : `risque de pluie ${Math.round(o.pb)} %.`));
+  }
+  const froid = jours.reduce((a, j) => (j.tn < a.tn ? j : a));
+  if (froid.tn <= SEUILS.gel) dire("alerte", 9, `Gel possible ${froid.nom}, ${Math.round(froid.tn)}° au plus froid.`);
+  const chaud = jours.reduce((a, j) => (j.tx > a.tx ? j : a));
+  if (chaud.tx >= SEUILS.chaleur) {
+    const n = jours.filter(j => j.tx >= SEUILS.chaleur - 2).length;
+    dire("thermo", 8, `Chaleur jusqu'à ${Math.round(chaud.tx)}° ${chaud.nom}, `
+      + (n > 1 ? `${n} jours à ${SEUILS.chaleur - 2}° et plus.` : `le jour le plus chaud.`));
+  }
+  const venteux = jours.reduce((a, j) => ((j.vent ?? 0) > (a.vent ?? 0) ? j : a));
+  if ((venteux.vent ?? 0) >= SEUILS.rafale) {
+    dire("vent", 7, `Vent fort ${venteux.nom}, jusqu'à ${Math.round(venteux.vent)} km/h en moyenne.`);
+  }
+  const pluvieux = jours.map((j, k) => ({ j, k })).filter(x => x.j.mm >= 1);
+  if (!pluvieux.length) {
+    dire("soleil", 5, `Semaine sèche, aucune pluie notable d'ici ${jours[jours.length - 1].nom}.`);
+  } else if (pluvieux[0].k >= 2) {
+    const f = pluvieux[0].k;
+    dire("goutte", 6, `Sec jusqu'à ${jours[f - 1].nom}, pluie à partir de ${jours[f].nom}.`);
+  } else {
+    const p = pluvieux.reduce((a, x) => (x.j.mm > a.j.mm ? x : a));
+    if (p.j.mm >= 5) dire("goutte", 6, `Pluie la plus forte ${p.j.nom}, ${nombreFr(p.j.mm)} mm attendus.`);
+  }
+  const ecart = jours[jours.length - 1].tx - jours[0].tx;
+  if (Math.abs(ecart) >= 5) {
+    const der = jours[jours.length - 1];
+    dire("thermo", 4, `Températures en ${ecart > 0 ? "hausse" : "baisse"}, de ${Math.round(jours[0].tx)}° `
+      + `${jours[0].nom} à ${Math.round(der.tx)}° ${der.nom}.`);
+  }
+  return out.sort((a, b) => b.g - a.g).slice(0, 3);
+}
+
 /* La destination de chaque sorte de conseil, par son symbole. Le brouillard
    mène à l'humidité, faute de voie de la visibilité ; le gel et la chaleur à
    la température. */

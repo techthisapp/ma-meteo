@@ -33,7 +33,7 @@ import * as NappeCarte from "./nappe.js";
 import * as Vent from "./vent.js";
 import * as Vig from "./vigilance.js";
 import * as Climat from "./climat.js";
-import { SEUILS } from "./conseils.js";
+import { SEUILS, grandesLignes, conseilsHTML } from "./conseils.js";
 
 /* ---------- Fragments communs ---------- */
 
@@ -188,7 +188,10 @@ export function vueSemaine() {
 
     const mo = P.momentsJour(d.time[k]);
     const cle = `sm-${d.time[k]}`;
-    jours.push({ nom: k === i + 1 ? "Dem." : nom, tn, tx, mm, passe: k < i, auj: k === i });
+    jours.push({ nom: k === i + 1 ? "Dem." : nom, tn, tx, mm, passe: k < i, auj: k === i,
+      pb, code, vent: d.wind_speed_10m_max?.[k] ?? null,
+      long: k === i ? "aujourd'hui" : k === i + 1 ? "demain"
+        : new Date(`${d.time[k]}T12:00`).toLocaleDateString("fr-FR", { weekday: "long" }) });
 
     /* Le niveau de confiance se lit sur la ligne, sans déplier, demandé par
        Jérôme le 25 septembre 2026, jalon 12, lot 2. Il se pose sous la barre,
@@ -233,7 +236,7 @@ export function vueSemaine() {
 
   return {
     titre: "La semaine",
-    corps: grapheSemaine(jours)
+    corps: grapheSemaine(jours) + grandesLignesHTML(jours)
       + `<div class="carte"><div class="sem">${lignes.join("")}</div>`
       + `<p class="note">Chaque journée se résume de ses heures. Jusqu'à trois jours, `
       + `la prévision est affinée par AROME ; au delà, elle vient du modèle `
@@ -250,6 +253,13 @@ export function vueSemaine() {
    le même fond léger que la colonne « Maint. » de la bande horaire. Le dessin
    a une largeur fixe et une largeur d'affichage bornée, pour que ses textes ne
    grossissent pas en paysage, le défaut relevé sur le ruban. */
+/* Les grandes lignes de la semaine, entre le graphique et la liste, dans la
+   forme des conseils de l'accueil. */
+function grandesLignesHTML(jours) {
+  const l = grandesLignes(jours.filter(j => !j.passe).map(j => ({ ...j, nom: j.long })));
+  return l.length ? `<div class="carte retenir sem-lignes"><div class="conseils">${conseilsHTML(l)}</div></div>` : "";
+}
+
 export function grapheSemaine(jours) {
   const n = jours.length;
   if (n < 2) return "";
