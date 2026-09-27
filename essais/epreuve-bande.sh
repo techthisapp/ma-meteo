@@ -126,6 +126,15 @@ case "$N" in
   36) # La barre ne s'estompe plus.
      perl -0pi -e 's/<s class="sem-plage\$\{accord \? ` sem-\$\{accord\}` : ""\}" `/<s class="sem-plage" `/' src/vues.js
      ATTENDU="la barre s.estompe aux journées moins sûres, et elles seules" ;;
+  37) # La semaine perd son graphique.
+     perl -0pi -e 's/    corps: grapheSemaine\(jours\)\n      \+ /    corps: ""\n      + /' src/vues.js
+     ATTENDU="La semaine s.ouvre sur son graphique, un point par journée" ;;
+  38) # Les jours passés ne sont plus atténués dans le graphique.
+     perl -0pi -e 's/  const fonds = jours\.map\(\(j, k\) => \(j\.passe \|\| j\.auj\)/  const fonds = jours.map((j, k) => (j.auj)/' src/vues.js
+     ATTENDU="le graphique atténue les jours passés et repère aujourd.hui" ;;
+  39) # Le graphique n'est plus borné en largeur.
+     perl -0pi -e 's/\.sg\{display:block;width:100%;max-width:520px;margin:0 auto\}/.sg{display:block;width:100%;margin:0 auto}/' styles.css
+     ATTENDU="le graphique borne sa largeur, et se résume en une phrase" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

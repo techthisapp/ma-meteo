@@ -2176,3 +2176,20 @@ button.rangee:active{background:var(--surface-2)}
   -webkit-mask-image:linear-gradient(90deg, transparent 0, #000 30%, #000 70%, transparent 100%);
   mask-image:linear-gradient(90deg, transparent 0, #000 30%, #000 70%, transparent 100%);
 }
+
+/* Le graphique de tête de La semaine, jalon 12, lot 3. Sa largeur d'affichage
+   est bornée : ses textes ne grossissent pas en paysage. */
+.sem-graphe{padding:var(--espace-md) var(--espace-sm) var(--espace-sm);margin-bottom:0}
+.sem-graphe .bande-tete{padding:0 var(--espace-sm) 4px}
+.sg{display:block;width:100%;max-width:520px;margin:0 auto}
+.sg-max{stroke:var(--ic-soleil);stroke-width:2;stroke-linejoin:round}
+.sg-min{stroke:var(--ic-pluie);stroke-width:2;stroke-linejoin:round;opacity:.75}
+.sg-pmax{fill:var(--ic-soleil)}
+.sg-pmin{fill:var(--ic-pluie)}
+.sg-v,.sg-j{font-size:11px;text-anchor:middle;fill:var(--etiquette);font-weight:600}
+.sg-j{font-weight:500;fill:var(--etiquette-2)}
+.sg-j.sg-a{fill:var(--accent);font-weight:600}
+.sg-p{opacity:.5}
+.sg-pluie{fill:var(--ic-pluie);opacity:.8}
+.sg-passe{fill:var(--etiquette-2);opacity:.07}
+.sg-auj{fill:color-mix(in srgb, var(--accent) 9%, transparent)}

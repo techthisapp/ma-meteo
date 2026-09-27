@@ -1520,7 +1520,42 @@ const semConf = await pg.evaluate(() => {
   return { mots, passes, estompe, nettes,
     incertaines: document.querySelectorAll("#ecran .sem-plage.sem-faible, #ecran .sem-plage.sem-moyenne").length };
 });
+/* Jalon 12, lot 3 : le graphique de tête, un point par journée de la liste,
+   les jours passés atténués, aujourd'hui repéré, et une largeur d'affichage
+   bornée pour que ses textes ne grossissent pas en paysage. */
+const semGraphe = await pg.evaluate(async () => {
+  const V = await import("/src/vues.js");
+  const g = document.querySelector("#ecran .sem-graphe");
+  const liste = document.querySelector("#ecran .sem");
+  const pts = sel => (g?.querySelector(sel)?.getAttribute("points") || "").trim().split(/\s+/).filter(Boolean).length;
+  const essai = V.grapheSemaine([
+    { nom: "Hier", tn: 12, tx: 31, mm: 0, passe: true, auj: false },
+    { nom: "Auj.", tn: 9, tx: 25, mm: 0, passe: false, auj: true },
+    { nom: "Dem.", tn: 9, tx: 25, mm: 5.4, passe: false, auj: false },
+    { nom: "jeu", tn: 16, tx: 30, mm: 0, passe: false, auj: false },
+  ]);
+  return {
+    avant: !!g && !!liste && (g.compareDocumentPosition(liste) & Node.DOCUMENT_POSITION_FOLLOWING) > 0,
+    jours: document.querySelectorAll("#ecran .sem-j").length,
+    max: pts(".sg-max"), min: pts(".sg-min"),
+    passes: g ? g.querySelectorAll(".sg-passe").length : 0,
+    passesListe: document.querySelectorAll("#ecran .sem-j.sem-passe").length,
+    auj: g ? g.querySelectorAll(".sg-auj").length : 0,
+    borne: g ? getComputedStyle(g.querySelector("svg")).maxWidth : "",
+    resume: (/aria-label="([^"]*)"/.exec(essai) || [])[1] || "",
+  };
+});
 await onglet("accueil");
+ok("La semaine s'ouvre sur son graphique, un point par journée",
+  semGraphe.avant && semGraphe.max === semGraphe.jours && semGraphe.min === semGraphe.jours && semGraphe.jours >= 7,
+  JSON.stringify(semGraphe));
+ok("le graphique atténue les jours passés et repère aujourd'hui",
+  semGraphe.passes === semGraphe.passesListe && semGraphe.auj === 1,
+  `${semGraphe.passes} passés contre ${semGraphe.passesListe}, ${semGraphe.auj} aujourd'hui`);
+ok("le graphique borne sa largeur, et se résume en une phrase",
+  semGraphe.borne === "520px"
+  && semGraphe.resume === "De 25 à 30 degrés au plus chaud, 5,4 millimètres de pluie en tout.",
+  `${semGraphe.borne} | ${semGraphe.resume}`);
 ok("chaque journée à venir porte son niveau de confiance, en un mot",
   semConf.mots.length >= 3 && semConf.passes === 0
   && semConf.mots.every(m => ["fiable", "à confirmer", "incertain"].includes(m)),

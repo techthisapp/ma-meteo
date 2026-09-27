@@ -150,6 +150,7 @@ export function vueSemaine() {
 
   const maintenant = P.serieHoraire()?.t?.[0] ?? null;
   const heureCourante = new Date().getHours();
+  const jours = [];
 
   for (let k = debut; k < fin; k++) {
     /* Les heures là où elles couvrent la journée entière, la charge quotidienne
@@ -187,6 +188,7 @@ export function vueSemaine() {
 
     const mo = P.momentsJour(d.time[k]);
     const cle = `sm-${d.time[k]}`;
+    jours.push({ nom: k === i + 1 ? "Dem." : nom, tn, tx, mm, passe: k < i, auj: k === i });
 
     /* Le niveau de confiance se lit sur la ligne, sans déplier, demandé par
        Jérôme le 25 septembre 2026, jalon 12, lot 2. Il se pose sous la barre,
@@ -231,12 +233,61 @@ export function vueSemaine() {
 
   return {
     titre: "La semaine",
-    corps: `<div class="carte"><div class="sem">${lignes.join("")}</div>`
+    corps: grapheSemaine(jours)
+      + `<div class="carte"><div class="sem">${lignes.join("")}</div>`
       + `<p class="note">Chaque journée se résume de ses heures. Jusqu'à trois jours, `
       + `la prévision est affinée par AROME ; au delà, elle vient du modèle `
       + `global.</p></div>`,
     brancher(bloc) { brancherSemaine(bloc); },
   };
+}
+
+/* Le graphique de tête de La semaine, jalon 12, lot 3 : la courbe des
+   maximums et celle des minimums sur les dix jours, chaque point avec sa
+   valeur, et la pluie en barres au pied. La liste garde ses barres : le
+   graphique montre la tendance de la semaine, la barre situe chaque journée à
+   côté de son nom. Les jours passés sont sur un fond atténué, aujourd'hui sur
+   le même fond léger que la colonne « Maint. » de la bande horaire. Le dessin
+   a une largeur fixe et une largeur d'affichage bornée, pour que ses textes ne
+   grossissent pas en paysage, le défaut relevé sur le ruban. */
+export function grapheSemaine(jours) {
+  const n = jours.length;
+  if (n < 2) return "";
+  const L = 340, H = 158, bord = 4, col = (L - 2 * bord) / n;
+  const x = k => bord + (k + 0.5) * col;
+  const mn = Math.min(...jours.map(j => j.tn)), mx = Math.max(...jours.map(j => j.tx));
+  const amp = Math.max(4, mx - mn);
+  const haut = 24, bas = 96;
+  const y = t => bas - ((t - mn) / amp) * (bas - haut);
+  const pied = H - 20, pluieMax = 22;
+  const fonds = jours.map((j, k) => (j.passe || j.auj)
+    ? `<rect class="sg-${j.auj ? "auj" : "passe"}" x="${(x(k) - col / 2 + 1).toFixed(1)}" y="2" `
+      + `width="${(col - 2).toFixed(1)}" height="${H - 4}" rx="10"/>` : "").join("");
+  const ligne = (cle, cls) => `<polyline class="${cls}" fill="none" points="`
+    + jours.map((j, k) => `${x(k).toFixed(1)},${y(j[cle]).toFixed(1)}`).join(" ") + `"/>`;
+  const points = (cle, cls, dy) => jours.map((j, k) =>
+    `<circle class="${cls}" cx="${x(k).toFixed(1)}" cy="${y(j[cle]).toFixed(1)}" r="2.6"/>`
+    + `<text class="sg-v${j.passe ? " sg-p" : ""}" x="${x(k).toFixed(1)}" y="${(y(j[cle]) + dy).toFixed(1)}">`
+    + `${Math.round(j[cle])}°</text>`).join("");
+  const pluie = jours.map((j, k) => {
+    if (!(j.mm >= 0.1)) return "";
+    const h = Math.max(2, Math.min(1, j.mm / 10) * pluieMax);
+    return `<rect class="sg-pluie${j.passe ? " sg-p" : ""}" x="${(x(k) - col * 0.2).toFixed(1)}" `
+      + `y="${(pied - h).toFixed(1)}" width="${(col * 0.4).toFixed(1)}" height="${h.toFixed(1)}" rx="2"/>`;
+  }).join("");
+  const noms = jours.map((j, k) =>
+    `<text class="sg-j${j.passe ? " sg-p" : ""}${j.auj ? " sg-a" : ""}" x="${x(k).toFixed(1)}" y="${H - 5}">`
+    + `${esc(j.nom)}</text>`).join("");
+  const avenir = jours.filter(j => !j.passe);
+  const total = avenir.reduce((a, j) => a + (j.mm || 0), 0);
+  const resume = `De ${Math.round(Math.min(...avenir.map(j => j.tx)))} à `
+    + `${Math.round(Math.max(...avenir.map(j => j.tx)))} degrés au plus chaud`
+    + (total >= 0.1 ? `, ${nombreFr(total)} millimètres de pluie en tout.` : ", sans pluie.");
+  return `<div class="carte sem-graphe"><div class="bande-tete"><h3>Températures et pluie</h3></div>`
+    + `<svg class="sg" viewBox="0 0 ${L} ${H}" role="img" aria-label="${esc(resume)}">`
+    + fonds + pluie + ligne("tx", "sg-max") + ligne("tn", "sg-min")
+    + points("tx", "sg-pmax", -7) + points("tn", "sg-pmin", 14) + noms
+    + `</svg></div>`;
 }
 
 /* L'accord des scénarios sur une journée, écrit en toutes lettres sous ses
