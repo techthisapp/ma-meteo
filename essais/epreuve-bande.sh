@@ -168,6 +168,9 @@ case "$N" in
   50) # La phrase sur le délai revient dans la carte de la justesse.
      perl -0pi -e 's/  return tete \+ lignes\n/  return tete + `<p class="note">12 jours relevés, sur les 60 qui assiéront les chiffres.<\/p>` + lignes\n/' src/vues.js
      ATTENDU="les réglages disent la justesse sans phrase sur le délai" ;;
+  51) # Le plafond ne se peint plus : l'ancienne nappe floutée revient seule.
+     perl -0pi -e 's/  if \(d\.nappe > 0 && fer > 0\) \{/  if (false \&\& d.nappe > 0 \&\& fer > 0) {/' src/temps.js
+     ATTENDU="un ciel couvert se peint en bancs de nuages, de jour comme de nuit, et non en flou" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
@@ -181,7 +184,8 @@ if diff -q "$OLD/src/bande.js" src/bande.js >/dev/null \
   && diff -q "$OLD/src/conseils.js" src/conseils.js >/dev/null \
   && diff -q "$OLD/src/fleche.js" src/fleche.js >/dev/null \
   && diff -q "$OLD/src/vues.js" src/vues.js >/dev/null \
-  && diff -q "$OLD/src/justesse.js" src/justesse.js >/dev/null; then
+  && diff -q "$OLD/src/justesse.js" src/justesse.js >/dev/null \
+  && diff -q "$OLD/src/temps.js" src/temps.js >/dev/null; then
   echo "FAUTE $N NON APPLIQUÉE"; exit 3
 fi
 

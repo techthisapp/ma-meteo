@@ -531,7 +531,81 @@ function motifs(cle, c, fer) {
   }, 9, melangeRVB(c.clair, c.sombre, 0.86), melangeRVB(c.clair, c.sombre, 0.28),
     0, NH * (0.78 - 0.21 * fer), ND);
 
-  const out = { cumulus, nappe };
+  /* Le plafond, pour une couche qui se ferme, repris le 28 septembre 2026 :
+     Jérôme trouvait le ciel couvert laid, et il l'était. La nappe fermée ne
+     montrait plus que son haut sombre et son marbré, un flou sans forme qui se
+     lisait comme une vitre sale, la nuit surtout.
+
+     Le plafond est fait de rangées de nuages aplatis et soudés, comme un ciel
+     de stratocumulus : larges en haut du cadre, au-dessus de soi, de plus en
+     plus petits et serrés vers l'horizon. Les rangées proches recouvrent les
+     lointaines. Chacune a le sommet clair et la base plus sombre, si bien que
+     leur recouvrement dessine des bancs nets. Aucun ciel ne reste visible entre
+     elles : un nuage isolé devant un plafond se lisait comme un ballon, ce que
+     la nappe avait voulu éviter. Le motif se répète sans couture. */
+  const PL = 720, PH = 300, RANGS = 5;
+  const plafond = document.createElement("canvas");
+  plafond.width = PL; plafond.height = PH;
+  const px = plafond.getContext("2d");
+  const fondP = px.createLinearGradient(0, 0, 0, PH);
+  fondP.addColorStop(0, rgba(melangeRVB(c.clair, c.sombre, 0.80), 1));
+  fondP.addColorStop(1, rgba(melangeRVB(c.clair, c.sombre, 0.42), 1));
+  px.fillStyle = fondP;
+  px.fillRect(0, 0, PL, PH);
+  for (let r = RANGS - 1; r >= 0; r--) {
+    const f = r / (RANGS - 1);
+    /* Des rangées trop régulières s'empilaient vers l'horizon en fines bandes,
+       comme des stores. Les cellules varient donc du simple au double, chaque
+       rangée ondule sur toute sa longueur, et les rangées lointaines restent
+       assez épaisses pour ne pas se réduire à un trait. */
+    const sz = PH * (0.38 - 0.24 * f);
+    const yc = PH * (0.07 + 0.86 * Math.pow(f, 0.75));
+    const n = Math.max(3, Math.round(PL / (sz * 1.25)));
+    const phase = alea() * Math.PI * 2, ondes = 1 + Math.floor(alea() * 3);
+    const cellules = [];
+    for (let k = 0; k < n; k++) {
+      const u = (k + 0.5 + (alea() - 0.5) * 0.7) / n;
+      cellules.push([u, sz * (0.60 + alea() * 0.85),
+        yc + Math.sin(u * Math.PI * 2 * ondes + phase) * sz * 0.22 + (alea() - 0.5) * sz * 0.40,
+        0.30 + alea() * 0.14]);
+    }
+    const forme = (q, cx, cy, rx, ap) => {
+      q.beginPath(); q.ellipse(cx, cy, rx, rx * ap, 0, 0, Math.PI * 2); q.fill();
+      q.beginPath(); q.ellipse(cx - rx * 0.46, cy + rx * 0.08, rx * 0.62, rx * 0.25, 0, 0, Math.PI * 2); q.fill();
+      q.beginPath(); q.ellipse(cx + rx * 0.50, cy + rx * 0.07, rx * 0.56, rx * 0.23, 0, 0, Math.PI * 2); q.fill();
+    };
+    const D = Math.ceil(sz * 1.4);
+    const rang = masse(PL, PH, q => {
+      for (const [u, rx, cy, ap] of cellules) {
+        for (const t of [-1, 0, 1]) forme(q, (u + t) * PL, cy, rx, ap);
+      }
+    }, x => {
+      /* Une crête claire en haut de chaque cellule, un creux sombre dessous :
+         c'est ce qui donne du volume à la rangée. */
+      for (const [u, rx, cy] of cellules) {
+        for (const t of [-1, 0, 1]) {
+          const cx = (u + t) * PL;
+          if (cx < -rx * 2 || cx > PL + rx * 2) continue;
+          for (const [dy, coul, a] of [[-rx * 0.20, c.clair, 0.30], [rx * 0.22, c.sombre, 0.22]]) {
+            x.save();
+            x.translate(cx, cy + dy);
+            x.scale(1, 0.30);
+            const g = x.createRadialGradient(0, 0, 0, 0, 0, rx * 0.95);
+            g.addColorStop(0, rgba(coul, a));
+            g.addColorStop(1, rgba(coul, 0));
+            x.fillStyle = g;
+            x.fillRect(-rx, -rx, rx * 2, rx * 2);
+            x.restore();
+          }
+        }
+      }
+    }, Math.max(1.5, sz * 0.07),
+    melangeRVB(c.clair, c.sombre, 0.06 + 0.26 * f), melangeRVB(c.clair, c.sombre, 0.62 + 0.10 * f),
+    yc - sz * 0.36, yc + sz * 0.34, D);
+    px.drawImage(rang, 0, 0);
+  }
+
+  const out = { cumulus, nappe, plafond };
   if (MOTIFS.size > 6) MOTIFS.delete(MOTIFS.keys().next().value);
   MOTIFS.set(cle, out);
   return out;
@@ -630,6 +704,21 @@ export function dessiner(cv, t) {
     x.globalAlpha = d.nappe;
     for (let i = 0; i < Math.ceil(L / larg) + 2; i++) {
       x.drawImage(np, dx + larg * i, yy, larg, haut);
+    }
+    x.restore();
+  }
+  /* Le plafond se pose sur la nappe à mesure que la couche se ferme, et la
+     remplace quand elle est fermée. Il couvre tout le cadre, et défile plus
+     lentement que la nappe : il est plus haut qu'elle. */
+  if (d.nappe > 0 && fer > 0) {
+    const pf = m.plafond;
+    const haut = H;
+    const larg = haut * (pf.width / pf.height);
+    const dx = ((t * derive * 0.22) % larg) - larg;
+    x.save();
+    x.globalAlpha = d.nappe * Math.min(1, fer * 1.25);
+    for (let i = 0; i < Math.ceil(L / larg) + 2; i++) {
+      x.drawImage(pf, dx + larg * i, 0, larg, haut);
     }
     x.restore();
   }

@@ -1707,6 +1707,41 @@ ok("l'accueil ne parle que de demain, après-demain restant dans La semaine",
   (suiteDit.titre === "" || suiteDit.titre === "Demain") && suiteDit.apres.length === 0,
   `« ${suiteDit.titre} » ${suiteDit.apres.join(" | ")}`);
 
+/* Le ciel couvert, repris le 28 septembre 2026 : une couche fermée se peint en
+   bancs de nuages, et non plus en flou. La mesure est l'écart moyen de
+   luminosité entre deux points voisins verticalement, qui grandit avec les
+   bords des bancs. Relevée à la reprise, elle valait 1,2 de jour comme de nuit
+   pour l'ancienne nappe floutée, 3,6 de jour et 2,3 de nuit pour le plafond. */
+const structureCiel = await pg.evaluate(async () => {
+  const V = await import("/src/vues.js"), T = await import("/src/temps.js");
+  const g = { lat: 47.63, lon: 4.38 };
+  const out = {};
+  for (const [nom, q] of [["jour", "2026-09-28T13:00:00+02:00"], ["nuit", "2026-09-28T03:00:00+02:00"]]) {
+    const d = document.createElement("div");
+    d.style.cssText = "position:fixed;left:0;top:0;width:390px;z-index:99";
+    d.innerHTML = `<div class="plein plein-accueil">${V.bandeauAccueil(g, new Date(q), T.depuis(3, 100, 0), 10).ciel}</div>`;
+    document.body.append(d);
+    await new Promise(res => setTimeout(res, 100));
+    const cv = d.querySelector("canvas.ci-temps");
+    T.dessiner(cv, 20000);
+    const W = cv.width, H = cv.height;
+    const px = cv.getContext("2d").getImageData(0, 0, W, H).data;
+    const lum = (i, j) => { const k = (j * W + i) * 4; return 0.2126 * px[k] + 0.7152 * px[k + 1] + 0.0722 * px[k + 2]; };
+    /* Le pas se compte en points d'écran : à forte densité de pixels, un pas de
+       trois pixels de toile mesurait un écart deux ou trois fois plus court. */
+    const pas = Math.max(1, Math.round(3 * H / cv.getBoundingClientRect().height));
+    let somme = 0, n = 0;
+    for (let i = 4; i < W; i += Math.max(1, Math.floor(W / 40))) {
+      for (let j = 0; j + pas < H; j += pas) { somme += Math.abs(lum(i, j + pas) - lum(i, j)); n++; }
+    }
+    out[nom] = Math.round(somme / n * 100) / 100;
+    d.remove();
+  }
+  return out;
+});
+ok("un ciel couvert se peint en bancs de nuages, de jour comme de nuit, et non en flou",
+  structureCiel.jour >= 1.7 && structureCiel.nuit >= 1.7, JSON.stringify(structureCiel));
+
 /* Jalon 11, lot 4 : le département sous la commune, qu'il se déduise du code
    postal ou manque, et l'arrondi de 24 points des cartes de l'accueil. */
 const enteteDit = await pg.evaluate(async () => {
