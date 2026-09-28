@@ -24,6 +24,9 @@ const AROME = ["meteofrance_arome_france_hd", "meteofrance_arome_france"];
 const QUOTIDIEN = [
   "weather_code", "temperature_2m_max", "temperature_2m_min",
   "precipitation_sum", "precipitation_probability_max", "wind_speed_10m_max",
+  /* Les rafales et la direction dominante du jour, pour la ligne du vent du
+     graphique de La semaine, demandée le 28 septembre 2026. */
+  "wind_gusts_10m_max", "wind_direction_10m_dominant",
   "sunrise", "sunset", "daylight_duration",
   /* L'évapotranspiration de référence, en millimètres par journée. C'est ce que
      le sol et les plantes ont perdu ; comparée à la pluie tombée, elle donne le

@@ -30,6 +30,7 @@ import * as Feux from "./feux.js";
 import * as Ciel from "./ciel.js";
 import * as Version from "./version.js";
 import * as Justesse from "./justesse.js";
+import { angleFleche, TRACE_FLECHE } from "./fleche.js";
 import * as NappeCarte from "./nappe.js";
 import * as Vent from "./vent.js";
 import * as Vig from "./vigilance.js";
@@ -191,6 +192,7 @@ export function vueSemaine() {
     const cle = `sm-${d.time[k]}`;
     jours.push({ nom: k === i + 1 ? "Dem." : nom, tn, tx, mm, passe: k < i, auj: k === i,
       pb, code, vent: d.wind_speed_10m_max?.[k] ?? null,
+      raf: d.wind_gusts_10m_max?.[k] ?? null, dir: d.wind_direction_10m_dominant?.[k] ?? null,
       long: k === i ? "aujourd'hui" : k === i + 1 ? "demain"
         : new Date(`${d.time[k]}T12:00`).toLocaleDateString("fr-FR", { weekday: "long" }) });
 
@@ -298,13 +300,23 @@ function grandesLignesHTML(jours) {
 export function grapheSemaine(jours) {
   const n = jours.length;
   if (n < 2) return "";
-  const L = 340, H = 158, bord = 4, col = (L - 2 * bord) / n;
+  /* Trois bandes depuis le 28 septembre 2026 : les températures, puis le vent,
+     puis la pluie avec sa quantité écrite. Le vent a sa bande à lui : des
+     kilomètres par heure ne se lisent pas sur l'échelle des degrés. Il se dit
+     par les rafales du jour et la flèche de sa direction dominante, la vitesse
+     moyenne la plus forte à défaut de rafales. */
+  const avecVent = jours.some(j => Number.isFinite(j.raf ?? j.vent));
+  const L = 340, H = avecVent ? 214 : 176, bord = 4, col = (L - 2 * bord) / n;
   const x = k => bord + (k + 0.5) * col;
   const mn = Math.min(...jours.map(j => j.tn)), mx = Math.max(...jours.map(j => j.tx));
   const amp = Math.max(4, mx - mn);
   const haut = 24, bas = 96;
   const y = t => bas - ((t - mn) / amp) * (bas - haut);
-  const pied = H - 20, pluieMax = 22;
+  const pied = H - 20, pluieMax = 20;
+  const ventDe = j => (Number.isFinite(j.raf) ? j.raf : Number.isFinite(j.vent) ? j.vent : null);
+  const vHaut = 124, vBas = 150;
+  const vMax = Math.max(30, ...jours.map(j => ventDe(j) ?? 0));
+  const yv = v => vBas - (v / vMax) * (vBas - vHaut);
   const fonds = jours.map((j, k) => (j.passe || j.auj)
     ? `<rect class="sg-${j.auj ? "auj" : "passe"}" x="${(x(k) - col / 2 + 1).toFixed(1)}" y="2" `
       + `width="${(col - 2).toFixed(1)}" height="${H - 4}" rx="10"/>` : "").join("");
@@ -317,22 +329,39 @@ export function grapheSemaine(jours) {
   const pluie = jours.map((j, k) => {
     if (!(j.mm >= 0.1)) return "";
     const h = Math.max(2, Math.min(1, j.mm / 10) * pluieMax);
+    /* La quantité se lit au-dessus de la barre, en millimètres. */
+    const q = j.mm >= 10 ? String(Math.round(j.mm)) : nombreFr(Math.round(j.mm * 10) / 10);
     return `<rect class="sg-pluie${j.passe ? " sg-p" : ""}" x="${(x(k) - col * 0.2).toFixed(1)}" `
-      + `y="${(pied - h).toFixed(1)}" width="${(col * 0.4).toFixed(1)}" height="${h.toFixed(1)}" rx="2"/>`;
+      + `y="${(pied - h).toFixed(1)}" width="${(col * 0.4).toFixed(1)}" height="${h.toFixed(1)}" rx="2"/>`
+      + `<text class="sg-mm${j.passe ? " sg-p" : ""}" x="${x(k).toFixed(1)}" y="${(pied - h - 3).toFixed(1)}">${q}</text>`;
   }).join("");
+  const vent = !avecVent ? "" : `<polyline class="sg-vent" fill="none" points="`
+    + jours.map((j, k) => (ventDe(j) === null ? "" : `${x(k).toFixed(1)},${yv(ventDe(j)).toFixed(1)}`)).filter(Boolean).join(" ")
+    + `"/>` + jours.map((j, k) => {
+      const v = ventDe(j);
+      if (v === null) return "";
+      const fl = Number.isFinite(j.dir)
+        ? `<g transform="translate(${(x(k) - 11).toFixed(1)},${(yv(v) - 15).toFixed(1)}) scale(0.72)">`
+          + `<g transform="rotate(${angleFleche(j.dir)} 7 7)">${TRACE_FLECHE}</g></g>` : "";
+      return `<circle class="sg-pvent" cx="${x(k).toFixed(1)}" cy="${yv(v).toFixed(1)}" r="2"/>`
+        + `<text class="sg-kmh${j.passe ? " sg-p" : ""}" x="${(x(k) + 4).toFixed(1)}" y="${(yv(v) - 6).toFixed(1)}">${Math.round(v)}</text>`
+        + `<g class="sg-fl${j.passe ? " sg-p" : ""}">${fl}</g>`;
+    }).join("");
   const noms = jours.map((j, k) =>
     `<text class="sg-j${j.passe ? " sg-p" : ""}${j.auj ? " sg-a" : ""}" x="${x(k).toFixed(1)}" y="${H - 5}">`
     + `${esc(j.nom)}</text>`).join("");
   const avenir = jours.filter(j => !j.passe);
   const total = avenir.reduce((a, j) => a + (j.mm || 0), 0);
+  const rafMax = Math.max(0, ...avenir.map(j => ventDe(j) ?? 0));
   const resume = `De ${Math.round(Math.min(...avenir.map(j => j.tx)))} à `
     + `${Math.round(Math.max(...avenir.map(j => j.tx)))} degrés au plus chaud`
-    + (total >= 0.1 ? `, ${nombreFr(total)} millimètres de pluie en tout.` : ", sans pluie.");
-  return `<div class="carte sem-graphe"><div class="bande-tete"><h3>Températures et pluie</h3></div>`
+    + (total >= 0.1 ? `, ${nombreFr(total)} millimètres de pluie en tout` : ", sans pluie")
+    + (avecVent && rafMax > 0 ? `, vent jusqu'à ${Math.round(rafMax)} kilomètres par heure.` : ".");
+  return `<div class="carte sem-graphe"><div class="bande-tete"><h3>${avecVent ? "Températures, vent et pluie" : "Températures et pluie"}</h3></div>`
     + `<svg class="sg" viewBox="0 0 ${L} ${H}" role="img" aria-label="${esc(resume)}">`
-    + fonds + pluie + ligne("tx", "sg-max") + ligne("tn", "sg-min")
+    + fonds + pluie + vent + ligne("tx", "sg-max") + ligne("tn", "sg-min")
     + points("tx", "sg-pmax", -7) + points("tn", "sg-pmin", 14) + noms
-    + `</svg></div>`;
+    + `</svg><p class="note sg-note">${avecVent ? "Rafales en kilomètres par heure, pluie en millimètres." : "Pluie en millimètres."}</p></div>`;
 }
 
 /* L'accord des scénarios sur une journée, écrit en toutes lettres sous ses

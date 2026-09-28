@@ -1614,6 +1614,29 @@ ok("La semaine s'ouvre sur son graphique, un point par journée",
 ok("le graphique atténue les jours passés et repère aujourd'hui",
   semGraphe.passes === semGraphe.passesListe && semGraphe.auj === 1,
   `${semGraphe.passes} passés contre ${semGraphe.passesListe}, ${semGraphe.auj} aujourd'hui`);
+/* Le graphique, le 28 septembre 2026 : la quantité de pluie au-dessus des
+   barres, et une ligne des rafales avec la flèche de la direction dominante. */
+const grapheVent = await pg.evaluate(async () => {
+  const V = await import("/src/vues.js");
+  const html = V.grapheSemaine([
+    { nom: "Auj.", tn: 9, tx: 25, mm: 0, raf: 30, dir: 270, passe: false, auj: true },
+    { nom: "Dem.", tn: 9, tx: 25, mm: 5.4, raf: 55, dir: 200, passe: false, auj: false },
+    { nom: "jeu", tn: 16, tx: 30, mm: 12.6, raf: 20, dir: 90, passe: false, auj: false },
+  ]);
+  const d = document.createElement("div"); d.innerHTML = html;
+  return {
+    mm: [...d.querySelectorAll(".sg-mm")].map(t => t.textContent),
+    points: (d.querySelector(".sg-vent")?.getAttribute("points") || "").trim().split(/\s+/).filter(Boolean).length,
+    kmh: [...d.querySelectorAll(".sg-kmh")].map(t => t.textContent),
+    fleches: d.querySelectorAll(".sg-fl > g").length,
+    resume: d.querySelector("svg")?.getAttribute("aria-label") || "",
+  };
+});
+ok("la pluie du graphique porte sa quantité, en millimètres",
+  grapheVent.mm.join(" ") === "5,4 13", grapheVent.mm.join(" "));
+ok("le graphique trace les rafales du jour, avec la flèche de leur direction",
+  grapheVent.points === 3 && grapheVent.kmh.join(" ") === "30 55 20" && grapheVent.fleches === 3
+  && /vent jusqu'à 55 kilomètres par heure\.$/.test(grapheVent.resume), JSON.stringify(grapheVent));
 ok("le graphique borne sa largeur, et se résume en une phrase",
   semGraphe.borne === "520px"
   && semGraphe.resume === "De 25 à 30 degrés au plus chaud, 5,4 millimètres de pluie en tout.",

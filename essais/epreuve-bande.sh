@@ -177,6 +177,12 @@ case "$N" in
   53) # Le voile du bas retrouve la moitié du cadre.
      perl -0pi -e 's/position:absolute;left:0;right:0;bottom:0;height:44%;z-index:1;/position:absolute;left:0;right:0;bottom:0;height:52%;z-index:1;/' styles.css
      ATTENDU="les voiles de lisibilité se resserrent sur le texte, en bleu-gris" ;;
+  54) # La quantité de pluie ne s'écrit plus au-dessus des barres.
+     perl -0pi -e 's/      \+ `<text class="sg-mm\$\{j\.passe \? " sg-p" : ""\}" x="\$\{x\(k\)\.toFixed\(1\)\}" y="\$\{\(pied - h - 3\)\.toFixed\(1\)\}">\$\{q\}<\/text>`;/      ;/' src/vues.js
+     ATTENDU="la pluie du graphique porte sa quantité, en millimètres" ;;
+  55) # La ligne du vent disparaît.
+     perl -0pi -e 's/\+ fonds \+ pluie \+ vent \+ ligne/+ fonds + pluie + ligne/' src/vues.js
+     ATTENDU="le graphique trace les rafales du jour, avec la flèche de leur direction" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

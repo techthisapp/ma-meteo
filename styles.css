@@ -2234,3 +2234,12 @@ button.rangee:active{background:var(--surface-2)}
   font-weight:var(--graisse-semibold);color:var(--accent);
   background:color-mix(in srgb, var(--accent) 10%, transparent);
 }
+
+/* Le graphique de La semaine, le 28 septembre 2026 : la quantité de pluie au-
+   dessus des barres, et la ligne des rafales avec la flèche de la direction. */
+.sg-mm{font-size:10px;text-anchor:middle;fill:var(--ic-pluie);font-weight:600}
+.sg-vent{stroke:var(--etiquette-2);stroke-width:1.5;stroke-linejoin:round;opacity:.7}
+.sg-pvent{fill:var(--etiquette-2)}
+.sg-kmh{font-size:10px;text-anchor:start;fill:var(--etiquette-2);font-weight:600}
+.sg-fl{color:var(--etiquette-2)}
+.sg-note{margin:2px var(--espace-sm) 0;text-align:center}
