@@ -140,7 +140,9 @@ export function vueSemaine() {
      rangée plus ancienne n'aurait ni ses quatre moments ni ses bornes tirées de
      la même source que les autres, et se serait ouverte sur rien. */
   const debut = Math.max(0, i - P.JOURS_PASSES);
-  const fin = Math.min(i + 7, d.time.length);
+  /* Seize jours à venir depuis le 28 septembre 2026, jalon 13 : la charge
+     quotidienne les porte, la vue les montre tous. */
+  const fin = Math.min(i + 16, d.time.length);
   const lignes = [];
   let tmin = Infinity, tmax = -Infinity;
   for (let k = debut; k < fin; k++) {
@@ -191,6 +193,9 @@ export function vueSemaine() {
     const mo = P.momentsJour(d.time[k]);
     const cle = `sm-${d.time[k]}`;
     jours.push({ nom: k === i + 1 ? "Dem." : nom, tn, tx, mm, passe: k < i, auj: k === i,
+      /* Au-delà des sept premiers jours, le graphique ajoute le numéro du jour :
+         la seconde semaine répétait « lun », « mar » sans dire laquelle. */
+      num: k >= i + 7 ? Number(d.time[k].slice(8, 10)) : null,
       pb, code, vent: d.wind_speed_10m_max?.[k] ?? null,
       raf: d.wind_gusts_10m_max?.[k] ?? null, dir: d.wind_direction_10m_dominant?.[k] ?? null,
       long: k === i ? "aujourd'hui" : k === i + 1 ? "demain"
@@ -293,7 +298,9 @@ function justesseHTML() {
 /* Les grandes lignes de la semaine, entre le graphique et la liste, dans la
    forme des conseils de l'accueil. */
 function grandesLignesHTML(jours) {
-  const l = grandesLignes(jours.filter(j => !j.passe).map(j => ({ ...j, nom: j.long })));
+  /* Les sept premiers jours seulement : au-delà, la prévision dit une tendance,
+     et une grande ligne sur un jour lointain promettrait plus qu'elle ne sait. */
+  const l = grandesLignes(jours.filter(j => !j.passe).slice(0, 7).map(j => ({ ...j, nom: j.long })));
   return l.length ? `<div class="carte retenir sem-lignes"><div class="conseils">${conseilsHTML(l)}</div></div>` : "";
 }
 
@@ -306,7 +313,12 @@ export function grapheSemaine(jours) {
      par les rafales du jour et la flèche de sa direction dominante, la vitesse
      moyenne la plus forte à défaut de rafales. */
   const avecVent = jours.some(j => Number.isFinite(j.raf ?? j.vent));
-  const L = 340, H = avecVent ? 214 : 176, bord = 4, col = (L - 2 * bord) / n;
+  /* Au-delà de dix journées, les colonnes gardent une largeur fixe et le
+     graphique défile sous le doigt, ouvert sur les premiers jours : seize jours
+     tassés dans la largeur de l'écran mêleraient leurs étiquettes. */
+  const defile = n > 10;
+  const COL = 34;
+  const L = defile ? 8 + n * COL : 340, H = avecVent ? 214 : 176, bord = 4, col = (L - 2 * bord) / n;
   const x = k => bord + (k + 0.5) * col;
   const mn = Math.min(...jours.map(j => j.tn)), mx = Math.max(...jours.map(j => j.tx));
   const amp = Math.max(4, mx - mn);
@@ -349,7 +361,7 @@ export function grapheSemaine(jours) {
     }).join("");
   const noms = jours.map((j, k) =>
     `<text class="sg-j${j.passe ? " sg-p" : ""}${j.auj ? " sg-a" : ""}" x="${x(k).toFixed(1)}" y="${H - 5}">`
-    + `${esc(j.nom)}</text>`).join("");
+    + `${esc(j.num ? `${j.nom} ${j.num}` : j.nom)}</text>`).join("");
   const avenir = jours.filter(j => !j.passe);
   const total = avenir.reduce((a, j) => a + (j.mm || 0), 0);
   const rafMax = Math.max(0, ...avenir.map(j => ventDe(j) ?? 0));
@@ -358,10 +370,12 @@ export function grapheSemaine(jours) {
     + (total >= 0.1 ? `, ${nombreFr(total)} millimètres de pluie en tout` : ", sans pluie")
     + (avecVent && rafMax > 0 ? `, vent jusqu'à ${Math.round(rafMax)} kilomètres par heure.` : ".");
   return `<div class="carte sem-graphe"><div class="bande-tete"><h3>${avecVent ? "Températures, vent et pluie" : "Températures et pluie"}</h3></div>`
-    + `<svg class="sg" viewBox="0 0 ${L} ${H}" role="img" aria-label="${esc(resume)}">`
+    + (defile ? `<div class="sg-defil">` : "")
+    + `<svg class="sg${defile ? " sg-large" : ""}" viewBox="0 0 ${L} ${H}"`
+    + (defile ? ` width="${L}" height="${H}"` : "") + ` role="img" aria-label="${esc(resume)}">`
     + fonds + pluie + vent + ligne("tx", "sg-max") + ligne("tn", "sg-min")
     + points("tx", "sg-pmax", -7) + points("tn", "sg-pmin", 14) + noms
-    + `</svg><p class="note sg-note">${avecVent ? "Rafales en kilomètres par heure, pluie en millimètres." : "Pluie en millimètres."}</p></div>`;
+    + `</svg>` + (defile ? `</div>` : "") + `<p class="note sg-note">${avecVent ? "Rafales en kilomètres par heure, pluie en millimètres." : "Pluie en millimètres."}</p></div>`;
 }
 
 /* L'accord des scénarios sur une journée, écrit en toutes lettres sous ses

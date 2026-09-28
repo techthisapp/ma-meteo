@@ -1637,6 +1637,20 @@ ok("la pluie du graphique porte sa quantité, en millimètres",
 ok("le graphique trace les rafales du jour, avec la flèche de leur direction",
   grapheVent.points === 3 && grapheVent.kmh.join(" ") === "30 55 20" && grapheVent.fleches === 3
   && /vent jusqu'à 55 kilomètres par heure\.$/.test(grapheVent.resume), JSON.stringify(grapheVent));
+/* Jalon 13, lot 1 : seize jours. Au-delà de dix journées, le graphique garde
+   des colonnes fixes et défile ; la seconde semaine porte le numéro du jour. */
+const grapheSeize = await pg.evaluate(async () => {
+  const V = await import("/src/vues.js");
+  const jours = Array.from({ length: 18 }, (_, k) => ({ nom: ["sam", "dim", "lun"][k % 3], tn: 10, tx: 20, mm: 0,
+    passe: k < 2, auj: k === 2, num: k >= 9 ? k + 1 : null }));
+  const d = document.createElement("div"); d.innerHTML = V.grapheSemaine(jours);
+  const svg = d.querySelector("svg");
+  return { defile: !!d.querySelector(".sg-defil"), large: Number(svg?.getAttribute("width") || 0),
+    derniere: [...d.querySelectorAll(".sg-j")].pop()?.textContent || "" };
+});
+ok("sur seize jours, le graphique défile à colonnes fixes et nomme la seconde semaine",
+  grapheSeize.defile && grapheSeize.large >= 18 * 30 && /^\S+ 18$/.test(grapheSeize.derniere),
+  JSON.stringify(grapheSeize));
 ok("le graphique borne sa largeur, et se résume en une phrase",
   semGraphe.borne === "520px"
   && semGraphe.resume === "De 25 à 30 degrés au plus chaud, 5,4 millimètres de pluie en tout.",

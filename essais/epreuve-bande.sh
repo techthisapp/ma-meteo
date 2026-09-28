@@ -183,6 +183,9 @@ case "$N" in
   55) # La ligne du vent disparaît.
      perl -0pi -e 's/\+ fonds \+ pluie \+ vent \+ ligne/+ fonds + pluie + ligne/' src/vues.js
      ATTENDU="le graphique trace les rafales du jour, avec la flèche de leur direction" ;;
+  56) # Le graphique tasse seize jours dans la largeur de l'écran.
+     perl -0pi -e 's/  const defile = n > 10;/  const defile = n > 99;/' src/vues.js
+     ATTENDU="sur seize jours, le graphique défile à colonnes fixes et nomme la seconde semaine" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
@@ -197,7 +200,8 @@ if diff -q "$OLD/src/bande.js" src/bande.js >/dev/null \
   && diff -q "$OLD/src/fleche.js" src/fleche.js >/dev/null \
   && diff -q "$OLD/src/vues.js" src/vues.js >/dev/null \
   && diff -q "$OLD/src/justesse.js" src/justesse.js >/dev/null \
-  && diff -q "$OLD/src/temps.js" src/temps.js >/dev/null; then
+  && diff -q "$OLD/src/temps.js" src/temps.js >/dev/null \
+  && diff -q "$OLD/src/previsions.js" src/previsions.js >/dev/null; then
   echo "FAUTE $N NON APPLIQUÉE"; exit 3
 fi
 

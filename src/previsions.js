@@ -79,6 +79,11 @@ export const JOURS_PASSES = PASSE_H;
    sur ses deux premières journées. */
 const JOURS = 7;
 const JOURS_AROME = 3;
+/* La prévision quotidienne va jusqu'à seize jours, demandé par Jérôme le 28
+   septembre 2026, jalon 13 : le service les remplit tous. Les heures gardent
+   leurs sept jours, d'où le ruban et les moments de chaque journée tirent
+   leur matière ; les journées au-delà se lisent par leurs seuls chiffres. */
+const JOURS_QUOTIDIENS = 16;
 
 /* La signature des colonnes demandées, dans la clé du cache au même titre que
    les portées. Une colonne ajoutée manque à toute charge écrite avant elle : la
@@ -86,7 +91,7 @@ const JOURS_AROME = 3;
    que le dépôt a déjà payé une fois avec la semaine qui ne s'ouvrait que sur
    deux journées. La signature change d'elle-même, sans compteur à penser à
    incrémenter. */
-const COLONNES = [...`${HORAIRE}|${QUOTIDIEN}`]
+const COLONNES = [...`${HORAIRE}|${QUOTIDIEN}|${JOURS_QUOTIDIENS}`]
   .reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7).toString(36);
 
 let charge = null;
@@ -284,7 +289,7 @@ export async function charger({ lat, lon }) {
      AROME ne va pas au delà d'environ soixante-neuf heures. Le lui demander sur
      sept jours ne rendrait que des colonnes vides : sa requête reste à trois
      jours, et la fusion laisse le modèle global au delà. */
-  const uq = `${base}&daily=${QUOTIDIEN}&past_days=${PASSE}&forecast_days=${JOURS}`;
+  const uq = `${base}&daily=${QUOTIDIEN}&past_days=${PASSE}&forecast_days=${JOURS_QUOTIDIENS}`;
   const uh = `${base}&hourly=${HORAIRE}&past_days=${PASSE_H}&forecast_days=${JOURS}`;
   /* AROME porte aussi les journées écoulées : sans elles, la fusion collait sa
      série sur les mauvaises heures, l'une commençant à minuit du jour en cours

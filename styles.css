@@ -2243,3 +2243,9 @@ button.rangee:active{background:var(--surface-2)}
 .sg-kmh{font-size:10px;text-anchor:start;fill:var(--etiquette-2);font-weight:600}
 .sg-fl{color:var(--etiquette-2)}
 .sg-note{margin:2px var(--espace-sm) 0;text-align:center}
+
+/* Le graphique de seize jours défile sous le doigt à colonnes fixes, jalon 13 :
+   ses textes gardent leur taille, en portrait comme en paysage. */
+.sg-defil{overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.sg-defil::-webkit-scrollbar{display:none}
+.sg.sg-large{width:auto;max-width:none;margin:0}
