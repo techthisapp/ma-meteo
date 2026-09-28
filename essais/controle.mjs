@@ -1722,6 +1722,20 @@ ok("la confiance dit quand les deux modèles s'écartent, et nomme ECMWF seul au
   phrasesConf[0] === "Confiance moyenne : ICON et ECMWF s'écartent de 3°, ICON de 18 à 22°, ECMWF de 20 à 25° au plus chaud."
   && phrasesConf[1] === "Confiance faible : ECMWF seul au-delà de sept jours, de 14 à 23° au plus chaud.",
   phrasesConf.join(" | "));
+/* Jalon 13, lot 4 : la tendance de la semaine suivante, en une ligne. */
+const tendDit = await pg.evaluate(async () => {
+  const C = await import("/src/conseils.js");
+  const j = (tx, mm = 0) => ({ tx, mm });
+  const cette = [25, 25, 26, 24, 25, 26, 25].map(t => j(t));
+  const fraiche = [j(20), j(19, 2), j(21), j(20), j(19, 1.5), j(20), j(21)];
+  const pareille = [24, 25, 26, 25, 25, 24, 26].map(t => j(t));
+  return [C.tendanceSuivante(cette, fraiche)?.t, C.tendanceSuivante(cette, pareille)?.t,
+    C.tendanceSuivante(cette, fraiche.slice(0, 4))];
+});
+ok("la semaine suivante se dit en une ligne de tendance, et seulement avec cinq jours",
+  tendDit[0] === "Semaine prochaine plus fraîche, autour de 20° au plus chaud, 2 jours de pluie."
+  && tendDit[1] === "Semaine prochaine semblable, autour de 25° au plus chaud, sans pluie notable."
+  && tendDit[2] === null, JSON.stringify(tendDit));
 ok("le graphique borne sa largeur, et se résume en une phrase",
   semGraphe.borne === "520px"
   && semGraphe.resume === "De 25 à 30 degrés au plus chaud, 5,4 millimètres de pluie en tout.",

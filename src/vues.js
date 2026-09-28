@@ -36,7 +36,7 @@ import * as NappeCarte from "./nappe.js";
 import * as Vent from "./vent.js";
 import * as Vig from "./vigilance.js";
 import * as Climat from "./climat.js";
-import { SEUILS, grandesLignes, conseilsHTML } from "./conseils.js";
+import { SEUILS, grandesLignes, conseilsHTML, tendanceSuivante } from "./conseils.js";
 
 /* ---------- Fragments communs ---------- */
 
@@ -310,7 +310,11 @@ function justesseHTML() {
 function grandesLignesHTML(jours) {
   /* Les sept premiers jours seulement : au-delà, la prévision dit une tendance,
      et une grande ligne sur un jour lointain promettrait plus qu'elle ne sait. */
-  const l = grandesLignes(jours.filter(j => !j.passe).slice(0, 7).map(j => ({ ...j, nom: j.long })));
+  const avenir = jours.filter(j => !j.passe);
+  const l = grandesLignes(avenir.slice(0, 7).map(j => ({ ...j, nom: j.long })));
+  /* La semaine suivante, en une ligne de tendance, après les grandes lignes. */
+  const t = tendanceSuivante(avenir.slice(0, 7), avenir.slice(7, 14));
+  if (t) l.push(t);
   return l.length ? `<div class="carte retenir sem-lignes"><div class="conseils">${conseilsHTML(l)}</div></div>` : "";
 }
 

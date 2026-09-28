@@ -202,6 +202,9 @@ case "$N" in
   61) # La phrase ne dit plus que les modèles s'écartent.
      perl -0pi -e 's/const accord = s\.ecart >= 2 \?/const accord = s.ecart >= 99 ?/' src/vues.js
      ATTENDU="la confiance dit quand les deux modèles s.écartent, et nomme ECMWF seul au-delà" ;;
+  62) # La tendance ne voit plus les écarts de température.
+     perl -0pi -e 's/const sens = ecart >= 2 \? "plus chaude" : ecart <= -2 \?/const sens = ecart >= 20 ? "plus chaude" : ecart <= -20 ?/' src/conseils.js
+     ATTENDU="la semaine suivante se dit en une ligne de tendance, et seulement avec cinq jours" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

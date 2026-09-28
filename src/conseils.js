@@ -468,6 +468,23 @@ export function grandesLignes(jours) {
   return out.sort((a, b) => b.g - a.g).slice(0, 3);
 }
 
+/* La tendance de la semaine suivante, jalon 13, lot 4 : au-delà des sept
+   premiers jours, la prévision dit une tendance, pas le temps d'une journée.
+   Une seule ligne la résume : la moyenne des maximums comparée à celle de la
+   semaine en cours, plus chaude ou plus fraîche au-delà de deux degrés
+   d'écart, et le nombre de jours où il tombe au moins un millimètre. Il faut
+   cinq journées de la semaine suivante pour en parler. */
+export function tendanceSuivante(cetteSemaine, suivante) {
+  if (!cetteSemaine?.length || !suivante || suivante.length < 5) return null;
+  const moy = l => l.reduce((a, j) => a + j.tx, 0) / l.length;
+  const m1 = moy(cetteSemaine), m2 = moy(suivante);
+  const ecart = m2 - m1;
+  const sens = ecart >= 2 ? "plus chaude" : ecart <= -2 ? "plus fraîche" : "semblable";
+  const n = suivante.filter(j => j.mm >= 1).length;
+  const pluie = n === 0 ? "sans pluie notable" : n === 1 ? "un jour de pluie" : `${n} jours de pluie`;
+  return { i: "thermo", g: 3, t: `Semaine prochaine ${sens}, autour de ${Math.round(m2)}° au plus chaud, ${pluie}.` };
+}
+
 /* La destination de chaque sorte de conseil, par son symbole. Le brouillard
    mène à l'humidité, faute de voie de la visibilité ; le gel et la chaleur à
    la température. */
