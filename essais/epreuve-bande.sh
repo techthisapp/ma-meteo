@@ -199,6 +199,9 @@ case "$N" in
      # Sa garde est dans la section « Les scénarios » : lancer avec JUSQUA_EPREUVE.
      perl -0pi -e 's/^const JOURS = 15;/const JOURS = 7;/m' src/scenarios.js
      ATTENDU="les deux modèles se demandent ensemble, sur quinze jours" ;;
+  61) # La phrase ne dit plus que les modèles s'écartent.
+     perl -0pi -e 's/const accord = s\.ecart >= 2 \?/const accord = s.ecart >= 99 ?/' src/vues.js
+     ATTENDU="la confiance dit quand les deux modèles s.écartent, et nomme ECMWF seul au-delà" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

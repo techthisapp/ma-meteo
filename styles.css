@@ -2249,3 +2249,7 @@ button.rangee:active{background:var(--surface-2)}
 .sg-defil{overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .sg-defil::-webkit-scrollbar{display:none}
 .sg.sg-large{width:auto;max-width:none;margin:0}
+
+/* Le volet réduit des journées lointaines, jalon 13 : la seule phrase de
+   confiance, sans les quatre moments. */
+.md.md-loin{display:block;padding-top:var(--espace-xs)}

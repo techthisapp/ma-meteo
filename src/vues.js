@@ -239,8 +239,12 @@ export function vueSemaine() {
 
     /* Une journée sans heures complètes ne s'ouvre pas, et ne porte alors pas
        de chevron : une cible qui ne mène à rien vaut moins qu'aucune cible. */
-    const tete = mo
-      ? `<button type="button" class="sem-r" data-jour="${esc(d.time[k])}" `
+    /* Au-delà des sept jours d'heures, la journée n'a pas de moments ; si les
+       scénarios la couvrent, elle se déplie sur sa seule phrase de confiance,
+       pour que la comparaison des modèles se lise jusqu'au quinzième jour. */
+    const phraseLoin = !mo && k >= i ? confiance(d.time[k]) : "";
+    const tete = mo || phraseLoin
+      ? `<button type="button" class="sem-r${mo ? "" : " sem-loin"}" data-jour="${esc(d.time[k])}" `
         + `aria-expanded="false" aria-controls="${cle}">${corps}`
         + ico("chevron_bas", "sem-chev") + `</button>`
       : `<div class="sem-r sem-fixe">${corps}</div>`;
@@ -258,7 +262,8 @@ export function vueSemaine() {
       + (mo ? `<div class="md" id="${cle}" hidden>${volet(mo, k === i, heureCourante)}`
         + `${confiance(d.time[k])}`
         + `<button type="button" class="sem-heures" data-jour-heures="${esc(d.time[k])}">Voir les heures</button>`
-        + `</div>` : "")
+        + `</div>`
+        : phraseLoin ? `<div class="md md-loin" id="${cle}" hidden>${phraseLoin}</div>` : "")
       + `</div>`);
   }
 
@@ -392,9 +397,14 @@ export function grapheSemaine(jours) {
    La ligne ne paraît que sur les journées que l'ensemble couvre entières : il
    porte sept jours annoncés et aucun jour écoulé, la table en demande neuf. */
 function confiance(date) {
-  /* Les deux modèles, jalon 13 : la fourchette de chacun, et s'ils s'accordent.
-     Au-delà de sept jours, ECMWF parle seul, et la phrase le dit. */
-  const s = Scenarios.jour(date);
+  const p = phraseConfiance(Scenarios.jour(date));
+  if (p) return p;
+  return confianceHoraire(date);
+}
+
+/* Les deux modèles, jalon 13 : la fourchette de chacun, et s'ils s'accordent.
+   Au-delà de sept jours, ECMWF parle seul, et la phrase le dit. */
+export function phraseConfiance(s) {
   if (s) {
     const f = r => `de ${Math.round(r.p10)} à ${Math.round(r.p90)}°`;
     const nom = Scenarios.accordDe(s.etendue);
@@ -407,6 +417,10 @@ function confiance(date) {
     return `<p class="md-sc">Confiance ${esc(nom)} : ${seul} seul${s.source === "ecmwf" ? " au-delà de sept jours" : ""}, `
       + `${f(s.reunis)} au plus chaud.</p>`;
   }
+  return "";
+}
+
+function confianceHoraire(date) {
   const j = Ensemble.journee(date);
   if (!j) return "";
   const a = Ensemble.accordDe(j.etendue);

@@ -1706,6 +1706,22 @@ ok("les seuils de la confiance quotidienne tombent à quatre et à sept degrés"
 ok("La semaine tire sa confiance des deux modèles, et le volet les compare",
   semScen.mot === "à confirmer" && /^Confiance moyenne : ICON et ECMWF s'accordent, ICON de \d+ à \d+°, ECMWF de \d+ à \d+° au plus chaud\.$/.test(semScen.volet),
   JSON.stringify(semScen));
+/* La phrase de confiance, jalon 13 : quand les médianes des deux modèles
+   s'écartent de deux degrés ou plus, elle le dit ; au-delà de sept jours, elle
+   nomme ECMWF seul. Les journées lointaines se déplient sur elle seule. */
+const phrasesConf = await pg.evaluate(async () => {
+  const V = await import("/src/vues.js");
+  return [
+    V.phraseConfiance({ source: "mixte", etendue: 5, ecart: 2.6,
+      icon: { p10: 17.8, p90: 22.1 }, ecmwf: { p10: 20.2, p90: 24.9 }, reunis: { p10: 18, p90: 24 } }),
+    V.phraseConfiance({ source: "ecmwf", etendue: 8.2, ecart: null, icon: null,
+      ecmwf: { p10: 14.2, p90: 22.8 }, reunis: { p10: 14.2, p90: 22.8 } }),
+  ].map(h => h.replace(/<[^>]+>/g, ""));
+});
+ok("la confiance dit quand les deux modèles s'écartent, et nomme ECMWF seul au-delà",
+  phrasesConf[0] === "Confiance moyenne : ICON et ECMWF s'écartent de 3°, ICON de 18 à 22°, ECMWF de 20 à 25° au plus chaud."
+  && phrasesConf[1] === "Confiance faible : ECMWF seul au-delà de sept jours, de 14 à 23° au plus chaud.",
+  phrasesConf.join(" | "));
 ok("le graphique borne sa largeur, et se résume en une phrase",
   semGraphe.borne === "520px"
   && semGraphe.resume === "De 25 à 30 degrés au plus chaud, 5,4 millimètres de pluie en tout.",
