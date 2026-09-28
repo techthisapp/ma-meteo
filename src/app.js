@@ -20,7 +20,7 @@ import * as Relief from "./relief.js";
 import * as Temps from "./temps.js";
 import { vueTemps, vueSemaine, vueVigilance, vueCiel, vueCarte, vueCommunes, vueReglages,
   vueAjout, vueParapluie, vueRessenti, vueActivites, vueBeauTemps, vueAir,
-  vueClimat, bandeauAccueil } from "./vues.js";
+  vueClimat, bandeauAccueil, basculerSemaine, semaineEstEtendue } from "./vues.js";
 import { moments } from "./ecritures.js";
 import * as Vig from "./vigilance.js";
 import * as Astres from "./astres.js";
@@ -1160,6 +1160,8 @@ async function lireScenarios(g) {
   const mien = generation;
   const d = await Scenarios.charger({ lat: g.lat, lon: g.lon });
   if (mien !== generation || !d) return;
+  if (semaineEstEtendue()) await Scenarios.chargerTendance(g);
+  if (mien !== generation) return;
   if (onglet === "semaine") rendre();
 }
 
@@ -1328,6 +1330,16 @@ $("ecran").addEventListener("click", ev => {
   const f = ev.target.closest("[data-feuille]");
   if (f) { ouvrirFeuille(f.dataset.feuille); return; }
   if (ev.target.closest("[data-temps]")) { ouvrirLeTemps(); return; }
+  /* « Voir plus » de La semaine, jalon 17 : la tendance se lit au premier
+     dépliage, puis l'écran se redessine. */
+  if (ev.target.closest("[data-semaine-plus]")) {
+    if (basculerSemaine()) {
+      const g = Reglages.lire();
+      Scenarios.chargerTendance(g).finally(() => { if (onglet === "semaine") rendre(); });
+    }
+    rendre();
+    return;
+  }
   const jourH = ev.target.closest("[data-jour-heures]");
   if (jourH) { ouvrirJour(jourH.dataset.jourHeures); return; }
   const d = ev.target.closest("[data-detail]");

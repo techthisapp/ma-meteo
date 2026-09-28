@@ -205,6 +205,15 @@ case "$N" in
   62) # La tendance ne voit plus les écarts de température.
      perl -0pi -e 's/const sens = ecart >= 2 \? "plus chaude" : ecart <= -2 \?/const sens = ecart >= 20 ? "plus chaude" : ecart <= -20 ?/' src/conseils.js
      ATTENDU="la semaine suivante se dit en une ligne de tendance, et seulement avec cinq jours" ;;
+  63) # La tendance se colle à la charge sans écarter les dates déjà prévues.
+     perl -0pi -e 's/  const plus = tend\.filter\(t => t\.date > dernier\);/  const plus = tend;/' src/vues.js
+     ATTENDU="la tendance prolonge la charge quotidienne, sans doublon, le symbole tiré de la pluie" ;;
+  64) # Le bouton « Voir plus » disparaît.
+     perl -0pi -e 's/  const plusDispo = lim >= i;/  const plusDispo = false;/' src/vues.js
+     ATTENDU="La semaine se déplie d.un « Voir plus » commun au graphique et à la liste, jusqu.à la tendance" ;;
+  65) # Une journée de tendance affiche une moyenne de pluie.
+     perl -0pi -e 's/    const eau = k >= nPrev \? \(pb >= 5/    const eau = false ? (pb >= 5/' src/vues.js
+     ATTENDU="une journée de tendance dit la part de ses scénarios pluvieux, sans mot de confiance" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

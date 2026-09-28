@@ -129,13 +129,52 @@ export function vueTemps(ctx, rendre) {
 /* ---------- La table de la semaine ---------- */
 
 
+/* L'état déplié de La semaine, jalon 17 : commun au graphique et à la liste,
+   gardé le temps de la séance. */
+let semaineEtendue = false;
+export const basculerSemaine = () => (semaineEtendue = !semaineEtendue);
+export const semaineEstEtendue = () => semaineEtendue;
+
+function boutonSemaine(dispo) {
+  if (semaineEtendue) return `<button type="button" class="sem-plus" data-semaine-plus aria-expanded="true">Voir moins</button>`;
+  return dispo ? `<button type="button" class="sem-plus" data-semaine-plus aria-expanded="false">`
+    + `Voir plus, la tendance jusqu'à cinq semaines</button>` : "";
+}
+
+function etatTendance(g, tend) {
+  if (!semaineEtendue || tend?.length) return "";
+  return `<p class="note sem-tend-etat">${Scenarios.tendanceEnEchec(g)
+    ? "La tendance au-delà de seize jours n'a pas pu être lue." : "Lecture de la tendance…"}</p>`;
+}
+
+/* La charge quotidienne prolongée par les journées de tendance qui suivent sa
+   dernière date, dans la même forme : la liste et le graphique les lisent
+   comme les autres. Le symbole se tire de la part des scénarios pluvieux. */
+export function etendreQuotidien(d, tend) {
+  if (!tend?.length) return d;
+  const dernier = d.time[d.time.length - 1];
+  const plus = tend.filter(t => t.date > dernier);
+  if (!plus.length) return d;
+  const x = { ...d };
+  const ajoute = (cle, f) => { x[cle] = [...(d[cle] || d.time.map(() => null)), ...plus.map(f)]; };
+  ajoute("time", t => t.date);
+  ajoute("temperature_2m_max", t => t.tx);
+  ajoute("temperature_2m_min", t => t.tn);
+  ajoute("precipitation_sum", t => t.mm);
+  ajoute("precipitation_probability_max", t => t.pb);
+  ajoute("weather_code", t => (t.pb >= 50 ? 61 : 2));
+  for (const cle of ["wind_speed_10m_max", "wind_gusts_10m_max", "wind_direction_10m_dominant"]) {
+    if (d[cle]) ajoute(cle, () => null);
+  }
+  return x;
+}
+
 export function vueSemaine() {
   const c = P.chargeCourante();
   const i = P.iJour();
   const g = Reglages.lire();
   if (!c || i < 0) return { titre: "La semaine", corps: `<div class="carte"><p class="vide">Prévision indisponible.</p></div>` };
 
-  const d = c.daily;
   /* La table commence aux journées écoulées que les heures couvrent, et non à
      aujourd'hui. La charge quotidienne en porte quatorze, les heures deux : une
      rangée plus ancienne n'aurait ni ses quatre moments ni ses bornes tirées de
@@ -143,13 +182,28 @@ export function vueSemaine() {
   const debut = Math.max(0, i - P.JOURS_PASSES);
   /* Seize jours à venir depuis le 28 septembre 2026, jalon 13 : la charge
      quotidienne les porte, la vue les montre tous. */
-  const fin = Math.min(i + 16, d.time.length);
+  /* Jalon 17 : La semaine va aussi loin que les données portent. Par défaut,
+     elle s'arrête au dernier jour dont la confiance est calculée, le quinzième
+     avec ICON et ECMWF ; « Voir plus » déplie le seizième jour de la prévision
+     puis la tendance de GFS jusqu'au trente-quatrième, dans le graphique comme
+     dans la liste. */
+  const nPrev = c.daily.time.length;
+  const finPrev = Math.min(i + 16, nPrev);
+  let lim = -1;
+  for (let k = i; k < finPrev; k++) {
+    if (Scenarios.jour(c.daily.time[k]) || Ensemble.journee(c.daily.time[k])) lim = k;
+  }
+  const finCourt = lim >= i ? lim + 1 : finPrev;
+  const tend = semaineEtendue ? Scenarios.tendancePour(g) : null;
+  const dd = etendreQuotidien(c.daily, tend);
+  const fin = semaineEtendue ? Math.min(i + 35, dd.time.length) : finCourt;
+  const plusDispo = lim >= i;
   const lignes = [];
   let tmin = Infinity, tmax = -Infinity;
   for (let k = debut; k < fin; k++) {
-    const h = P.jourHoraire(d.time[k]);
-    tmin = Math.min(tmin, h ? h.tn : d.temperature_2m_min[k]);
-    tmax = Math.max(tmax, h ? h.tx : d.temperature_2m_max[k]);
+    const h = P.jourHoraire(dd.time[k]);
+    tmin = Math.min(tmin, h ? h.tn : dd.temperature_2m_min[k]);
+    tmax = Math.max(tmax, h ? h.tx : dd.temperature_2m_max[k]);
   }
   const amp = Math.max(1, tmax - tmin);
 
@@ -161,20 +215,20 @@ export function vueSemaine() {
     /* Les heures là où elles couvrent la journée entière, la charge quotidienne
        au-delà. Deux sources pour un seul jour font des contradictions dans une
        même feuille. */
-    const h = P.jourHoraire(d.time[k]);
-    const tn = h ? h.tn : d.temperature_2m_min[k];
-    const tx = h ? h.tx : d.temperature_2m_max[k];
-    const mm = h ? h.mm : d.precipitation_sum[k];
-    const pb = h ? h.pb : d.precipitation_probability_max[k];
-    const code = h ? h.code : d.weather_code[k];
+    const h = P.jourHoraire(dd.time[k]);
+    const tn = h ? h.tn : dd.temperature_2m_min[k];
+    const tx = h ? h.tx : dd.temperature_2m_max[k];
+    const mm = h ? h.mm : dd.precipitation_sum[k];
+    const pb = h ? h.pb : dd.precipitation_probability_max[k];
+    const code = h ? h.code : dd.weather_code[k];
 
     /* Trois journées portent un nom propre, celles qu'on désigne par un mot
        plutôt que par une date : hier, aujourd'hui, demain. « Avant-hier » ne
        tient pas dans la colonne, qui fait soixante-quatre points, et le nom
        court y suffit comme il suffit après-demain. */
     const nom = k === i ? "Auj." : k === i + 1 ? "Demain"
-      : k === i - 1 ? "Hier" : jourCourt(d.time[k]);
-    const date = new Date(`${d.time[k]}T12:00`)
+      : k === i - 1 ? "Hier" : jourCourt(dd.time[k]);
+    const date = new Date(`${dd.time[k]}T12:00`)
       .toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 
     /* La plage du jour se pose sur l'échelle commune de la semaine : deux
@@ -185,22 +239,26 @@ export function vueSemaine() {
 
     /* La pluie se lit sous le symbole, non dans une colonne à elle : la colonne
        repoussait la rangée sur trois lignes dès que la lame était écrite. */
-    const eau = mm >= 0.1 ? `${nombreFr(mm)} mm` : pb >= 5 ? `${Math.round(pb)} %` : "";
+    /* Une journée de tendance dit la part de ses scénarios pluvieux : une
+       moyenne de pluie à cinq semaines, deux millimètres presque chaque jour,
+       prêtait à la tendance une précision qu'elle n'a pas. */
+    const eau = k >= nPrev ? (pb >= 5 ? `${Math.round(pb)} %` : "")
+      : mm >= 0.1 ? `${nombreFr(mm)} mm` : pb >= 5 ? `${Math.round(pb)} %` : "";
 
     const pointe = k === i && maintenant !== null
       ? `<u class="sem-pt" style="left:${(((maintenant - tmin) / amp) * 100).toFixed(1)}%"></u>`
       : "";
 
-    const mo = P.momentsJour(d.time[k]);
-    const cle = `sm-${d.time[k]}`;
-    jours.push({ nom: k === i + 1 ? "Dem." : nom, tn, tx, mm, passe: k < i, auj: k === i,
+    const mo = P.momentsJour(dd.time[k]);
+    const cle = `sm-${dd.time[k]}`;
+    jours.push({ nom: k === i + 1 ? "Dem." : nom, tn, tx, mm, passe: k < i, auj: k === i, tend: k >= nPrev,
       /* Au-delà des sept premiers jours, le graphique ajoute le numéro du jour :
          la seconde semaine répétait « lun », « mar » sans dire laquelle. */
-      num: k >= i + 7 ? Number(d.time[k].slice(8, 10)) : null,
-      pb, code, vent: d.wind_speed_10m_max?.[k] ?? null,
-      raf: d.wind_gusts_10m_max?.[k] ?? null, dir: d.wind_direction_10m_dominant?.[k] ?? null,
+      num: k >= i + 7 ? Number(dd.time[k].slice(8, 10)) : null,
+      pb, code, vent: dd.wind_speed_10m_max?.[k] ?? null,
+      raf: dd.wind_gusts_10m_max?.[k] ?? null, dir: dd.wind_direction_10m_dominant?.[k] ?? null,
       long: k === i ? "aujourd'hui" : k === i + 1 ? "demain"
-        : new Date(`${d.time[k]}T12:00`).toLocaleDateString("fr-FR", { weekday: "long" }) });
+        : new Date(`${dd.time[k]}T12:00`).toLocaleDateString("fr-FR", { weekday: "long" }) });
 
     /* Le niveau de confiance se lit sur la ligne, sans déplier, demandé par
        Jérôme le 25 septembre 2026, jalon 12, lot 2. Il se pose sous la barre,
@@ -210,8 +268,12 @@ export function vueSemaine() {
     /* Depuis le jalon 13, la confiance vient des scénarios quotidiens des deux
        modèles, mixte sur leur recouvrement, ECMWF seul jusqu'au quinzième jour ;
        à défaut, de l'ensemble horaire d'ICON, comme avant. */
-    const sc = k >= i ? Scenarios.jour(d.time[k]) : null;
-    const ens = !sc && k >= i ? Ensemble.journee(d.time[k]) : null;
+    /* Une journée de tendance ne porte jamais de confiance : ses chiffres
+       viennent de GFS, et une confiance d'ICON ou d'ECMWF parlerait d'autres
+       données que les siennes. */
+    const prevue = k >= i && k < nPrev;
+    const sc = prevue ? Scenarios.jour(dd.time[k]) : null;
+    const ens = !sc && prevue ? Ensemble.journee(dd.time[k]) : null;
     const accord = sc ? Scenarios.accordDe(sc.etendue) : ens ? Ensemble.accordDe(ens.etendue).nom : null;
 
     const corps = `<span class="j"><b>${esc(nom)}</b><em>${esc(date)}</em></span>`
@@ -242,9 +304,9 @@ export function vueSemaine() {
     /* Au-delà des sept jours d'heures, la journée n'a pas de moments ; si les
        scénarios la couvrent, elle se déplie sur sa seule phrase de confiance,
        pour que la comparaison des modèles se lise jusqu'au quinzième jour. */
-    const phraseLoin = !mo && k >= i ? confiance(d.time[k]) : "";
+    const phraseLoin = !mo && k >= i && k < nPrev ? confiance(dd.time[k]) : "";
     const tete = mo || phraseLoin
-      ? `<button type="button" class="sem-r${mo ? "" : " sem-loin"}" data-jour="${esc(d.time[k])}" `
+      ? `<button type="button" class="sem-r${mo ? "" : " sem-loin"}" data-jour="${esc(dd.time[k])}" `
         + `aria-expanded="false" aria-controls="${cle}">${corps}`
         + ico("chevron_bas", "sem-chev") + `</button>`
       : `<div class="sem-r sem-fixe">${corps}</div>`;
@@ -255,13 +317,13 @@ export function vueSemaine() {
     /* Le week-end se repère d'un fond léger, jalon 12, lot 5 : c'est là qu'on
        cherche d'abord dans une semaine. Et le volet mène aux heures de la
        journée, dans le ruban calé sur elle. */
-    const jourSem = new Date(`${d.time[k]}T12:00`).getDay();
+    const jourSem = new Date(`${dd.time[k]}T12:00`).getDay();
     const weekEnd = jourSem === 0 || jourSem === 6;
     lignes.push(`<div class="sem-j${k === i ? " sem-auj" : ""}`
-      + `${k < i ? " sem-passe" : ""}${weekEnd ? " sem-we" : ""}">${tete}`
+      + `${k < i ? " sem-passe" : ""}${weekEnd ? " sem-we" : ""}${k >= nPrev ? " sem-tend" : ""}">${tete}`
       + (mo ? `<div class="md" id="${cle}" hidden>${volet(mo, k === i, heureCourante)}`
-        + `${confiance(d.time[k])}`
-        + `<button type="button" class="sem-heures" data-jour-heures="${esc(d.time[k])}">Voir les heures</button>`
+        + `${confiance(dd.time[k])}`
+        + `<button type="button" class="sem-heures" data-jour-heures="${esc(dd.time[k])}">Voir les heures</button>`
         + `</div>`
         : phraseLoin ? `<div class="md md-loin" id="${cle}" hidden>${phraseLoin}</div>` : "")
       + `</div>`);
@@ -269,11 +331,13 @@ export function vueSemaine() {
 
   return {
     titre: "La semaine",
-    corps: grapheSemaine(jours) + grandesLignesHTML(jours)
+    corps: grapheSemaine(jours, boutonSemaine(plusDispo)) + grandesLignesHTML(jours)
       + `<div class="carte sem-carte"><div class="sem">${lignes.join("")}</div>`
+      + etatTendance(g, tend) + boutonSemaine(plusDispo)
       + `<p class="note">Chaque journée se résume de ses heures. Jusqu'à trois jours, `
       + `la prévision est affinée par AROME ; au delà, elle vient du modèle `
-      + `global.</p></div>`,
+      + `global.${tend?.length ? " Au-delà de seize jours, tendance du modèle américain GFS : médiane de "
+        + `${tend[0].n} scénarios pour les températures, part des scénarios pluvieux pour la pluie.` : ""}</p></div>`,
     brancher(bloc) { brancherSemaine(bloc); },
   };
 }
@@ -318,7 +382,7 @@ function grandesLignesHTML(jours) {
   return l.length ? `<div class="carte retenir sem-lignes"><div class="conseils">${conseilsHTML(l)}</div></div>` : "";
 }
 
-export function grapheSemaine(jours) {
+export function grapheSemaine(jours, basDeCarte = "") {
   const n = jours.length;
   if (n < 2) return "";
   /* Trois bandes depuis le 28 septembre 2026 : les températures, puis le vent,
@@ -331,7 +395,9 @@ export function grapheSemaine(jours) {
      graphique défile sous le doigt, ouvert sur les premiers jours : seize jours
      tassés dans la largeur de l'écran mêleraient leurs étiquettes. */
   const defile = n > 10;
-  const COL = 34;
+  /* Quarante-deux points par colonne : à trente-quatre, « sam 24 » et « dim 25 »
+     se touchaient. */
+  const COL = 42;
   const L = defile ? 8 + n * COL : 340, H = avecVent ? 214 : 176, bord = 4, col = (L - 2 * bord) / n;
   const x = k => bord + (k + 0.5) * col;
   const mn = Math.min(...jours.map(j => j.tn)), mx = Math.max(...jours.map(j => j.tx));
@@ -343,8 +409,8 @@ export function grapheSemaine(jours) {
   const vHaut = 124, vBas = 150;
   const vMax = Math.max(30, ...jours.map(j => ventDe(j) ?? 0));
   const yv = v => vBas - (v / vMax) * (vBas - vHaut);
-  const fonds = jours.map((j, k) => (j.passe || j.auj)
-    ? `<rect class="sg-${j.auj ? "auj" : "passe"}" x="${(x(k) - col / 2 + 1).toFixed(1)}" y="2" `
+  const fonds = jours.map((j, k) => (j.passe || j.auj || j.tend)
+    ? `<rect class="sg-${j.auj ? "auj" : j.tend ? "tend" : "passe"}" x="${(x(k) - col / 2 + 1).toFixed(1)}" y="2" `
       + `width="${(col - 2).toFixed(1)}" height="${H - 4}" rx="10"/>` : "").join("");
   const ligne = (cle, cls) => `<polyline class="${cls}" fill="none" points="`
     + jours.map((j, k) => `${x(k).toFixed(1)},${y(j[cle]).toFixed(1)}`).join(" ") + `"/>`;
@@ -356,7 +422,7 @@ export function grapheSemaine(jours) {
     if (!(j.mm >= 0.1)) return "";
     const h = Math.max(2, Math.min(1, j.mm / 10) * pluieMax);
     /* La quantité se lit au-dessus de la barre, en millimètres. */
-    const q = j.mm >= 10 ? String(Math.round(j.mm)) : nombreFr(Math.round(j.mm * 10) / 10);
+    const q = j.tend ? "" : j.mm >= 10 ? String(Math.round(j.mm)) : nombreFr(Math.round(j.mm * 10) / 10);
     return `<rect class="sg-pluie${j.passe ? " sg-p" : ""}" x="${(x(k) - col * 0.2).toFixed(1)}" `
       + `y="${(pied - h).toFixed(1)}" width="${(col * 0.4).toFixed(1)}" height="${h.toFixed(1)}" rx="2"/>`
       + `<text class="sg-mm${j.passe ? " sg-p" : ""}" x="${x(k).toFixed(1)}" y="${(pied - h - 3).toFixed(1)}">${q}</text>`;
@@ -389,7 +455,7 @@ export function grapheSemaine(jours) {
     + (defile ? ` width="${L}" height="${H}"` : "") + ` role="img" aria-label="${esc(resume)}">`
     + fonds + pluie + vent + ligne("tx", "sg-max") + ligne("tn", "sg-min")
     + points("tx", "sg-pmax", -7) + points("tn", "sg-pmin", 14) + noms
-    + `</svg>` + (defile ? `</div>` : "") + `<p class="note sg-note">${avecVent ? "Rafales en kilomètres par heure, pluie en millimètres." : "Pluie en millimètres."}</p></div>`;
+    + `</svg>` + (defile ? `</div>` : "") + `<p class="note sg-note">${avecVent ? "Rafales en kilomètres par heure, pluie en millimètres." : "Pluie en millimètres."}</p>${basDeCarte}</div>`;
 }
 
 /* L'accord des scénarios sur une journée, écrit en toutes lettres sous ses

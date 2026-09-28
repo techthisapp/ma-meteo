@@ -137,3 +137,54 @@ export function accordDe(etendue) {
 
 /* Pour les contrôles : poser une charge connue. */
 export const poser = c => { charge = c; };
+
+/* La tendance au-delà de la confiance calculée, jalon 17, demandé par Jérôme le
+   28 septembre 2026 : pousser La semaine au plus loin que les données portent.
+   Le modèle américain GFS donne 31 scénarios sur 35 jours, remplis jusqu'au
+   trente-quatrième ; ICON s'arrête à sept, ECMWF à quinze, la prévision à
+   seize. Au-delà de quinze jours, un seul modèle ne donne plus qu'une
+   indication : chaque journée se résume par la médiane des scénarios pour les
+   températures, la moyenne pour la pluie et la part des scénarios où il tombe
+   au moins un millimètre, sans mot de confiance. La tendance n'est lue qu'au
+   premier « Voir plus » : l'ouverture de l'application n'en paie pas le prix. */
+const CACHE_TENDANCE = "mameteo.tendance.v1";
+const GARDE_TENDANCE = 6 * 3600 * 1000;
+let tendance = null, cleTendance = null, echecTendance = null;
+const cleDe = ({ lat, lon }) => `${lat},${lon}|gfs_seamless|35`;
+
+export function reduireTendance(daily) {
+  const tx = reduire(daily, "temperature_2m_max"), tn = reduire(daily, "temperature_2m_min"),
+    mm = reduire(daily, "precipitation_sum");
+  if (!tx || !tn || !mm) return [];
+  return tx.time.map((t, k) => {
+    const a = tx.membres[k], b = tn.membres[k], p = mm.membres[k];
+    if (a.length < 5 || b.length < 5 || !p.length) return null;
+    return { date: t, tx: quantile(a, 0.5), tn: quantile(b, 0.5), n: a.length,
+      mm: Math.round(p.reduce((s, v) => s + v, 0) / p.length * 10) / 10,
+      pb: Math.round(p.filter(v => v >= 1).length / p.length * 100) };
+  }).filter(Boolean);
+}
+
+export async function chargerTendance(g, fetcheur = fetch) {
+  if (!Number.isFinite(g?.lat)) return null;
+  const cle = cleDe(g);
+  if (tendance && cleTendance === cle) return tendance;
+  try {
+    const c = JSON.parse(localStorage.getItem(CACHE_TENDANCE) || "null");
+    if (c && c.cle === cle && Date.now() - c.t < GARDE_TENDANCE) { tendance = c.d; cleTendance = cle; return tendance; }
+  } catch { /* cache indisponible */ }
+  try {
+    const u = `${SERVICE}?latitude=${g.lat}&longitude=${g.lon}`
+      + `&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&models=gfs_seamless&forecast_days=35&timezone=Europe%2FParis`;
+    const r = await fetcheur(u);
+    if (!r.ok) throw new Error(`tendance ${r.status}`);
+    tendance = reduireTendance((await r.json()).daily);
+    cleTendance = cle; echecTendance = null;
+    try { localStorage.setItem(CACHE_TENDANCE, JSON.stringify({ cle, t: Date.now(), d: tendance })); } catch { /* plein */ }
+    return tendance;
+  } catch { echecTendance = cle; return null; }
+}
+
+export const tendancePour = g => (Number.isFinite(g?.lat) && cleTendance === cleDe(g) ? tendance : null);
+export const tendanceEnEchec = g => Number.isFinite(g?.lat) && echecTendance === cleDe(g);
+export const poserTendance = (g, t) => { tendance = t; cleTendance = g ? cleDe(g) : null; echecTendance = null; };

@@ -2253,3 +2253,15 @@ button.rangee:active{background:var(--surface-2)}
 /* Le volet réduit des journées lointaines, jalon 13 : la seule phrase de
    confiance, sans les quatre moments. */
 .md.md-loin{display:block;padding-top:var(--espace-xs)}
+
+/* La semaine au plus loin, jalon 17 : le bouton « Voir plus » du graphique et
+   de la liste, et les journées de tendance, sur un fond léger. */
+.sem-plus{
+  display:block;margin:var(--espace-sm) auto 0;min-height:var(--touche);padding:0 var(--espace-lg);
+  border:0;border-radius:var(--rayon-plein);font:inherit;font-size:var(--texte-note);
+  font-weight:var(--graisse-semibold);color:var(--accent);
+  background:color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.sg-tend{fill:var(--etiquette-2);opacity:.05}
+.sem-j.sem-tend .j em{font-style:italic}
+.sem-tend-etat{text-align:center}

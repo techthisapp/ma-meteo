@@ -103,7 +103,21 @@ const ENSEMBLE_QUOTIDIEN = (() => {
   colonnes("ecmwf_ifs025_ensemble", 50, 15);
   return { daily };
 })();
-const charpenteEnsemble = url => (/[?&]daily=/.test(url) ? ENSEMBLE_QUOTIDIEN : ENSEMBLE);
+/* La tendance de GFS, jalon 17 : trente-cinq jours, 31 membres, colonnes sans
+   suffixe puisqu'un seul modèle est demandé. Un membre sur trois est pluvieux. */
+const ENSEMBLE_TENDANCE = (() => {
+  const time = Array.from({ length: 35 }, (_, k) => new Date(Date.UTC(2026, 7, 18 + k)).toISOString().slice(0, 10));
+  const daily = { time };
+  for (let m = 0; m <= 30; m++) {
+    const suf = m ? `_member${String(m).padStart(2, "0")}` : "";
+    daily[`temperature_2m_max${suf}`] = time.map((_, k) => 20 + ((m * 5) % 9) / 2 - k * 0.1);
+    daily[`temperature_2m_min${suf}`] = time.map((_, k) => 10 + ((m * 5) % 9) / 3 - k * 0.1);
+    daily[`precipitation_sum${suf}`] = time.map(() => (m % 3 === 0 ? 2 : 0));
+  }
+  return { daily };
+})();
+const charpenteEnsemble = url => (/models=gfs_seamless/.test(url) ? ENSEMBLE_TENDANCE
+  : /[?&]daily=/.test(url) ? ENSEMBLE_QUOTIDIEN : ENSEMBLE);
 // Six fois plus large : les scénarios y sont partagés au sens de `ACCORDS`.
 const ENSEMBLE_LARGE = ensembleDe(6);
 
@@ -1736,6 +1750,47 @@ ok("la semaine suivante se dit en une ligne de tendance, et seulement avec cinq 
   tendDit[0] === "Semaine prochaine plus fraîche, autour de 20° au plus chaud, 2 jours de pluie."
   && tendDit[1] === "Semaine prochaine semblable, autour de 25° au plus chaud, sans pluie notable."
   && tendDit[2] === null, JSON.stringify(tendDit));
+/* Jalon 17 : La semaine au plus loin. La tendance de GFS se réduit par
+   journée, prolonge la charge quotidienne sans doublon, et se déplie d'un
+   « Voir plus » commun au graphique et à la liste. */
+const tendRed = await pg.evaluate(async () => {
+  const S = await import("/src/scenarios.js"), V = await import("/src/vues.js");
+  const r = S.reduireTendance({ time: ["2026-09-01"],
+    temperature_2m_max: [20], temperature_2m_max_member01: [22], temperature_2m_max_member02: [21],
+    temperature_2m_max_member03: [23], temperature_2m_max_member04: [19],
+    temperature_2m_min: [10], temperature_2m_min_member01: [12], temperature_2m_min_member02: [11],
+    temperature_2m_min_member03: [13], temperature_2m_min_member04: [9],
+    precipitation_sum: [0], precipitation_sum_member01: [2], precipitation_sum_member02: [0],
+    precipitation_sum_member03: [3], precipitation_sum_member04: [1] })[0];
+  const x = V.etendreQuotidien({ time: ["2026-09-01", "2026-09-02"], temperature_2m_max: [1, 2], temperature_2m_min: [0, 0],
+    precipitation_sum: [0, 0], precipitation_probability_max: [0, 0], weather_code: [0, 0] },
+    [{ date: "2026-09-02", tx: 9, tn: 9, mm: 9, pb: 9 }, { date: "2026-09-03", tx: 15, tn: 5, mm: 1.2, pb: 60 }]);
+  return { r: r && [r.tx, r.tn, r.mm, r.pb, r.n], time: x.time.join(" "), code: x.weather_code[2], pb: x.precipitation_probability_max[2] };
+});
+ok("la tendance de GFS se résume par journée : médianes, pluie moyenne, part des scénarios pluvieux",
+  JSON.stringify(tendRed.r) === JSON.stringify([21, 11, 1.2, 60, 5]), JSON.stringify(tendRed));
+ok("la tendance prolonge la charge quotidienne, sans doublon, le symbole tiré de la pluie",
+  tendRed.time === "2026-09-01 2026-09-02 2026-09-03" && tendRed.code === 61 && tendRed.pb === 60, JSON.stringify(tendRed));
+await onglet("semaine");
+const avantPlus = await pg.evaluate(() => ({ lignes: document.querySelectorAll("#ecran .sem-j:not(.sem-passe)").length,
+  boutons: [...document.querySelectorAll("#ecran [data-semaine-plus]")].map(b => b.textContent) }));
+const bPlus = pg.locator("#ecran [data-semaine-plus]").first();
+if (await bPlus.count()) { await bPlus.click(); await pg.waitForTimeout(1800); }
+const apresPlus = await pg.evaluate(() => {
+  const t = [...document.querySelectorAll("#ecran .sem-j.sem-tend")];
+  return { lignes: document.querySelectorAll("#ecran .sem-j:not(.sem-passe)").length, tend: t.length,
+    eau: t[0]?.querySelector(".c em")?.textContent || "", conf: t.some(l => l.querySelector(".sem-conf")),
+    fonds: document.querySelectorAll("#ecran .sem-graphe .sg-tend").length,
+    boutons: [...document.querySelectorAll("#ecran [data-semaine-plus]")].map(b => b.textContent) };
+});
+if (apresPlus.boutons.length) { await pg.locator("#ecran [data-semaine-plus]").first().click(); await pg.waitForTimeout(400); }
+await onglet("accueil");
+ok("La semaine se déplie d'un « Voir plus » commun au graphique et à la liste, jusqu'à la tendance",
+  avantPlus.boutons.length === 2 && avantPlus.boutons.every(b => b.startsWith("Voir plus"))
+  && apresPlus.tend > 10 && apresPlus.lignes > avantPlus.lignes && apresPlus.fonds === apresPlus.tend
+  && apresPlus.boutons.every(b => b === "Voir moins"), JSON.stringify({ avantPlus, apresPlus }));
+ok("une journée de tendance dit la part de ses scénarios pluvieux, sans mot de confiance",
+  apresPlus.eau === "35 %" && !apresPlus.conf, JSON.stringify(apresPlus));
 ok("le graphique borne sa largeur, et se résume en une phrase",
   semGraphe.borne === "520px"
   && semGraphe.resume === "De 25 à 30 degrés au plus chaud, 5,4 millimètres de pluie en tout.",
