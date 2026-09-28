@@ -17,6 +17,7 @@ import * as Relief from "./relief.js";
 import * as Temps from "./temps.js";
 import * as Ensemble from "./ensemble.js";
 import * as Scenarios from "./scenarios.js";
+import * as Comparaison from "./comparaison.js";
 import * as Parapluie from "./parapluie.js";
 import * as Reponse from "./reponse.js";
 import * as Activites from "./activites.js";
@@ -3697,6 +3698,74 @@ export function vueReglages(ctx, rendre, majEtat) {
    Elle se lit à l'ouverture et non au chargement de l'application : l'archive
    longue pèse cent soixante-six kilooctets, et c'est le prix d'une question
    qu'on ne pose pas tous les jours. */
+/* La carte de la comparaison dans le temps, jalon 14, lot 1. La semaine en
+   cours vient de la prévision, jours passés compris ; l'autre année de
+   l'archive, lue pour ces sept jours seulement. */
+function brancherComparaison(cmp, bloc, g, c, date) {
+  if (!cmp) return;
+  const semaine = Comparaison.semaineDe(date);
+  const cette = semaine.map(t => {
+    const k = c ? c.daily.time.indexOf(t) : -1;
+    return k < 0 ? { date: t } : { date: t, tx: c.daily.temperature_2m_max[k],
+      tn: c.daily.temperature_2m_min[k], mm: c.daily.precipitation_sum[k] };
+  });
+  const anneeCourante = Number(date.slice(0, 4));
+  const tete = annee => `<div class="carte-tete cmp-tete"><h3>Cette semaine face à</h3>`
+    + `<select class="cmp-annee" aria-label="Année de comparaison">`
+    + Array.from({ length: anneeCourante - 1940 }, (_, k) => anneeCourante - 1 - k)
+      .map(a => `<option value="${a}"${a === annee ? " selected" : ""}>${a}</option>`).join("")
+    + `</select></div>`;
+  const montrer = async annee => {
+    cmp.hidden = false;
+    cmp.innerHTML = tete(annee) + `<p class="note">Lecture de ${annee}…</p>`;
+    let autre = null;
+    try { autre = await Comparaison.lireAnnee(g.lat, g.lon, semaine, annee); } catch { autre = null; }
+    if (!bloc.isConnected) return;
+    const b = autre?.length ? Comparaison.bilan(cette, autre, annee) : null;
+    cmp.innerHTML = tete(annee) + (b
+      ? grapheComparaison(cette, autre, anneeCourante, annee, date)
+        + `<div class="conseils">${conseilsHTML([{ i: "thermo", g: 1, t: b.phrase }])}</div>`
+        + `<p class="note">Trait plein : ${anneeCourante}, prévision comprise. Tirets : ${annee}, relevés de l'archive. `
+        + `Les barres de pluie vont par paires, ${anneeCourante} à gauche.</p>`
+      : `<p class="note">L'archive a besoin du réseau.</p>`);
+    cmp.querySelector(".cmp-annee").addEventListener("change", e => montrer(Number(e.target.value)));
+  };
+  montrer(anneeCourante - 1);
+}
+
+/* Le graphique à sept colonnes : maximums et minimums des deux semaines, trait
+   plein pour la semaine en cours, tirets pour l'autre année, et la pluie en
+   paires de barres. Les jours à venir de la semaine en cours ont des points
+   creux : ce sont des prévisions. */
+export function grapheComparaison(cette, autre, a1, a2, aujourdhui) {
+  const L = 340, H = 168, n = 7, col = (L - 8) / n, x = k => 4 + (k + 0.5) * col;
+  const vals = [...cette, ...autre].flatMap(j => [j.tx, j.tn]).filter(Number.isFinite);
+  const mn = Math.min(...vals), mx = Math.max(...vals), amp = Math.max(4, mx - mn);
+  const y = t => 100 - ((t - mn) / amp) * 76;
+  const ligne = (l, cle, cls) => `<polyline class="${cls}" fill="none" points="`
+    + l.map((j, k) => (Number.isFinite(j?.[cle]) ? `${x(k).toFixed(1)},${y(j[cle]).toFixed(1)}` : "")).filter(Boolean).join(" ") + `"/>`;
+  const points = (cle, cls, dy) => cette.map((j, k) => (!Number.isFinite(j[cle]) ? "" :
+    `<circle class="${cls}${j.date > aujourdhui ? " cmp-prevu" : ""}" cx="${x(k).toFixed(1)}" cy="${y(j[cle]).toFixed(1)}" r="2.8"/>`
+    + (dy ? `<text class="sg-v" x="${x(k).toFixed(1)}" y="${(y(j[cle]) + dy).toFixed(1)}">${Math.round(j[cle])}°</text>` : ""))).join("");
+  const mmMax = Math.max(10, ...[...cette, ...autre].map(j => j?.mm || 0));
+  const barre = (j, k, dx, cls) => (!(j?.mm >= 0.1) ? "" : (() => {
+    const h = Math.max(2, (j.mm / mmMax) * 26);
+    return `<rect class="${cls}" x="${(x(k) + dx - 4).toFixed(1)}" y="${(146 - h).toFixed(1)}" width="8" height="${h.toFixed(1)}" rx="2"/>`;
+  })());
+  const pluie = cette.map((j, k) => barre(j, k, -5, "sg-pluie") + barre(autre[k], k, 5, "cmp-pluie2")).join("");
+  const noms = cette.map((j, k) => {
+    const nom = j.date === aujourdhui ? "Auj."
+      : new Date(`${j.date}T12:00`).toLocaleDateString("fr-FR", { weekday: "short" }).replace(".", "");
+    return `<text class="sg-j${j.date === aujourdhui ? " sg-a" : ""}" x="${x(k).toFixed(1)}" y="${H - 5}">${esc(nom)}</text>`;
+  }).join("");
+  const b = Comparaison.bilan(cette, autre, a2);
+  const resume = b ? b.phrase.replace(/ ; /, ", ") : "";
+  return `<svg class="sg cmp" viewBox="0 0 ${L} ${H}" role="img" aria-label="${esc(resume)}">`
+    + pluie + ligne(autre, "tx", "cmp-max2") + ligne(autre, "tn", "cmp-min2")
+    + ligne(cette, "tx", "sg-max") + ligne(cette, "tn", "sg-min")
+    + points("tx", "sg-pmax", -7) + points("tn", "sg-pmin", 0) + noms + `</svg>`;
+}
+
 export function vueClimat(ctx, rendre, majEtat) {
   const g = Reglages.lire();
   if (!Number.isFinite(g.lat) || !Number.isFinite(g.lon)) {
@@ -3711,6 +3780,9 @@ export function vueClimat(ctx, rendre, majEtat) {
     sous: g.commune || "",
     corps:
       `<div class="carte" id="clJour"><p class="note">Lecture de l'archive…</p></div>`
+      /* La comparaison dans le temps, jalon 14 : la semaine en cours face aux
+         mêmes dates d'une autre année, l'an dernier par défaut. */
+      + `<div class="carte" id="clComparer" hidden></div>`
       + `<div class="carte" id="clRecords" hidden></div>`
       + `<div class="carte" id="clSaison" hidden></div>`
       + `<div class="carte" id="clBandes" hidden></div>`
@@ -3735,6 +3807,8 @@ export function vueClimat(ctx, rendre, majEtat) {
       const h = P.jourHoraire(date);
       const max = h ? h.tx
         : (c && iJ >= 0 ? c.daily.temperature_2m_max[iJ] : null);
+
+      brancherComparaison(bloc.querySelector("#clComparer"), bloc, g, c, date);
 
       (async () => {
         let d = null;

@@ -24,6 +24,7 @@ const COQUE = [
   "./src/vigilance.js",
   "./src/ensemble.js",
   "./src/scenarios.js",
+  "./src/comparaison.js",
   "./src/justesse.js",
   "./src/parapluie.js",
   "./src/reponse.js",

@@ -38,6 +38,8 @@
    forme sous laquelle la pluie paraît ici. */
 
 const SERVICE = "https://archive-api.open-meteo.com/v1/archive";
+/* Exposée pour la comparaison du jalon 14, qui lit la même archive. */
+export const SERVICE_ARCHIVE = SERVICE;
 export const DEBUT = 1950;
 export const COLONNES = ["temperature_2m_max", "temperature_2m_min", "precipitation_sum"];
 

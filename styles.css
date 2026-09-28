@@ -2253,3 +2253,14 @@ button.rangee:active{background:var(--surface-2)}
 /* Le volet réduit des journées lointaines, jalon 13 : la seule phrase de
    confiance, sans les quatre moments. */
 .md.md-loin{display:block;padding-top:var(--espace-xs)}
+
+/* La comparaison dans le temps, jalon 14 : l'autre année en tirets gris, les
+   jours à venir de la semaine en cours en points creux. */
+.cmp-tete{display:flex;align-items:center;justify-content:space-between;gap:var(--espace-sm)}
+.cmp-annee{font:inherit;font-size:var(--texte-note);color:var(--accent);background:transparent;border:0;
+  min-height:var(--touche);padding:0 var(--espace-xs)}
+.cmp-max2,.cmp-min2{stroke:var(--etiquette-2);stroke-width:1.6;stroke-dasharray:4 3;opacity:.8}
+.cmp-pluie2{fill:var(--etiquette-2);opacity:.45}
+.sg-pmax.cmp-prevu,.sg-pmin.cmp-prevu{fill:var(--surface);stroke-width:1.5}
+.sg-pmax.cmp-prevu{stroke:var(--ic-soleil)}
+.sg-pmin.cmp-prevu{stroke:var(--ic-pluie)}
