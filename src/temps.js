@@ -724,16 +724,27 @@ export function dessiner(cv, t) {
   if (d.nappe > 0 && fer > 0) {
     const pf = m.plafond;
     const haut = H;
-    /* Les tuiles se posent sur des points entiers et se chevauchent d'un point :
-       posées à des abscisses fractionnaires, elles laissaient entre elles un fil
-       que la garde des coutures a relevé une fois le ciel de jour éclairci. */
+    /* Les tuiles se posent une fois pour toutes, sur des points entiers et en
+       se chevauchant d'un point, dans une bande gardée tant que la taille ne
+       change pas : posées à des abscisses fractionnaires, elles laissaient
+       entre elles un fil. La bande entière, elle, se pose à une abscisse
+       fractionnaire. Calée au point entier, elle avançait par sauts d'un point,
+       un à-coup toutes les vingt images à trois points par seconde, ce que
+       Jérôme a relevé le 28 septembre 2026. */
     const larg = Math.round(haut * (pf.width / pf.height));
-    const dx = Math.round(((t * derive * 0.22) % larg) - larg);
+    const n = Math.ceil(L / larg) + 1;
+    if (!m.bande || m.bande.width !== larg * n || m.bande.height !== haut) {
+      const b = document.createElement("canvas");
+      b.width = larg * n; b.height = haut;
+      const bx = b.getContext("2d");
+      for (let i = 0; i < n; i++) bx.drawImage(pf, larg * i, 0, larg + 1, haut);
+      m.bande = b;
+    }
+    const dx = ((t * derive * 0.22) % larg) - larg;
     x.save();
     x.globalAlpha = d.nappe * Math.min(1, fer * 1.25);
-    for (let i = 0; i < Math.ceil(L / larg) + 2; i++) {
-      x.drawImage(pf, dx + larg * i, 0, larg + 1, haut);
-    }
+    x.drawImage(m.bande, dx, 0);
+    if (dx + m.bande.width < L) x.drawImage(m.bande, dx + m.bande.width - 1, 0);
     x.restore();
   }
 

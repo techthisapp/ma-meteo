@@ -214,6 +214,16 @@ case "$N" in
   65) # Une journée de tendance affiche une moyenne de pluie.
      perl -0pi -e 's/    const eau = k >= nPrev \? \(pb >= 5/    const eau = false ? (pb >= 5/' src/vues.js
      ATTENDU="une journée de tendance dit la part de ses scénarios pluvieux, sans mot de confiance" ;;
+  66) # Le plafond se cale de nouveau au point entier.
+     perl -0pi -e 's/    const dx = \(\(t \* derive \* 0\.22\) % larg\) - larg;/    const dx = Math.round(((t * derive * 0.22) % larg) - larg);/' src/temps.js
+     ATTENDU="le plafond du ciel couvert avance à chaque image, sans à-coup" ;;
+  67) # L'onglet reprend son ancien nom.
+     perl -0pi -e 's/  \["semaine", "semaine", "À venir"\],/  ["semaine", "semaine", "La semaine"],/' src/app.js
+     ATTENDU="l.onglet des jours à venir s.appelle « À venir »" ;;
+  68) # La rangée prise ne suit plus le doigt.
+     # Sa garde est dans une section plus loin : lancer avec JUSQUA_EPREUVE.
+     perl -0pi -e 's/    const suivre = \(\) => \{ el\.style\.transform = [^\n]*\n/    const suivre = () => {};\n/' src/vues.js
+     ATTENDU="la rangée prise suit le doigt" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

@@ -66,7 +66,9 @@ const ONGLETS = [
   /* « Le temps » a quitté la barre le 25 septembre 2026, jalon 10, lot 6 : il
      s'ouvre en page de détail depuis la bande horaire, les tuiles et les
      conseils, et depuis tout écran qui mène à une voie du ruban. */
-  ["semaine", "semaine", "La semaine"],
+  /* « À venir » depuis le 28 septembre 2026, demandé par Jérôme : l'écran va
+     désormais jusqu'à cinq semaines, et « La semaine » ne le disait plus. */
+  ["semaine", "semaine", "À venir"],
   /* Le soleil et la lune tiennent une seule destination depuis le 3 septembre
      2026 : deux écrans d'un même sujet, choisis par un sélecteur en tête de
      contenu. La place libérée est celle de La carte, et les étoiles du jalon 9

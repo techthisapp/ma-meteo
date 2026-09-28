@@ -1033,7 +1033,7 @@ ok("la barre d'onglets porte quatre destinations",
   await pg.locator(".onglet").count() === 4, String(await pg.locator(".onglet").count()));
 const nomsOnglets = (await pg.locator(".onglet span").allInnerTexts()).join(",");
 ok("les destinations sont les bonnes",
-  nomsOnglets === "Accueil,La semaine,Le ciel,La carte", nomsOnglets);
+  nomsOnglets === "Accueil,À venir,Le ciel,La carte", nomsOnglets);
 ok("aucun libellé d'onglet n'est tronqué", await pg.evaluate(() =>
   [...document.querySelectorAll(".onglet span")]
     .every(e => e.scrollWidth <= e.clientWidth + 1)));
@@ -1637,7 +1637,7 @@ ok("le week-end de La semaine se repère d'un fond léger, et lui seul",
   weDit.some(x => x.we) && weDit.every(x => x.we === x.marque),
   weDit.map(x => `${x.j}${x.marque ? "*" : ""}`).join(" "));
 ok("une journée dépliée mène à ses heures, le ruban ouvert à son minuit",
-  /^\S+ 00 h à /.test(heuresDit.fenetre) && heuresDit.retour.trim() === "La semaine",
+  /^\S+ 00 h à /.test(heuresDit.fenetre) && heuresDit.retour.trim() === "À venir",
   `${jourVise} : « ${heuresDit.fenetre} », retour « ${heuresDit.retour.trim()} »`);
 
 await onglet("accueil");
@@ -1791,6 +1791,33 @@ ok("La semaine se déplie d'un « Voir plus » commun au graphique et à la list
   && apresPlus.boutons.every(b => b === "Voir moins"), JSON.stringify({ avantPlus, apresPlus }));
 ok("une journée de tendance dit la part de ses scénarios pluvieux, sans mot de confiance",
   apresPlus.eau === "35 %" && !apresPlus.conf, JSON.stringify(apresPlus));
+/* L'onglet « La semaine » s'appelle « À venir » depuis le 28 septembre 2026. */
+const nomOnglet = await pg.evaluate(() => document.querySelector('[data-onglet="semaine"]')?.textContent.trim() || "");
+ok("l'onglet des jours à venir s'appelle « À venir »", nomOnglet === "À venir", nomOnglet);
+
+/* Le plafond avance à chaque image : calé au point entier, il restait figé
+   entre deux sauts d'un point, un à-coup toutes les vingt images. Deux images
+   séparées d'un trentième de seconde doivent différer. */
+const plafondBouge = await pg.evaluate(async () => {
+  const V = await import("/src/vues.js"), T = await import("/src/temps.js");
+  const d = document.createElement("div");
+  d.style.cssText = "position:fixed;left:0;top:0;width:390px;z-index:99";
+  d.innerHTML = `<div class="plein plein-accueil">${V.bandeauAccueil({ lat: 47.63, lon: 4.38 },
+    new Date("2026-09-28T12:00:00+02:00"), T.depuis(3, 100, 0), 10).ciel}</div>`;
+  document.body.append(d);
+  await new Promise(r => setTimeout(r, 100));
+  const cv = d.querySelector("canvas.ci-temps");
+  const x = cv.getContext("2d");
+  T.dessiner(cv, 20);
+  const a = x.getImageData(0, 0, cv.width, Math.round(cv.height / 2)).data;
+  T.dessiner(cv, 20 + 1 / 30);
+  const b = x.getImageData(0, 0, cv.width, Math.round(cv.height / 2)).data;
+  d.remove();
+  let n = 0;
+  for (let k = 0; k < a.length; k += 4) if (a[k] !== b[k] || a[k + 1] !== b[k + 1] || a[k + 2] !== b[k + 2]) n++;
+  return n;
+});
+ok("le plafond du ciel couvert avance à chaque image, sans à-coup", plafondBouge > 0, `${plafondBouge} points changés`);
 ok("le graphique borne sa largeur, et se résume en une phrase",
   semGraphe.borne === "520px"
   && semGraphe.resume === "De 25 à 30 degrés au plus chaud, 5,4 millimètres de pluie en tout.",
@@ -3927,6 +3954,15 @@ ok("l'appui long soulève la rangée",
   await pg.locator(".co-prise").count() === 1);
 await pg.mouse.move(bRang.x + 120, bRang.y + bRang.height * 1.7, { steps: 8 });
 await pg.waitForTimeout(200);
+/* La rangée prise suit le doigt au lieu de sauter de place en place : son
+   milieu reste sous le pointeur, à quelques points près. */
+const suitDoigt = await pg.evaluate(y => {
+  const e = document.querySelector(".co-prise");
+  if (!e) return null;
+  const b = e.getBoundingClientRect();
+  return { ecart: Math.round(Math.abs(b.top + b.height / 2 - y)), transforme: /translateY/.test(e.style.transform) };
+}, bRang.y + bRang.height * 1.7);
+ok("la rangée prise suit le doigt", suitDoigt && suitDoigt.transforme && suitDoigt.ecart <= 24, JSON.stringify(suitDoigt));
 ok("le déplacement change l'ordre en direct",
   (await pg.locator(".co:not(.co-pos) .co-t b").allInnerTexts()).join(",")
     === avantOrdre.split(",").reverse().join(","),

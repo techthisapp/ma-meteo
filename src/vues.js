@@ -173,7 +173,7 @@ export function vueSemaine() {
   const c = P.chargeCourante();
   const i = P.iJour();
   const g = Reglages.lire();
-  if (!c || i < 0) return { titre: "La semaine", corps: `<div class="carte"><p class="vide">Prévision indisponible.</p></div>` };
+  if (!c || i < 0) return { titre: "À venir", corps: `<div class="carte"><p class="vide">Prévision indisponible.</p></div>` };
 
   /* La table commence aux journées écoulées que les heures couvrent, et non à
      aujourd'hui. La charge quotidienne en porte quatorze, les heures deux : une
@@ -330,7 +330,7 @@ export function vueSemaine() {
   }
 
   return {
-    titre: "La semaine",
+    titre: "À venir",
     corps: grapheSemaine(jours, boutonSemaine(plusDispo)) + grandesLignesHTML(jours)
       + `<div class="carte sem-carte"><div class="sem">${lignes.join("")}</div>`
       + etatTendance(g, tend) + boutonSemaine(plusDispo)
@@ -3005,67 +3005,142 @@ function brancherGlissement(bloc, retirer) {
    besoin d'un mode d'édition. Une fois la prise faite, la rangée capture le
    pointeur, ce qui met le glissement hors circuit pour la durée du
    déplacement. */
+/* Le réordonnancement des lieux enregistrés, repris le 28 septembre 2026 à la
+   demande de Jérôme. Trois défauts le rendaient pénible sur iPhone : après
+   l'appui long, Safari prenait la main pour faire défiler la feuille et
+   annulait le geste ; la rangée sautait d'une place à l'autre sans suivre le
+   doigt ; une liste plus haute que l'écran ne se laissait pas parcourir.
+
+   La rangée prise suit désormais le doigt, soulevée ; les autres glissent pour
+   lui faire place ; la feuille défile d'elle-même quand le doigt approche de
+   ses bords ; et le défilement natif est bloqué tant que la prise dure, par un
+   écouteur unique sur le document, non passif, que les rendus successifs ne
+   multiplient pas. */
+let ordreEnCours = false;
+if (typeof document !== "undefined") {
+  document.addEventListener("touchmove", ev => { if (ordreEnCours) ev.preventDefault(); }, { passive: false });
+}
+
 function brancherOrdre(bloc, ordonner) {
   const liste = bloc.querySelector("#coListe");
   if (!liste) return;
-  const DELAI = 300, SEUIL = 10;
+  const DELAI = 300, SEUIL = 10, BORD = 64, VITESSE = 9, GLISSE = 180;
   const rangs = () => [...liste.querySelectorAll(".co:not(.co-pos)")];
-
+  const defileur = () => {
+    for (let n = liste.parentElement; n; n = n.parentElement) {
+      const o = getComputedStyle(n).overflowY;
+      if ((o === "auto" || o === "scroll") && n.scrollHeight > n.clientHeight) return n;
+    }
+    return document.scrollingElement;
+  };
   for (const el of rangs()) {
     let minuteur = null, x0 = 0, y0 = 0, prise = false, bouge = false;
-
+    let prisePos = 0, dernierY = 0, auto = null, zone = null;
     const annuler = () => { clearTimeout(minuteur); minuteur = null; };
-
+    const hautNaturel = () => {
+      const t = el.style.transform;
+      el.style.transform = "";
+      const h = el.getBoundingClientRect().top;
+      el.style.transform = t;
+      return h;
+    };
+    const suivre = () => { el.style.transform = `translateY(${(dernierY - prisePos - hautNaturel()).toFixed(1)}px)`; };
+    /* Les rangées voisines glissent vers leur nouvelle place au lieu d'y sauter. */
+    const deplacer = (ref, avant) => {
+      const autres = rangs().filter(f => f !== el);
+      const avantR = new Map(autres.map(f => [f, f.getBoundingClientRect().top]));
+      liste.insertBefore(el, avant ? ref : ref.nextSibling);
+      bouge = true;
+      for (const f of autres) {
+        const d = avantR.get(f) - f.getBoundingClientRect().top;
+        if (!d) continue;
+        f.style.transition = "none";
+        f.style.transform = `translateY(${d}px)`;
+        f.getBoundingClientRect();
+        f.style.transition = `transform ${GLISSE}ms ease-out`;
+        f.style.transform = "";
+      }
+    };
+    const placer = () => {
+      for (const f of rangs()) {
+        if (f === el) continue;
+        const t = f.style.transform;
+        f.style.transform = "";
+        const b = f.getBoundingClientRect();
+        f.style.transform = t;
+        const milieu = b.top + b.height / 2;
+        const apres = Boolean(f.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING);
+        if (dernierY < milieu && apres) { deplacer(f, true); break; }
+        if (dernierY > milieu && !apres) { deplacer(f, false); break; }
+      }
+      suivre();
+    };
+    const defiler = () => {
+      auto = null;
+      if (!prise) return;
+      const r = zone === document.scrollingElement ? { top: 0, bottom: innerHeight } : zone.getBoundingClientRect();
+      const pas = dernierY < r.top + BORD ? -VITESSE : dernierY > r.bottom - BORD ? VITESSE : 0;
+      if (pas) {
+        const avant = zone.scrollTop;
+        zone.scrollTop += pas;
+        if (zone.scrollTop !== avant) placer();
+      }
+      auto = requestAnimationFrame(defiler);
+    };
     const lacher = () => {
       annuler();
       if (!prise) return;
       prise = false;
-      el.classList.remove("co-prise");
+      ordreEnCours = false;
+      cancelAnimationFrame(auto);
+      el.style.transition = `transform ${GLISSE}ms ease-out`;
+      el.style.transform = "";
       liste.classList.remove("co-ordonne");
-      if (bouge) ordonner(rangs().map(x => x.dataset.cle));
+      setTimeout(() => {
+        el.classList.remove("co-prise");
+        el.style.transition = "";
+        for (const f of rangs()) { f.style.transition = ""; f.style.transform = ""; }
+        if (bouge) ordonner(rangs().map(x => x.dataset.cle));
+      }, GLISSE);
     };
-
     el.addEventListener("pointerdown", ev => {
       if (ev.pointerType === "mouse" && ev.button !== 0) return;
-      x0 = ev.clientX; y0 = ev.clientY; bouge = false;
+      x0 = ev.clientX; y0 = ev.clientY; dernierY = ev.clientY; bouge = false;
       minuteur = setTimeout(() => {
         minuteur = null;
         prise = true;
+        ordreEnCours = true;
+        prisePos = dernierY - el.getBoundingClientRect().top;
+        zone = defileur();
         el.classList.add("co-prise");
         liste.classList.add("co-ordonne");
-        el.setPointerCapture(ev.pointerId);
+        try { el.setPointerCapture(ev.pointerId); } catch { /* pointeur déjà relâché */ }
         if (navigator.vibrate) navigator.vibrate(8);
+        suivre();
+        auto = requestAnimationFrame(defiler);
       }, DELAI);
     });
-
     el.addEventListener("pointermove", ev => {
       if (!prise) {
         if (minuteur !== null
           && (Math.abs(ev.clientX - x0) > SEUIL || Math.abs(ev.clientY - y0) > SEUIL)) annuler();
+        dernierY = ev.clientY;
         return;
       }
       ev.preventDefault();
-      /* La rangée se déplace dans le document plutôt que sous un calque : la
-         liste montre en direct l'ordre qu'elle prendra. */
-      for (const f of rangs()) {
-        if (f === el) continue;
-        const b = f.getBoundingClientRect();
-        const milieu = b.top + b.height / 2;
-        const apres = Boolean(f.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING);
-        if (ev.clientY < milieu && apres) { liste.insertBefore(el, f); bouge = true; break; }
-        if (ev.clientY > milieu && !apres) { liste.insertBefore(el, f.nextSibling); bouge = true; break; }
-      }
+      dernierY = ev.clientY;
+      placer();
     });
-
     el.addEventListener("pointerup", lacher);
     el.addEventListener("pointercancel", lacher);
     // Un appui long n'est pas un appui : il ne doit pas basculer de lieu.
     el.addEventListener("click", ev => {
       if (bouge) { ev.preventDefault(); ev.stopPropagation(); bouge = false; }
     }, true);
+    // Ni ouvrir le menu contextuel du système.
+    el.addEventListener("contextmenu", ev => { if (prise || minuteur !== null) ev.preventDefault(); });
   }
 }
-
 function brancherRecherche(bloc, rendre, majEtat) {
   const q = bloc.querySelector("#rgQ");
   const res = bloc.querySelector("#rgRes");

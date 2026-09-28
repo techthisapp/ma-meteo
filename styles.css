@@ -2265,3 +2265,8 @@ button.rangee:active{background:var(--surface-2)}
 .sg-tend{fill:var(--etiquette-2);opacity:.05}
 .sem-j.sem-tend .j em{font-style:italic}
 .sem-tend-etat{text-align:center}
+
+/* Le réordonnancement des lieux, repris le 28 septembre 2026 : la rangée prise
+   se soulève et suit le doigt, sans sélection de texte ni menu du système. */
+.co-ordonne,.co-ordonne *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#coListe .co{-webkit-touch-callout:none}
