@@ -243,9 +243,11 @@ export function dessiner(s) {
       o += `<rect class="mg-nuit" x="${u(X(a))}" y="${u(y0)}" `
         + `width="${u(X(b + 1) - X(a))}" height="${u(hl)}"/>`;
     }
+    /* Minuit n'a plus de pointillé dans chaque voie : un trait continu le
+       porte sur toute la hauteur de la pile, depuis le 28 septembre 2026. */
     for (const [k] of montants) {
-      const nuit = s.heure[k] === 0;
-      o += `<line class="mg-mont${nuit ? " mg-minuit" : ""}" x1="${u(X(k))}" `
+      if (s.heure[k] === 0) continue;
+      o += `<line class="mg-mont" x1="${u(X(k))}" `
         + `y1="${u(y0)}" x2="${u(X(k))}" y2="${u(y1)}"/>`;
     }
     return o;
@@ -987,7 +989,55 @@ export function dessiner(s) {
   const nav = `<div class="mg-nav">${saut(-24, false, "Vingt-quatre heures plus tôt")}`
     + `${centre}${saut(24, true, "Vingt-quatre heures plus tard")}</div>`;
 
-  return `${nav}<div class="mg">${voies.join("")}</div>${axeSvg()}`;
+  /* Le découpage par jour, demandé par Jérôme le 28 septembre 2026. Un trait
+     continu à chaque minuit traverse toute la pile des voies, titres compris,
+     sur un calque posé derrière elles à la même échelle horizontale ; il glisse
+     avec le dessin puisqu'il porte, lui aussi, un groupe mobile. Et un bandeau
+     collant, en tête du ruban, garde sous la barre de tête le nom du jour et
+     les heures de la journée pendant qu'on descend dans les voies. */
+  const jourBandeau = j => {
+    const auj = s.jour[Math.max(0, Math.min(s.n - 1, s.ici))];
+    const dem = new Date(`${auj}T12:00`); dem.setDate(dem.getDate() + 1);
+    const cleDem = `${dem.getFullYear()}-${String(dem.getMonth() + 1).padStart(2, "0")}-${String(dem.getDate()).padStart(2, "0")}`;
+    const hie = new Date(`${auj}T12:00`); hie.setDate(hie.getDate() - 1);
+    const cleHier = `${hie.getFullYear()}-${String(hie.getMonth() + 1).padStart(2, "0")}-${String(hie.getDate()).padStart(2, "0")}`;
+    if (j === auj) return "Aujourd'hui";
+    if (j === cleDem) return "Demain";
+    if (j === cleHier) return "Hier";
+    return new Date(`${j}T12:00`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric" })
+      .replace(/^./, c => c.toUpperCase());
+  };
+  const minuits = [];
+  const graduations = [];
+  for (let k = kA; k <= kB; k++) {
+    if (s.heure[k] === 0) minuits.push(k);
+    else if (s.heure[k] % 3 === 0) graduations.push(k);
+  }
+  const H_BANDEAU = 34;
+  const [idB, defsB] = cadre(H_BANDEAU);
+  /* Le jour du bord gauche est écrit à la marge, hors du groupe mobile, sauf si
+     un minuit tombe tout près : son propre nom prend alors la place. */
+  const premier = minuits.find(k => X(k) >= M);
+  const jourGauche = premier !== undefined && X(premier) - M < 118 ? ""
+    : `<text class="mg-bj" x="${u(M + 2)}" y="13">${esc(jourBandeau(s.jour[dec]))}</text>`;
+  /* Quand le nom de la marge cède la place, le jour qui finit se nomme juste à
+     gauche du trait de minuit, s'il y tient : sans quoi la fin de soirée
+     d'hier restait anonyme. */
+  const avantMinuit = premier !== undefined && jourGauche === "" && X(premier) - M >= 44 && premier > 0
+    ? `<text class="mg-bj mg-bj-fin" x="${u(X(premier) - 4)}" y="13">${esc(jourBandeau(s.jour[premier - 1]))}</text>` : "";
+  const bandeau = `<div class="mg-bandeau"><svg class="mg-bd" viewBox="0 0 ${L} ${H_BANDEAU}" aria-hidden="true">${defsB}`
+    + `<g clip-path="url(#${idB})"><g class="mg-mob">`
+    + minuits.map(k => `<line class="mg-bm" x1="${u(X(k))}" y1="0" x2="${u(X(k))}" y2="${H_BANDEAU}"/>`
+      + `<text class="mg-bj" x="${u(X(k) + 4)}" y="13">${esc(jourBandeau(s.jour[k]))}</text>`).join("")
+    + graduations.map(k => `<line class="mg-bt" x1="${u(X(k))}" y1="${H_BANDEAU - 7}" x2="${u(X(k))}" y2="${H_BANDEAU}"/>`
+      + `<text class="mg-bh" x="${u(X(k))}" y="${H_BANDEAU - 10}">${s.heure[k]} h</text>`).join("")
+    + avantMinuit + `</g></g>${jourGauche}</svg></div>`;
+  const [idM, defsM] = cadre(1000);
+  const traits = `<svg class="mg-minuits" viewBox="0 0 ${L} 1000" preserveAspectRatio="none" aria-hidden="true">${defsM}`
+    + `<g clip-path="url(#${idM})"><g class="mg-mob">`
+    + minuits.map(k => `<line class="mg-mp" x1="${u(X(k))}" y1="0" x2="${u(X(k))}" y2="1000" vector-effect="non-scaling-stroke"/>`).join("")
+    + `</g></g></svg>`;
+  return `${nav}${bandeau}<div class="mg">${traits}${voies.join("")}</div>${axeSvg()}`;
 }
 
 /* Lecture au doigt. Le montant est posé dès le dessin, replié : le faire naître

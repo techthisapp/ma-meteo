@@ -224,6 +224,15 @@ case "$N" in
      # Sa garde est dans une section plus loin : lancer avec JUSQUA_EPREUVE.
      perl -0pi -e 's/    const suivre = \(\) => \{ el\.style\.transform = [^\n]*\n/    const suivre = () => {};\n/' src/vues.js
      ATTENDU="la rangée prise suit le doigt" ;;
+  69) # La page reprend son ancien nom.
+     perl -0pi -e 's/titre: "Heure par heure"/titre: "Le temps"/g' src/vues.js
+     ATTENDU="la page des heures s.appelle « Heure par heure »" ;;
+  70) # Le bandeau ne colle plus.
+     perl -0pi -e 's/  position:sticky;top:calc\(env\(safe-area-inset-top, 0px\) \+ var\(--nav-haut\)\);z-index:3;/  position:relative;z-index:3;/' styles.css
+     ATTENDU="un bandeau collant porte le jour et les heures, et glisse avec le ruban" ;;
+  71) # Le trait continu de minuit disparaît.
+     perl -0pi -e 's/<div class="mg">\$\{traits\}\$\{voies\.join\(""\)\}/<div class="mg">\${voies.join("")}/' src/ruban.js
+     ATTENDU="un trait continu marque minuit sur toute la pile, sans pointillé dans chaque voie" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
@@ -240,7 +249,8 @@ if diff -q "$OLD/src/bande.js" src/bande.js >/dev/null \
   && diff -q "$OLD/src/justesse.js" src/justesse.js >/dev/null \
   && diff -q "$OLD/src/temps.js" src/temps.js >/dev/null \
   && diff -q "$OLD/src/previsions.js" src/previsions.js >/dev/null \
-  && diff -q "$OLD/src/scenarios.js" src/scenarios.js >/dev/null; then
+  && diff -q "$OLD/src/scenarios.js" src/scenarios.js >/dev/null \
+  && diff -q "$OLD/src/ruban.js" src/ruban.js >/dev/null; then
   echo "FAUTE $N NON APPLIQUÉE"; exit 3
 fi
 

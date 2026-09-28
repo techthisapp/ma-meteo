@@ -87,7 +87,7 @@ export function vueTemps(ctx, rendre) {
   const s = g.ecriture === "liste" ? P.serieHoraire() : P.serieHorizon();
   if (!s) {
     return {
-      titre: "Le temps",
+      titre: "Heure par heure",
       corps: `<div class="carte"><p class="vide">La prévision heure par heure n'est pas `
         + `disponible pour le moment. Rouvrir dans un instant.</p></div>`,
     };
@@ -107,7 +107,7 @@ export function vueTemps(ctx, rendre) {
      mêmes phrases un écran plus loin, à l'endroit où l'on vient justement
      chercher le détail heure par heure. */
   return {
-    titre: "Le temps",
+    titre: "Heure par heure",
     // Le ruban prend toute la largeur : c'est un graphique, sa densité fait sa
     // lisibilité. La table, elle, reste dans la largeur de lecture.
     large: e === "ruban",

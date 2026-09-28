@@ -2270,3 +2270,19 @@ button.rangee:active{background:var(--surface-2)}
    se soulève et suit le doigt, sans sélection de texte ni menu du système. */
 .co-ordonne,.co-ordonne *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 #coListe .co{-webkit-touch-callout:none}
+
+/* Le découpage par jour du ruban, le 28 septembre 2026 : le bandeau collant du
+   jour et des heures, et le trait continu de minuit, derrière les voies. */
+.mg{position:relative;isolation:isolate}
+.mg-minuits{position:absolute;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none}
+.mg-mp{stroke:var(--etiquette);stroke-width:1.5;opacity:.45}
+.mg-bandeau{
+  position:sticky;top:calc(env(safe-area-inset-top, 0px) + var(--nav-haut));z-index:3;
+  background:var(--surface);box-shadow:0 1px 0 var(--filet-clair);
+}
+.mg-bd{display:block;width:100%;height:auto}
+.mg-bj{font-size:12px;font-weight:600;fill:var(--etiquette)}
+.mg-bh{font-size:10px;text-anchor:middle;fill:var(--etiquette-2)}
+.mg-bm{stroke:var(--etiquette);stroke-width:1.5;opacity:.45}
+.mg-bt{stroke:var(--etiquette-2);stroke-width:1;opacity:.6}
+.mg-bj-fin{text-anchor:end;fill:var(--etiquette-2)}

@@ -1327,7 +1327,8 @@ const detailDit = await pg.evaluate(() => ({
   lecture: document.querySelector('.mg-v[data-cle="t"] .mg-r')?.textContent || "",
 }));
 ok("une heure touchée dans la bande ouvre le temps en page de détail",
-  detailDit.retour && /temps/i.test(detailDit.titre) && detailDit.accueilCourant,
+  /* La page s'appelle « Heure par heure » depuis le 28 septembre 2026. */
+  detailDit.retour && detailDit.titre === "Heure par heure" && detailDit.accueilCourant,
   JSON.stringify(detailDit));
 ok("le ruban s'y cale sur l'heure touchée",
   heureBande !== "" && detailDit.lecture.startsWith(heureBande.replace(/^0/, ""))
@@ -1818,6 +1819,33 @@ const plafondBouge = await pg.evaluate(async () => {
   return n;
 });
 ok("le plafond du ciel couvert avance à chaque image, sans à-coup", plafondBouge > 0, `${plafondBouge} points changés`);
+/* La page des heures, le 28 septembre 2026 : « Heure par heure », un bandeau
+   collant qui porte le jour et les heures, un trait continu à chaque minuit
+   sur toute la pile des voies, sans les pointillés d'avant dans chaque voie. */
+await ouvrirLeTemps(pg);
+const hph = await pg.evaluate(() => {
+  const b = document.querySelector("#ecran .mg-bandeau");
+  const cs = b ? getComputedStyle(b) : null;
+  return {
+    titre: document.querySelector("#ecran h1")?.textContent || "",
+    colle: cs ? cs.position === "sticky" && parseFloat(cs.top) >= 44 : false,
+    jours: b ? [...b.querySelectorAll(".mg-bj")].map(t => t.textContent) : [],
+    heures: b ? [...b.querySelectorAll(".mg-bh")].map(t => t.textContent) : [],
+    mobiles: document.querySelectorAll("#ecran .mg-bandeau .mg-mob, #ecran .mg-minuits .mg-mob").length,
+    traits: document.querySelectorAll("#ecran .mg-minuits .mg-mp").length,
+    pointilles: document.querySelectorAll("#ecran .mg-s .mg-minuit").length,
+    pile: (() => { const m = document.querySelector("#ecran .mg"), t = document.querySelector("#ecran .mg-minuits");
+      return m && t ? Math.round(t.getBoundingClientRect().height) === Math.round(m.getBoundingClientRect().height) : false; })(),
+  };
+});
+await pg.evaluate(() => history.back());
+await pg.waitForTimeout(500);
+ok("la page des heures s'appelle « Heure par heure »", hph.titre === "Heure par heure", hph.titre);
+ok("un bandeau collant porte le jour et les heures, et glisse avec le ruban",
+  hph.colle && hph.jours.some(j => /^(Aujourd'hui|Demain|Hier)$/.test(j)) && hph.heures.includes("12 h") && hph.mobiles === 2,
+  JSON.stringify(hph));
+ok("un trait continu marque minuit sur toute la pile, sans pointillé dans chaque voie",
+  hph.traits >= 1 && hph.pile && hph.pointilles === 0, JSON.stringify(hph));
 ok("le graphique borne sa largeur, et se résume en une phrase",
   semGraphe.borne === "520px"
   && semGraphe.resume === "De 25 à 30 degrés au plus chaud, 5,4 millimètres de pluie en tout.",
@@ -2346,7 +2374,7 @@ ok("le grand chiffre et le ciel en portent une aussi",
 
 await pg.locator('.bd-m[data-detail="uv"]').click();
 await pg.waitForTimeout(900);
-ok("l'écran du temps s'ouvre", (await txt(".titre-ecran h1")) === "Le temps", await txt(".titre-ecran h1"));
+ok("l'écran du temps s'ouvre", (await txt(".titre-ecran h1")) === "Heure par heure", await txt(".titre-ecran h1"));
 ok("l'écriture retenue est le ruban",
   (await pg.locator('.seg [data-ecriture="ruban"]').getAttribute("class") || "").includes("actif"));
 ok("la voie visée est dépliée",
@@ -2418,7 +2446,7 @@ await onglet("temps");
    l'endroit où l'on vient justement chercher le détail. */
 ok("les conseils ne se répètent pas sur l'écran du temps",
   await pg.locator("#ecran .conseils").count() === 0);
-ok("l'écran s'ouvre sur Le temps", (await txt(".titre-ecran h1")) === "Le temps", await txt(".titre-ecran h1"));
+ok("l'écran s'ouvre sur Heure par heure", (await txt(".titre-ecran h1")) === "Heure par heure", await txt(".titre-ecran h1"));
 ok("aucune feuille n'est ouverte", await pg.locator("#feuille:visible").count() === 0);
 const voies = await pg.locator(".mg-v .mg-n").allInnerTexts();
 ok("sept voies", voies.length === 7, voies.join(", "));
