@@ -323,7 +323,7 @@ function ajuster(formes, L, H, marge) {
 const MOTIFS = new Map();
 const MARGE = 16;
 
-function motifs(cle, c, fer) {
+function motifs(cle, c, fer, poids = 1) {
   if (MOTIFS.has(cle)) return MOTIFS.get(cle);
   let graine = 20260821;
   const alea = () => (graine = (graine * 1664525 + 1013904223) >>> 0) / 4294967296;
@@ -543,13 +543,22 @@ function motifs(cle, c, fer) {
      leur recouvrement dessine des bancs nets. Aucun ciel ne reste visible entre
      elles : un nuage isolé devant un plafond se lisait comme un ballon, ce que
      la nappe avait voulu éviter. Le motif se répète sans couture. */
+  /* Repris le jour même, sur une photo du ciel réel envoyée par Jérôme : un
+     couvert sec de plein jour est clair et lumineux, gris bleuté pâle, et ses
+     nuages sont plus clairs que le fond. Le premier plafond reprenait pour le
+     jour les teintes réglées sur la nuit, et se lisait comme un ciel d'orage.
+     Le poids, qui vaut le plomb de l'eau ou la nuit, règle désormais les
+     teintes : léger, le plafond est pâle et ses bases à peine plus sombres ;
+     lourd, il retrouve les teintes validées pour la nuit et la pluie. */
+  const lourd = poids;
+  const mix = (leger, plein) => leger + (plein - leger) * lourd;
   const PL = 720, PH = 300, RANGS = 5;
   const plafond = document.createElement("canvas");
   plafond.width = PL; plafond.height = PH;
   const px = plafond.getContext("2d");
   const fondP = px.createLinearGradient(0, 0, 0, PH);
-  fondP.addColorStop(0, rgba(melangeRVB(c.clair, c.sombre, 0.80), 1));
-  fondP.addColorStop(1, rgba(melangeRVB(c.clair, c.sombre, 0.42), 1));
+  fondP.addColorStop(0, rgba(melangeRVB(c.clair, c.sombre, mix(0.34, 0.80)), 1));
+  fondP.addColorStop(1, rgba(melangeRVB(c.clair, c.sombre, mix(0.16, 0.42)), 1));
   px.fillStyle = fondP;
   px.fillRect(0, 0, PL, PH);
   for (let r = RANGS - 1; r >= 0; r--) {
@@ -586,7 +595,7 @@ function motifs(cle, c, fer) {
         for (const t of [-1, 0, 1]) {
           const cx = (u + t) * PL;
           if (cx < -rx * 2 || cx > PL + rx * 2) continue;
-          for (const [dy, coul, a] of [[-rx * 0.20, c.clair, 0.30], [rx * 0.22, c.sombre, 0.22]]) {
+          for (const [dy, coul, a] of [[-rx * 0.20, c.clair, mix(0.42, 0.30)], [rx * 0.22, c.sombre, mix(0.10, 0.22)]]) {
             x.save();
             x.translate(cx, cy + dy);
             x.scale(1, 0.30);
@@ -600,7 +609,7 @@ function motifs(cle, c, fer) {
         }
       }
     }, Math.max(1.5, sz * 0.07),
-    melangeRVB(c.clair, c.sombre, 0.06 + 0.26 * f), melangeRVB(c.clair, c.sombre, 0.62 + 0.10 * f),
+    melangeRVB(c.clair, c.sombre, mix(0.00, 0.06 + 0.26 * f)), melangeRVB(c.clair, c.sombre, mix(0.30 + 0.06 * f, 0.62 + 0.10 * f)),
     yc - sz * 0.36, yc + sz * 0.34, D);
     px.drawImage(rang, 0, 0);
   }
@@ -651,7 +660,9 @@ export function dessiner(cv, t) {
   const fer = fermetureDe(d);
   const cle = `${Math.round(couv * 8)}:${Math.round(sombreur * 8)}:`
     + `${Math.round(ciel.nuit * 6)}:${Math.round(ciel.chaud * 6)}:${Math.round(fer * 4)}`;
-  const m = motifs(cle, c, Math.round(fer * 4) / 4);
+  /* Le poids du plafond : l'eau l'assombrit, la nuit aussi. Un couvert sec de
+     plein jour reste clair ; la clé des motifs porte déjà le plomb et la nuit. */
+  const m = motifs(cle, c, Math.round(fer * 4) / 4, Math.max(sombreur, ciel.nuit));
 
   /* Le vent donne la dérive : cent kilomètres par heure traversent le ciel en
      une vingtaine de secondes, ce qui se voit sans agiter. */
@@ -713,12 +724,15 @@ export function dessiner(cv, t) {
   if (d.nappe > 0 && fer > 0) {
     const pf = m.plafond;
     const haut = H;
-    const larg = haut * (pf.width / pf.height);
-    const dx = ((t * derive * 0.22) % larg) - larg;
+    /* Les tuiles se posent sur des points entiers et se chevauchent d'un point :
+       posées à des abscisses fractionnaires, elles laissaient entre elles un fil
+       que la garde des coutures a relevé une fois le ciel de jour éclairci. */
+    const larg = Math.round(haut * (pf.width / pf.height));
+    const dx = Math.round(((t * derive * 0.22) % larg) - larg);
     x.save();
     x.globalAlpha = d.nappe * Math.min(1, fer * 1.25);
     for (let i = 0; i < Math.ceil(L / larg) + 2; i++) {
-      x.drawImage(pf, dx + larg * i, 0, larg, haut);
+      x.drawImage(pf, dx + larg * i, 0, larg + 1, haut);
     }
     x.restore();
   }

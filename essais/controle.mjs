@@ -1742,6 +1742,39 @@ const structureCiel = await pg.evaluate(async () => {
 ok("un ciel couvert se peint en bancs de nuages, de jour comme de nuit, et non en flou",
   structureCiel.jour >= 1.7 && structureCiel.nuit >= 1.7, JSON.stringify(structureCiel));
 
+/* Un couvert sec de plein jour reste clair : Jérôme l'a comparé le 28 septembre
+   2026 à une photo du ciel réel, et le premier plafond, comme les voiles de
+   lisibilité presque noirs, le faisaient lire comme un ciel d'orage. La clarté
+   du haut de la toile valait 196 avec les teintes de nuit, 208 avec le poids ;
+   la pluie, 119. Et les voiles se resserrent sur le texte, en bleu-gris. */
+const clarteCouvert = await pg.evaluate(async () => {
+  const V = await import("/src/vues.js"), T = await import("/src/temps.js");
+  const out = {};
+  for (const [nom, code, mm] of [["sec", 3, 0], ["pluie", 61, 2]]) {
+    const d = document.createElement("div"); d.style.cssText = "position:fixed;left:0;top:0;width:390px;z-index:99";
+    d.innerHTML = `<div class="plein plein-accueil">${V.bandeauAccueil({ lat: 47.63, lon: 4.38 },
+      new Date("2026-09-28T12:00:00+02:00"), T.depuis(code, 100, mm), 10).ciel}</div>`;
+    document.body.append(d); await new Promise(r => setTimeout(r, 100));
+    const cv = d.querySelector("canvas.ci-temps"); T.dessiner(cv, 20000);
+    const W = cv.width, H = cv.height, px = cv.getContext("2d").getImageData(0, 0, W, Math.round(H * 0.56)).data;
+    let som = 0; for (let k = 0; k < px.length; k += 16) som += 0.2126 * px[k] + 0.7152 * px[k + 1] + 0.0722 * px[k + 2];
+    out[nom] = Math.round(som / (px.length / 16));
+    if (nom === "sec") {
+      const ci = d.querySelector(".ci"), vb = d.querySelector(".ci-voile-bas"), vh = d.querySelector(".ci-voile-haut");
+      const hc = ci.getBoundingClientRect().height;
+      out.bas = Math.round(vb.getBoundingClientRect().height / hc * 100);
+      out.haut = Math.round(vh.getBoundingClientRect().height / hc * 100);
+      out.teinte = /rgba\(22, 34, 52/.test(getComputedStyle(vb).backgroundImage);
+    }
+    d.remove();
+  }
+  return out;
+});
+ok("un couvert sec de plein jour reste clair, la pluie l'assombrit",
+  clarteCouvert.sec >= 202 && clarteCouvert.pluie <= clarteCouvert.sec - 50, JSON.stringify(clarteCouvert));
+ok("les voiles de lisibilité se resserrent sur le texte, en bleu-gris",
+  clarteCouvert.bas <= 45 && clarteCouvert.haut <= 23 && clarteCouvert.teinte, JSON.stringify(clarteCouvert));
+
 /* Jalon 11, lot 4 : le département sous la commune, qu'il se déduise du code
    postal ou manque, et l'arrondi de 24 points des cartes de l'accueil. */
 const enteteDit = await pg.evaluate(async () => {

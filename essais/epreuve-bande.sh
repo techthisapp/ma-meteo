@@ -171,6 +171,12 @@ case "$N" in
   51) # Le plafond ne se peint plus : l'ancienne nappe floutée revient seule.
      perl -0pi -e 's/  if \(d\.nappe > 0 && fer > 0\) \{/  if (false \&\& d.nappe > 0 \&\& fer > 0) {/' src/temps.js
      ATTENDU="un ciel couvert se peint en bancs de nuages, de jour comme de nuit, et non en flou" ;;
+  52) # Le plafond de jour reprend les teintes de nuit.
+     perl -0pi -e 's/  const lourd = poids;/  const lourd = 1;/' src/temps.js
+     ATTENDU="un couvert sec de plein jour reste clair, la pluie l.assombrit" ;;
+  53) # Le voile du bas retrouve la moitié du cadre.
+     perl -0pi -e 's/position:absolute;left:0;right:0;bottom:0;height:44%;z-index:1;/position:absolute;left:0;right:0;bottom:0;height:52%;z-index:1;/' styles.css
+     ATTENDU="les voiles de lisibilité se resserrent sur le texte, en bleu-gris" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
