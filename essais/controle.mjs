@@ -85,6 +85,25 @@ const ensembleDe = (mult = 1) => {
   return { hourly: out };
 };
 const ENSEMBLE = ensembleDe();
+/* Les scénarios quotidiens des deux modèles, jalon 13 : quinze jours depuis le
+   jour figé, ICON sur ses sept premiers, ECMWF sur tous, dans la forme du
+   service, une colonne par membre suffixée par son modèle. */
+const ENSEMBLE_QUOTIDIEN = (() => {
+  const time = Array.from({ length: 15 }, (_, k) => new Date(Date.UTC(2026, 7, 18 + k)).toISOString().slice(0, 10));
+  const daily = { time };
+  const colonnes = (suffixe, n, jours) => {
+    for (let m = 0; m <= n; m++) {
+      const cle = m ? `temperature_2m_max_member${String(m).padStart(2, "0")}_${suffixe}` : `temperature_2m_max_${suffixe}`;
+      /* Une dispersion qui grandit avec l'échéance, comme celle du vrai
+         service : fiable jusqu'au quatrième jour, moins sûre ensuite. */
+      daily[cle] = time.map((_, k) => (k < jours ? 24 + ((m * 7) % 11) / 10 * (1 + k * 1.1) - k * 0.2 : null));
+    }
+  };
+  colonnes("icon_seamless_eps", 39, 7);
+  colonnes("ecmwf_ifs025_ensemble", 50, 15);
+  return { daily };
+})();
+const charpenteEnsemble = url => (/[?&]daily=/.test(url) ? ENSEMBLE_QUOTIDIEN : ENSEMBLE);
 // Six fois plus large : les scénarios y sont partagés au sens de `ACCORDS`.
 const ENSEMBLE_LARGE = ensembleDe(6);
 
@@ -708,7 +727,7 @@ const brancherRoutes = async c => {
   await c.route(/ensemble-api\.open-meteo\.com/, r => {
     appelsEns.push(r.request().url());
     r.fulfill({ status: 200, contentType: "application/json",
-      body: JSON.stringify(ENSEMBLE) });
+      body: JSON.stringify(charpenteEnsemble(r.request().url())) });
   });
   /* L'archive du climat. Son domaine porte « open-meteo.com » et la route de la
      prévision le happerait : elle se pose donc après, Playwright essayant la
@@ -1651,6 +1670,42 @@ const grapheSeize = await pg.evaluate(async () => {
 ok("sur seize jours, le graphique défile à colonnes fixes et nomme la seconde semaine",
   grapheSeize.defile && grapheSeize.large >= 18 * 30 && /^\S+ 18$/.test(grapheSeize.derniere),
   JSON.stringify(grapheSeize));
+/* Jalon 13, lots 2 et 3 : les scénarios quotidiens d'ICON et d'ECMWF, et la
+   confiance mixte. Une charge connue est posée, puis retirée. */
+const scenDit = await pg.evaluate(async () => {
+  const S = await import("/src/scenarios.js");
+  const jourDe = k => new Date(Date.UTC(2026, 7, 18 + k)).toISOString().slice(0, 10);
+  const r = S.reduire({ time: [jourDe(0)], temperature_2m_max: [20], temperature_2m_max_member01: [22],
+    temperature_2m_max_member02: [null] }, "temperature_2m_max");
+  const serie = (n, larg) => ({ time: Array.from({ length: n }, (_, k) => jourDe(k)),
+    membres: Array.from({ length: n }, (_, k) => Array.from({ length: 20 }, (_, m) => 20 + (m / 19 - 0.5) * larg(k))) });
+  /* Une dispersion de six degrés dès aujourd'hui : les scénarios disent « à
+     confirmer » là où l'ensemble horaire des contrôles dit « fiable », et le mot
+     affiché désigne ainsi sa source. */
+  const c = { icon: serie(7, () => 6), ecmwf: serie(15, k => 6 + k * 0.8) };
+  const j0 = S.jour(jourDe(0), c), j10 = S.jour(jourDe(10), c), j15 = S.jour(jourDe(15), c);
+  window.__scenariosAvant = S.chargee();
+  S.poser(c);
+  return { r: JSON.stringify(r.membres), j0: j0 && [j0.source, j0.icon.n, j0.ecmwf.n, j0.reunis.n],
+    j10: j10 && j10.source, j15, seuils: [3.9, 4, 6.9, 7].map(S.accordDe).join(" ") };
+});
+await onglet("semaine");
+const semScen = await pg.evaluate(() => {
+  const l = document.querySelector('.sem-j .sem-r[data-jour="2026-08-18"]')?.closest(".sem-j");
+  return { mot: l?.querySelector(".sem-conf")?.textContent || "", volet: l?.querySelector(".md-sc")?.textContent || "" };
+});
+/* La charge d'origine est rendue : les sections suivantes la lisent. */
+await pg.evaluate(async () => { const S = await import("/src/scenarios.js"); S.poser(window.__scenariosAvant); });
+await onglet("accueil");
+ok("les scénarios quotidiens se réduisent par journée, membre par membre", scenDit.r === "[[20,22]]", scenDit.r);
+ok("la confiance réunit les deux modèles où ils se recouvrent, ECMWF seul au-delà, rien après",
+  JSON.stringify(scenDit.j0) === JSON.stringify(["mixte", 20, 20, 40]) && scenDit.j10 === "ecmwf" && scenDit.j15 === null,
+  JSON.stringify(scenDit));
+ok("les seuils de la confiance quotidienne tombent à quatre et à sept degrés",
+  scenDit.seuils === "bonne moyenne moyenne faible", scenDit.seuils);
+ok("La semaine tire sa confiance des deux modèles, et le volet les compare",
+  semScen.mot === "à confirmer" && /^Confiance moyenne : ICON et ECMWF s'accordent, ICON de \d+ à \d+°, ECMWF de \d+ à \d+° au plus chaud\.$/.test(semScen.volet),
+  JSON.stringify(semScen));
 ok("le graphique borne sa largeur, et se résume en une phrase",
   semGraphe.borne === "520px"
   && semGraphe.resume === "De 25 à 30 degrés au plus chaud, 5,4 millimètres de pluie en tout.",
@@ -2991,15 +3046,23 @@ ok("la rafale forte est signalée quelque part dans la semaine", await pg.evalua
     `${couverts.length} journées sur ${vus.length}, `
     + `dont ${vus.filter(x => x.passe && x.dit).length} écoulées`);
   ok("la confiance s'écrit en toutes lettres et porte la fourchette",
-    couverts.every(x => /^Confiance (bonne|moyenne|faible) : les scénarios /.test(x.dit)
+    /* Depuis le jalon 13, la phrase compare ICON et ECMWF là où les deux
+       couvrent la journée, et nomme le modèle seul ailleurs. */
+    couverts.every(x => /^Confiance (bonne|moyenne|faible) : (les scénarios |ICON et ECMWF (s'accordent|s'écartent de \d+°), |ECMWF seul|ICON seul)/.test(x.dit)
       && /de -?\d+ à -?\d+° au plus chaud\.$/.test(x.dit.trim())),
     couverts[0]?.dit || "aucune ligne");
   /* La confiance se dégrade avec l'échéance : les scénarios s'accordent sur
      demain et se partagent en fin de semaine. Une ligne qui dirait la même chose
      sur les sept journées ne dirait rien. */
   const mots = couverts.map(x => (x.dit.match(/Confiance (\w+)/) || [])[1]);
+  /* Depuis le jalon 13, la confiance se mesure sur les deux modèles réunis :
+     à six jours leur dispersion reste moyenne, le « faible » n'arrivant qu'au-
+     delà de la semaine, avec ECMWF seul. La garde exige une confiance bonne au
+     départ, qui ne remonte jamais, et au moins deux niveaux. */
+  const rangConf = { bonne: 0, moyenne: 1, faible: 2 };
   ok("elle se dégrade à mesure que l'échéance s'éloigne",
-    new Set(mots).size >= 2 && mots[0] === "bonne" && mots[mots.length - 1] === "faible",
+    new Set(mots).size >= 2 && mots[0] === "bonne"
+    && mots.every((m, k) => k === 0 || rangConf[m] >= rangConf[mots[k - 1]]),
     mots.join(", "));
   /* La dispersion est la moyenne sur les heures de la journée, non celle d'une
      heure prise au hasard : une nuit calme sous un après-midi indécis ne doit
@@ -5610,13 +5673,23 @@ await pgSc.waitForTimeout(1800);
    dispersion bouge lentement : la relire à chaque heure comme la prévision
    déterministe coûterait quatre fois la bande passante pour la même marge. Une
    seconde ouverture ne redemande donc rien. */
+/* Depuis le jalon 13, deux requêtes : les scénarios horaires d'ICON, pour le
+   ruban, et les scénarios quotidiens des deux modèles, pour la confiance de La
+   semaine, demandés ensemble en une seule. Chacune une seule fois. */
+const horairesSc = () => appelsScPage.filter(u => /[?&]hourly=/.test(u));
+const quotidiensSc = () => appelsScPage.filter(u => /[?&]daily=/.test(u));
 ok("les scénarios sont demandés une seule fois, pour la commune affichée",
-  appelsScPage.length === 1, `${appelsScPage.length} requêtes`);
-const uSc = appelsScPage[0] || "";
+  horairesSc().length === 1 && quotidiensSc().length === 1 && appelsScPage.length === 2,
+  `${horairesSc().length} horaire, ${quotidiensSc().length} quotidienne, ${appelsScPage.length} en tout`);
+const uSc = horairesSc()[0] || "";
+const uScJ = quotidiensSc()[0] || "";
+ok("les deux modèles se demandent ensemble, sur quinze jours",
+  uScJ.includes("models=icon_seamless,ecmwf_ifs025") && uScJ.includes("forecast_days=15")
+  && uScJ.includes("daily=temperature_2m_max"), uScJ);
 await pgSc.reload({ waitUntil: "networkidle" });
 await pgSc.waitForTimeout(1500);
 ok("une seconde ouverture sous garde ne les redemande pas",
-  appelsScPage.length === 1, `${appelsScPage.length} requêtes après rechargement`);
+  appelsScPage.length === 2, `${appelsScPage.length} requêtes après rechargement`);
 /* La liste des grandeurs est comparée en entier, non par inclusion : une
    grandeur demandée pour rien coûterait quarante kilooctets de charge brute à
    chaque lecture, et l'indice ultraviolet, dont la source rend des colonnes

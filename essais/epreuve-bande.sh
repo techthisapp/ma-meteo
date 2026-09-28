@@ -12,7 +12,7 @@ cp -r donnees essais icones src index.html manifest.webmanifest package.json \
 ln -s "$OLD/node_modules" "$COPIE/node_modules"
 cd "$COPIE"
 PORT_ESSAIS=$((8360 + N))
-JUSQUA="La bande horaire"
+JUSQUA="${JUSQUA_EPREUVE:-La bande horaire}"
 
 case "$N" in
   1) # La bande descend sous les tuiles des paramètres.
@@ -186,6 +186,19 @@ case "$N" in
   56) # Le graphique tasse seize jours dans la largeur de l'écran.
      perl -0pi -e 's/  const defile = n > 10;/  const defile = n > 99;/' src/vues.js
      ATTENDU="sur seize jours, le graphique défile à colonnes fixes et nomme la seconde semaine" ;;
+  57) # La confiance ne réunit plus les deux modèles.
+     perl -0pi -e 's/const reunis = resume\(\[\.\.\.\(icon \? vi : \[\]\), \.\.\.\(ecmwf \? ve : \[\]\)\]\);/const reunis = resume(ecmwf ? ve : vi);/' src/scenarios.js
+     ATTENDU="la confiance réunit les deux modèles où ils se recouvrent, ECMWF seul au-delà, rien après" ;;
+  58) # Les seuils de l'ensemble horaire reviennent.
+     perl -0pi -e 's/  \[4, "moyenne"\],\n  \[7, "faible"\],/  [3, "moyenne"],\n  [6, "faible"],/' src/scenarios.js
+     ATTENDU="les seuils de la confiance quotidienne tombent à quatre et à sept degrés" ;;
+  59) # La semaine ignore les scénarios quotidiens.
+     perl -0pi -e 's/    const sc = k >= i \? Scenarios\.jour\(d\.time\[k\]\) : null;/    const sc = null;/' src/vues.js
+     ATTENDU="La semaine tire sa confiance des deux modèles, et le volet les compare" ;;
+  60) # Les scénarios quotidiens ne demandent plus que sept jours.
+     # Sa garde est dans la section « Les scénarios » : lancer avec JUSQUA_EPREUVE.
+     perl -0pi -e 's/^const JOURS = 15;/const JOURS = 7;/m' src/scenarios.js
+     ATTENDU="les deux modèles se demandent ensemble, sur quinze jours" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
@@ -201,7 +214,8 @@ if diff -q "$OLD/src/bande.js" src/bande.js >/dev/null \
   && diff -q "$OLD/src/vues.js" src/vues.js >/dev/null \
   && diff -q "$OLD/src/justesse.js" src/justesse.js >/dev/null \
   && diff -q "$OLD/src/temps.js" src/temps.js >/dev/null \
-  && diff -q "$OLD/src/previsions.js" src/previsions.js >/dev/null; then
+  && diff -q "$OLD/src/previsions.js" src/previsions.js >/dev/null \
+  && diff -q "$OLD/src/scenarios.js" src/scenarios.js >/dev/null; then
   echo "FAUTE $N NON APPLIQUÉE"; exit 3
 fi
 

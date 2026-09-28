@@ -16,6 +16,7 @@ import * as Feu from "./feu.js";
 import * as Relief from "./relief.js";
 import * as Temps from "./temps.js";
 import * as Ensemble from "./ensemble.js";
+import * as Scenarios from "./scenarios.js";
 import * as Parapluie from "./parapluie.js";
 import * as Reponse from "./reponse.js";
 import * as Activites from "./activites.js";
@@ -206,8 +207,12 @@ export function vueSemaine() {
        où la colonne est la plus large, et la barre s'estompe à ses extrémités
        quand la confiance baisse. Les jours passés et ceux que les scénarios
        ne couvrent pas n'en portent pas. */
-    const ens = k >= i ? Ensemble.journee(d.time[k]) : null;
-    const accord = ens ? Ensemble.accordDe(ens.etendue).nom : null;
+    /* Depuis le jalon 13, la confiance vient des scénarios quotidiens des deux
+       modèles, mixte sur leur recouvrement, ECMWF seul jusqu'au quinzième jour ;
+       à défaut, de l'ensemble horaire d'ICON, comme avant. */
+    const sc = k >= i ? Scenarios.jour(d.time[k]) : null;
+    const ens = !sc && k >= i ? Ensemble.journee(d.time[k]) : null;
+    const accord = sc ? Scenarios.accordDe(sc.etendue) : ens ? Ensemble.accordDe(ens.etendue).nom : null;
 
     const corps = `<span class="j"><b>${esc(nom)}</b><em>${esc(date)}</em></span>`
       + `<span class="c">${icoTemps(icoCiel(code, true), "")}`
@@ -387,6 +392,21 @@ export function grapheSemaine(jours) {
    La ligne ne paraît que sur les journées que l'ensemble couvre entières : il
    porte sept jours annoncés et aucun jour écoulé, la table en demande neuf. */
 function confiance(date) {
+  /* Les deux modèles, jalon 13 : la fourchette de chacun, et s'ils s'accordent.
+     Au-delà de sept jours, ECMWF parle seul, et la phrase le dit. */
+  const s = Scenarios.jour(date);
+  if (s) {
+    const f = r => `de ${Math.round(r.p10)} à ${Math.round(r.p90)}°`;
+    const nom = Scenarios.accordDe(s.etendue);
+    if (s.source === "mixte") {
+      const accord = s.ecart >= 2 ? `s'écartent de ${Math.round(s.ecart)}°` : "s'accordent";
+      return `<p class="md-sc">Confiance ${esc(nom)} : ICON et ECMWF ${accord}, `
+        + `ICON ${f(s.icon)}, ECMWF ${f(s.ecmwf)} au plus chaud.</p>`;
+    }
+    const seul = s.source === "ecmwf" ? "ECMWF" : "ICON";
+    return `<p class="md-sc">Confiance ${esc(nom)} : ${seul} seul${s.source === "ecmwf" ? " au-delà de sept jours" : ""}, `
+      + `${f(s.reunis)} au plus chaud.</p>`;
+  }
   const j = Ensemble.journee(date);
   if (!j) return "";
   const a = Ensemble.accordDe(j.etendue);

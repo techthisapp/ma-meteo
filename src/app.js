@@ -32,6 +32,7 @@ import * as Reponse from "./reponse.js";
 import * as Pluie from "./pluieproche.js";
 import * as Bande from "./bande.js";
 import * as Version from "./version.js";
+import * as Scenarios from "./scenarios.js";
 import * as Deplacement from "./deplacement.js";
 import * as Radar from "./radar.js";
 
@@ -1140,6 +1141,7 @@ async function charger() {
   nommerPosition();
   lireVigilance();
   lireEnsemble(g);
+  lireScenarios(g);
   lireAir(g);
   lirePluieProche(g);
   /* Le journal de justesse note ce qui vient d'être servi. Il n'affiche rien et
@@ -1152,6 +1154,15 @@ async function charger() {
    une marge à ce qui est déjà à l'écran, et une source d'ensemble muette ne doit
    pas priver l'application de son temps qu'il fait. La requête ne part que pour
    la commune affichée. */
+/* Les scénarios quotidiens des deux modèles, jalon 13 : ils règlent la
+   confiance de La semaine, et se lisent eux aussi sans retarder la prévision. */
+async function lireScenarios(g) {
+  const mien = generation;
+  const d = await Scenarios.charger({ lat: g.lat, lon: g.lon });
+  if (mien !== generation || !d) return;
+  if (onglet === "semaine") rendre();
+}
+
 async function lireEnsemble(g) {
   const mien = generation;
   const d = await Ensemble.charger({ lat: g.lat, lon: g.lon });
