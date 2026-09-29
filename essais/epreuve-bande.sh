@@ -233,6 +233,16 @@ case "$N" in
   71) # Le trait continu de minuit disparaît.
      perl -0pi -e 's/<div class="mg">\$\{traits\}\$\{voies\.join\(""\)\}/<div class="mg">\${voies.join("")}/' src/ruban.js
      ATTENDU="un trait continu marque minuit sur toute la pile, sans pointillé dans chaque voie" ;;
+  72) # La semaine commence le dimanche.
+     perl -0pi -e 's/  const decal = \(d\.getDay\(\) \+ 6\) % 7;/  const decal = d.getDay();/' src/comparaison.js
+     ATTENDU="la semaine va du lundi au dimanche, un 29 février devient le 28" ;;
+  73) # La pluie se juge à la moindre différence.
+     perl -0pi -e 's/  const pluie = Math\.abs\(p1 - p2\) >= 10/  const pluie = Math.abs(p1 - p2) >= 0.5/' src/comparaison.js
+     ATTENDU="le bilan de la comparaison dit l.écart de température, et la pluie au-delà de dix millimètres" ;;
+  74) # La carte de la comparaison n'est plus branchée.
+     # Sa garde est dans la section du climat : lancer avec JUSQUA_EPREUVE.
+     perl -0pi -e 's/      brancherComparaison\(bloc\.querySelector\("#clComparer"\), bloc, g, c, date\);\n//' src/vues.js
+     ATTENDU="la feuille du climat compare la semaine en cours à la même semaine de l.an dernier" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
@@ -250,7 +260,8 @@ if diff -q "$OLD/src/bande.js" src/bande.js >/dev/null \
   && diff -q "$OLD/src/temps.js" src/temps.js >/dev/null \
   && diff -q "$OLD/src/previsions.js" src/previsions.js >/dev/null \
   && diff -q "$OLD/src/scenarios.js" src/scenarios.js >/dev/null \
-  && diff -q "$OLD/src/ruban.js" src/ruban.js >/dev/null; then
+  && diff -q "$OLD/src/ruban.js" src/ruban.js >/dev/null \
+  && diff -q "$OLD/src/comparaison.js" src/comparaison.js >/dev/null; then
   echo "FAUTE $N NON APPLIQUÉE"; exit 3
 fi
 

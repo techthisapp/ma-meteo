@@ -1846,6 +1846,26 @@ ok("un bandeau collant porte le jour et les heures, et glisse avec le ruban",
   JSON.stringify(hph));
 ok("un trait continu marque minuit sur toute la pile, sans pointillé dans chaque voie",
   hph.traits >= 1 && hph.pile && hph.pointilles === 0, JSON.stringify(hph));
+/* Jalon 14, lot 1 : la semaine du lundi au dimanche, les mêmes dates d'une
+   autre année, et le bilan avec sa phrase. */
+const cmpPur = await pg.evaluate(async () => {
+  const C = await import("/src/comparaison.js");
+  const cette = [20, 21, 22, 23, 22, 21, 20].map((tx, k) => ({ tx, tn: tx - 10, mm: k === 2 ? 5 : 0 }));
+  const chaude = cette.map((j, k) => ({ tx: j.tx - 3, tn: j.tn - 3, mm: k === 1 ? 10 : k === 5 ? 5 : 0 }));
+  /* Quatre millimètres d'écart, sous le seuil de dix : la pluie reste
+     « comparable ». Identique, elle ne distinguait aucun seuil d'un autre. */
+  const pareille = cette.map((j, k) => ({ tx: j.tx - 0.4, tn: j.tn, mm: j.mm + (k === 0 ? 4 : 0) }));
+  return { semaine: C.semaineDe("2026-09-30").join(" "), bissextile: C.memesDates(["2024-02-29"], 2023)[0],
+    chaude: C.bilan(cette, chaude, 2025)?.phrase, pareille: C.bilan(cette, pareille, 2025)?.phrase,
+    court: C.bilan(cette, chaude.slice(0, 3), 2025) };
+});
+ok("la semaine va du lundi au dimanche, un 29 février devient le 28",
+  cmpPur.semaine === "2026-09-28 2026-09-29 2026-09-30 2026-10-01 2026-10-02 2026-10-03 2026-10-04"
+  && cmpPur.bissextile === "2023-02-28", JSON.stringify(cmpPur));
+ok("le bilan de la comparaison dit l'écart de température, et la pluie au-delà de dix millimètres",
+  cmpPur.chaude === "Plus chaude que la même semaine de 2025, de 3° en moyenne au plus chaud ; plus sèche, 5 mm contre 15."
+  && cmpPur.pareille === "Semblable à la même semaine de 2025, à 0,4° près au plus chaud ; pluie comparable, 5 mm contre 9."
+  && cmpPur.court === null, JSON.stringify(cmpPur));
 ok("le graphique borne sa largeur, et se résume en une phrase",
   semGraphe.borne === "520px"
   && semGraphe.resume === "De 25 à 30 degrés au plus chaud, 5,4 millimètres de pluie en tout.",
@@ -10737,22 +10757,53 @@ ok("la feuille du climat s'ouvre depuis l'accueil",
 /* Deux lectures et pas davantage : l'archive longue, qui s'arrête à la fin de
    l'année écoulée, et la série récente, qui part du 1er décembre d'avant pour
    qu'un hiver à cheval sur le changement d'année soit entier. */
+/* Depuis le jalon 14, une troisième lecture s'y ajoute, la semaine de la
+   comparaison : les lectures se distinguent par leurs dates, non par leur
+   ordre d'arrivée. */
+const debutDe = u => new URL(u).searchParams.get("start_date");
+const lectureLongue = () => appelsArchive.filter(u => debutDe(u) === "1950-01-01");
+const lectureRecente = () => appelsArchive.filter(u => debutDe(u) === "2025-12-01");
+await pgClimat.waitForTimeout(800);
 ok("elle lit l'archive longue puis la série récente",
-  appelsArchive.length === 2, `${appelsArchive.length} appels`);
+  lectureLongue().length === 1 && lectureRecente().length === 1,
+  `${appelsArchive.length} appels : ${appelsArchive.map(debutDe).join(", ")}`);
 ok("l'archive longue va de 1950 à la fin de l'année écoulée",
   (() => {
-    const q = new URL(appelsArchive[0]).searchParams;
+    const q = new URL(lectureLongue()[0]).searchParams;
     if (q.get("start_date") !== "1950-01-01") return `début ${q.get("start_date")}`;
     if (q.get("end_date") !== "2025-12-31") return `fin ${q.get("end_date")}`;
     return q.get("daily") === "temperature_2m_max,temperature_2m_min,precipitation_sum"
       ? "" : `colonnes ${q.get("daily")}`;
-  })() === "", appelsArchive[0] || "");
+  })() === "", lectureLongue()[0] || "");
 ok("la série récente part du 1er décembre d'avant et s'arrête aujourd'hui",
   (() => {
-    const q = new URL(appelsArchive[1]).searchParams;
+    const q = new URL(lectureRecente()[0]).searchParams;
     if (q.get("start_date") !== "2025-12-01") return `début ${q.get("start_date")}`;
     return q.get("end_date") === "2026-08-18" ? "" : `fin ${q.get("end_date")}`;
-  })() === "", appelsArchive[1] || "");
+  })() === "", lectureRecente()[0] || "");
+
+/* Jalon 14, lot 1 : la comparaison dans le temps, dans la feuille du climat.
+   La semaine du 18 août 2026 va du lundi 17 au dimanche 23 ; l'an dernier par
+   défaut, ses mêmes dates en 2025, sept jours lus et pas davantage. */
+await pgClimat.locator("#clComparer .cj-l").first().waitFor({ timeout: 8000 }).catch(() => {});
+const cmpDit = await pgClimat.evaluate(() => {
+  const c = document.querySelector("#clComparer");
+  return { vue: !!c && !c.hidden, annees: c ? c.querySelectorAll(".cmp-annee option").length : 0,
+    defaut: c?.querySelector(".cmp-annee")?.value || "", graphe: !!c?.querySelector("svg.cmp"),
+    phrase: c?.querySelector(".cj-l")?.dataset.phrase || "" };
+});
+const lectureSemaine = a => appelsArchive.filter(u => debutDe(u) === `${a}-08-17`
+  && new URL(u).searchParams.get("end_date") === `${a}-08-23`);
+ok("la feuille du climat compare la semaine en cours à la même semaine de l'an dernier",
+  cmpDit.vue && cmpDit.defaut === "2025" && cmpDit.annees === 2026 - 1940 && cmpDit.graphe
+  && /^(Plus chaude que|Plus fraîche que|Semblable à) la même semaine de 2025, /.test(cmpDit.phrase)
+  && lectureSemaine(2025).length === 1, JSON.stringify(cmpDit));
+await pgClimat.locator("#clComparer .cmp-annee").selectOption("2003");
+await pgClimat.waitForFunction(() => /de 2003,/.test(document.querySelector("#clComparer .cj-l")?.dataset.phrase || ""),
+  null, { timeout: 8000 }).catch(() => {});
+const cmp2003 = await pgClimat.evaluate(() => document.querySelector("#clComparer .cj-l")?.dataset.phrase || "");
+ok("une autre année se choisit, et se lit pour ses sept jours seulement",
+  /la même semaine de 2003, /.test(cmp2003) && lectureSemaine(2003).length === 1, cmp2003);
 
 /* Le percentile, recalculé ici à partir de la formule de la charge : toutes les
    journées à onze jours du 18 août, de 1950 à 2025, comparées au maximum que la
