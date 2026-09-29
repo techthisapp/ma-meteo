@@ -277,6 +277,12 @@ SORTIE=$(CHROMIUM=/opt/pw-browsers/chromium-1194/chrome-linux/chrome \
 echo "$SORTIE" > "/tmp/epreuve-bande-$N.log"
 if echo "$SORTIE" | grep -q "ÉCHEC  $ATTENDU"; then
   echo "FAUTE $N vue par : $ATTENDU"
+elif ! echo "$SORTIE" | grep -q "ok     $ATTENDU"; then
+  # La garde attendue n'a pas tourné du tout : la suite s'est interrompue avant
+  # elle. Ce n'est pas une faute non vue, et le dire ainsi a déjà trompé : une
+  # copie de travail effacée pendant l'épreuve avait fait conclure à tort.
+  echo "ÉPREUVE $N INTERROMPUE avant la garde : $ATTENDU"
+  echo "$SORTIE" | grep -v "^\s*at " | tail -3
 else
   echo "FAUTE $N NON VUE. Attendu : $ATTENDU"
   echo "$SORTIE" | grep "ÉCHEC" | head -8
