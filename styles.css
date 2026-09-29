@@ -2297,3 +2297,17 @@ button.rangee:active{background:var(--surface-2)}
 .sg-pmax.cmp-prevu,.sg-pmin.cmp-prevu{fill:var(--surface);stroke-width:1.5}
 .sg-pmax.cmp-prevu{stroke:var(--ic-soleil)}
 .sg-pmin.cmp-prevu{stroke:var(--ic-pluie)}
+
+/* La comparaison entre lieux, jalon 14, lot 2 : les pastilles de choix, le
+   tableau des moyennes, le point de couleur de chaque lieu. */
+.cmp-puces{display:flex;flex-wrap:wrap;gap:var(--espace-xs);margin:0 0 var(--espace-sm)}
+.cmp-puce{min-height:36px;padding:0 var(--espace-md);border:1px solid var(--filet-clair);border-radius:var(--rayon-plein);
+  font:inherit;font-size:var(--texte-note);color:var(--etiquette);background:transparent}
+.cmp-puce.choisie{color:var(--accent);border-color:transparent;background:color-mix(in srgb, var(--accent) 12%, transparent);
+  font-weight:var(--graisse-semibold)}
+.cmp-tab{width:100%;border-collapse:collapse;font-size:var(--texte-note);margin:var(--espace-xs) 0}
+.cmp-tab th{font-weight:500;color:var(--etiquette-2);text-align:right;padding:4px 6px}
+.cmp-tab td{text-align:right;padding:6px;border-top:1px solid var(--filet-clair)}
+.cmp-tab td:first-child,.cmp-tab th:first-child{text-align:left}
+.cmp-tab .cmp-fort{font-weight:var(--graisse-semibold);color:var(--etiquette)}
+.cmp-pt{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:baseline}

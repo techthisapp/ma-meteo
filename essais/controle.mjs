@@ -533,6 +533,22 @@ function grilleCorps(u) {
    La pluie est nulle un jour sur deux et vaut deux millimètres l'autre, ce qui
    rend un cumul de saison exactement calculable. */
 let appelsArchive = [];
+/* La comparaison entre lieux, jalon 14, lot 2 : une charge par lieu, dans
+   l'ordre des coordonnées. Chaque lieu a deux degrés de plus que le précédent,
+   et seul le deuxième reçoit de la pluie, cinq millimètres par jour. */
+let appelsLieux = [];
+function lieuxCorps(u) {
+  const q = new URL(u).searchParams;
+  const lats = q.get("latitude").split(",");
+  const d0 = Date.parse(`${q.get("start_date")}T00:00:00Z`), d1 = Date.parse(`${q.get("end_date")}T00:00:00Z`);
+  const time = [];
+  for (let t = d0; t <= d1; t += 86400000) time.push(new Date(t).toISOString().slice(0, 10));
+  const un = i => ({ latitude: Number(lats[i]), longitude: 0, daily: { time,
+    temperature_2m_max: time.map((_, k) => 20 + i * 2 + k * 0.3),
+    temperature_2m_min: time.map((_, k) => 11 + i * 2 + k * 0.3),
+    precipitation_sum: time.map(() => (i === 1 ? 5 : 0)) } });
+  return lats.length === 1 ? un(0) : lats.map((_, i) => un(i));
+}
 let archiveMuette = false;
 const ARCHIVE_MONTEE = 0.02;
 /* La bosse est la somme de deux restes et non un seul : une somme de deux
@@ -647,6 +663,13 @@ const brancherRoutes = async c => {
       appelsGrille.push(u);
       route.fulfill({ status: 200, contentType: "application/json",
         body: JSON.stringify(grilleCorps(u)) });
+      return;
+    }
+    /* La comparaison entre lieux se reconnaît à ses dates de début et de fin,
+       demandées nulle part ailleurs sur ce service. */
+    if (u.includes("start_date=")) {
+      appelsLieux.push(u);
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(lieuxCorps(u)) });
       return;
     }
     // Aperçu des communes suivies : un tableau, un élément par couple de coordonnées.
@@ -1866,6 +1889,21 @@ ok("le bilan de la comparaison dit l'écart de température, et la pluie au-del�
   cmpPur.chaude === "Plus chaude que la même semaine de 2025, de 3° en moyenne au plus chaud ; plus sèche, 5 mm contre 15."
   && cmpPur.pareille === "Semblable à la même semaine de 2025, à 0,4° près au plus chaud ; pluie comparable, 5 mm contre 9."
   && cmpPur.court === null, JSON.stringify(cmpPur));
+/* Jalon 14, lot 2 : l'adresse groupée des lieux et le bilan entre lieux. */
+const lieuxPur = await pg.evaluate(async () => {
+  const C = await import("/src/comparaison.js");
+  const u = new URL(C.adresseLieux([{ lat: 47.6, lon: 4.3 }, { lat: 48.86, lon: 2.35 }],
+    ["2026-09-28", "2026-09-29", "2026-09-30", "2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04"])).searchParams;
+  const sept = f => Array.from({ length: 7 }, (_, k) => f(k));
+  const sec = C.bilanLieux([{ nom: "A", jours: sept(() => ({ tx: 20, tn: 10, mm: 0 })) },
+    { nom: "B", jours: sept(() => ({ tx: 22, tn: 12, mm: 0.1 })) }]);
+  const seul = C.bilanLieux([{ nom: "A", jours: sept(() => ({ tx: 20, tn: 10, mm: 0 })) }]);
+  return { lat: u.get("latitude"), debut: u.get("start_date"), fin: u.get("end_date"), sec: sec?.phrase, seul };
+});
+ok("les lieux se demandent ensemble, et une semaine sans pluie notable se dit sèche partout",
+  lieuxPur.lat === "47.6000,48.8600" && lieuxPur.debut === "2026-09-28" && lieuxPur.fin === "2026-10-04"
+  && lieuxPur.sec === "B le plus chaud cette semaine, 22° en moyenne au plus chaud ; sec partout." && lieuxPur.seul === null,
+  JSON.stringify(lieuxPur));
 ok("le graphique borne sa largeur, et se résume en une phrase",
   semGraphe.borne === "520px"
   && semGraphe.resume === "De 25 à 30 degrés au plus chaud, 5,4 millimètres de pluie en tout.",
@@ -10804,6 +10842,51 @@ await pgClimat.waitForFunction(() => /de 2003,/.test(document.querySelector("#cl
 const cmp2003 = await pgClimat.evaluate(() => document.querySelector("#clComparer .cj-l")?.dataset.phrase || "");
 ok("une autre année se choisit, et se lit pour ses sept jours seulement",
   /la même semaine de 2003, /.test(cmp2003) && lectureSemaine(2003).length === 1, cmp2003);
+
+/* Jalon 14, lot 2 : la comparaison entre lieux, dans un contexte à part où
+   trois lieux sont suivis. Les trois se lisent ensemble, en une requête ; une
+   pastille retire un lieu, et la requête suivante n'en porte plus que deux. */
+const ctxLieux = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+await ctxLieux.addInitScript(amorce(FAIN));
+await ctxLieux.addInitScript(() => {
+  const r = JSON.parse(localStorage.getItem("mameteo.reglages.v1") || "{}");
+  const ici = { commune: r.commune, lat: r.lat, lon: r.lon, codePostal: r.codePostal };
+  r.suivies = [ici, { commune: "Paris", lat: 48.8566, lon: 2.3522 }, { commune: "Lecci", lat: 41.6795, lon: 9.3186 }];
+  localStorage.setItem("mameteo.reglages.v1", JSON.stringify(r));
+});
+await brancherRoutes(ctxLieux);
+const pgLieux = await ctxLieux.newPage();
+await ouvrirPage(pgLieux);
+await pgLieux.waitForTimeout(1500);
+appelsLieux.length = 0;
+await ouvrirClimat(pgLieux);
+await pgLieux.locator("#clLieux .cj-l").first().waitFor({ timeout: 8000 }).catch(() => {});
+const lieuxDit = await pgLieux.evaluate(() => ({
+  phrase: document.querySelector("#clLieux .cj-l")?.dataset.phrase || "",
+  lignes: document.querySelectorAll("#clLieux .cmp-tab tbody tr").length,
+  puces: [...document.querySelectorAll("#clLieux .cmp-puce")].map(b => `${b.textContent}${b.classList.contains("choisie") ? "*" : ""}`),
+  traces: document.querySelectorAll("#clLieux svg.cmp-lieux polyline").length,
+}));
+const latsDe = u => new URL(u).searchParams.get("latitude").split(",").length;
+const premiereLieux = appelsLieux[0] || "";
+await pgLieux.locator("#clLieux .cmp-puce", { hasText: "Paris" }).click();
+await pgLieux.waitForFunction(() => document.querySelectorAll("#clLieux .cmp-tab tbody tr").length === 2, null, { timeout: 8000 }).catch(() => {});
+const lieuxApres = await pgLieux.evaluate(() => ({
+  phrase: document.querySelector("#clLieux .cj-l")?.dataset.phrase || "",
+  lignes: document.querySelectorAll("#clLieux .cmp-tab tbody tr").length,
+}));
+await ctxLieux.close();
+ok("la feuille du climat compare la même semaine entre lieux suivis, en une requête",
+  lieuxDit.lignes === 3 && lieuxDit.traces === 3 && lieuxDit.puces.join(" ") === "Paris* Lecci*"
+  && lieuxDit.phrase === "Lecci le plus chaud cette semaine, 24,9° en moyenne au plus chaud ; Paris le plus arrosé, 35 mm."
+  && premiereLieux && latsDe(premiereLieux) === 3 && new URL(premiereLieux).searchParams.get("start_date") === "2026-08-17",
+  JSON.stringify({ lieuxDit, premiereLieux }));
+ok("une pastille retire un lieu, et la comparaison se refait sans lui",
+  lieuxApres.lignes === 2 && /^Lecci le plus chaud cette semaine, 22,9° /.test(lieuxApres.phrase)
+  && appelsLieux.length === 2 && latsDe(appelsLieux[1]) === 2, JSON.stringify({ lieuxApres, n: appelsLieux.length }));
 
 /* Le percentile, recalculé ici à partir de la formule de la charge : toutes les
    journées à onze jours du 18 août, de 1950 à 2025, comparées au maximum que la

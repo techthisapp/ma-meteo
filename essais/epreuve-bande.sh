@@ -243,6 +243,13 @@ case "$N" in
      # Sa garde est dans la section du climat : lancer avec JUSQUA_EPREUVE.
      perl -0pi -e 's/      brancherComparaison\(bloc\.querySelector\("#clComparer"\), bloc, g, c, date\);\n//' src/vues.js
      ATTENDU="la feuille du climat compare la semaine en cours à la même semaine de l.an dernier" ;;
+  75) # Une semaine sans pluie notable nomme quand même un lieu arrosé.
+     perl -0pi -e 's/  const pluie = arrose\.mm < 1 \? "sec partout"/  const pluie = arrose.mm < 0 ? "sec partout"/' src/comparaison.js
+     ATTENDU="les lieux se demandent ensemble, et une semaine sans pluie notable se dit sèche partout" ;;
+  76) # Tous les lieux reçoivent la charge du premier.
+     # Sa garde est dans la section du climat : lancer avec JUSQUA_EPREUVE.
+     perl -0pi -e 's/journeesDe\(tab\[k\]\?\.daily\)/journeesDe(tab[0]?.daily)/' src/comparaison.js
+     ATTENDU="la feuille du climat compare la même semaine entre lieux suivis, en une requête" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

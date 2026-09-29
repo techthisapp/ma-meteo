@@ -3879,6 +3879,94 @@ function brancherComparaison(cmp, bloc, g, c, date) {
   montrer(anneeCourante - 1);
 }
 
+/* La comparaison entre lieux, jalon 14, lot 2 : la même semaine, la commune
+   affichée et jusqu'à trois lieux suivis choisis par des pastilles, les trois
+   premiers par défaut. Un tableau des moyennes et du cumul de pluie, les
+   maximums de chaque lieu en couleur, et la phrase du plus chaud et du plus
+   arrosé. */
+/* Quatre couleurs franchement distinctes : le bleu de la pluie, trop proche de
+   celui de l'accent, rendait deux lieux difficiles à séparer. */
+const COULEURS_LIEUX = ["var(--accent)", "var(--ic-soleil)", "#3fa66b", "var(--ic-lune)"];
+
+function brancherLieux(carte, bloc, g, date) {
+  if (!carte) return;
+  const semaine = Comparaison.semaineDe(date);
+  const cleG = Reglages.cleLieu(g);
+  const nomDe = l => l.commune || l.nom || "Lieu";
+  const autres = Reglages.suivies().filter(l => Reglages.cleLieu(l) !== cleG && Number.isFinite(l.lat));
+  const tete = `<div class="carte-tete"><h3>Cette semaine ailleurs</h3></div>`;
+  if (!autres.length) {
+    carte.hidden = false;
+    carte.innerHTML = tete + `<p class="note">Suivez d'autres lieux pour les comparer à celui-ci.</p>`;
+    return;
+  }
+  const choix = new Set(autres.slice(0, 3).map(Reglages.cleLieu));
+  let jeton = 0;
+  const puces = () => `<div class="cmp-puces">` + autres.map(l => {
+    const c = Reglages.cleLieu(l), oui = choix.has(c);
+    return `<button type="button" class="cmp-puce${oui ? " choisie" : ""}" data-cle="${esc(c)}" `
+      + `aria-pressed="${oui}">${esc(nomDe(l))}</button>`;
+  }).join("") + `</div>`;
+  const brancher = () => carte.querySelectorAll(".cmp-puce").forEach(b => b.addEventListener("click", () => {
+    const c = b.dataset.cle;
+    if (choix.has(c)) choix.delete(c);
+    else if (choix.size < 3) choix.add(c);
+    montrer();
+  }));
+  const montrer = async () => {
+    const mien = ++jeton;
+    const lieux = [{ lat: g.lat, lon: g.lon, nom: nomDe(g) },
+      ...autres.filter(l => choix.has(Reglages.cleLieu(l))).map(l => ({ lat: l.lat, lon: l.lon, nom: nomDe(l) }))];
+    carte.hidden = false;
+    carte.innerHTML = tete + puces() + `<p class="note">${lieux.length < 2
+      ? "Choisissez au moins un lieu à comparer." : "Lecture des lieux…"}</p>`;
+    brancher();
+    if (lieux.length < 2) return;
+    let series = null;
+    try { series = await Comparaison.lireLieux(lieux, semaine); } catch { series = null; }
+    if (!bloc.isConnected || mien !== jeton) return;
+    const b = series ? Comparaison.bilanLieux(series) : null;
+    if (!b) {
+      carte.innerHTML = tete + puces() + `<p class="note">La comparaison a besoin du réseau.</p>`;
+      brancher();
+      return;
+    }
+    const couleur = nom => COULEURS_LIEUX[Math.max(0, lieux.findIndex(l => l.nom === nom))];
+    const fort = (l, cle, v) => (b[cle] === l.nom ? " cmp-fort" : "");
+    const tableau = `<table class="cmp-tab"><thead><tr><th></th><th>Max.</th><th>Min.</th><th>Pluie</th></tr></thead><tbody>`
+      + b.lignes.map(l => `<tr><td><i class="cmp-pt" style="background:${couleur(l.nom)}"></i>${esc(l.nom)}</td>`
+        + `<td class="${fort(l, "chaud").trim()}">${nombreFr(l.tx)}°</td><td>${nombreFr(l.tn)}°</td>`
+        + `<td class="${fort(l, "arrose").trim()}">${Math.round(l.mm)} mm</td></tr>`).join("")
+      + `</tbody></table>`;
+    carte.innerHTML = tete + puces() + grapheLieux(series, lieux, date) + tableau
+      + `<div class="conseils">${conseilsHTML([{ i: "thermo", g: 1, t: b.phrase }])}</div>`
+      + `<p class="note">Maximums et minimums moyens de la semaine, du lundi au dimanche, prévision comprise ; `
+      + `tous les lieux viennent d'une même source.</p>`;
+    brancher();
+  };
+  montrer();
+}
+
+/* Les maximums de chaque lieu sur les sept jours, une couleur par lieu, la
+   commune affichée en trait plus épais. */
+export function grapheLieux(series, lieux, aujourdhui) {
+  const L = 340, H = 132, n = 7, col = (L - 8) / n, x = k => 4 + (k + 0.5) * col;
+  const vals = series.flatMap(s => s.jours.map(j => j.tx)).filter(Number.isFinite);
+  if (!vals.length) return "";
+  const mn = Math.min(...vals), mx = Math.max(...vals), amp = Math.max(4, mx - mn);
+  const y = t => 96 - ((t - mn) / amp) * 80;
+  const traces = series.map((s, i) => `<polyline fill="none" stroke="${COULEURS_LIEUX[i]}" stroke-width="${i ? 1.8 : 2.8}" `
+    + `stroke-linejoin="round" points="${s.jours.map((j, k) => (Number.isFinite(j.tx) ? `${x(k).toFixed(1)},${y(j.tx).toFixed(1)}` : "")).filter(Boolean).join(" ")}"/>`).join("");
+  const dates = series[0]?.jours.map(j => j.date) || [];
+  const noms = dates.map((d, k) => {
+    const nom = d === aujourdhui ? "Auj."
+      : new Date(`${d}T12:00`).toLocaleDateString("fr-FR", { weekday: "short" }).replace(".", "");
+    return `<text class="sg-j${d === aujourdhui ? " sg-a" : ""}" x="${x(k).toFixed(1)}" y="${H - 6}">${esc(nom)}</text>`;
+  }).join("");
+  const resume = `Maximums de la semaine pour ${lieux.map(l => l.nom).join(", ")}.`;
+  return `<svg class="sg cmp-lieux" viewBox="0 0 ${L} ${H}" role="img" aria-label="${esc(resume)}">${traces}${noms}</svg>`;
+}
+
 /* Le graphique à sept colonnes : maximums et minimums des deux semaines, trait
    plein pour la semaine en cours, tirets pour l'autre année, et la pluie en
    paires de barres. Les jours à venir de la semaine en cours ont des points
@@ -3929,6 +4017,7 @@ export function vueClimat(ctx, rendre, majEtat) {
       /* La comparaison dans le temps, jalon 14 : la semaine en cours face aux
          mêmes dates d'une autre année, l'an dernier par défaut. */
       + `<div class="carte" id="clComparer" hidden></div>`
+      + `<div class="carte" id="clLieux" hidden></div>`
       + `<div class="carte" id="clRecords" hidden></div>`
       + `<div class="carte" id="clSaison" hidden></div>`
       + `<div class="carte" id="clBandes" hidden></div>`
@@ -3955,6 +4044,7 @@ export function vueClimat(ctx, rendre, majEtat) {
         : (c && iJ >= 0 ? c.daily.temperature_2m_max[iJ] : null);
 
       brancherComparaison(bloc.querySelector("#clComparer"), bloc, g, c, date);
+      brancherLieux(bloc.querySelector("#clLieux"), bloc, g, date);
 
       (async () => {
         let d = null;

@@ -103,3 +103,54 @@ export function bilan(cette, autre, annee) {
     phrase: `${titre} ; ${pluie}.`,
   };
 }
+
+/* La comparaison entre lieux, jalon 14, lot 2 : la même semaine, deux à
+   quatre lieux suivis, dans une seule requête à la prévision, un tableau par
+   lieu pour qu'ils se comparent à source égale. La commune affichée y figure
+   aussi, relue avec les autres plutôt que tirée de sa propre charge, qui mêle
+   AROME aux premiers jours. */
+const PREVISION = "https://api.open-meteo.com/v1/forecast";
+
+export function adresseLieux(lieux, dates) {
+  const q = new URLSearchParams();
+  q.set("latitude", lieux.map(l => l.lat.toFixed(4)).join(","));
+  q.set("longitude", lieux.map(l => l.lon.toFixed(4)).join(","));
+  q.set("start_date", dates[0]);
+  q.set("end_date", dates[dates.length - 1]);
+  q.set("daily", COLONNES.join(","));
+  q.set("timezone", "Europe/Paris");
+  return `${PREVISION}?${q}`;
+}
+
+const luLieux = new Map();
+
+export async function lireLieux(lieux, dates, fetcheur = fetch) {
+  const cle = `${lieux.map(l => `${l.lat.toFixed(3)},${l.lon.toFixed(3)}`).join(";")}|${dates[0]}`;
+  if (luLieux.has(cle)) return luLieux.get(cle);
+  const r = await fetcheur(adresseLieux(lieux, dates));
+  if (!r.ok) throw new Error(`prévision ${r.status}`);
+  const d = await r.json();
+  const tab = Array.isArray(d) ? d : [d];
+  const res = lieux.map((l, k) => ({ nom: l.nom, jours: journeesDe(tab[k]?.daily) }));
+  luLieux.set(cle, res);
+  return res;
+}
+
+/* Le bilan des lieux : moyennes des maximums et des minimums, cumul de pluie,
+   et la phrase qui nomme le plus chaud et le plus arrosé. En dessous d'un
+   millimètre partout, la semaine se dit sèche. */
+export function bilanLieux(series) {
+  const lignes = series.map(s => {
+    const j = s.jours.filter(x => Number.isFinite(x.tx));
+    if (j.length < 4) return null;
+    return { nom: s.nom, tx: Math.round(moyenne(j.map(x => x.tx)) * 10) / 10,
+      tn: Math.round(moyenne(j.filter(x => Number.isFinite(x.tn)).map(x => x.tn)) * 10) / 10,
+      mm: Math.round(s.jours.reduce((a, x) => a + (x.mm || 0), 0) * 10) / 10 };
+  }).filter(Boolean);
+  if (lignes.length < 2) return null;
+  const chaud = lignes.reduce((a, l) => (l.tx > a.tx ? l : a));
+  const arrose = lignes.reduce((a, l) => (l.mm > a.mm ? l : a));
+  const pluie = arrose.mm < 1 ? "sec partout" : `${arrose.nom} le plus arrosé, ${fr(arrose.mm, 0)} mm`;
+  return { lignes, chaud: chaud.nom, arrose: arrose.mm < 1 ? null : arrose.nom,
+    phrase: `${chaud.nom} le plus chaud cette semaine, ${fr(chaud.tx)}° en moyenne au plus chaud ; ${pluie}.` };
+}
