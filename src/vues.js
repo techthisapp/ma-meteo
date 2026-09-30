@@ -18,6 +18,8 @@ import * as Temps from "./temps.js";
 import * as Ensemble from "./ensemble.js";
 import * as Scenarios from "./scenarios.js";
 import * as Comparaison from "./comparaison.js";
+import * as Neige from "./neige.js";
+import { cleHeure } from "./horloge.js";
 import * as Parapluie from "./parapluie.js";
 import * as Reponse from "./reponse.js";
 import * as Activites from "./activites.js";
@@ -4044,6 +4046,69 @@ export function grapheComparaison(cette, autre, a1, a2, aujourdhui, periode = "7
     + ligne(cette, "tx", "sg-max") + ligne(cette, "tn", "sg-min")
     + points("tx", "sg-pmax", -7) + points("tn", "sg-pmin", 0)
     + etiquettesJours(cette.map(j => j.date), x, aujourdhui, H - 5) + `</svg>`;
+}
+
+/* La feuille de la neige, jalon 16, lot 3 : les stations à une heure de
+   route, regroupées sous leur domaine, décidé par Jérôme le 30 septembre 2026.
+   Pour chacune, la durée de trajet, la neige au sommet et au pied, la neige
+   fraîche des 72 dernières heures, les chutes prévues sur sept jours,
+   l'isotherme zéro et les rafales au sommet. */
+export function vueNeige(ctx, rendre) {
+  const titre = "La neige", sous = ctx?.commune || "";
+  const nz = Neige.etatNeige(ctx);
+  if (!nz) {
+    Neige.chargerNeige(ctx, cleHeure()).then(() => rendre()).catch(() => {});
+    return { titre, sous, corps: `<div class="carte"><p class="note">Lecture des stations…</p></div>` };
+  }
+  if (!nz.proches.length) {
+    return { titre, sous, corps: `<div class="carte"><p class="note">Aucune station de ski à une heure de route.</p></div>` };
+  }
+  if (!nz.resumes.length) {
+    return { titre, sous, corps: `<div class="carte"><p class="note">La neige a besoin du réseau.</p></div>` };
+  }
+  const cm = v => `${Math.round(v)} cm`;
+  const valeurs = s => `<dl class="ng-val">`
+    + `<dt>Au sommet, ${s.sommet} m</dt><dd>${cm(s.haut.sol)}</dd>`
+    + `<dt>Au pied, ${s.pied} m</dt><dd>${cm(s.bas.sol)}</dd>`
+    + `<dt>Fraîche, 72 heures</dt><dd>${cm(s.haut.fraiche72)}</dd>`
+    + `<dt>Chutes, 7 jours</dt><dd>${cm(s.haut.chutes.slice(0, 7).reduce((a, c) => a + c.cm, 0))}</dd>`
+    + `<dt>Isotherme zéro</dt><dd>${s.haut.iso.toLocaleString("fr-FR")} m</dd>`
+    + `<dt>Rafales au sommet</dt><dd>${s.haut.rafales} km/h</dd></dl>`;
+  /* Sous le titre d'un domaine, ses propres chiffres s'intitulent « Ensemble
+     du domaine » : répéter son nom le disait deux fois. */
+  const entete = (s, nom = s.nom) => `<div class="ng-tete"><b>${esc(nom)}</b>`
+    + `<span>${s.minutes} min de route${s.estime ? ", estimées" : ""}</span></div>`;
+  /* Les domaines d'abord, chacun avec ses stations ; un domaine proche porte
+     aussi ses propres chiffres, pris sur son emprise entière. */
+  const membres = new Map();
+  for (const s of nz.resumes) if (s.domaine) (membres.get(s.domaine) || membres.set(s.domaine, []).get(s.domaine)).push(s);
+  const vus = new Set();
+  const cartes = [];
+  for (const s of nz.resumes) {
+    if (vus.has(s.nom)) continue;
+    const dom = s.domaine || (membres.has(s.nom) ? s.nom : null);
+    if (dom) {
+      if (vus.has(dom)) continue;
+      vus.add(dom);
+      const tete = nz.resumes.find(x => x.nom === dom);
+      const liste = membres.get(dom) || [];
+      liste.forEach(x => vus.add(x.nom));
+      cartes.push(`<div class="carte ng-dom"><h3>${esc(dom)}</h3>`
+        + (tete ? entete(tete, "Ensemble du domaine") + valeurs(tete) : "")
+        + liste.map(x => `<div class="ng-st">${entete(x)}${valeurs(x)}</div>`).join("") + `</div>`);
+    } else {
+      vus.add(s.nom);
+      cartes.push(`<div class="carte ng-seule">${entete(s)}${valeurs(s)}</div>`);
+    }
+  }
+  const notable = Neige.chuteNotable(nz.resumes);
+  const tete = `<div class="carte retenir"><div class="conseils">${conseilsHTML([
+    ...(notable ? [{ i: "neige", g: 6, t: notable.phrase }] : []),
+    { i: "neige", g: 1, t: Neige.phraseNeige(nz.resumes) }])}</div></div>`;
+  return { titre, sous, corps: tete + cartes.join("")
+    + `<p class="note">Stations : OpenSkiMap, © contributeurs OpenStreetMap, licence ODbL. `
+    + `Neige : prévision calculée à l'altitude du pied et du sommet de chaque station. `
+    + `Durées de route : OSRM.</p>` };
 }
 
 export function vueClimat(ctx, rendre, majEtat) {

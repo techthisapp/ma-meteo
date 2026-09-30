@@ -276,6 +276,18 @@ case "$N" in
   83) # Sans OSRM, plus aucune station.
      perl -0pi -e 's/  \} catch \{\n    return cands\.filter\(s => s\.vol <= KM_PAR_HEURE_ESTIMEE\)/  } catch {\n    return [];\n    return cands.filter(s => s.vol <= KM_PAR_HEURE_ESTIMEE)/' src/neige.js
      ATTENDU="sans réponse d.OSRM, une estimation à vol d.oiseau prend le relais, marquée comme telle" ;;
+  85) # Une chute ordinaire passe pour notable.
+     perl -0pi -e 's/if \(\(trois >= 20 \|\| jourMax >= 10\)/if ((trois >= 2 || jourMax >= 1)/' src/neige.js
+     ATTENDU="une chute notable se dit à la station où il en tombera le plus, un temps calme se tait" ;;
+  86) # La porte de la neige paraît toute l'année.
+     perl -0pi -e 's/  if \(m >= 11 \|\| m <= 4\) return true;/  return true;/' src/neige.js
+     ATTENDU="la saison de la neige va de novembre à avril, et au-delà tant que la neige tient" ;;
+  87) # La porte large disparaît de l'accueil.
+     perl -0pi -e 's/      \+ \(saisonNeige \? `<button type="button" class="carte rangee porte porte-large"/      + (false \&\& saisonNeige ? `<button type="button" class="carte rangee porte porte-large"/' src/app.js
+     ATTENDU="en saison, une porte large mène à la neige, au-dessus de la grille, et une chute notable se dit en tête" ;;
+  88) # La neige fraîche ne compte plus que les dernières 24 heures.
+     perl -0pi -e 's/h\.snowfall\.slice\(Math\.max\(0, k - 71\), k \+ 1\)/h.snowfall.slice(Math.max(0, k - 23), k + 1)/' src/neige.js
+     ATTENDU="la neige d.un point se résume : au sol, fraîche sur 24 et 72 heures, chutes à venir, isotherme, rafales" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

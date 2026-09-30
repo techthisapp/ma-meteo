@@ -9,7 +9,7 @@
    couches, navigation par barre d'onglets, contenu posé sur le fond, feuilles
    pour les actions temporaires. */
 
-import { nombreFr, esc, departementDe, heureJour, enumerer } from "./horloge.js";
+import { nombreFr, esc, departementDe, heureJour, enumerer, cleHeure } from "./horloge.js";
 import * as P from "./previsions.js";
 import * as Reglages from "./reglages.js";
 import { ico, icoTemps, icoCiel, tempsDe } from "./icones.js";
@@ -20,7 +20,7 @@ import * as Relief from "./relief.js";
 import * as Temps from "./temps.js";
 import { vueTemps, vueSemaine, vueVigilance, vueCiel, vueCarte, vueCommunes, vueReglages,
   vueAjout, vueParapluie, vueRessenti, vueActivites, vueBeauTemps, vueAir,
-  vueClimat, bandeauAccueil, basculerSemaine, semaineEstEtendue } from "./vues.js";
+  vueClimat, vueNeige, bandeauAccueil, basculerSemaine, semaineEstEtendue } from "./vues.js";
 import { moments } from "./ecritures.js";
 import * as Vig from "./vigilance.js";
 import * as Astres from "./astres.js";
@@ -33,6 +33,7 @@ import * as Pluie from "./pluieproche.js";
 import * as Bande from "./bande.js";
 import * as Version from "./version.js";
 import * as Scenarios from "./scenarios.js";
+import * as Neige from "./neige.js";
 import * as Deplacement from "./deplacement.js";
 import * as Radar from "./radar.js";
 
@@ -540,6 +541,14 @@ function ecranAccueil() {
     const lJour = sJour
       ? conseils(sJour, { evenement: prochainAstre(), aujourdhui: cejour,
         veille: P.ecartVeille(), air: Air.alignerSur(sJour), pollens: suivis }) : [];
+    /* La neige, jalon 16 : en saison et s'il existe une station à une heure de
+       route, une porte large au-dessus de la grille, et un conseil en tête des
+       conseils du jour quand une chute notable s'annonce, décidé par Jérôme le
+       30 septembre 2026. */
+    const nz = Neige.etatNeige(Reglages.lire());
+    const saisonNeige = !!nz && nz.resumes.length > 0 && Neige.enSaison(cleHeure().slice(0, 10), nz.resumes);
+    const notable = saisonNeige ? Neige.chuteNotable(nz.resumes) : null;
+    if (notable) lJour.unshift({ i: "neige", g: 6, t: notable.phrase, d: "feuille:neige" });
     /* Le renversement de température ne se dit qu'avec demain : c'est de cette
        journée qu'il parle. L'évènement du Soleil, lui, ne vaut que pour les
        heures qui viennent. */
@@ -603,6 +612,9 @@ function ecranAccueil() {
        l'essentiel avant elles. Sans titre, elles ne s'ajoutent pas aux trois
        blocs de temps. */
     const portesHTML = ""
+      + (saisonNeige ? `<button type="button" class="carte rangee porte porte-large" data-feuille="neige">`
+        + ico("neige", "") + `<span class="rangee-txt"><b>La neige</b>`
+        + `<span>${esc(Neige.phraseNeige(nz.resumes))}</span></span>` + chevron + `</button>` : "")
       + `<div class="portes">`
         /* L'écran de questions s'ouvre d'ici.
 
@@ -982,7 +994,7 @@ async function suivrePosition({ force } = {}) {
 const FEUILLES = { vigilance: vueVigilance, communes: vueCommunes,
   ajout: vueAjout, reglages: vueReglages, parapluie: vueParapluie,
   ressenti: vueRessenti, activites: vueActivites, beautemps: vueBeauTemps,
-  air: vueAir, climat: vueClimat };
+  air: vueAir, climat: vueClimat, neige: vueNeige };
 
 /* Accroches : un contenu court n'occupe pas tout l'écran. */
 const ACCROCHE = { vigilance: "moyenne", communes: "grande",
@@ -1144,6 +1156,7 @@ async function charger() {
   lireVigilance();
   lireEnsemble(g);
   lireScenarios(g);
+  lireNeigeDe(g);
   lireAir(g);
   lirePluieProche(g);
   /* Le journal de justesse note ce qui vient d'être servi. Il n'affiche rien et
@@ -1158,6 +1171,16 @@ async function charger() {
    la commune affichée. */
 /* Les scénarios quotidiens des deux modèles, jalon 13 : ils règlent la
    confiance de La semaine, et se lisent eux aussi sans retarder la prévision. */
+/* La neige des stations proches, jalon 16 : lue elle aussi sans retarder la
+   prévision. Les stations proches se gardent trente jours, la neige une heure. */
+async function lireNeigeDe(g) {
+  const mien = generation;
+  try { await Neige.chargerNeige(g, cleHeure()); } catch { return; }
+  if (mien !== generation) return;
+  rendre();
+  if (vueCourante) rendreFeuille();
+}
+
 async function lireScenarios(g) {
   const mien = generation;
   const d = await Scenarios.charger({ lat: g.lat, lon: g.lon });

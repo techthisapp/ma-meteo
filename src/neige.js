@@ -84,3 +84,134 @@ export async function prochesGardees(g, fetcheur = fetch) {
   } catch { /* plein */ }
   return l;
 }
+
+/* ---------- Lot 3 : la neige des stations proches ---------- */
+
+/* Une seule requête pour toutes les stations proches, deux points par
+   station, le pied et le sommet, chacun à son altitude : la prévision se
+   calcule à l'altitude donnée. Dix stations au plus, les plus proches. Trois
+   jours passés pour la neige fraîche, sept à venir pour les chutes. */
+export const STATIONS_MAX = 10;
+const PREVISION = "https://api.open-meteo.com/v1/forecast";
+
+export function adresseNeige(stations) {
+  const pts = stations.slice(0, STATIONS_MAX).flatMap(s => [[s.lat, s.lon, s.pied], [s.lat, s.lon, s.sommet]]);
+  const q = new URLSearchParams();
+  q.set("latitude", pts.map(p => p[0].toFixed(4)).join(","));
+  q.set("longitude", pts.map(p => p[1].toFixed(4)).join(","));
+  q.set("elevation", pts.map(p => Math.round(p[2])).join(","));
+  q.set("hourly", "snow_depth,snowfall,freezing_level_height");
+  q.set("daily", "snowfall_sum,wind_gusts_10m_max");
+  q.set("past_days", "3");
+  q.set("forecast_days", "7");
+  q.set("timezone", "Europe/Paris");
+  return `${PREVISION}?${q}`;
+}
+
+const somme = a => a.reduce((x, v) => x + (Number.isFinite(v) ? v : 0), 0);
+
+/* Le résumé d'un point, pied ou sommet, à l'heure donnée : la neige au sol en
+   centimètres, la neige fraîche tombée en 24 et 72 heures, les chutes
+   prévues jour par jour à partir d'aujourd'hui, l'isotherme zéro et les
+   rafales les plus fortes du jour. */
+export function resumePoint(x, heure) {
+  const h = x?.hourly, j = x?.daily;
+  if (!h?.time || !j?.time) return null;
+  let k = h.time.indexOf(heure);
+  if (k < 0) k = Math.max(0, h.time.filter(t => t <= heure).length - 1);
+  const jour = heure.slice(0, 10);
+  const kj = Math.max(0, j.time.indexOf(jour));
+  const cm = v => Math.round(v * 10) / 10;
+  return {
+    sol: Math.round((h.snow_depth[k] ?? 0) * 100),
+    fraiche24: cm(somme(h.snowfall.slice(Math.max(0, k - 23), k + 1))),
+    fraiche72: cm(somme(h.snowfall.slice(Math.max(0, k - 71), k + 1))),
+    chutes: j.time.slice(kj).map((t, i) => ({ date: t, cm: cm(j.snowfall_sum[kj + i] ?? 0) })),
+    iso: Math.round((h.freezing_level_height[k] ?? 0) / 10) * 10,
+    rafales: Math.round(j.wind_gusts_10m_max[kj] ?? 0),
+  };
+}
+
+/* La réponse du service, une charge par point, ramenée à chaque station :
+   son pied et son sommet. */
+export function reduireNeige(reponse, stations, heure) {
+  const tab = Array.isArray(reponse) ? reponse : [reponse];
+  return stations.slice(0, STATIONS_MAX).map((s, i) => ({
+    ...s, pied: s.pied, sommet: s.sommet,
+    bas: resumePoint(tab[2 * i], heure), haut: resumePoint(tab[2 * i + 1], heure),
+  })).filter(s => s.bas && s.haut);
+}
+
+const lue = new Map();
+export async function lireNeige(stations, heure, fetcheur = fetch) {
+  const u = adresseNeige(stations);
+  const cle = `${u}|${heure.slice(0, 13)}`;
+  if (lue.has(cle)) return lue.get(cle);
+  const r = await fetcheur(u);
+  if (!r.ok) throw new Error(`neige ${r.status}`);
+  const res = reduireNeige(await r.json(), stations, heure);
+  lue.set(cle, res);
+  return res;
+}
+
+const fr = v => String(v).replace(".", ",");
+const jourDe = t => new Date(`${t}T12:00`).toLocaleDateString("fr-FR", { weekday: "long" });
+
+/* Une chute notable : au moins dix centimètres attendus au sommet sur une
+   journée, ou vingt sur les trois prochains jours, dans une station proche.
+   Le conseil nomme la station où il en tombera le plus. */
+export function chuteNotable(resumes) {
+  let meilleur = null;
+  for (const s of resumes) {
+    const c = s.haut.chutes.slice(0, 3);
+    const trois = somme(c.map(x => x.cm));
+    const jourMax = Math.max(0, ...c.map(x => x.cm));
+    if ((trois >= 20 || jourMax >= 10) && (!meilleur || trois > meilleur.cm)) {
+      const dernier = c.reduce((a, x) => (x.cm > 0 ? x : a), c[0]);
+      meilleur = { nom: s.nom, cm: Math.round(trois), jusque: dernier.date };
+    }
+  }
+  if (!meilleur) return null;
+  return { ...meilleur, phrase: `${meilleur.cm} cm de neige fraîche attendus à ${meilleur.nom}, d'ici ${jourDe(meilleur.jusque)}.` };
+}
+
+/* La phrase de la porte et de la feuille : la station la mieux enneigée au
+   sommet, ou, sans neige au sol nulle part, l'isotherme zéro. */
+export function phraseNeige(resumes) {
+  if (!resumes.length) return "";
+  const mieux = resumes.reduce((a, s) => (s.haut.sol > a.haut.sol ? s : a));
+  if (mieux.haut.sol > 0) {
+    const fraiche = mieux.haut.fraiche72 >= 1 ? `, dont ${Math.round(mieux.haut.fraiche72)} cm de fraîche` : "";
+    return `${mieux.nom}, ${mieux.haut.sol} cm au sommet${fraiche}.`;
+  }
+  const iso = Math.round(somme(resumes.map(s => s.haut.iso)) / resumes.length / 100) * 100;
+  return `Pas encore de neige au sol ; isotherme zéro vers ${fr(iso.toLocaleString("fr-FR"))} m.`;
+}
+
+/* La saison de la porte, décidée le 28 septembre 2026 : de novembre à avril,
+   et au-delà tant que la neige tient au sommet d'une station proche. */
+export function enSaison(date, resumes = []) {
+  const m = Number(date.slice(5, 7));
+  if (m >= 11 || m <= 4) return true;
+  return resumes.some(s => s.haut.sol > 0);
+}
+
+/* L'état de la neige pour la commune affichée : ses stations proches et leur
+   résumé, lus une fois après la prévision, sans la retarder. */
+let etat = null;
+const cleDeLieu = g => `${g.lat.toFixed(3)},${g.lon.toFixed(3)}`;
+export const etatNeige = g => (etat && Number.isFinite(g?.lat) && etat.cle === cleDeLieu(g) ? etat : null);
+export const poserNeige = e => { etat = e; };
+
+export async function chargerNeige(g, heure, fetcheur = fetch) {
+  if (!Number.isFinite(g?.lat)) return null;
+  const cle = cleDeLieu(g);
+  const proches = await prochesGardees(g, fetcheur);
+  let resumes = [];
+  if (proches.length) {
+    try { resumes = await lireNeige(proches, heure, fetcheur); } catch { resumes = etat?.cle === cle ? etat.resumes : []; }
+  }
+  etat = { cle, proches, resumes, heure };
+  return etat;
+}
+

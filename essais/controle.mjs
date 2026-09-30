@@ -1973,6 +1973,84 @@ ok("les stations proches sont celles à une heure de route, en une requête à O
   JSON.stringify(prochesDit));
 ok("sans réponse d'OSRM, une estimation à vol d'oiseau prend le relais, marquée comme telle",
   prochesDit.repli === "A:true B:true", prochesDit.repli);
+/* Jalon 16, lot 3 : la neige d'une station, lue à deux altitudes. Le résumé
+   d'un point, l'adresse de la requête, la chute notable, la phrase et la
+   saison se vérifient sur des données connues. */
+const neigeDit = await pg.evaluate(async () => {
+  const N = await import("/src/neige.js");
+  const heures = Array.from({ length: 96 }, (_, k) => `2026-12-${String(1 + Math.floor(k / 24)).padStart(2, "0")}T${String(k % 24).padStart(2, "0")}:00`);
+  const x = { hourly: { time: heures, snow_depth: heures.map((_, k) => (k >= 72 ? 0.45 : 0.3)),
+    snowfall: heures.map((_, k) => (k >= 40 && k < 76 ? 0.5 : 0)), freezing_level_height: heures.map(() => 1234) },
+    daily: { time: ["2026-12-01", "2026-12-02", "2026-12-03", "2026-12-04", "2026-12-05"],
+      snowfall_sum: [0, 0, 0, 12, 9], wind_gusts_10m_max: [30, 40, 50, 61.4, 20] } };
+  const r = N.resumePoint(x, "2026-12-04T03:00");
+  const st = (nom, sol, chutes) => ({ nom, haut: { sol, fraiche72: 5, iso: 1500, chutes: chutes.map((cm, i) => ({ date: `2026-12-0${i + 4}`, cm })) } });
+  const u = new URL(N.adresseNeige(Array.from({ length: 12 }, (_, k) => ({ lat: 45, lon: 6, pied: 1400 + k, sommet: 2250 + k })))).searchParams;
+  return {
+    r: [r.sol, r.fraiche24, r.fraiche72, r.chutes.map(c => c.cm).join("/"), r.iso, r.rafales].join(" "),
+    pts: u.get("elevation").split(",").length, alt: u.get("elevation").split(",").slice(0, 2).join(","),
+    notable: N.chuteNotable([st("A", 40, [5, 6, 7]), st("B", 50, [4, 12, 6])])?.phrase || "",
+    calme: N.chuteNotable([st("A", 40, [5, 6, 7])]),
+    phrase: N.phraseNeige([st("A", 40, [0]), st("B", 55, [0])]),
+    sans: N.phraseNeige([st("A", 0, [0])]),
+    saison: [N.enSaison("2026-11-15", []), N.enSaison("2026-04-30", []), N.enSaison("2026-09-30", []),
+      N.enSaison("2026-09-30", [st("A", 12, [0])])].join(" "),
+  };
+});
+ok("la neige d'un point se résume : au sol, fraîche sur 24 et 72 heures, chutes à venir, isotherme, rafales",
+  neigeDit.r === "45 12 18 12/9 1230 61" && neigeDit.pts === 20 && neigeDit.alt === "1400,2250", JSON.stringify(neigeDit));
+ok("une chute notable se dit à la station où il en tombera le plus, un temps calme se tait",
+  neigeDit.notable === "22 cm de neige fraîche attendus à B, d'ici dimanche." && neigeDit.calme === null, JSON.stringify(neigeDit));
+ok("la phrase de la neige nomme la station la mieux enneigée, ou l'isotherme sans neige",
+  neigeDit.phrase === "B, 55 cm au sommet, dont 5 cm de fraîche." && /^Pas encore de neige au sol ; isotherme zéro vers 1\s?500 m\.$/.test(neigeDit.sans),
+  JSON.stringify(neigeDit));
+ok("la saison de la neige va de novembre à avril, et au-delà tant que la neige tient",
+  neigeDit.saison === "true true false true", neigeDit.saison);
+
+/* L'affichage : sur un état enneigé posé dans la page, la porte large au-dessus
+   de la grille, le conseil de chute notable en tête, et la feuille qui range
+   les stations sous leur domaine, sources citées. L'état est retiré ensuite. */
+await pg.evaluate(async () => {
+  const N = await import("/src/neige.js"), R = await import("/src/reglages.js");
+  const g = R.lire();
+  const pt = (sol, chutes) => ({ sol, fraiche24: 0, fraiche72: 6, iso: 1200, rafales: 50,
+    chutes: chutes.map((cm, i) => ({ date: `2026-08-${String(18 + i).padStart(2, "0")}`, cm })) });
+  const st = (nom, dom, sol, chutes) => ({ nom, domaine: dom, minutes: 45, estime: false, pied: 1200, sommet: 2200,
+    bas: pt(sol / 2, [0]), haut: pt(sol, chutes) });
+  N.poserNeige({ cle: `${g.lat.toFixed(3)},${g.lon.toFixed(3)}`, proches: [1], heure: "2026-08-18T09:00",
+    resumes: [st("Station A", null, 40, [10, 12, 5]), st("Domaine B", null, 30, [0]), st("Station C", "Domaine B", 25, [0])] });
+});
+await onglet("semaine");
+await onglet("accueil");
+const neigeAcc = await pg.evaluate(() => {
+  const porte = document.querySelector('#ecran .porte-large[data-feuille="neige"]');
+  const grille = document.querySelector("#ecran .portes");
+  return { porte: !!porte, avant: !!porte && !!grille && (porte.compareDocumentPosition(grille) & Node.DOCUMENT_POSITION_FOLLOWING) > 0,
+    sous: porte?.querySelector(".rangee-txt span")?.textContent || "",
+    conseil: [...document.querySelectorAll("#ecran .cj-l")].map(l => l.dataset.phrase).find(t => /neige fraîche/.test(t || "")) || "" };
+});
+const porteNeigeVue = await pg.locator('#ecran .porte-large[data-feuille="neige"]').count();
+if (porteNeigeVue) await pg.locator('#ecran .porte-large[data-feuille="neige"]').click();
+await pg.waitForTimeout(600);
+const neigeFeuille = await pg.evaluate(() => ({
+  titre: document.querySelector("#feuille-titre, .feuille h2, .feuille-tete h2")?.textContent || "",
+  cartes: document.querySelectorAll("#feuille-corps .ng-seule, #feuille-corps .ng-dom").length,
+  domaine: [...document.querySelectorAll("#feuille-corps .ng-dom h3")].map(h => h.textContent).join(","),
+  ensemble: [...document.querySelectorAll("#feuille-corps .ng-tete b")].filter(b => b.textContent === "Ensemble du domaine").length,
+  sources: /OpenSkiMap/.test(document.querySelector("#feuille-corps")?.textContent || ""),
+}));
+/* Le retour ne se fait que si la feuille s'est ouverte : sans elle, il
+   quitterait l'application et interromprait la suite. */
+if (porteNeigeVue) { await pg.evaluate(() => history.back()); await pg.waitForTimeout(400); }
+await pg.evaluate(async () => { const N = await import("/src/neige.js"); N.poserNeige(null); });
+await onglet("semaine");
+await onglet("accueil");
+ok("en saison, une porte large mène à la neige, au-dessus de la grille, et une chute notable se dit en tête",
+  neigeAcc.porte && neigeAcc.avant && neigeAcc.sous === "Station A, 40 cm au sommet, dont 6 cm de fraîche."
+  && /^27 cm de neige fraîche attendus à Station A, /.test(neigeAcc.conseil), JSON.stringify(neigeAcc));
+ok("la feuille de la neige range les stations sous leur domaine, et cite ses sources",
+  neigeFeuille.cartes === 2 && neigeFeuille.domaine === "Domaine B" && neigeFeuille.ensemble === 1 && neigeFeuille.sources,
+  JSON.stringify(neigeFeuille));
 ok("le graphique borne sa largeur, et se résume en une phrase",
   semGraphe.borne === "520px"
   && semGraphe.resume === "De 25 à 30 degrés au plus chaud, 5,4 millimètres de pluie en tout.",

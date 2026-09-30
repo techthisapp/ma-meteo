@@ -2318,3 +2318,14 @@ button.rangee:active{background:var(--surface-2)}
 .cmp-periode{font:inherit;font-size:var(--texte-note);font-weight:var(--graisse-semibold);color:var(--accent);
   background:transparent;border:0;min-height:var(--touche);padding:0 2px}
 .cmp-face{font-size:var(--texte-note);color:var(--etiquette-2)}
+
+/* La neige, jalon 16 : la porte large au-dessus de la grille des portes, et
+   les chiffres de chaque station en deux colonnes. */
+.porte-large{width:100%;margin-bottom:var(--espace-md)}
+.ng-dom h3{margin:0 0 var(--espace-sm)}
+.ng-st{margin-top:var(--espace-md);padding-top:var(--espace-md);border-top:1px solid var(--filet-clair)}
+.ng-tete{display:flex;justify-content:space-between;align-items:baseline;gap:var(--espace-sm)}
+.ng-tete span{font-size:var(--texte-note);color:var(--etiquette-2)}
+.ng-val{display:grid;grid-template-columns:1fr auto;gap:4px var(--espace-md);margin:var(--espace-sm) 0 0;font-size:var(--texte-note)}
+.ng-val dt{color:var(--etiquette-2)}
+.ng-val dd{margin:0;text-align:right;font-weight:var(--graisse-semibold)}
