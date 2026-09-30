@@ -21,6 +21,7 @@ import * as Comparaison from "./comparaison.js";
 import * as Neige from "./neige.js";
 import * as Plage from "./plage.js";
 import * as VigiEau from "./vigieau.js";
+import * as Eau from "./eau.js";
 import { cleHeure } from "./horloge.js";
 import * as Parapluie from "./parapluie.js";
 import * as Reponse from "./reponse.js";
@@ -4209,6 +4210,37 @@ export function vuePlage(ctx, rendre) {
     + `le drapeau du jour se voit sur place. Mer : Open-Meteo, `
     + `modèle de vagues ; marées estimées d'après la hauteur de la mer, heure par heure, à quelques minutes près. `
     + `Durées de route : OSRM.</p>` };
+}
+
+/* La feuille de l'eau, jalon 18, lot 2 : la restriction en vigueur, ressource
+   par ressource avec son arrêté, et l'état de la nappe phréatique la plus
+   proche, recalculé faute d'indicateur publié. */
+export function vueEau(ctx, rendre) {
+  const titre = "L'eau", sous = ctx?.commune || "";
+  const ez = Eau.etatEau(ctx);
+  if (!ez) {
+    Eau.chargerEau(ctx, cleHeure().slice(0, 10)).then(() => rendre()).catch(() => {});
+    return { titre, sous, corps: `<div class="carte"><p class="note">Lecture de l'eau…</p></div>` };
+  }
+  const r = ez.restriction, n = ez.nappe;
+  const restr = !r ? `<p class="note">La restriction a besoin du réseau.</p>`
+    : !r.rang ? `<p>Aucune restriction d'eau en vigueur pour la commune.</p>`
+    : `<dl class="ng-val">` + r.zones.map(z => `<dt>${esc(Eau.RESSOURCES[z.type] || z.type)}</dt>`
+      + `<dd class="${z.rang >= 3 ? "pl-alerte" : ""}">${esc(VigiEau.NOMS[z.niveau] || z.niveau)}</dd>`).join("") + `</dl>`
+      + [...new Set(r.zones.map(z => z.arrete).filter(Boolean))].map(u => `<a class="pl-fiche" href="${esc(u)}" target="_blank" `
+        + `rel="noopener">L'arrêté en vigueur${r.zones[0].fin ? `, jusqu'au ${new Date(`${r.zones[0].fin}T12:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}` : ""}</a>`).join("")
+      + `<a class="pl-fiche" href="https://vigieau.gouv.fr" target="_blank" rel="noopener">Les usages permis, sur VigiEau</a>`;
+  const nappe = !n ? `<p class="note">Aucun piézomètre suivi depuis quinze ans à moins de cent kilomètres.</p>`
+    : `<dl class="ng-val"><dt>État</dt><dd>${esc(n.classe)}</dd><dt>Tendance sur une semaine</dt><dd>${esc(n.tendance)}</dd></dl>`
+      + `<p class="pl-lieu">Plus haute que ${n.plusBasses} des ${n.annees} années comparables, au ${new Date(`${n.fin}T12:00`)
+        .toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}. Piézomètre ${esc(n.station)}, à ${n.km} km.</p>`;
+  const conseil = r && r.rang ? [{ i: "goutte", g: r.rang >= 2 ? 4 : 1, t: `Restriction d'eau : ${r.niveau.toLowerCase()}.` }] : [];
+  return { titre, sous, corps: (conseil.length ? `<div class="carte retenir"><div class="conseils">${conseilsHTML(conseil)}</div></div>` : "")
+    + `<div class="carte"><h3>Restrictions</h3>${restr}</div>`
+    + `<div class="carte"><h3>Nappe phréatique</h3>${nappe}</div>`
+    + `<p class="note">Restrictions : VigiEau, pour les particuliers. Nappe : mesures du réseau national, Hub'eau ; `
+    + `l'état compare les trente derniers jours aux mêmes jours de chaque année depuis 1995, sur le principe de `
+    + `l'indicateur du BRGM.</p>` };
 }
 
 export function vueClimat(ctx, rendre, majEtat) {

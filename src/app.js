@@ -20,7 +20,7 @@ import * as Relief from "./relief.js";
 import * as Temps from "./temps.js";
 import { vueTemps, vueSemaine, vueVigilance, vueCiel, vueCarte, vueCommunes, vueReglages,
   vueAjout, vueParapluie, vueRessenti, vueActivites, vueBeauTemps, vueAir,
-  vueClimat, vueNeige, vuePlage, bandeauAccueil, basculerSemaine, semaineEstEtendue } from "./vues.js";
+  vueClimat, vueNeige, vuePlage, vueEau, bandeauAccueil, basculerSemaine, semaineEstEtendue } from "./vues.js";
 import { moments } from "./ecritures.js";
 import * as Vig from "./vigilance.js";
 import * as Astres from "./astres.js";
@@ -35,6 +35,7 @@ import * as Version from "./version.js";
 import * as Scenarios from "./scenarios.js";
 import * as Neige from "./neige.js";
 import * as Plage from "./plage.js";
+import * as Eau from "./eau.js";
 import * as Deplacement from "./deplacement.js";
 import * as Radar from "./radar.js";
 
@@ -554,6 +555,18 @@ function ecranAccueil() {
        tant que l'eau de la plage la plus proche dépasse 20°. */
     const pz = Plage.etatPlage(Reglages.lire());
     const saisonPlage = !!pz && pz.resumes.length > 0 && Plage.enSaisonPlage(cleHeure().slice(0, 10), pz.resumes);
+    /* L'eau, jalon 18 : une restriction d'alerte ou plus grave se dit parmi les
+       conseils du jour, et mène à la feuille de l'eau. */
+    const ez = Eau.etatEau(Reglages.lire());
+    const rEau = ez?.restriction;
+    if (rEau && rEau.rang >= 2) lJour.push({ i: "goutte", g: 4, d: "feuille:eau",
+      t: `Restriction d'eau : ${rEau.niveau.toLowerCase()}, usages de l'eau encadrés par arrêté.` });
+    /* Les conseils de la neige et de l'eau s'ajoutent après le calcul du jour :
+       ils reprennent leur rang de gravité, et le bloc garde ses trois lignes au
+       plus. Ajoutés au bout, ils en faisaient une quatrième, ce que la garde des
+       blocs a relevé le 30 septembre 2026. */
+    lJour.sort((a, b) => b.g - a.g);
+    lJour.splice(LIGNES_MAX);
     /* Le renversement de température ne se dit qu'avec demain : c'est de cette
        journée qu'il parle. L'évènement du Soleil, lui, ne vaut que pour les
        heures qui viennent. */
@@ -607,6 +620,10 @@ function ecranAccueil() {
       ["Pression", pres0 === null ? "—" : `${Math.round(pres0)} hPa`, tendance || "maintenant", "", "pres", "jauge", "nuage"],
       ["Air", airJour ? `${airJour.indice}` : "—",
         airJour ? (Air.niveauDe(airJour.indice)?.nom || "indice européen") : "pas de mesure", "", null, "brume", "nuage", "air"],
+      /* L'eau, jalon 18 : la restriction en grand, la nappe dessous ; elle
+         ouvre la feuille de l'eau. */
+      ...(Eau.tuileEau(ez) ? [["L'eau", Eau.tuileEau(ez).valeur, Eau.tuileEau(ez).sous, Eau.tuileEau(ez).classe,
+        null, "goutte", "pluie", "eau"]] : []),
     ] : [];
 
     /* Les quatre portes, en grille de deux sur deux. Jérôme les a voulues tout
@@ -1002,7 +1019,7 @@ async function suivrePosition({ force } = {}) {
 const FEUILLES = { vigilance: vueVigilance, communes: vueCommunes,
   ajout: vueAjout, reglages: vueReglages, parapluie: vueParapluie,
   ressenti: vueRessenti, activites: vueActivites, beautemps: vueBeauTemps,
-  air: vueAir, climat: vueClimat, neige: vueNeige, plage: vuePlage };
+  air: vueAir, climat: vueClimat, neige: vueNeige, plage: vuePlage, eau: vueEau };
 
 /* Accroches : un contenu court n'occupe pas tout l'écran. */
 const ACCROCHE = { vigilance: "moyenne", communes: "grande",
@@ -1166,6 +1183,7 @@ async function charger() {
   lireScenarios(g);
   lireNeigeDe(g);
   lirePlageDe(g);
+  lireEauDe(g);
   lireAir(g);
   lirePluieProche(g);
   /* Le journal de justesse note ce qui vient d'être servi. Il n'affiche rien et
@@ -1195,6 +1213,16 @@ async function lireNeigeDe(g) {
 async function lirePlageDe(g) {
   const mien = generation;
   try { await Plage.chargerPlage(g, cleHeure()); } catch { return; }
+  if (mien !== generation) return;
+  rendre();
+  if (vueCourante) rendreFeuille();
+}
+
+/* L'eau de la commune, jalon 18 : la restriction en vigueur et la nappe la plus
+   proche, lues sans retarder la prévision. */
+async function lireEauDe(g) {
+  const mien = generation;
+  try { await Eau.chargerEau(g, cleHeure().slice(0, 10)); } catch { return; }
   if (mien !== generation) return;
   rendre();
   if (vueCourante) rendreFeuille();

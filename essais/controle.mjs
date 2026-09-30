@@ -36,6 +36,18 @@ const nav = await chromium.launch({
   executablePath: process.env.CHROMIUM || undefined,
   args: ["--no-sandbox", "--disable-dev-shm-usage"],
 });
+/* Un filet commun, posé le 30 septembre 2026 : tout contexte d'essai répond
+   d'office « aucune restriction, aucun piézomètre » à VigiEau et à Hub'eau. Les
+   contextes qui posent leurs propres faux services gardent les leurs, une route
+   posée après passant devant. Sans ce filet, le contexte du temps calme
+   interrogeait le vrai VigiEau et recevait la crise en vigueur ce jour-là. */
+const nouveauContexte = nav.newContext.bind(nav);
+nav.newContext = async (...a) => {
+  const c = await nouveauContexte(...a);
+  await c.route(/api\.vigieau\.gouv\.fr|hubeau\.eaufrance\.fr/, r => r.fulfill({ status: 200, contentType: "application/json",
+    body: r.request().url().includes("hubeau") ? '{"count":0,"data":[]}' : "[]" }));
+  return c;
+};
 const ctx = await nav.newContext({
   viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
   locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
@@ -538,6 +550,30 @@ let appelsArchive = [];
 let appelsVigieau = [];
 const VIGIEAU = [{ code: "21", nom: "Côte-d'Or", niveauGraviteMax: "crise" },
   { code: "75", nom: "Paris", niveauGraviteMax: "alerte" }, { code: "13", nom: "Bouches-du-Rhône", niveauGraviteMax: null }];
+/* La restriction de la commune d'essai : eaux de surface en alerte, eau potable
+   en vigilance ; un piézomètre voisin qui mesure depuis 1996 et monte d'un
+   centimètre par an, donc une nappe très haute, plus haute que ses trente
+   années passées. */
+const VIGIEAU_ZONES = [
+  { type: "AEP", nom: "Seine amont", niveauGravite: "vigilance", arrete: { cheminFichier: "https://exemple.gouv.fr/arrete.pdf", dateFinValidite: "2026-10-31T00:00:00.000Z" } },
+  { type: "SUP", nom: "Seine amont", niveauGravite: "alerte", arrete: { cheminFichier: "https://exemple.gouv.fr/arrete.pdf", dateFinValidite: "2026-10-31T00:00:00.000Z" } }];
+let appelsHubeau = [];
+let chroniqueEssai = null;
+function hubeauCorps(u) {
+  if (u.includes("/stations")) {
+    return { count: 2, data: [
+      { code_bss: "04358X0001/P", libelle_pe: "PUITS DE LA FONTAINE (MONTBARD-21)", nom_commune: "Montbard", x: 4.34, y: 47.62, date_debut_mesure: "1996-01-01", date_fin_mesure: "2026-08-15" },
+      { code_bss: "04358X0002/P", libelle_pe: "FORAGE ANCIEN", nom_commune: "Fain", x: 4.31, y: 47.66, date_debut_mesure: "1990-01-01", date_fin_mesure: "2020-06-01" }] };
+  }
+  if (!chroniqueEssai) {
+    chroniqueEssai = [];
+    for (let t = Date.parse("1996-01-01T12:00:00Z"); t <= Date.parse("2026-08-15T12:00:00Z"); t += 86400000) {
+      const d = new Date(t).toISOString().slice(0, 10);
+      chroniqueEssai.push({ date_mesure: d, niveau_nappe_eau: Math.round((100 + (Number(d.slice(0, 4)) - 1996) * 0.01) * 1000) / 1000 });
+    }
+  }
+  return { count: chroniqueEssai.length, data: chroniqueEssai };
+}
 /* La comparaison entre lieux, jalon 14, lot 2 : une charge par lieu, dans
    l'ordre des coordonnées. Chaque lieu a deux degrés de plus que le précédent,
    et seul le deuxième reçoit de la pluie, cinq millimètres par jour. */
@@ -785,8 +821,14 @@ const brancherRoutes = async c => {
      prévision le happerait : elle se pose donc après, Playwright essayant la
      dernière posée en premier. */
   await c.route(/api\.vigieau\.gouv\.fr/, r => {
-    appelsVigieau.push(r.request().url());
-    r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(VIGIEAU) });
+    const u = r.request().url();
+    appelsVigieau.push(u);
+    r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(u.includes("/api/zones") ? VIGIEAU_ZONES : VIGIEAU) });
+  });
+  await c.route(/hubeau\.eaufrance\.fr/, r => {
+    const u = r.request().url();
+    appelsHubeau.push(u);
+    r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(hubeauCorps(u)) });
   });
   await c.route(/archive-api\.open-meteo\.com/, r => {
     const u = r.request().url();
@@ -1104,10 +1146,13 @@ ok("la commune ne s'écrit pas deux fois sur l'accueil",
   !(await txt(".plein-titre")).includes("Fain"), await txt(".plein-titre"));
 ok("le bandeau porte un grand chiffre", /\d+°/.test(await txt(".bd-deg")), await txt(".bd-deg"));
 /* Jalon 11 : huit tuiles, une par paramètre suivi, au lieu de quatre mesures. */
-ok("l'accueil porte une tuile par paramètre suivi", await pg.locator(".bd-m").count() === 8);
+/* Depuis le 30 septembre 2026, une neuvième, l'eau, qui arrive après la
+   prévision : elle est attendue. */
+await pg.waitForFunction(() => document.querySelectorAll(".bd-m").length === 9, null, { timeout: 8000 }).catch(() => {});
+ok("l'accueil porte une tuile par paramètre suivi", await pg.locator(".bd-m").count() === 9);
 const mes = (await pg.locator(".bd-m i").allInnerTexts()).join(", ");
 ok("les tuiles sont nommées",
-  mes.toLowerCase() === "ressenti, pluie, vent, ciel, humidité, indice uv, pression, air", mes);
+  mes.toLowerCase() === "ressenti, pluie, vent, ciel, humidité, indice uv, pression, air, l'eau", mes);
 const cj = await phrasesConseils(pg, ".cj-l");
 /* Trois lignes par bloc au plus : au-delà, un bloc cesse d'être un résumé. Six
    en tout au pire, comme du temps de la carte unique. */
@@ -1285,7 +1330,7 @@ ok("la bande horaire se pose sous les avis urgents, avant les tuiles et les port
 /* Les huit paramètres suivis, chacun vers son détail : sept voies du ruban,
    et la feuille de l'air. */
 ok("chaque tuile mène au détail de son paramètre",
-  bandeDit.destinations.join(" ") === "t mm v nua hum uv pres feuille:air",
+  bandeDit.destinations.join(" ") === "t mm v nua hum uv pres feuille:air feuille:eau",
   bandeDit.destinations.join(" "));
 ok("les quatre portes ferment l'accueil, après demain et après-demain",
   bandeDit.portesEnBas);
@@ -2196,6 +2241,61 @@ const rangsEau = await pg.evaluate(async () => {
   return [...t].map(([c, r]) => `${c}:${r}`).join(" ");
 });
 ok("les restrictions d'eau se rangent de la vigilance à la crise", rangsEau === "21:4 2A:3 01:1 75:2", rangsEau);
+/* Jalon 18, lot 2 : l'eau de la commune. La restriction se range par
+   ressource ; l'état d'une nappe se lit par la part des années plus basses ; le
+   piézomètre retenu mesure depuis quinze ans et a une mesure récente. */
+const eauPur = await pg.evaluate(async () => {
+  const E = await import("/src/eau.js");
+  const r = E.restrictionsDe([{ type: "AEP", niveauGravite: "vigilance" }, { type: "SUP", niveauGravite: "alerte_renforcee",
+    arrete: { cheminFichier: "a.pdf", dateFinValidite: "2026-10-31T00:00:00Z" } }, { type: "SOU", niveauGravite: null }]);
+  const serie = (pente) => { const l = []; for (let an = 2000; an <= 2026; an++) for (let j = 1; j <= 28; j++)
+    l.push({ date_mesure: `${an}-08-${String(j).padStart(2, "0")}`, niveau_nappe_eau: 100 + (an - 2000) * pente }); return l; };
+  const court = serie(0.01).filter(x => x.date_mesure >= "2020");
+  const g = { lat: 47.6, lon: 4.3 };
+  const st = [{ code_bss: "vieux", x: 4.31, y: 47.61, date_debut_mesure: "1990-01-01", date_fin_mesure: "2020-01-01" },
+    { code_bss: "jeune", x: 4.30, y: 47.60, date_debut_mesure: "2018-01-01", date_fin_mesure: "2026-09-28" },
+    { code_bss: "loin", x: 5.30, y: 47.60, date_debut_mesure: "1995-01-01", date_fin_mesure: "2026-09-28" },
+    { code_bss: "bon", x: 4.50, y: 47.60, date_debut_mesure: "1995-01-01", date_fin_mesure: "2026-09-25" }];
+  return { r: `${r.rang} ${r.niveau} ${r.zones.map(z => z.type).join(",")}`,
+    haute: E.etatNappe(serie(0.01))?.classe, basse: E.etatNappe(serie(-0.01))?.classe, court: E.etatNappe(court),
+    choisi: E.choisirPiezo(st, g, "2026-09-30")?.code_bss, nom: E.nomPropre("FORAGE CD21  (LAIGNES-21)"),
+    tuile: JSON.stringify(E.tuileEau({ restriction: r, nappe: { classe: "basse" } })) };
+});
+ok("la restriction de la commune se range par ressource, la plus grave en tête",
+  eauPur.r === "3 Alerte renforcée SUP,AEP", JSON.stringify(eauPur));
+ok("l'état d'une nappe se lit par la part des années plus basses, dix années au moins",
+  eauPur.haute === "très haute" && eauPur.basse === "très basse" && eauPur.court === null, JSON.stringify(eauPur));
+ok("le piézomètre retenu mesure depuis quinze ans et a une mesure récente, le plus proche",
+  eauPur.choisi === "bon" && eauPur.nom === "Forage CD21 (Laignes-21)"
+  && eauPur.tuile === '{"valeur":"Alerte renforcée","sous":"nappe basse","classe":"v-chaud"}', JSON.stringify(eauPur));
+
+/* L'eau sur l'accueil et dans sa feuille, pour la commune d'essai : la tuile, le
+   conseil d'une restriction en alerte, et le détail. */
+await pg.waitForFunction(() => /nappe très haute/.test(document.querySelector("#ecran .bd-mesures")?.textContent || ""), null, { timeout: 8000 }).catch(() => {});
+const eauAcc = await pg.evaluate(() => {
+  const t = [...document.querySelectorAll("#ecran .bd-mesures .bd-m")].find(x => /L'eau/.test(x.textContent));
+  return { tuile: t ? t.textContent.replace(/\s+/g, " ").trim() : "", classe: t?.querySelector(".v-attention") ? "v-attention" : "",
+    conseil: [...document.querySelectorAll("#ecran .cj-l")].map(l => l.dataset.phrase).find(x => /^Restriction d'eau/.test(x || "")) || "" };
+});
+const tuileEau = pg.locator("#ecran .bd-mesures .bd-m", { hasText: "L'eau" });
+const tuileEauVue = await tuileEau.count();
+if (tuileEauVue) await tuileEau.first().click();
+await pg.waitForTimeout(600);
+const eauFeuille = await pg.evaluate(() => {
+  const dd = t => [...document.querySelectorAll("#feuille-corps dt")].find(x => x.textContent === t)?.nextElementSibling?.textContent || "";
+  return { surface: dd("Eaux de surface"), potable: dd("Eau potable"), etat: dd("État"), tendance: dd("Tendance sur une semaine"),
+    arrete: document.querySelector('#feuille-corps a[href="https://exemple.gouv.fr/arrete.pdf"]')?.textContent || "",
+    piezo: document.querySelector("#feuille-corps .pl-lieu")?.textContent || "" };
+});
+if (tuileEauVue) { await pg.evaluate(() => history.back()); await pg.waitForTimeout(400); }
+ok("la tuile de l'eau dit la restriction et la nappe, et une alerte se dit parmi les conseils",
+  /L'eau\s*Alerte\s*nappe très haute/.test(eauAcc.tuile) && eauAcc.classe === "v-attention"
+  && eauAcc.conseil === "Restriction d'eau : alerte, usages de l'eau encadrés par arrêté.", JSON.stringify(eauAcc));
+ok("la feuille de l'eau détaille la restriction, son arrêté, et l'état de la nappe",
+  eauFeuille.surface === "Alerte" && eauFeuille.potable === "Vigilance" && eauFeuille.etat === "très haute" && eauFeuille.tendance === "stable"
+  && eauFeuille.arrete === "L'arrêté en vigueur, jusqu'au 31 octobre"
+  && /^Plus haute que 30 des 30 années comparables, au 15 août\. Piézomètre Puits de la Fontaine \(Montbard-21\), à \d+ km\.$/.test(eauFeuille.piezo),
+  JSON.stringify(eauFeuille));
 ok("le graphique borne sa largeur, et se résume en une phrase",
   semGraphe.borne === "520px"
   && semGraphe.resume === "De 25 à 30 degrés au plus chaud, 5,4 millimètres de pluie en tout.",
@@ -2392,7 +2492,7 @@ const conseilDit = await pg.evaluate(async () => {
       && html.includes('data-feuille="air"') && html.includes("cj-chev"),
     lignes: lignes.length,
     menent: lignes.every(l => l.classList.contains("cj-porte")
-      && (voies.has(l.dataset.detail) || l.dataset.feuille === "air")),
+      && (voies.has(l.dataset.detail) || ["air", "eau", "neige", "plage"].includes(l.dataset.feuille))),
     plages: [C.ecrirePlage(2, 0, 2, 23, 3), C.ecrirePlage(2, 13, 2, 23, 3), C.ecrirePlage(1, 3, 1, 5, 1)],
   };
 });
@@ -2407,6 +2507,9 @@ ok("une journée entière se dit « toute la journée », avec l'élision",
    contrôles, sans avis, la marge est assez large pour qu'un ciel d'origine ou
    des chiffres sur deux colonnes tiennent encore, et la garde du premier écran
    ne les verrait pas. */
+/* La tuile de l'eau arrive après la prévision : elle est attendue, pour que la
+   garde compte les neuf tuiles. */
+await pg.waitForFunction(() => document.querySelectorAll("#ecran .bd-mesures .bd-m").length === 9, null, { timeout: 8000 }).catch(() => {});
 const lot2 = await pg.evaluate(() => {
   const ci = document.querySelector("#ecran .plein-accueil .ci");
   const cellules = [...document.querySelectorAll("#ecran .bd-mesures .bd-m")];
@@ -2422,8 +2525,10 @@ ok("le ciel de l'accueil est plus bas que celui des autres écrans",
   lot2.rapport === null ? "ciel introuvable" : `rapport ${lot2.rapport.toFixed(3)}`);
 /* Jalon 11 : les quatre chiffres sur une ligne deviennent huit tuiles sur deux
    colonnes, une par paramètre suivi. */
-ok("les huit tuiles des paramètres se rangent sur deux colonnes",
-  lot2.cellules === 8 && lot2.rangees === 4 && lot2.colonnes === 2,
+/* Depuis le 30 septembre 2026, une neuvième tuile, l'eau, prend toute la
+   largeur de la dernière rangée. */
+ok("les neuf tuiles des paramètres se rangent sur deux colonnes, l'eau sur toute la largeur",
+  lot2.cellules === 9 && lot2.rangees === 5 && lot2.colonnes === 2,
   `${lot2.cellules} tuiles, ${lot2.rangees} rangées, ${lot2.colonnes} colonnes`);
 
 ok("la phrase dit la pluie avec son moment, et les rafales fortes",
@@ -2719,9 +2824,10 @@ ok("la journée qui vient tient sous quatre cents points", await pg.evaluate(() 
 marquerSection("\n--- Un chiffre mène à sa voie ---"); console.log("\n--- Un chiffre mène à sa voie ---");
 /* Huit tuiles depuis le jalon 11 : sept vers une voie du ruban, celle de l'air
    vers sa feuille. */
+/* Depuis le 30 septembre 2026, la neuvième, l'eau, mène elle aussi à sa feuille. */
 ok("chaque mesure de l'accueil porte une destination",
   await pg.locator(".bd-m[data-detail]").count() === 7
-  && await pg.locator(".bd-m[data-feuille]").count() === 1);
+  && await pg.locator(".bd-m[data-feuille]").count() === 2);
 ok("le grand chiffre et le ciel en portent une aussi",
   await pg.locator(".bd-deg[data-detail]").count() === 1
   && await pg.locator(".bd-ciel[data-detail]").count() === 1);

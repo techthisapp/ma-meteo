@@ -322,6 +322,18 @@ case "$N" in
      # Sa garde est dans la section des nappes de la carte : lancer avec JUSQUA_EPREUVE.
      perl -0pi -e 's/const COUCHES = \[coucheEau, coucheVigiFond,/const COUCHES = [coucheVigiFond,/' src/vues.js
      ATTENDU="la nappe des restrictions d.eau teinte les départements en restriction, et eux seuls" ;;
+  100) # Une nappe au plus haut se dit très basse.
+     perl -0pi -e 's/\[0\.9, "haute"\], \[1\.01, "très haute"\]\]/[0.9, "haute"], [1.01, "très basse"]]/' src/eau.js
+     ATTENDU="l.état d.une nappe se lit par la part des années plus basses, dix années au moins" ;;
+  101) # Un piézomètre qui ne mesure plus peut être retenu.
+     perl -0pi -e 's/ && \(s\.date_fin_mesure \|\| ""\) >= iso\(recent\)//' src/eau.js
+     ATTENDU="le piézomètre retenu mesure depuis quinze ans et a une mesure récente, le plus proche" ;;
+  102) # La tuile de l'eau disparaît.
+     perl -0pi -e 's/      \.\.\.\(Eau\.tuileEau\(ez\) \?/      ...(false \&\& Eau.tuileEau(ez) ?/' src/app.js
+     ATTENDU="la tuile de l.eau dit la restriction et la nappe, et une alerte se dit parmi les conseils" ;;
+  103) # Une restriction en alerte ne se dit plus parmi les conseils.
+     perl -0pi -e 's/if \(rEau && rEau\.rang >= 2\)/if (rEau \&\& rEau.rang >= 5)/' src/app.js
+     ATTENDU="la tuile de l.eau dit la restriction et la nappe, et une alerte se dit parmi les conseils" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
@@ -346,7 +358,8 @@ if diff -q "$OLD/src/bande.js" src/bande.js >/dev/null \
   && diff -q "$OLD/src/plages.js" src/plages.js >/dev/null \
   && diff -q "$OLD/src/plage.js" src/plage.js >/dev/null \
   && diff -q "$OLD/src/trajets.js" src/trajets.js >/dev/null \
-  && diff -q "$OLD/src/vigieau.js" src/vigieau.js >/dev/null; then
+  && diff -q "$OLD/src/vigieau.js" src/vigieau.js >/dev/null \
+  && diff -q "$OLD/src/eau.js" src/eau.js >/dev/null; then
   echo "FAUTE $N NON APPLIQUÉE"; exit 3
 fi
 

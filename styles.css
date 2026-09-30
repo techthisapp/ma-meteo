@@ -2335,3 +2335,8 @@ button.rangee:active{background:var(--surface-2)}
 .pl-fiche{display:block;margin-top:var(--espace-sm);font-size:var(--texte-note);color:var(--accent)}
 .pl-alerte{color:var(--attention, #b7791f)}
 .pl-fl{width:13px;height:13px;vertical-align:-2px;margin-right:4px;color:var(--etiquette-2)}
+
+/* Une neuvième tuile, celle de l'eau depuis le 30 septembre 2026, laisserait un
+   trou dans la grille de deux colonnes : la dernière d'un nombre impair prend
+   toute la largeur. */
+.bd-mesures.tuiles > :last-child:nth-child(odd){grid-column:1 / -1}
