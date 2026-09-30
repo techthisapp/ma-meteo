@@ -288,6 +288,9 @@ case "$N" in
   88) # La neige fraîche ne compte plus que les dernières 24 heures.
      perl -0pi -e 's/h\.snowfall\.slice\(Math\.max\(0, k - 71\), k \+ 1\)/h.snowfall.slice(Math.max(0, k - 23), k + 1)/' src/neige.js
      ATTENDU="la neige d.un point se résume : au sol, fraîche sur 24 et 72 heures, chutes à venir, isotherme, rafales" ;;
+  89) # Les noms des plages reviennent en capitales.
+     perl -0pi -e 's/\["Côte des Basques", "FR"/["COTE DES BASQUES", "FR"/' src/plages.js
+     ATTENDU="la liste des plages couvre la France et ses côtes voisines, chaque plage française située, les noms lisibles" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
@@ -308,7 +311,8 @@ if diff -q "$OLD/src/bande.js" src/bande.js >/dev/null \
   && diff -q "$OLD/src/ruban.js" src/ruban.js >/dev/null \
   && diff -q "$OLD/src/comparaison.js" src/comparaison.js >/dev/null \
   && diff -q "$OLD/src/neige.js" src/neige.js >/dev/null \
-  && diff -q "$OLD/src/stations.js" src/stations.js >/dev/null; then
+  && diff -q "$OLD/src/stations.js" src/stations.js >/dev/null \
+  && diff -q "$OLD/src/plages.js" src/plages.js >/dev/null; then
   echo "FAUTE $N NON APPLIQUÉE"; exit 3
 fi
 

@@ -2051,6 +2051,23 @@ ok("en saison, une porte large mène à la neige, au-dessus de la grille, et une
 ok("la feuille de la neige range les stations sous leur domaine, et cite ses sources",
   neigeFeuille.cartes === 2 && neigeFeuille.domaine === "Domaine B" && neigeFeuille.ensemble === 1 && neigeFeuille.sources,
   JSON.stringify(neigeFeuille));
+/* Jalon 15, lot 1 : la liste embarquée des plages, eaux de baignade de mer et
+   d'estuaire déclarées à la Commission européenne, France et côtes voisines ;
+   chaque plage française porte son département, et les noms sont lisibles. */
+const plagesDit = await pg.evaluate(async () => {
+  const { PLAGES } = await import("/src/plages.js");
+  const fr = PLAGES.filter(p => p[1] === "FR");
+  return { n: PLAGES.length, fr: fr.length,
+    formes: PLAGES.every(p => p.length === 6 && typeof p[0] === "string" && p[2] > 41 && p[2] < 51.6 && p[3] > -5.5 && p[3] < 10),
+    /* Quelques liens de la source portent un code faux, tenu pour inconnu. */
+    departements: fr.filter(p => !/^(\d{2}|2A|2B)$/.test(p[5] || "")).length <= 5,
+    capitales: PLAGES.filter(p => p[0] === p[0].toUpperCase() && /[A-Z]{3}/.test(p[0])).length,
+    basques: PLAGES.some(p => p[0] === "Côte des Basques" && p[5] === "64"),
+    pays: [...new Set(PLAGES.map(p => p[1]))].sort().join(" ") };
+});
+ok("la liste des plages couvre la France et ses côtes voisines, chaque plage française située, les noms lisibles",
+  plagesDit.n >= 2000 && plagesDit.fr >= 1800 && plagesDit.formes && plagesDit.departements
+  && plagesDit.capitales < 60 && plagesDit.basques && plagesDit.pays === "BE ES FR IT", JSON.stringify(plagesDit));
 ok("le graphique borne sa largeur, et se résume en une phrase",
   semGraphe.borne === "520px"
   && semGraphe.resume === "De 25 à 30 degrés au plus chaud, 5,4 millimètres de pluie en tout.",
