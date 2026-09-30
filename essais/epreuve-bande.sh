@@ -291,6 +291,12 @@ case "$N" in
   89) # Les noms des plages reviennent en capitales.
      perl -0pi -e 's/\["Côte des Basques", "FR"/["COTE DES BASQUES", "FR"/' src/plages.js
      ATTENDU="la liste des plages couvre la France et ses côtes voisines, chaque plage française située, les noms lisibles" ;;
+  90) # Une plage à dix heures de route passe pour proche.
+     perl -0pi -e 's/^export const MINUTES_MAX = 60;/export const MINUTES_MAX = 600;/m' src/plage.js
+     ATTENDU="les plages proches sont celles à une heure de route, en une requête à OSRM" ;;
+  91) # Les durées d'OSRM se décalent d'une destination.
+     perl -0pi -e 's/\(durees\[k \+ 1\] == null \? null : Math\.round\(durees\[k \+ 1\] \/ 60\)\)/(durees[k] == null ? null : Math.round(durees[k] \/ 60))/' src/trajets.js
+     ATTENDU="les plages proches sont celles à une heure de route, en une requête à OSRM" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
@@ -312,7 +318,9 @@ if diff -q "$OLD/src/bande.js" src/bande.js >/dev/null \
   && diff -q "$OLD/src/comparaison.js" src/comparaison.js >/dev/null \
   && diff -q "$OLD/src/neige.js" src/neige.js >/dev/null \
   && diff -q "$OLD/src/stations.js" src/stations.js >/dev/null \
-  && diff -q "$OLD/src/plages.js" src/plages.js >/dev/null; then
+  && diff -q "$OLD/src/plages.js" src/plages.js >/dev/null \
+  && diff -q "$OLD/src/plage.js" src/plage.js >/dev/null \
+  && diff -q "$OLD/src/trajets.js" src/trajets.js >/dev/null; then
   echo "FAUTE $N NON APPLIQUÉE"; exit 3
 fi
 

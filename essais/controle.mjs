@@ -2068,6 +2068,25 @@ const plagesDit = await pg.evaluate(async () => {
 ok("la liste des plages couvre la France et ses côtes voisines, chaque plage française située, les noms lisibles",
   plagesDit.n >= 2000 && plagesDit.fr >= 1800 && plagesDit.formes && plagesDit.departements
   && plagesDit.capitales < 60 && plagesDit.basques && plagesDit.pays === "BE ES FR IT", JSON.stringify(plagesDit));
+/* Jalon 15, lot 2 : les plages à une heure de route, par le module commun des
+   trajets ; sans réponse d'OSRM, une estimation à vol d'oiseau. */
+const plagesProches = await pg.evaluate(async () => {
+  const P = await import("/src/plage.js"), T = await import("/src/trajets.js");
+  const liste = [["A", "FR", 43.49, -1.55, null, "64"], ["B", "FR", 43.60, -1.45, null, "40"], ["Loin", "FR", 47, 2, null, "18"]];
+  const g = { lat: 43.48, lon: -1.56 };
+  const repond = async () => ({ ok: true, json: async () => ({ code: "Ok", durations: [[0, 300, 4000]] }) });
+  const muet = async () => { throw new Error("réseau"); };
+  return { cands: P.candidates(g, liste).map(p => p.nom).join(" "),
+    osrm: (await P.proches(g, liste, repond)).map(p => `${p.nom}:${p.minutes}:${p.estime}:${p.departement}`).join(" "),
+    repli: (await P.proches(g, liste, muet)).map(p => `${p.nom}:${p.estime}`).join(" "),
+    adresse: T.adresseOsrm(g, [{ lat: 43.49, lon: -1.55 }]) };
+});
+ok("les plages proches sont celles à une heure de route, en une requête à OSRM",
+  plagesProches.cands === "A B" && plagesProches.osrm === "A:5:false:64"
+  && plagesProches.adresse.endsWith("/-1.56000,43.48000;-1.55000,43.49000?sources=0&annotations=duration"),
+  JSON.stringify(plagesProches));
+ok("sans réponse d'OSRM, les plages proches s'estiment à vol d'oiseau, marquées comme telles",
+  plagesProches.repli === "A:true B:true", plagesProches.repli);
 ok("le graphique borne sa largeur, et se résume en une phrase",
   semGraphe.borne === "520px"
   && semGraphe.resume === "De 25 à 30 degrés au plus chaud, 5,4 millimètres de pluie en tout.",
