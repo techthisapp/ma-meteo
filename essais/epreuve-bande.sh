@@ -264,6 +264,15 @@ case "$N" in
      # Sa garde est dans la section du climat : lancer avec JUSQUA_EPREUVE.
      perl -0pi -e 's/Comparaison\.lireLieux\(lieux, dates, Comparaison\.estPassee\(periodeLieux\)\)/Comparaison.lireLieux(lieux, dates, false)/' src/vues.js
      ATTENDU="la feuille du climat compare les 7 derniers jours entre lieux suivis, en une requête à l.archive" ;;
+  81) # Une station a son pied au-dessus de son sommet.
+     perl -0pi -e 's/\["Megève", "FR", 45\.8544, 6\.6575, 820, 2371,/["Megève", "FR", 45.8544, 6.6575, 2371, 820,/' src/stations.js
+     ATTENDU="la liste des stations couvre la France et ses voisins, le pied sous le sommet" ;;
+  82) # Une station à dix heures de route passe pour proche.
+     perl -0pi -e 's/^export const MINUTES_MAX = 60;/export const MINUTES_MAX = 600;/m' src/neige.js
+     ATTENDU="les stations proches sont celles à une heure de route, en une requête à OSRM" ;;
+  83) # Sans OSRM, plus aucune station.
+     perl -0pi -e 's/  \} catch \{\n    return cands\.filter\(s => s\.vol <= KM_PAR_HEURE_ESTIMEE\)/  } catch {\n    return [];\n    return cands.filter(s => s.vol <= KM_PAR_HEURE_ESTIMEE)/' src/neige.js
+     ATTENDU="sans réponse d.OSRM, une estimation à vol d.oiseau prend le relais, marquée comme telle" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
@@ -282,7 +291,9 @@ if diff -q "$OLD/src/bande.js" src/bande.js >/dev/null \
   && diff -q "$OLD/src/previsions.js" src/previsions.js >/dev/null \
   && diff -q "$OLD/src/scenarios.js" src/scenarios.js >/dev/null \
   && diff -q "$OLD/src/ruban.js" src/ruban.js >/dev/null \
-  && diff -q "$OLD/src/comparaison.js" src/comparaison.js >/dev/null; then
+  && diff -q "$OLD/src/comparaison.js" src/comparaison.js >/dev/null \
+  && diff -q "$OLD/src/neige.js" src/neige.js >/dev/null \
+  && diff -q "$OLD/src/stations.js" src/stations.js >/dev/null; then
   echo "FAUTE $N NON APPLIQUÉE"; exit 3
 fi
 

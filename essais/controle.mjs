@@ -1934,6 +1934,40 @@ ok("le passé finit hier, l'avenir commence demain, et le seuil de la pluie cro�
   && perPur.seuils === "7 10 15 21 29"
   && perPur.phrase === "Plus chauds que les mêmes 30 jours de 2025, de 3° en moyenne au plus chaud ; pluie comparable, 10 mm contre 26.",
   JSON.stringify(perPur));
+/* Jalon 16, lot 1 : la liste embarquée des stations, France et pays voisins,
+   chacune avec le pied sous le sommet et une position plausible. */
+const stationsDit = await pg.evaluate(async () => {
+  const { STATIONS } = await import("/src/stations.js");
+  return { n: STATIONS.length,
+    formes: STATIONS.every(s => s.length === 7 && typeof s[0] === "string" && s[4] < s[5]
+      && s[2] > 41 && s[2] < 49.5 && s[3] > -2.5 && s[3] < 9.5),
+    pays: [...new Set(STATIONS.map(s => s[1]))].sort().join(" "),
+    megeve: STATIONS.find(s => s[0] === "Megève")?.slice(4, 6).join("-") || "" };
+});
+ok("la liste des stations couvre la France et ses voisins, le pied sous le sommet",
+  stationsDit.n >= 400 && stationsDit.formes && stationsDit.pays === "AD CH DE ES FR IT" && stationsDit.megeve === "820-2371",
+  JSON.stringify(stationsDit));
+
+/* Jalon 16, lot 2 : les stations à une heure de route, par OSRM ; sans
+   réponse, une estimation à vol d'oiseau, marquée comme telle. */
+const prochesDit = await pg.evaluate(async () => {
+  const N = await import("/src/neige.js");
+  const liste = [["A", "FR", 45.20, 5.80, 1000, 2000, 10], ["B", "FR", 45.40, 5.90, 1200, 2200, 20],
+    ["Loin", "FR", 47.5, 7.5, 900, 1500, 5]];
+  const g = { lat: 45.19, lon: 5.72 };
+  const repond = async () => ({ ok: true, json: async () => ({ code: "Ok", durations: [[0, 1500, 4200]] }) });
+  const muet = async () => { throw new Error("réseau"); };
+  return { cands: N.candidates(g, liste).map(s => s.nom).join(" "),
+    adresse: N.adresseOsrm(g, N.candidates(g, liste)),
+    osrm: (await N.proches(g, liste, repond)).map(s => `${s.nom}:${s.minutes}:${s.estime}`).join(" "),
+    repli: (await N.proches(g, liste, muet)).map(s => `${s.nom}:${s.estime}`).join(" ") };
+});
+ok("les stations proches sont celles à une heure de route, en une requête à OSRM",
+  prochesDit.cands === "A B" && prochesDit.osrm === "A:25:false"
+  && prochesDit.adresse.endsWith("/5.72000,45.19000;5.80000,45.20000;5.90000,45.40000?sources=0&annotations=duration"),
+  JSON.stringify(prochesDit));
+ok("sans réponse d'OSRM, une estimation à vol d'oiseau prend le relais, marquée comme telle",
+  prochesDit.repli === "A:true B:true", prochesDit.repli);
 ok("le graphique borne sa largeur, et se résume en une phrase",
   semGraphe.borne === "520px"
   && semGraphe.resume === "De 25 à 30 degrés au plus chaud, 5,4 millimètres de pluie en tout.",
