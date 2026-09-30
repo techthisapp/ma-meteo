@@ -273,7 +273,9 @@ export function poserCiel(e) {
    Deux réglages d'avant se reprennent. La version la plus ancienne ne portait
    qu'un booléen de pluie ; celle d'ensuite écrivait `nappe: "pluie"`. Dans les
    deux cas la pluie s'allume et la nappe reste absente. */
-export const NAPPES = ["temp", "uv", "air"];
+/* Les restrictions d'eau, VigiEau, rejoignent les nappes le 30 septembre
+   2026 : elles teintent tout un département, comme un étalement. */
+export const NAPPES = ["temp", "uv", "air", "eau"];
 export const nappe = () => (NAPPES.includes(etat.nappe) ? etat.nappe : null);
 export function poserNappe(v) { poser({ nappe: NAPPES.includes(v) ? v : null }); }
 

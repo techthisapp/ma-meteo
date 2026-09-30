@@ -533,6 +533,11 @@ function grilleCorps(u) {
    La pluie est nulle un jour sur deux et vaut deux millimètres l'autre, ce qui
    rend un cumul de saison exactement calculable. */
 let appelsArchive = [];
+/* Les restrictions d'eau de VigiEau, jalon 18 : la Côte-d'Or en crise, Paris
+   en alerte, les Bouches-du-Rhône sans arrêté. */
+let appelsVigieau = [];
+const VIGIEAU = [{ code: "21", nom: "Côte-d'Or", niveauGraviteMax: "crise" },
+  { code: "75", nom: "Paris", niveauGraviteMax: "alerte" }, { code: "13", nom: "Bouches-du-Rhône", niveauGraviteMax: null }];
 /* La comparaison entre lieux, jalon 14, lot 2 : une charge par lieu, dans
    l'ordre des coordonnées. Chaque lieu a deux degrés de plus que le précédent,
    et seul le deuxième reçoit de la pluie, cinq millimètres par jour. */
@@ -779,6 +784,10 @@ const brancherRoutes = async c => {
   /* L'archive du climat. Son domaine porte « open-meteo.com » et la route de la
      prévision le happerait : elle se pose donc après, Playwright essayant la
      dernière posée en premier. */
+  await c.route(/api\.vigieau\.gouv\.fr/, r => {
+    appelsVigieau.push(r.request().url());
+    r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(VIGIEAU) });
+  });
   await c.route(/archive-api\.open-meteo\.com/, r => {
     const u = r.request().url();
     appelsArchive.push(u);
@@ -2178,6 +2187,15 @@ ok("un créneau de baignade est la plus longue suite d'heures favorables, ou dit
   bainDit.c1 === "Baignade conseillée de 11 h à 14 h." && bainDit.c2 === "Pas de bon créneau de baignade aujourd'hui ni demain : vagues de 2,3 m.",
   JSON.stringify(bainDit));
 ok("le vent de la plage se dit par sa direction", bainDit.vents === "de l'ouest | du nord-est | du sud", bainDit.vents);
+/* Jalon 18, lot 1 : les niveaux de VigiEau se rangent de la vigilance à la
+   crise ; un département sans arrêté ne paraît pas. */
+const rangsEau = await pg.evaluate(async () => {
+  const V = await import("/src/vigieau.js");
+  const t = V.versRangs([{ code: "21", niveauGraviteMax: "crise" }, { code: "2A", niveauGraviteMax: "alerte_renforcee" },
+    { code: "1", niveauGraviteMax: "vigilance" }, { code: "13", niveauGraviteMax: null }, { code: "75", niveauGraviteMax: "alerte" }]);
+  return [...t].map(([c, r]) => `${c}:${r}`).join(" ");
+});
+ok("les restrictions d'eau se rangent de la vigilance à la crise", rangsEau === "21:4 2A:3 01:1 75:2", rangsEau);
 ok("le graphique borne sa largeur, et se résume en une phrase",
   semGraphe.borne === "520px"
   && semGraphe.resume === "De 25 à 30 degrés au plus chaud, 5,4 millimètres de pluie en tout.",
@@ -8984,6 +9002,35 @@ ok("la légende porte la rampe et ses graduations",
     document.getElementById("caTemp").click(); await dodo(600);
     return partie ? "" : "la légende reste sans nappe";
   }) === "");
+
+/* Jalon 18, lot 1 : la nappe des restrictions d'eau. Elle teinte la Côte-d'Or,
+   en crise, et laisse le Cantal, sans arrêté, tel qu'il est sans nappe ; sa
+   légende nomme ses quatre classes et la mention cite VigiEau. */
+const restrictionsDit = await pgNap.evaluate(async () => {
+  const C = await import("/src/carte.js");
+  const cv = document.getElementById("caToile"), ctx = cv.getContext("2d");
+  const dodo = m => new Promise(r => setTimeout(r, m));
+  const cru = (la, lo) => {
+    const p = C.surEcran({ lat: 46.4, lon: 2.2, z: 5.13 }, la, lo, cv.clientWidth, cv.clientHeight);
+    const d = ctx.getImageData(Math.round(p.x * 2), Math.round(p.y * 2), 1, 1).data;
+    return `${d[0]},${d[1]},${d[2]}`;
+  };
+  document.getElementById("caSansNappe").click(); await dodo(500);
+  const sans = { dijon: cru(47.25, 4.75), cantal: cru(45.05, 2.6) };
+  document.getElementById("caEau").click(); await dodo(900);
+  const avec = { dijon: cru(47.25, 4.75), cantal: cru(45.05, 2.6) };
+  const r = { teinte: avec.dijon !== sans.dijon, cantal: avec.cantal === sans.cantal,
+    titre: document.getElementById("caLegTitre").textContent,
+    grads: [...document.querySelectorAll("#caGrads span")].map(x => x.textContent).join(" "),
+    mention: !!document.querySelector('#caCredit a[href="https://vigieau.gouv.fr"]') };
+  document.getElementById("caTemp").click(); await dodo(700);
+  return r;
+});
+ok("la nappe des restrictions d'eau teinte les départements en restriction, et eux seuls",
+  restrictionsDit.teinte && restrictionsDit.cantal && appelsVigieau.length >= 1, JSON.stringify({ ...restrictionsDit, appels: appelsVigieau.length }));
+ok("sa légende nomme les quatre classes, et la mention cite VigiEau",
+  restrictionsDit.titre === "Restrictions d'eau, en vigueur" && restrictionsDit.grads === "Vigilance Alerte Renforcée Crise" && restrictionsDit.mention,
+  JSON.stringify(restrictionsDit));
 
 /* La vigilance ne peut pas teinter le fond sous une nappe qui le couvre. Elle
    passe alors en liseré par-dessus : le bord du département porte la couleur du

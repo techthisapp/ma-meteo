@@ -2,7 +2,7 @@
    réponse d'API : une prévision périmée servie sans le dire vaut moins qu'un
    message d'indisponibilité. */
 
-const VERSION = "ma-meteo-v110";
+const VERSION = "ma-meteo-v111";
 const COQUE = [
   "./",
   "./index.html",
@@ -30,6 +30,7 @@ const COQUE = [
   "./src/plage.js",
   "./src/plages.js",
   "./src/trajets.js",
+  "./src/vigieau.js",
   /* Importés par la neige, jalon 16 : la distance des postes, et le réseau
      qu'elle emploie. Absents de la coque, ils faisaient casser l'application
      hors connexion, ce que la garde de la coque a relevé. */

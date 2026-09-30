@@ -315,6 +315,13 @@ case "$N" in
   97) # Le vent perd sa préposition.
      perl -0pi -e 's/  return \/\^\(est\|ouest\)\$\/\.test\(c\) \? `de l.\$\{c\}` : `du \$\{c\}`;/  return c;/' src/plage.js
      ATTENDU="le vent de la plage se dit par sa direction" ;;
+  98) # La crise ne se range plus.
+     perl -0pi -e 's/export const NIVEAUX = \["vigilance", "alerte", "alerte_renforcee", "crise"\];/export const NIVEAUX = ["vigilance", "alerte", "alerte_renforcee"];/' src/vigieau.js
+     ATTENDU="les restrictions d.eau se rangent de la vigilance à la crise" ;;
+  99) # La couche des restrictions d'eau n'est plus tracée.
+     # Sa garde est dans la section des nappes de la carte : lancer avec JUSQUA_EPREUVE.
+     perl -0pi -e 's/const COUCHES = \[coucheEau, coucheVigiFond,/const COUCHES = [coucheVigiFond,/' src/vues.js
+     ATTENDU="la nappe des restrictions d.eau teinte les départements en restriction, et eux seuls" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
@@ -338,7 +345,8 @@ if diff -q "$OLD/src/bande.js" src/bande.js >/dev/null \
   && diff -q "$OLD/src/stations.js" src/stations.js >/dev/null \
   && diff -q "$OLD/src/plages.js" src/plages.js >/dev/null \
   && diff -q "$OLD/src/plage.js" src/plage.js >/dev/null \
-  && diff -q "$OLD/src/trajets.js" src/trajets.js >/dev/null; then
+  && diff -q "$OLD/src/trajets.js" src/trajets.js >/dev/null \
+  && diff -q "$OLD/src/vigieau.js" src/vigieau.js >/dev/null; then
   echo "FAUTE $N NON APPLIQUÉE"; exit 3
 fi
 

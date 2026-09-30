@@ -99,6 +99,9 @@ const couleurs = cv => {
     /* Les couleurs vives des niveaux, celles des symboles du panneau de
        vigilance : le liseré est un trait, il prend la couleur du trait. */
     vt2: v("--v2"), vt3: v("--v3"), vt4: v("--v4"),
+    /* Les restrictions d'eau, jalon 18 : une palette à elles, du sable pâle au
+       violet sombre, pour ne pas se lire comme une vigilance météo. */
+    ve1: v("--ca-ve1"), ve2: v("--ca-ve2"), ve3: v("--ca-ve3"), ve4: v("--ca-ve4"),
   };
 };
 
@@ -245,7 +248,7 @@ export function peindreDepartements(cv, ctx, vue, l, h, teintes, style = {}) {
   const cx = mx(vue.lon), cy = my(vue.lat);
   let posees = 0;
   for (const [code, rang] of teintes) {
-    const teinte = c[`${style.trait ? "vt" : "vg"}${rang}`];
+    const teinte = c[`${style.palette || (style.trait ? "vt" : "vg")}${rang}`];
     if (!teinte) continue;
     const anneaux = anneauxDe(code);
     if (!anneaux) continue;

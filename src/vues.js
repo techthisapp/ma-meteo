@@ -20,6 +20,7 @@ import * as Scenarios from "./scenarios.js";
 import * as Comparaison from "./comparaison.js";
 import * as Neige from "./neige.js";
 import * as Plage from "./plage.js";
+import * as VigiEau from "./vigieau.js";
 import { cleHeure } from "./horloge.js";
 import * as Parapluie from "./parapluie.js";
 import * as Reponse from "./reponse.js";
@@ -1344,6 +1345,10 @@ export function vueLune() {
    qui permet de la lire en même temps qu'une température ou une qualité de
    l'air. Sa place ici tenait à l'ordre dans lequel les couches sont venues. */
 const NAPPES_CARTE = [
+  /* Les restrictions d'eau, VigiEau, jalon 18 : une nappe par départements, sans
+     grille de valeurs ; la légende nomme ses quatre classes. */
+  { cle: "eau", id: "caEau", nom: "Restrictions d'eau", tuile: "Eau", ico: "goutte", porte: "en vigueur",
+    departements: true, classes: ["Vigilance", "Alerte", "Renforcée", "Crise"] },
   { cle: "temp", id: "caTemp", nom: "Température", ico: "thermo", porte: "maintenant",
     champ: "temp", teinte: teinteT, sat: 0.54, clarte: 0.47,
     arrets: [-5, 5, 15, 25, 35], unite: "°", couleur: couleurT },
@@ -1604,7 +1609,14 @@ export function vueCarte(ctx, rendre, majEtat) {
          visible quelle que soit la couche choisie. */
       let vigiAllume = Reglages.vigicarte();
       let vigiNiveaux = null;
-      const vigiEnTrait = () => NAPPES_CARTE.some(n => n.cle === choisie && n.champ);
+      const vigiEnTrait = () => NAPPES_CARTE.some(n => n.cle === choisie && (n.champ || n.departements));
+      /* Les restrictions d'eau teintent les départements ; la vigilance météo
+         passe alors en liseré, comme au-dessus des nappes de valeurs. */
+      let eauNiveaux = null;
+      const coucheEau = (c, v, l, h) => {
+        if (choisie !== "eau" || !eauNiveaux) return 0;
+        return Carte.peindreDepartements(cv, c, v, l, h, eauNiveaux, { palette: "ve" });
+      };
       const coucheVigiFond = (c, v, l, h) => {
         if (!vigiAllume || !vigiNiveaux || vigiEnTrait()) return 0;
         return Carte.peindreDepartements(cv, c, v, l, h, vigiNiveaux);
@@ -1662,7 +1674,7 @@ export function vueCarte(ctx, rendre, majEtat) {
       /* La foudre ne demande pas la gaine des traits : ses tuiles comptent
          comme posées même vides, et un liseré le long des limites ferait lire
          une couche là où il n'y a pas d'orage. */
-      const COUCHES = [coucheVigiFond, { peindre: coucheValeur, gaine: false },
+      const COUCHES = [coucheEau, coucheVigiFond, { peindre: coucheValeur, gaine: false },
         { peindre: coucheNuages, gaine: false },
         couche, { peindre: coucheFoudre, gaine: false },
         { peindre: coucheFeux, gaine: false },
@@ -1826,6 +1838,8 @@ export function vueCarte(ctx, rendre, majEtat) {
               + `rel="noopener noreferrer">Open-Meteo</a></span>` + propre;
           })()
           + (vigiAllume ? `<span>Vigilance Météo-France</span>` : "")
+          + (choisie === "eau" ? `<span>Restrictions <a href="https://vigieau.gouv.fr" target="_blank" `
+            + `rel="noopener noreferrer">VigiEau</a></span>` : "")
           + (foudreAllume || nuagesAllume
             ? `<span>${foudreAllume && nuagesAllume ? "Foudre et nuages"
               : foudreAllume ? "Foudre" : "Nuages"} `
@@ -1852,9 +1866,17 @@ export function vueCarte(ctx, rendre, majEtat) {
       const legFoudre = bloc.querySelector("#caLegFoudre");
       const legFeux = bloc.querySelector("#caLegFeux");
       const poserLegende = () => {
-        const n = NAPPES_CARTE.find(x => x.cle === choisie && x.champ);
+        const n = NAPPES_CARTE.find(x => x.cle === choisie && (x.champ || x.departements));
         legende.hidden = !n;
-        if (n) {
+        if (n && n.departements) {
+          const cs = getComputedStyle(cv);
+          const ve = n.classes.map((_, i) => cs.getPropertyValue(`--ca-ve${i + 1}`).trim());
+          const pas = 100 / ve.length;
+          rampeEl.style.background = `linear-gradient(to right, ${ve.map((c, i) => `${c} ${(i * pas).toFixed(0)}% ${((i + 1) * pas).toFixed(0)}%`).join(", ")})`;
+          titreLeg.textContent = `${n.nom}, ${n.porte}`;
+          grads.innerHTML = n.classes.map(v => `<span>${esc(v)}</span>`).join("");
+          legende.setAttribute("aria-label", `${n.nom} en vigueur, de la vigilance à la crise`);
+        } else if (n) {
           const a = n.arrets;
           rampeEl.style.background = `linear-gradient(to right, ${
             a.map((v, i) => `${n.couleur(v)} ${(i / (a.length - 1) * 100).toFixed(0)}%`).join(", ")})`;
@@ -1947,6 +1969,10 @@ export function vueCarte(ctx, rendre, majEtat) {
         sans.setAttribute("aria-checked", c === null ? "true" : "false");
         mention();
         poserLegende();
+        if (c === "eau") {
+          if (eauNiveaux) revoir(); else lireEau();
+          return;
+        }
         const n = NAPPES_CARTE.find(x => x.cle === c && x.champ);
         if (n) {
           if (grilleDe(n)) revoir();
@@ -1997,6 +2023,17 @@ export function vueCarte(ctx, rendre, majEtat) {
       /* La vigilance de tout le pays, une lecture de mille deux cents octets. Un
          département au vert ne paraît pas dans la table : la couche ne teinte
          que ce qui est en vigilance. */
+      /* Les restrictions d'eau de tout le pays, une lecture de VigiEau. */
+      const lireEau = async () => {
+        try {
+          const t = await VigiEau.departements();
+          if (!cv.isConnected) return;
+          eauNiveaux = t;
+          revoir();
+        } catch { if (cv.isConnected) dire("La nappe a besoin du réseau."); }
+      };
+      if (choisie === "eau") lireEau();
+
       const vigi = bloc.querySelector("#caVigi");
       const lireVigi = async () => {
         try {
