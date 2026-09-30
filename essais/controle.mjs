@@ -2123,7 +2123,7 @@ await pg.evaluate(async () => {
   const mer = { eau: 22.4, vagues: 1.2, periode: 9, marees: [{ type: "basse", heure: "12 h 52", hauteur: -2.1 }, { type: "haute", heure: "19 h 06", hauteur: 1.3 }] };
   P.poserPlage({ cle: `${g.lat.toFixed(3)},${g.lon.toFixed(3)}`, proches: [1], heure: "2026-08-18T09:00", resumes: [
     { nom: "Plage A", pays: "FR", minutes: 12, estime: false, commune: "Biarritz", departement: "64", qualite: 1, fiche: "001130:064", mer,
-      air: { air: 24, max: 27, vent: 10, direction: 270, uv: 6 } },
+      air: { air: 24, max: 27, vent: 10, direction: 270, uv: 6 }, creneau: { jour: "aujourd'hui", de: 13, a: 18 } },
     { nom: "Plage B", pays: "FR", minutes: 20, estime: false, commune: null, departement: "64", qualite: 4, fiche: null, mer,
       air: { air: 24, max: 27, vent: 10, direction: 270, uv: 6 } }] });
 });
@@ -2140,7 +2140,7 @@ const plageFeuille = await pg.evaluate(() => {
   const c = [...document.querySelectorAll("#feuille-corps .pl-pl")];
   const dd = (i, t) => [...(c[i]?.querySelectorAll("dt") || [])].find(x => x.textContent === t)?.nextElementSibling?.textContent || "";
   return { cartes: c.length, marees: dd(0, "Marées"), marnage: dd(0, "Marnage"), qA: dd(0, "Qualité de l'eau"), qB: dd(1, "Qualité de l'eau"),
-    lieuB: c[1]?.querySelector(".pl-lieu")?.textContent || "",
+    lieuB: c[1]?.querySelector(".pl-lieu")?.textContent || "", ventA: dd(0, "Vent"), bainA: dd(0, "Baignade"),
     fiche: c[0]?.querySelector("a.pl-fiche")?.getAttribute("href") || "", ficheB: !!c[1]?.querySelector("a.pl-fiche") };
 });
 if (portePlageVue) { await pg.evaluate(() => history.back()); await pg.waitForTimeout(400); }
@@ -2153,8 +2153,31 @@ ok("la feuille de la plage dit les marées, le marnage, la qualité de l'eau cla
   plageFeuille.cartes === 2 && plageFeuille.marees === "Basse mer 12 h 52, pleine mer 19 h 06" && plageFeuille.marnage === "3,4 m"
   && plageFeuille.qA === "excellente, saison 2024" && plageFeuille.qB === "insuffisante, saison 2024"
   && plageFeuille.lieuB === "Pyrénées-Atlantiques"
+  && plageFeuille.ventA === "10 km/h, de l'ouest" && plageFeuille.bainA === "conseillée de 13 h à 18 h"
   && plageFeuille.fiche === "https://baignades.sante.gouv.fr/baignades/profil.do?idSite=001130&codeDept=064" && !plageFeuille.ficheB,
   JSON.stringify(plageFeuille));
+/* Jalon 15, lot 4 : les créneaux de baignade, sur une journée d'essai. L'air
+   est chaud de 11 h à 16 h, une vague trop forte passe à 14 h : le plus long
+   créneau va de 11 h à 14 h. Des vagues trop fortes deux jours durant disent
+   leur motif. Le vent se dit par sa direction au niveau de la plage. */
+const bainDit = await pg.evaluate(async () => {
+  const P = await import("/src/plage.js");
+  const t = [];
+  for (const d of ["2026-07-01", "2026-07-02"]) for (let h = 0; h < 24; h++) t.push(`${d}T${String(h).padStart(2, "0")}:00`);
+  const heureDe = x => Number(x.slice(11, 13));
+  const air = (chaud) => ({ hourly: { time: t, temperature_2m: t.map(chaud), wind_speed_10m: t.map(() => 10),
+    wind_direction_10m: t.map(() => 270), precipitation: t.map(() => 0) },
+    daily: { time: ["2026-07-01", "2026-07-02"], sunrise: ["2026-07-01T06:30", "2026-07-02T06:31"], sunset: ["2026-07-01T21:40", "2026-07-02T21:40"] } });
+  const mer = vague => ({ hourly: { time: t, sea_surface_temperature: t.map(() => 21), wave_height: t.map(vague) } });
+  const c1 = P.creneauBaignade(air(x => (x.startsWith("2026-07-01") && heureDe(x) >= 11 && heureDe(x) <= 16 ? 24 : 18)),
+    mer(x => (x === "2026-07-01T14:00" ? 2 : 0.8)), "2026-07-01T08:00");
+  const c2 = P.creneauBaignade(air(() => 24), mer(() => 2.3), "2026-07-01T08:00");
+  return { c1: P.phraseCreneau(c1), c2: P.phraseCreneau(c2), vents: [P.ventDe(270), P.ventDe(45), P.ventDe(180)].join(" | ") };
+});
+ok("un créneau de baignade est la plus longue suite d'heures favorables, ou dit ce qui l'empêche",
+  bainDit.c1 === "Baignade conseillée de 11 h à 14 h." && bainDit.c2 === "Pas de bon créneau de baignade aujourd'hui ni demain : vagues de 2,3 m.",
+  JSON.stringify(bainDit));
+ok("le vent de la plage se dit par sa direction", bainDit.vents === "de l'ouest | du nord-est | du sud", bainDit.vents);
 ok("le graphique borne sa largeur, et se résume en une phrase",
   semGraphe.borne === "520px"
   && semGraphe.resume === "De 25 à 30 degrés au plus chaud, 5,4 millimètres de pluie en tout.",

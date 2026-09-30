@@ -4143,10 +4143,18 @@ export function vuePlage(ctx, rendre) {
       + `<dl class="ng-val">`
       + (m.eau !== null ? `<dt>Eau</dt><dd>${fr(m.eau)}°</dd>` : "")
       + (m.vagues !== null ? `<dt>Vagues</dt><dd>${m.vagues < 0.3 ? "mer calme" : `${fr(m.vagues)} m${m.periode ? `, toutes les ${m.periode} s` : ""}`}</dd>` : "")
-      + (a ? `<dt>Vent</dt><dd>${a.vent} km/h</dd><dt>Air, au plus chaud</dt><dd>${a.max}°</dd>`
+      /* Le vent et sa direction au niveau de la plage, avec la flèche qui montre
+         où il va ; sans rapport au rivage, dont l'orientation manque. */
+      + (a ? `<dt>Vent</dt><dd>${Number.isFinite(a.direction) ? `<svg class="pl-fl" viewBox="0 0 14 14" aria-hidden="true">`
+          + `<g transform="rotate(${angleFleche(a.direction)} 7 7)">${TRACE_FLECHE}</g></svg>` : ""}`
+        + `${a.vent} km/h${Number.isFinite(a.direction) ? `, ${Plage.ventDe(a.direction)}` : ""}</dd>`
+        + `<dt>Air, au plus chaud</dt><dd>${a.max}°</dd>`
         + `<dt>Indice UV</dt><dd>${a.uv}</dd>` : "")
       + (suite ? `<dt>Marées</dt><dd>${esc(suite)}</dd>` : "")
       + (marnage ? `<dt>Marnage</dt><dd>${marnage}</dd>` : "")
+      + (p.creneau ? `<dt>Baignade</dt><dd>${p.creneau.de !== undefined
+        ? `conseillée ${p.creneau.jour === "demain" ? "demain " : ""}de ${p.creneau.de} h à ${p.creneau.a} h`
+        : `déconseillée, ${esc(p.creneau.motif)}`}</dd>` : "")
       + (Plage.qualiteDe(p.qualite) ? `<dt>Qualité de l'eau</dt><dd class="${p.qualite === 4 ? "pl-alerte" : ""}">`
         + `${Plage.qualiteDe(p.qualite)}, saison ${Plage.SAISON}</dd>` : "")
       + `</dl>`
@@ -4154,8 +4162,10 @@ export function vuePlage(ctx, rendre) {
         + `Derniers prélèvements et interdictions, sur le site du ministère</a>` : "")
       + `</div>`;
   };
+  const creneau = Plage.phraseCreneau(pz.resumes[0].creneau);
   const tete = `<div class="carte retenir"><div class="conseils">${conseilsHTML([
-    { i: "goutte", g: 1, t: Plage.phrasePlage(pz.resumes) }])}</div></div>`;
+    { i: "goutte", g: 1, t: Plage.phrasePlage(pz.resumes) },
+    ...(creneau ? [{ i: "soleil", g: 1, t: creneau }] : [])])}</div></div>`;
   return { titre, sous, corps: tete + pz.resumes.map(carte).join("")
     + `<p class="note">Plages et qualité de l'eau : eaux de baignade déclarées à la Commission européenne, `
     + `classement de la saison ${Plage.SAISON} établi sur quatre saisons de prélèvements ; `

@@ -309,6 +309,12 @@ case "$N" in
   95) # La porte de la plage disparaît de l'accueil.
      perl -0pi -e 's/      \+ \(saisonPlage \? `<button type="button" class="carte rangee porte porte-large" data-feuille="plage">`/      + (false \&\& saisonPlage ? `<button type="button" class="carte rangee porte porte-large" data-feuille="plage">`/' src/app.js
      ATTENDU="en saison, une porte large mène à la plage, avec l.eau et les vagues" ;;
+  96) # Des vagues de plus d'un mètre et demi ne gênent plus la baignade.
+     perl -0pi -e 's/export const SEUILS_BAIN = \{ air: 20, eau: 16, vagues: 1\.5,/export const SEUILS_BAIN = { air: 20, eau: 16, vagues: 15,/' src/plage.js
+     ATTENDU="un créneau de baignade est la plus longue suite d.heures favorables, ou dit ce qui l.empêche" ;;
+  97) # Le vent perd sa préposition.
+     perl -0pi -e 's/  return \/\^\(est\|ouest\)\$\/\.test\(c\) \? `de l.\$\{c\}` : `du \$\{c\}`;/  return c;/' src/plage.js
+     ATTENDU="le vent de la plage se dit par sa direction" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

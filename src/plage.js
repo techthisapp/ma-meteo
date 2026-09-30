@@ -11,6 +11,7 @@
 import { PLAGES, SAISON_QUALITE } from "./plages.js";
 import { distanceKm } from "./postes.js";
 import { dureesMinutes } from "./trajets.js";
+import { cardinal } from "./previsions.js";
 
 export const RAYON_KM = 100;
 export const MINUTES_MAX = 60;
@@ -98,7 +99,8 @@ export function adresseMer(plages) {
 }
 export function adresseAir(plages) {
   const q = new URLSearchParams({ ...coords(plages), timezone: "Europe/Paris", forecast_days: "2",
-    hourly: "temperature_2m,wind_speed_10m,wind_direction_10m", daily: "temperature_2m_max,uv_index_max" });
+    hourly: "temperature_2m,wind_speed_10m,wind_direction_10m,precipitation",
+    daily: "temperature_2m_max,uv_index_max,sunrise,sunset" });
   return `${PREVISION}?${q}`;
 }
 
@@ -144,6 +146,69 @@ export function resumeAir(x, heure) {
   const kj = Math.max(0, j.time.indexOf(heure.slice(0, 10)));
   return { air: Math.round(h.temperature_2m[k]), max: Math.round(j.temperature_2m_max[kj]),
     vent: Math.round(h.wind_speed_10m[k]), direction: h.wind_direction_10m[k], uv: Math.round(j.uv_index_max[kj] ?? 0) };
+}
+
+/* La direction d'où vient le vent, au niveau de la plage, demandée par Jérôme
+   le 30 septembre 2026 : sans rapport à l'orientation du rivage, que la source
+   ne donne pas. */
+export function ventDe(d) {
+  if (!Number.isFinite(d)) return "";
+  const c = cardinal(d);
+  return /^(est|ouest)$/.test(c) ? `de l'${c}` : `du ${c}`;
+}
+
+/* Les bons créneaux de baignade, jalon 15, lot 4. Heure par heure, de 9 h à
+   19 h et entre une heure après le lever et une heure avant le coucher : air à
+   20° au moins, eau à 16° au moins, vagues d'un mètre et demi au plus, vent de
+   25 km/h au plus, pas de pluie. Un créneau est une suite d'au moins deux
+   heures favorables ; le plus long d'aujourd'hui, à partir de l'heure en
+   cours, sinon celui de demain. Sans créneau, le motif le plus fréquent parmi
+   les heures écartées. */
+export const SEUILS_BAIN = { air: 20, eau: 16, vagues: 1.5, vent: 25, pluie: 0.2 };
+
+export function creneauBaignade(air, mer, heure) {
+  const ha = air?.hourly, hm = mer?.hourly, j = air?.daily;
+  if (!ha?.time || !hm?.time || !j?.time) return null;
+  const S = SEUILS_BAIN;
+  const motifs = { air: [], eau: [], vagues: [], vent: [], pluie: [] };
+  const demain = new Date(`${heure.slice(0, 10)}T12:00`); demain.setDate(demain.getDate() + 1);
+  const jours = [heure.slice(0, 10), demain.toLocaleDateString("sv-SE")];
+  for (const [n, jour] of jours.entries()) {
+    const kj = j.time.indexOf(jour);
+    if (kj < 0) continue;
+    const lever = Number((j.sunrise[kj] || "T07").slice(11, 13)) + 1;
+    const coucher = Number((j.sunset[kj] || "T20").slice(11, 13)) - 1;
+    let courant = [], meilleur = [];
+    for (let h = Math.max(9, lever); h < Math.min(19, coucher); h++) {
+      const t = `${jour}T${String(h).padStart(2, "0")}:00`;
+      if (n === 0 && t < `${heure.slice(0, 13)}:00`) continue;
+      const ka = ha.time.indexOf(t), km = hm.time.indexOf(t);
+      if (ka < 0 || km < 0) continue;
+      const v = { air: ha.temperature_2m[ka], eau: hm.sea_surface_temperature[km], vagues: hm.wave_height[km],
+        vent: ha.wind_speed_10m[ka], pluie: ha.precipitation[ka] };
+      const ecarts = [];
+      if (!(v.air >= S.air)) ecarts.push(["air", v.air]);
+      if (Number.isFinite(v.eau) && v.eau < S.eau) ecarts.push(["eau", v.eau]);
+      if (Number.isFinite(v.vagues) && v.vagues > S.vagues) ecarts.push(["vagues", v.vagues]);
+      if (v.vent > S.vent) ecarts.push(["vent", v.vent]);
+      if (v.pluie >= S.pluie) ecarts.push(["pluie", v.pluie]);
+      if (!ecarts.length) { courant.push(h); if (courant.length > meilleur.length) meilleur = [...courant]; }
+      else { courant = []; for (const [m, x] of ecarts) motifs[m].push(x); }
+    }
+    if (meilleur.length >= 2) return { jour: n ? "demain" : "aujourd'hui", de: meilleur[0], a: meilleur[meilleur.length - 1] + 1 };
+  }
+  const [m, valeurs] = Object.entries(motifs).sort((a, b) => b[1].length - a[1].length)[0];
+  if (!valeurs.length) return { motif: "trop peu d'heures de jour" };
+  const r1 = x => String(Math.round(x * 10) / 10).replace(".", ",");
+  const texte = { air: `air à ${Math.round(Math.max(...valeurs))}° au plus`, eau: `eau à ${r1(Math.max(...valeurs))}°`,
+    vagues: `vagues de ${r1(Math.min(...valeurs))} m`, vent: `vent de ${Math.round(Math.min(...valeurs))} km/h`, pluie: "pluie" }[m];
+  return { motif: texte };
+}
+
+export function phraseCreneau(c) {
+  if (!c) return "";
+  if (c.de !== undefined) return `Baignade conseillée ${c.jour === "demain" ? "demain " : ""}de ${c.de} h à ${c.a} h.`;
+  return `Pas de bon créneau de baignade aujourd'hui ni demain : ${c.motif}.`;
 }
 
 /* La commune d'une plage montrée, cherchée au moment de la montrer : la liste
@@ -199,7 +264,8 @@ export async function chargerPlage(g, heure, fetcheur = fetch) {
       const mer = rm.ok ? await rm.json() : [], air = ra.ok ? await ra.json() : [];
       const tm = Array.isArray(mer) ? mer : [mer], ta = Array.isArray(air) ? air : [air];
       const communes = await Promise.all(vues.map(p => communeDe(p, fetcheur)));
-      resumes = vues.map((p, i) => ({ ...p, commune: communes[i], mer: resumeMer(tm[i], heure), air: resumeAir(ta[i], heure) }))
+      resumes = vues.map((p, i) => ({ ...p, commune: communes[i], mer: resumeMer(tm[i], heure), air: resumeAir(ta[i], heure),
+        creneau: creneauBaignade(ta[i], tm[i], heure) }))
         .filter(p => p.mer);
     } catch { resumes = etat?.cle === cle ? etat.resumes : []; }
   }
