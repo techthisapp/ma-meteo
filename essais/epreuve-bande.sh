@@ -242,14 +242,28 @@ case "$N" in
   74) # La carte de la comparaison n'est plus branchée.
      # Sa garde est dans la section du climat : lancer avec JUSQUA_EPREUVE.
      perl -0pi -e 's/      brancherComparaison\(bloc\.querySelector\("#clComparer"\), bloc, g, c, date\);\n//' src/vues.js
-     ATTENDU="la feuille du climat compare la semaine en cours à la même semaine de l.an dernier" ;;
+     ATTENDU="la feuille du climat compare les 7 derniers jours aux mêmes jours de l.an dernier, dans l.archive" ;;
   75) # Une semaine sans pluie notable nomme quand même un lieu arrosé.
      perl -0pi -e 's/  const pluie = arrose\.mm < 1 \? "sec partout"/  const pluie = arrose.mm < 0 ? "sec partout"/' src/comparaison.js
      ATTENDU="les lieux se demandent ensemble, et une semaine sans pluie notable se dit sèche partout" ;;
   76) # Tous les lieux reçoivent la charge du premier.
      # Sa garde est dans la section du climat : lancer avec JUSQUA_EPREUVE.
      perl -0pi -e 's/journeesDe\(tab\[k\]\?\.daily\)/journeesDe(tab[0]?.daily)/' src/comparaison.js
-     ATTENDU="la feuille du climat compare la même semaine entre lieux suivis, en une requête" ;;
+     ATTENDU="la feuille du climat compare les 7 derniers jours entre lieux suivis, en une requête à l.archive" ;;
+  77) # Les périodes passées finissent aujourd'hui au lieu d'hier.
+     perl -0pi -e 's/x\.setDate\(d\.getDate\(\) \+ \(passe \? -\(n - k\) : k \+ 1\)\);/x.setDate(d.getDate() + (passe ? -(n - 1 - k) : k + 1));/' src/comparaison.js
+     ATTENDU="le passé finit hier, l.avenir commence demain, et le seuil de la pluie croît avec la durée" ;;
+  78) # Le seuil de la pluie reste celui d'une semaine.
+     perl -0pi -e 's/export const seuilPluie = n => Math\.round\(10 \* Math\.sqrt\(n \/ 7\)\);/export const seuilPluie = () => 10;/' src/comparaison.js
+     ATTENDU="le passé finit hier, l.avenir commence demain, et le seuil de la pluie croît avec la durée" ;;
+  79) # Le choix de la période n'est plus écouté.
+     # Sa garde est dans la section du climat : lancer avec JUSQUA_EPREUVE.
+     perl -0pi -e 's/    cmp\.querySelector\("\.cmp-p-temps"\)\.addEventListener\("change", e => \{ periodeTemps = e\.target\.value; montrer\(\); \}\);\n//' src/vues.js
+     ATTENDU="une période passée se lit dans l.archive jusqu.à hier, une période à venir dans la prévision dès demain" ;;
+  80) # Les lieux du passé se lisent dans la prévision.
+     # Sa garde est dans la section du climat : lancer avec JUSQUA_EPREUVE.
+     perl -0pi -e 's/Comparaison\.lireLieux\(lieux, dates, Comparaison\.estPassee\(periodeLieux\)\)/Comparaison.lireLieux(lieux, dates, false)/' src/vues.js
+     ATTENDU="la feuille du climat compare les 7 derniers jours entre lieux suivis, en une requête à l.archive" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

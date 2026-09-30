@@ -2311,3 +2311,10 @@ button.rangee:active{background:var(--surface-2)}
 .cmp-tab td:first-child,.cmp-tab th:first-child{text-align:left}
 .cmp-tab .cmp-fort{font-weight:var(--graisse-semibold);color:var(--etiquette)}
 .cmp-pt{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:baseline}
+
+/* Le choix de la période en tête des cartes de la comparaison, le 29
+   septembre 2026 : deux listes et un mot de liaison sur une ligne. */
+.cmp-tete{flex-wrap:wrap;justify-content:flex-start;gap:2px var(--espace-xs)}
+.cmp-periode{font:inherit;font-size:var(--texte-note);font-weight:var(--graisse-semibold);color:var(--accent);
+  background:transparent;border:0;min-height:var(--touche);padding:0 2px}
+.cmp-face{font-size:var(--texte-note);color:var(--etiquette-2)}

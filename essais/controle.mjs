@@ -574,6 +574,16 @@ function archiveCorps(u) {
     time.push(iso); mx.push(M); mn.push(Math.round((M - 8) * 10) / 10);
     pl.push(rang % 2 === 0 ? 2 : 0);
   }
+  /* Plusieurs lieux à la fois, pour la comparaison entre lieux du jalon 14 :
+     une charge par lieu, deux degrés de plus à chaque lieu, et la pluie sur le
+     deuxième seulement, cinq millimètres par jour. Un seul lieu garde la
+     charge d'avant, dont d'autres gardes dépendent. */
+  const lats = (q.get("latitude") || "").split(",");
+  if (lats.length > 1) {
+    return lats.map((la, i) => ({ latitude: Number(la), longitude: 0, elevation: 345,
+      daily: { time, temperature_2m_max: mx.map(v => v + 2 * i), temperature_2m_min: mn.map(v => v + 2 * i),
+        precipitation_sum: time.map(() => (i === 1 ? 5 : 0)) } }));
+  }
   return { latitude: 47.6, longitude: 4.3, elevation: 345,
     daily: { time, temperature_2m_max: mx, temperature_2m_min: mn, precipitation_sum: pl } };
 }
@@ -1886,8 +1896,8 @@ ok("la semaine va du lundi au dimanche, un 29 février devient le 28",
   cmpPur.semaine === "2026-09-28 2026-09-29 2026-09-30 2026-10-01 2026-10-02 2026-10-03 2026-10-04"
   && cmpPur.bissextile === "2023-02-28", JSON.stringify(cmpPur));
 ok("le bilan de la comparaison dit l'écart de température, et la pluie au-delà de dix millimètres",
-  cmpPur.chaude === "Plus chaude que la même semaine de 2025, de 3° en moyenne au plus chaud ; plus sèche, 5 mm contre 15."
-  && cmpPur.pareille === "Semblable à la même semaine de 2025, à 0,4° près au plus chaud ; pluie comparable, 5 mm contre 9."
+  cmpPur.chaude === "Plus chauds que les mêmes 7 jours de 2025, de 3° en moyenne au plus chaud ; plus secs, 5 mm contre 15."
+  && cmpPur.pareille === "Semblables aux mêmes 7 jours de 2025, à 0,4° près au plus chaud ; pluie comparable, 5 mm contre 9."
   && cmpPur.court === null, JSON.stringify(cmpPur));
 /* Jalon 14, lot 2 : l'adresse groupée des lieux et le bilan entre lieux. */
 const lieuxPur = await pg.evaluate(async () => {
@@ -1902,8 +1912,28 @@ const lieuxPur = await pg.evaluate(async () => {
 });
 ok("les lieux se demandent ensemble, et une semaine sans pluie notable se dit sèche partout",
   lieuxPur.lat === "47.6000,48.8600" && lieuxPur.debut === "2026-09-28" && lieuxPur.fin === "2026-10-04"
-  && lieuxPur.sec === "B le plus chaud cette semaine, 22° en moyenne au plus chaud ; sec partout." && lieuxPur.seul === null,
+  && lieuxPur.sec === "B le plus chaud ces 7 derniers jours, 22° en moyenne au plus chaud ; sec partout." && lieuxPur.seul === null,
   JSON.stringify(lieuxPur));
+/* Jalon 14, complément du 29 septembre 2026 : les périodes. Le passé finit
+   hier, l'avenir commence demain, aujourd'hui n'appartient à aucune période ;
+   le seuil de la pluie croît avec la racine de la durée. */
+const perPur = await pg.evaluate(async () => {
+  const C = await import("/src/comparaison.js");
+  const bornes = p => { const d = C.datesDe(p, "2026-09-29"); return `${d.length} ${d[0]} ${d[d.length - 1]}`; };
+  const trente = f => Array.from({ length: 30 }, (_, k) => f(k));
+  const cette = trente(k => ({ tx: 20, tn: 10, mm: k === 0 ? 10 : 0 }));
+  const autre = trente(() => ({ tx: 17, tn: 8, mm: 0.85 }));
+  return { p7: bornes("7p"), p60: bornes("60p"), f3: bornes("3f"), f15: bornes("15f"),
+    sens: C.PERIODES.map(([v, , s]) => `${v}:${s}`).join(" "), defaut: C.PERIODE_DEFAUT,
+    seuils: [3, 7, 15, 30, 60].map(C.seuilPluie).join(" "), phrase: C.bilan(cette, autre, 2025, "30p")?.phrase };
+});
+ok("le passé finit hier, l'avenir commence demain, et le seuil de la pluie croît avec la durée",
+  perPur.p7 === "7 2026-09-22 2026-09-28" && perPur.p60 === "60 2026-07-31 2026-09-28"
+  && perPur.f3 === "3 2026-09-30 2026-10-02" && perPur.f15 === "15 2026-09-30 2026-10-14"
+  && perPur.sens === "7p:passe 15p:passe 30p:passe 60p:passe 3f:avenir 7f:avenir 15f:avenir" && perPur.defaut === "7p"
+  && perPur.seuils === "7 10 15 21 29"
+  && perPur.phrase === "Plus chauds que les mêmes 30 jours de 2025, de 3° en moyenne au plus chaud ; pluie comparable, 10 mm contre 26.",
+  JSON.stringify(perPur));
 ok("le graphique borne sa largeur, et se résume en une phrase",
   semGraphe.borne === "520px"
   && semGraphe.resume === "De 25 à 30 degrés au plus chaud, 5,4 millimètres de pluie en tout.",
@@ -10830,18 +10860,49 @@ const cmpDit = await pgClimat.evaluate(() => {
     defaut: c?.querySelector(".cmp-annee")?.value || "", graphe: !!c?.querySelector("svg.cmp"),
     phrase: c?.querySelector(".cj-l")?.dataset.phrase || "" };
 });
-const lectureSemaine = a => appelsArchive.filter(u => debutDe(u) === `${a}-08-17`
-  && new URL(u).searchParams.get("end_date") === `${a}-08-23`);
-ok("la feuille du climat compare la semaine en cours à la même semaine de l'an dernier",
+/* Depuis le 29 septembre 2026, la comparaison s'ouvre sur les 7 derniers jours,
+   du 11 au 17 août, jusqu'à hier : les deux années se lisent dans l'archive. */
+const lecturePeriode = (a, d0, d1) => appelsArchive.filter(u => debutDe(u) === `${a}-${d0}`
+  && new URL(u).searchParams.get("end_date") === `${a}-${d1}`);
+ok("la feuille du climat compare les 7 derniers jours aux mêmes jours de l'an dernier, dans l'archive",
   cmpDit.vue && cmpDit.defaut === "2025" && cmpDit.annees === 2026 - 1940 && cmpDit.graphe
-  && /^(Plus chaude que|Plus fraîche que|Semblable à) la même semaine de 2025, /.test(cmpDit.phrase)
-  && lectureSemaine(2025).length === 1, JSON.stringify(cmpDit));
+  && /^(Plus chauds que les|Plus frais que les|Semblables aux) mêmes 7 jours de 2025, /.test(cmpDit.phrase)
+  && lecturePeriode(2025, "08-11", "08-17").length === 1 && lecturePeriode(2026, "08-11", "08-17").length === 1,
+  JSON.stringify(cmpDit));
 await pgClimat.locator("#clComparer .cmp-annee").selectOption("2003");
-await pgClimat.waitForFunction(() => /de 2003,/.test(document.querySelector("#clComparer .cj-l")?.dataset.phrase || ""),
+await pgClimat.waitForFunction(() => /jours de 2003,/.test(document.querySelector("#clComparer .cj-l")?.dataset.phrase || ""),
   null, { timeout: 8000 }).catch(() => {});
 const cmp2003 = await pgClimat.evaluate(() => document.querySelector("#clComparer .cj-l")?.dataset.phrase || "");
-ok("une autre année se choisit, et se lit pour ses sept jours seulement",
-  /la même semaine de 2003, /.test(cmp2003) && lectureSemaine(2003).length === 1, cmp2003);
+ok("une autre année se choisit, et se lit pour ses dates seulement",
+  /mêmes 7 jours de 2003, /.test(cmp2003) && lecturePeriode(2003, "08-11", "08-17").length === 1, cmp2003);
+
+/* Le choix de la période : les 30 derniers jours, du 19 juillet au 17 août, se
+   lisent dans l'archive pour les deux années ; les 7 prochains jours, du 19 au
+   25 août, dans la prévision pour cette année. Jamais de période à cheval. */
+const phraseCmp = () => pgClimat.evaluate(() => document.querySelector("#clComparer .cj-l")?.dataset.phrase || "");
+await pgClimat.locator("#clComparer .cmp-p-temps").selectOption("30p");
+await pgClimat.waitForFunction(() => /mêmes 30 jours de 2003,/.test(document.querySelector("#clComparer .cj-l")?.dataset.phrase || ""),
+  null, { timeout: 8000 }).catch(() => {});
+const cmp30 = await phraseCmp();
+/* Le contexte de la feuille du climat a son propre faux service de prévision,
+   qui ne consigne pas ses requêtes : la page les écoute elle-même. */
+const prevuesClimat = [];
+const ecouteClimat = r => { const u = r.url(); if (u.includes("api.open-meteo.com/v1/forecast") && u.includes("start_date=")) prevuesClimat.push(u); };
+pgClimat.on("request", ecouteClimat);
+await pgClimat.locator("#clComparer .cmp-p-temps").selectOption("7f");
+await pgClimat.waitForFunction(() => /mêmes 7 jours de 2003,/.test(document.querySelector("#clComparer .cj-l")?.dataset.phrase || "")
+  && /prévision/.test(document.querySelector("#clComparer .note")?.textContent || ""), null, { timeout: 8000 }).catch(() => {});
+const cmp7f = await phraseCmp();
+pgClimat.off("request", ecouteClimat);
+const prevu7 = prevuesClimat.filter(u => new URL(u).searchParams.get("start_date") === "2026-08-19"
+  && new URL(u).searchParams.get("end_date") === "2026-08-25");
+await pgClimat.locator("#clComparer .cmp-p-temps").selectOption("7p");
+await pgClimat.waitForTimeout(600);
+ok("une période passée se lit dans l'archive jusqu'à hier, une période à venir dans la prévision dès demain",
+  /mêmes 30 jours de 2003, /.test(cmp30) && lecturePeriode(2003, "07-19", "08-17").length === 1
+  && lecturePeriode(2026, "07-19", "08-17").length === 1
+  && /mêmes 7 jours de 2003, /.test(cmp7f) && prevu7.length === 1 && lecturePeriode(2003, "08-19", "08-25").length === 1,
+  JSON.stringify({ cmp30, cmp7f, prevu: prevu7.length }));
 
 /* Jalon 14, lot 2 : la comparaison entre lieux, dans un contexte à part où
    trois lieux sont suivis. Les trois se lisent ensemble, en une requête ; une
@@ -10862,6 +10923,7 @@ const pgLieux = await ctxLieux.newPage();
 await ouvrirPage(pgLieux);
 await pgLieux.waitForTimeout(1500);
 appelsLieux.length = 0;
+const archiveAvantLieux = appelsArchive.length;
 await ouvrirClimat(pgLieux);
 await pgLieux.locator("#clLieux .cj-l").first().waitFor({ timeout: 8000 }).catch(() => {});
 const lieuxDit = await pgLieux.evaluate(() => ({
@@ -10871,22 +10933,31 @@ const lieuxDit = await pgLieux.evaluate(() => ({
   traces: document.querySelectorAll("#clLieux svg.cmp-lieux polyline").length,
 }));
 const latsDe = u => new URL(u).searchParams.get("latitude").split(",").length;
-const premiereLieux = appelsLieux[0] || "";
+const archivesLieux = () => appelsArchive.slice(archiveAvantLieux).filter(u => latsDe(u) > 1);
+const premiereLieux = archivesLieux()[0] || "";
 await pgLieux.locator("#clLieux .cmp-puce", { hasText: "Paris" }).click();
 await pgLieux.waitForFunction(() => document.querySelectorAll("#clLieux .cmp-tab tbody tr").length === 2, null, { timeout: 8000 }).catch(() => {});
 const lieuxApres = await pgLieux.evaluate(() => ({
   phrase: document.querySelector("#clLieux .cj-l")?.dataset.phrase || "",
   lignes: document.querySelectorAll("#clLieux .cmp-tab tbody tr").length,
 }));
+const archivesApres = archivesLieux().length;
+await pgLieux.locator("#clLieux .cmp-p-lieux").selectOption("7f");
+await pgLieux.waitForFunction(() => /ces 7 prochains jours/.test(document.querySelector("#clLieux .cj-l")?.dataset.phrase || ""),
+  null, { timeout: 8000 }).catch(() => {});
+const lieuxAvenir = await pgLieux.evaluate(() => document.querySelector("#clLieux .cj-l")?.dataset.phrase || "");
 await ctxLieux.close();
-ok("la feuille du climat compare la même semaine entre lieux suivis, en une requête",
+ok("la feuille du climat compare les 7 derniers jours entre lieux suivis, en une requête à l'archive",
   lieuxDit.lignes === 3 && lieuxDit.traces === 3 && lieuxDit.puces.join(" ") === "Paris* Lecci*"
-  && lieuxDit.phrase === "Lecci le plus chaud cette semaine, 24,9° en moyenne au plus chaud ; Paris le plus arrosé, 35 mm."
-  && premiereLieux && latsDe(premiereLieux) === 3 && new URL(premiereLieux).searchParams.get("start_date") === "2026-08-17",
+  && /^Lecci le plus chaud ces 7 derniers jours, [\d,]+° en moyenne au plus chaud ; Paris le plus arrosé, 35 mm\.$/.test(lieuxDit.phrase)
+  && premiereLieux && latsDe(premiereLieux) === 3 && new URL(premiereLieux).searchParams.get("start_date") === "2026-08-11",
   JSON.stringify({ lieuxDit, premiereLieux }));
 ok("une pastille retire un lieu, et la comparaison se refait sans lui",
-  lieuxApres.lignes === 2 && /^Lecci le plus chaud cette semaine, 22,9° /.test(lieuxApres.phrase)
-  && appelsLieux.length === 2 && latsDe(appelsLieux[1]) === 2, JSON.stringify({ lieuxApres, n: appelsLieux.length }));
+  lieuxApres.lignes === 2 && /^Lecci le plus chaud ces 7 derniers jours, /.test(lieuxApres.phrase)
+  && archivesApres === 2, JSON.stringify({ lieuxApres, archivesApres }));
+ok("entre lieux, une période à venir se lit dans la prévision",
+  /^\S+ le plus chaud ces 7 prochains jours, /.test(lieuxAvenir)
+  && appelsLieux.some(u => new URL(u).searchParams.get("start_date") === "2026-08-19" && latsDe(u) === 2), lieuxAvenir);
 
 /* Le percentile, recalculé ici à partir de la formule de la charge : toutes les
    journées à onze jours du 18 août, de 1950 à 2025, comparées au maximum que la
