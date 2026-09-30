@@ -590,7 +590,27 @@ function hydroCorps(u) {
   }
   return { count: debitsEssai.length, data: debitsEssai };
 }
+/* L'étiage et la température de l'eau, jalon 18 : quatre points vus lors de la
+   dernière campagne, le 10 août, deux à sec, un interrompu, un faible, le plus
+   proche coulant faiblement ; un cinquième vu seulement le 20 juillet, qui ne
+   compte pas. Une température de l'eau mesurée la veille. */
+function ondeCorps() {
+  const o = (code, nom, dlo, date, ec) => ({ code_station: code, libelle_station: nom, latitude: FAIN.lat, longitude: FAIN.lon + dlo,
+    date_observation: `${date}T00:00:00Z`, libelle_ecoulement: ec });
+  return { count: 6, data: [
+    o("S1", "LE RU DE FAIN A FAIN", 0.01, "2026-07-20", "Ecoulement visible acceptable"),
+    o("S1", "LE RU DE FAIN A FAIN", 0.01, "2026-08-10", "Ecoulement visible faible"),
+    o("S2", "LA SEINE A NOD", 0.2, "2026-08-10", "Assec"),
+    o("S3", "LE RU D'EN HAUT", 0.25, "2026-08-10", "Assec"),
+    o("S4", "LA LAIGNE", 0.3, "2026-08-10", "Ecoulement non visible"),
+    o("S5", "LA BRENNE", 0.35, "2026-07-20", "Assec")] };
+}
 function hubeauCorps(u) {
+  if (u.includes("/ecoulement/")) return ondeCorps();
+  if (u.includes("/temperature/")) {
+    return { count: 1, data: [{ libelle_station: "LA SEINE A FAIN", resultat: 18.46, date_mesure_temp: "2026-08-16",
+      heure_mesure_temp: "14:00:00", latitude: FAIN.lat, longitude: FAIN.lon + 0.01 }] };
+  }
   if (u.includes("/hydrometrie/")) return hydroCorps(u);
   if (u.includes("/stations")) {
     return { count: 2, data: [
@@ -2360,6 +2380,33 @@ ok("la rivière retenue mesure le débit, et la feuille dit sa hauteur, sa tenda
   && riviereFeuille.debit === "800 l/s" && riviereFeuille.saison === "très bas"
   && riviereFeuille.phrase === "Sur les sept derniers jours, 100 l/s contre 1 m³/s en médiane des 31 années précédentes à la même date, le plus bas de toutes.",
   JSON.stringify(riviereFeuille));
+/* Jalon 18, lot 2 : l'étiage d'été, bilan de la dernière campagne. */
+const etiageDit = await pg.evaluate(async () => {
+  const E = await import("/src/eau.js");
+  const o = (code, date, ec, dlo) => ({ code_station: code, libelle_station: `POINT ${code}`, latitude: 47.6, longitude: 4.3 + dlo,
+    date_observation: `${date}T00:00:00Z`, libelle_ecoulement: ec });
+  /* Des noms sans lettre isolée : un « A » seul entre deux mots se lit « à ». */
+  const b = E.bilanEtiage([o("NORD", "2026-08-01", "Ecoulement visible acceptable", 0.01), o("NORD", "2026-08-10", "Assec", 0.01),
+    o("SUD", "2026-08-10", "Ecoulement visible faible", 0.1), o("EST", "2026-08-01", "Assec", 0.2), o("OUEST", "2026-08-10", "Ecoulement non visible", 0.3)],
+    { lat: 47.6, lon: 4.3 });
+  return { b: `${b.date} ${b.total} ${b.sec}/${b.interrompu}/${b.faible}/${b.visible} ${b.proche.station} ${b.proche.ecoulement}`,
+    sortes: ["Assec", "Ecoulement non visible", "Ecoulement visible faible", "Ecoulement visible acceptable", "?"].map(E.sorteEcoulement).map(String).join(" ") };
+});
+ok("l'étiage se résume par la dernière campagne, chaque point à sa dernière observation",
+  etiageDit.b === "2026-08-10 3 1/1/1/0 Point Nord à sec" && etiageDit.sortes === "sec interrompu faible visible null", JSON.stringify(etiageDit));
+
+/* L'étiage et la température de l'eau dans la feuille, sous la rivière. */
+await tuileEau.first().click();
+await pg.waitForFunction(() => /Étiage observé/.test(document.querySelector("#feuille-corps")?.textContent || "")
+  && /Eau de la rivière/.test(document.querySelector("#feuille-corps")?.textContent || ""), null, { timeout: 15000 }).catch(() => {});
+const etiageFeuille = await pg.evaluate(() => [...document.querySelectorAll("#feuille-corps .pl-lieu")].map(p => p.textContent)
+  .filter(t => /Étiage|Eau de la rivière/.test(t)));
+await pg.evaluate(() => history.back()); await pg.waitForTimeout(400);
+ok("la feuille de l'eau dit l'étiage de la dernière campagne et la température récente de la rivière",
+  etiageFeuille.length === 2
+  && /^Étiage observé le 10 août dans un rayon d'environ 35 km, sur 4 cours d'eau : 2 à sec, 1 à écoulement interrompu, 1 à écoulement faible\. Le plus proche, Le Ru de Fain à Fain, à \d+ km : écoulement faible\.$/.test(etiageFeuille[0])
+  && etiageFeuille[1] === "Eau de la rivière : 18,5°, mesurée à La Seine à Fain le 16 août à 14 h 00.",
+  JSON.stringify(etiageFeuille));
 ok("le graphique borne sa largeur, et se résume en une phrase",
   semGraphe.borne === "520px"
   && semGraphe.resume === "De 25 à 30 degrés au plus chaud, 5,4 millimètres de pluie en tout.",
@@ -5378,19 +5425,45 @@ const couture = await pgCouvert.evaluate(() => {
     const y = Math.round(H * f);
     for (let x = 0; x < L; x++) creux = Math.min(creux, d[(y * L + x) * 4 + 3]);
   }
+  /* Une couture est une cassure nette qui traverse toute la hauteur. Le 30
+     septembre 2026, le bord presque vertical d'une rangée de nuages, coupant
+     une ligne de mesure, a fait sortir une colonne sans qu'il y ait de
+     couture : la mesure sur cinq points voit aussi bien un bord flouté qu'une
+     cassure. Le saut d'un point à son voisin les sépare : faible sur un bord
+     flouté, entier sur une couture. Une colonne est une couture si ce saut y
+     ressort, à un point près, sur quatre lignes au moins. */
+  const votes = new Array(L).fill(0);
+  for (const f of lignes) {
+    const y = Math.round(H * f);
+    const r = new Array(L).fill(0);
+    for (let x = 1; x < L - 1; x++) r[x] = Math.abs(cl(x + 1, y) - cl(x, y));
+    const tr = r.slice(6, L - 6).sort((a, b) => a - b);
+    const med = Math.max(0.05, tr[Math.floor(tr.length / 2)] || 0);
+    for (let x = 7; x < L - 7; x++) if (Math.max(r[x - 1], r[x], r[x + 1]) > 6 * med && Math.max(r[x - 1], r[x], r[x + 1]) > 1.5) votes[x]++;
+  }
+  const pireVote = Math.max(...votes);
   const rang = par.map((v, x) => [x, v]).sort((a, b) => b[1] - a[1]);
   const tries = par.slice(6, L - 6).sort((a, b) => a - b);
   const median = tries[Math.floor(tries.length / 2)] || 0.01;
   /* C'est le rapport qui parle, non la valeur : le marbré donne à toutes les
      colonnes une rupture du même ordre, une couture en fait sortir une seule. La
      mesure reste juste si le marbré change de force. */
-  return { max: rang[0][1], rapport: rang[0][1] / Math.max(0.05, median), creux,
-    pires: rang.slice(0, 5).map(([x, v]) => `${x}:${v.toFixed(2)}`).join(" ") };
+  return { max: rang[0][1], rapport: rang[0][1] / Math.max(0.05, median), creux, votes: pireVote,
+    colonnes: votes.map((v, x) => [x, v]).filter(([, v]) => v >= 4).map(([x]) => x).join(" "),
+    pires: rang.slice(0, 5).map(([x, v]) => `${x}:${v.toFixed(2)}`).join(" "),
+    /* L'image mesurée et l'état du ciel qu'elle représente, gardés pour qu'un
+       échec se regarde avant de se corriger. */
+    image: cv.toDataURL("image/png"), taille: `${L}x${H}`, etat: JSON.stringify(cv.dataset) };
 });
+try {
+  if (couture.image) (await import("node:fs")).writeFileSync("/tmp/couture.png", Buffer.from(couture.image.split(",")[1], "base64"));
+  (await import("node:fs")).writeFileSync("/tmp/couture.txt", `${couture.taille} ${couture.etat}\n`);
+} catch { /* l'image n'est qu'une aide */ }
+delete couture.image;
 ok("la couche se répète sans couture verticale",
-  !couture.erreur && couture.rapport < 3 && couture.creux >= 250,
-  couture.erreur || `pointe ${couture.rapport?.toFixed(1)} fois la médiane, `
-  + `opacité minimale ${couture.creux} | ${couture.pires}`);
+  !couture.erreur && couture.votes < 4 && couture.creux >= 250,
+  couture.erreur || `${couture.votes} lignes sur 5 au pire, colonnes ${couture.colonnes || "aucune"} ; `
+  + `pointe ${couture.rapport?.toFixed(1)} fois la médiane, opacité minimale ${couture.creux} | ${couture.pires}`);
 
 /* Fermée, la couche remplit le champ. Son bord festonné laissait sous lui une
    bande de ciel nu, qui avec la brume d'horizon faisait lire le panneau comme

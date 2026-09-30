@@ -256,6 +256,64 @@ export async function lireRiviere(g, maintenant = new Date(), fetcheur = fetch) 
   return repli;
 }
 
+/* ---------- L'étiage d'été et la température de l'eau, jalon 18 ----------
+
+   Le réseau ONDE observe à l'œil, de mai à septembre, l'écoulement des petits
+   cours d'eau : visible, faible, interrompu ou à sec. La dernière campagne dans
+   un rayon d'environ trente-cinq kilomètres se résume en un décompte, avec le
+   point observé le plus proche. La température des rivières se mesure par
+   campagnes, rarement en continu : elle ne se dit que si une mesure a moins
+   d'une semaine, autour de Montbard la plus récente datait de 2013. */
+const ONDE = "https://hubeau.eaufrance.fr/api/v1/ecoulement/observations";
+const TEMP = "https://hubeau.eaufrance.fr/api/v1/temperature/chronique";
+export const ECOULEMENTS = { sec: "à sec", interrompu: "écoulement interrompu", faible: "écoulement faible", visible: "écoulement visible" };
+export function sorteEcoulement(l) {
+  const t = String(l || "").toLowerCase();
+  return /assec/.test(t) ? "sec" : /non visible/.test(t) ? "interrompu" : /faible/.test(t) ? "faible" : /visible/.test(t) ? "visible" : null;
+}
+
+/* Le bilan de la dernière campagne : la dernière observation de chaque point,
+   seules celles de la date la plus récente comptent. */
+export function bilanEtiage(obs, g) {
+  const der = new Map();
+  for (const o of obs || []) {
+    const s = sorteEcoulement(o.libelle_ecoulement);
+    if (!s || !o.date_observation) continue;
+    const e = der.get(o.code_station);
+    if (!e || o.date_observation > e.date_observation) der.set(o.code_station, { ...o, sorte: s });
+  }
+  const l = [...der.values()];
+  if (!l.length) return null;
+  const date = l.reduce((a, o) => (o.date_observation > a ? o.date_observation : a), "");
+  const campagne = l.filter(o => o.date_observation === date);
+  const compte = { sec: 0, interrompu: 0, faible: 0, visible: 0 };
+  for (const o of campagne) compte[o.sorte]++;
+  const proche = campagne.filter(o => Number.isFinite(o.latitude))
+    .map(o => ({ ...o, km: distanceKm(g.lat, g.lon, o.latitude, o.longitude) })).sort((a, b) => a.km - b.km)[0];
+  return { date: date.slice(0, 10), total: campagne.length, ...compte,
+    proche: proche ? { station: nomPropre(proche.libelle_station), ecoulement: ECOULEMENTS[proche.sorte], km: Math.round(proche.km) } : null };
+}
+
+const cadre = (g, dlo = 0.45, dla = 0.3) => `${(g.lon - dlo).toFixed(3)},${(g.lat - dla).toFixed(3)},${(g.lon + dlo).toFixed(3)},${(g.lat + dla).toFixed(3)}`;
+const ilYa = (jour, n) => { const d = new Date(`${jour}T12:00`); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
+
+export async function lireEtiage(g, aujourdhui, fetcheur = fetch) {
+  const r = await avecDelai(fetcheur, `${ONDE}?bbox=${cadre(g)}&date_observation_min=${ilYa(aujourdhui, 45)}&size=500`
+    + `&fields=code_station,libelle_station,libelle_ecoulement,latitude,longitude,date_observation`);
+  if (!r.ok) throw new Error(`onde ${r.status}`);
+  return bilanEtiage((await r.json()).data, g);
+}
+
+export async function lireTemperature(g, aujourdhui, fetcheur = fetch) {
+  const r = await avecDelai(fetcheur, `${TEMP}?bbox=${cadre(g)}&date_debut_mesure=${ilYa(aujourdhui, 7)}&size=200&sort=desc`
+    + `&fields=libelle_station,resultat,date_mesure_temp,heure_mesure_temp,latitude,longitude`);
+  if (!r.ok) throw new Error(`temperature ${r.status}`);
+  const m = ((await r.json()).data || []).filter(x => Number.isFinite(x.resultat) && Number.isFinite(x.latitude))
+    .map(x => ({ ...x, km: distanceKm(g.lat, g.lon, x.latitude, x.longitude) })).sort((a, b) => a.km - b.km)[0];
+  return m ? { station: nomPropre(m.libelle_station), valeur: Math.round(m.resultat * 10) / 10, date: m.date_mesure_temp,
+    heure: (m.heure_mesure_temp || "").slice(0, 5), km: Math.round(m.km) } : null;
+}
+
 /* L'état de l'eau pour la commune affichée. */
 let etat = null;
 const cleDeLieu = g => `${g.lat.toFixed(3)},${g.lon.toFixed(3)}`;
@@ -269,12 +327,14 @@ export async function chargerEau(g, aujourdhui, fetcheur = fetch, surRiviere = n
   const [rz, nappe] = await Promise.all([
     fetcheur(`${VIGIEAU}?lon=${g.lon}&lat=${g.lat}&profil=particulier`).then(r => (r.ok ? r.json() : [])).catch(() => null),
     lireNappe(g, aujourdhui, fetcheur).catch(() => null)]);
-  const e = { cle: cleDeLieu(g), restriction: rz ? restrictionsDe(rz) : null, nappe, riviere: undefined };
+  const e = { cle: cleDeLieu(g), restriction: rz ? restrictionsDe(rz) : null, nappe, riviere: undefined, etiage: undefined, temperature: undefined };
   etat = e;
-  lireRiviere(g, new Date(), fetcheur).catch(() => null).then(r => {
-    e.riviere = r;
-    if (etat === e && surRiviere) surRiviere();
-  });
+  /* La rivière, l'étiage et la température de l'eau, plus lents, arrivent
+     chacun à son tour. */
+  const apres = (p, cle) => p.catch(() => null).then(v => { e[cle] = v; if (etat === e && surRiviere) surRiviere(); });
+  apres(lireRiviere(g, new Date(), fetcheur), "riviere");
+  apres(lireEtiage(g, aujourdhui, fetcheur), "etiage");
+  apres(lireTemperature(g, aujourdhui, fetcheur), "temperature");
   return etat;
 }
 

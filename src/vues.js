@@ -4232,6 +4232,20 @@ function riviereHTML(r) {
       : r.debit === null ? `<p class="pl-lieu">Cette station ne mesure que la hauteur.</p>` : "");
 }
 
+/* L'étiage d'été, bilan de la dernière campagne dans un rayon d'environ
+   trente-cinq kilomètres, et la température de l'eau quand une mesure a moins
+   d'une semaine. Hors campagne, rien ne s'écrit. */
+function etiageHTML(e, t) {
+  const jour = d => new Date(`${d}T12:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+  const parts = e ? [[e.sec, "à sec"], [e.interrompu, "à écoulement interrompu"], [e.faible, "à écoulement faible"], [e.visible, "à écoulement visible"]]
+    .filter(([n]) => n > 0).map(([n, t]) => `${n} ${t}`) : [];
+  return (e ? `<p class="pl-lieu">Étiage observé le ${jour(e.date)} dans un rayon d'environ 35 km, sur ${e.total} `
+    + `${e.total > 1 ? "cours d'eau" : "cours d'eau"} : ${parts.join(", ")}.`
+    + (e.proche ? ` Le plus proche, ${esc(e.proche.station)}, à ${e.proche.km} km : ${e.proche.ecoulement}.` : "") + `</p>` : "")
+    + (t ? `<p class="pl-lieu">Eau de la rivière : ${String(t.valeur).replace(".", ",")}°, mesurée à ${esc(t.station)} le ${jour(t.date)}`
+      + `${t.heure ? ` à ${t.heure.replace(":", " h ")}` : ""}.</p>` : "");
+}
+
 /* La feuille de l'eau, jalon 18, lot 2 : la restriction en vigueur, ressource
    par ressource avec son arrêté, et l'état de la nappe phréatique la plus
    proche, recalculé faute d'indicateur publié. */
@@ -4258,8 +4272,9 @@ export function vueEau(ctx, rendre) {
   return { titre, sous, corps: (conseil.length ? `<div class="carte retenir"><div class="conseils">${conseilsHTML(conseil)}</div></div>` : "")
     + `<div class="carte"><h3>Restrictions</h3>${restr}</div>`
     + `<div class="carte"><h3>Nappe phréatique</h3>${nappe}</div>`
-    + `<div class="carte"><h3>Rivière</h3>${riviereHTML(ez.riviere)}</div>`
-    + `<p class="note">Restrictions : VigiEau, pour les particuliers. Nappe et rivière : mesures des réseaux nationaux, Hub'eau ; `
+    + `<div class="carte"><h3>Rivière</h3>${riviereHTML(ez.riviere)}${etiageHTML(ez.etiage, ez.temperature)}</div>`
+    + `<p class="note">Restrictions : VigiEau, pour les particuliers. Nappe, rivière, étiage observé par le réseau ONDE et température de l'eau : `
+    + `mesures des réseaux nationaux, Hub'eau ; `
     + `l'état compare les trente derniers jours aux mêmes jours de chaque année depuis 1995, sur le principe de `
     + `l'indicateur du BRGM.</p>` };
 }

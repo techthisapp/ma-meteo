@@ -340,6 +340,16 @@ case "$N" in
   105) # Un débit au plus bas se dit normal.
      perl -0pi -e 's/\[\[0\.1, "très bas"\], \[0\.2, "bas"\]/[[0.1, "normal"], [0.2, "bas"]/' src/eau.js
      ATTENDU="la situation d.un débit se lit par la part des années plus basses, et la tendance de la hauteur à deux centimètres près" ;;
+  106) # L'étiage compte toutes les campagnes, pas seulement la dernière.
+     perl -0pi -e 's/  const campagne = l\.filter\(o => o\.date_observation === date\);/  const campagne = l;/' src/eau.js
+     ATTENDU="l.étiage se résume par la dernière campagne, chaque point à sa dernière observation" ;;
+  107) # La température de l'eau ne se dit plus.
+     perl -0pi -e 's/    \+ \(t \? `<p class="pl-lieu">Eau de la rivière/    + (false \&\& t ? `<p class="pl-lieu">Eau de la rivière/' src/vues.js
+     ATTENDU="la feuille de l.eau dit l.étiage de la dernière campagne et la température récente de la rivière" ;;
+  108) # Le plafond nuageux se pose en tuiles étroites qui ne se raccordent pas.
+     # Sa vérification est dans la section du suivi de la position : lancer avec JUSQUA_EPREUVE.
+     perl -0pi -e 's/    const larg = Math\.round\(haut \* \(pf\.width \/ pf\.height\)\);/    const larg = Math.round(haut * (pf.width \/ pf.height) \/ 4);/; s/bx\.drawImage\(pf, larg \* i, 0, larg \+ 1, haut\);/bx.drawImage(pf, 0, 0, pf.width \/ 2, pf.height, larg * i, 0, larg + 1, haut);/' src/temps.js
+     ATTENDU="la couche se répète sans couture verticale" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
@@ -365,7 +375,8 @@ if diff -q "$OLD/src/bande.js" src/bande.js >/dev/null \
   && diff -q "$OLD/src/plage.js" src/plage.js >/dev/null \
   && diff -q "$OLD/src/trajets.js" src/trajets.js >/dev/null \
   && diff -q "$OLD/src/vigieau.js" src/vigieau.js >/dev/null \
-  && diff -q "$OLD/src/eau.js" src/eau.js >/dev/null; then
+  && diff -q "$OLD/src/eau.js" src/eau.js >/dev/null \
+  && diff -q "$OLD/src/temps.js" src/temps.js >/dev/null; then
   echo "FAUTE $N NON APPLIQUÉE"; exit 3
 fi
 
