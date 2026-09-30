@@ -12,7 +12,7 @@
    c'est de savoir qu'elle existe pendant que l'application reste ouverte en
    arrière-plan, parfois des jours sur iPhone. Demandé le 23 septembre 2026. */
 
-export const VERSION = "ma-meteo-v112";
+export const VERSION = "ma-meteo-v113";
 
 export const numeroDe = v => {
   const m = /-v(\d+)$/.exec(v || "");

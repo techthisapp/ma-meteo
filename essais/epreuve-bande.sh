@@ -334,6 +334,12 @@ case "$N" in
   103) # Une restriction en alerte ne se dit plus parmi les conseils.
      perl -0pi -e 's/if \(rEau && rEau\.rang >= 2\)/if (rEau \&\& rEau.rang >= 5)/' src/app.js
      ATTENDU="la tuile de l.eau dit la restriction et la nappe, et une alerte se dit parmi les conseils" ;;
+  104) # La station la plus proche est retenue même sans débit.
+     perl -0pi -e 's/    if \(!Q\.length && !repli\) \{/    if (false) {/; s/    if \(!Q\.length\) continue;\n//' src/eau.js
+     ATTENDU="la rivière retenue mesure le débit, et la feuille dit sa hauteur, sa tendance et sa situation" ;;
+  105) # Un débit au plus bas se dit normal.
+     perl -0pi -e 's/\[\[0\.1, "très bas"\], \[0\.2, "bas"\]/[[0.1, "normal"], [0.2, "bas"]/' src/eau.js
+     ATTENDU="la situation d.un débit se lit par la part des années plus basses, et la tendance de la hauteur à deux centimètres près" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

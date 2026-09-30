@@ -1222,7 +1222,9 @@ async function lirePlageDe(g) {
    proche, lues sans retarder la prévision. */
 async function lireEauDe(g) {
   const mien = generation;
-  try { await Eau.chargerEau(g, cleHeure().slice(0, 10)); } catch { return; }
+  /* La rivière arrive après, plus lente : elle redessine à son arrivée. */
+  const surRiviere = () => { if (mien === generation) { rendre(); if (vueCourante) rendreFeuille(); } };
+  try { await Eau.chargerEau(g, cleHeure().slice(0, 10), fetch, surRiviere); } catch { return; }
   if (mien !== generation) return;
   rendre();
   if (vueCourante) rendreFeuille();

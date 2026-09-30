@@ -4212,6 +4212,26 @@ export function vuePlage(ctx, rendre) {
     + `Durées de route : OSRM.</p>` };
 }
 
+/* La rivière la plus proche : la hauteur en centimètres, ou en mètres au-delà
+   d'un mètre ; le débit en litres par seconde, ou en mètres cubes au-delà de
+   mille ; la situation du débit par rapport à la saison. */
+function riviereHTML(r) {
+  if (r === undefined) return `<p class="note">Lecture de la rivière…</p>`;
+  if (!r) return `<p class="note">Aucune station de mesure en service à proximité.</p>`;
+  const fr = v => String(v).replace(".", ",");
+  const haut = r.hauteur < 1000 ? `${Math.round(r.hauteur / 10)} cm` : `${fr(Math.round(r.hauteur / 10) / 100)} m`;
+  const debit = v => (v < 1000 ? `${Math.round(v)} l/s` : `${fr(Math.round(v / 100) / 10)} m³/s`);
+  const s = r.situation;
+  return `<p class="pl-lieu">${esc(r.station)}, à ${r.km} km</p><dl class="ng-val">`
+    + `<dt>Hauteur</dt><dd>${haut}${r.tendance ? `, ${r.tendance}` : ""}</dd>`
+    + (r.debit !== null ? `<dt>Débit</dt><dd>${debit(r.debit)}</dd>` : "")
+    + (s ? `<dt>Pour la saison</dt><dd class="${/bas/.test(s.classe) && s.part < 0.2 ? "pl-alerte" : ""}">${esc(s.classe)}</dd>` : "")
+    + `</dl>`
+    + (s ? `<p class="pl-lieu">Sur les sept derniers jours, ${debit(s.debit7)} contre ${debit(s.mediane)} en médiane des ${s.annees} années `
+      + `précédentes à la même date${s.plusBas === 0 ? ", le plus bas de toutes" : s.plusBas === s.annees ? ", le plus haut de toutes" : ""}.</p>`
+      : r.debit === null ? `<p class="pl-lieu">Cette station ne mesure que la hauteur.</p>` : "");
+}
+
 /* La feuille de l'eau, jalon 18, lot 2 : la restriction en vigueur, ressource
    par ressource avec son arrêté, et l'état de la nappe phréatique la plus
    proche, recalculé faute d'indicateur publié. */
@@ -4219,7 +4239,7 @@ export function vueEau(ctx, rendre) {
   const titre = "L'eau", sous = ctx?.commune || "";
   const ez = Eau.etatEau(ctx);
   if (!ez) {
-    Eau.chargerEau(ctx, cleHeure().slice(0, 10)).then(() => rendre()).catch(() => {});
+    Eau.chargerEau(ctx, cleHeure().slice(0, 10), fetch, () => rendre()).then(() => rendre()).catch(() => {});
     return { titre, sous, corps: `<div class="carte"><p class="note">Lecture de l'eau…</p></div>` };
   }
   const r = ez.restriction, n = ez.nappe;
@@ -4238,7 +4258,8 @@ export function vueEau(ctx, rendre) {
   return { titre, sous, corps: (conseil.length ? `<div class="carte retenir"><div class="conseils">${conseilsHTML(conseil)}</div></div>` : "")
     + `<div class="carte"><h3>Restrictions</h3>${restr}</div>`
     + `<div class="carte"><h3>Nappe phréatique</h3>${nappe}</div>`
-    + `<p class="note">Restrictions : VigiEau, pour les particuliers. Nappe : mesures du réseau national, Hub'eau ; `
+    + `<div class="carte"><h3>Rivière</h3>${riviereHTML(ez.riviere)}</div>`
+    + `<p class="note">Restrictions : VigiEau, pour les particuliers. Nappe et rivière : mesures des réseaux nationaux, Hub'eau ; `
     + `l'état compare les trente derniers jours aux mêmes jours de chaque année depuis 1995, sur le principe de `
     + `l'indicateur du BRGM.</p>` };
 }

@@ -559,7 +559,39 @@ const VIGIEAU_ZONES = [
   { type: "SUP", nom: "Seine amont", niveauGravite: "alerte", arrete: { cheminFichier: "https://exemple.gouv.fr/arrete.pdf", dateFinValidite: "2026-10-31T00:00:00.000Z" } }];
 let appelsHubeau = [];
 let chroniqueEssai = null;
+/* Les rivières, jalon 18 : deux stations près de la commune d'essai. La plus
+   proche ne mesure que la hauteur ; la seconde mesure aussi le débit, sa
+   hauteur monte de cinq centimètres en vingt-quatre heures, et son débit des
+   sept derniers jours est dix fois plus faible que celui de toutes les années
+   passées à la même date. */
+let debitsEssai = null;
+function hydroCorps(u) {
+  if (u.includes("/referentiel/stations")) {
+    return { count: 2, data: [
+      { code_station: "H0000001", libelle_station: "LA SEINE A FAIN - ECHELLE DE SECOURS", libelle_cours_eau: "LA SEINE", longitude_station: FAIN.lon + 0.004, latitude_station: FAIN.lat },
+      { code_station: "H0000002", libelle_station: "LA SEINE A FAIN", libelle_cours_eau: "LA SEINE", longitude_station: FAIN.lon + 0.03, latitude_station: FAIN.lat }] };
+  }
+  if (u.includes("/observations_tr")) {
+    const debit = u.includes("H0000002");
+    const data = [];
+    for (let k = 0; k <= 24; k++) {
+      const t = new Date(Date.parse("2026-08-17T09:00:00Z") + k * 3600000).toISOString().slice(0, 19) + "Z";
+      data.push({ date_obs: t, resultat_obs: 500 + Math.round(k * 50 / 24), grandeur_hydro: "H" });
+      if (debit) data.push({ date_obs: t, resultat_obs: 800, grandeur_hydro: "Q" });
+    }
+    return { count: data.length, data };
+  }
+  if (!debitsEssai) {
+    debitsEssai = [];
+    for (let t = Date.parse("1995-01-01T12:00:00Z"); t <= Date.parse("2026-08-17T12:00:00Z"); t += 86400000) {
+      const d = new Date(t).toISOString().slice(0, 10);
+      debitsEssai.push({ date_obs_elab: d, resultat_obs_elab: d >= "2026-08-01" ? 100 : 1000 });
+    }
+  }
+  return { count: debitsEssai.length, data: debitsEssai };
+}
 function hubeauCorps(u) {
+  if (u.includes("/hydrometrie/")) return hydroCorps(u);
   if (u.includes("/stations")) {
     return { count: 2, data: [
       { code_bss: "04358X0001/P", libelle_pe: "PUITS DE LA FONTAINE (MONTBARD-21)", nom_commune: "Montbard", x: 4.34, y: 47.62, date_debut_mesure: "1996-01-01", date_fin_mesure: "2026-08-15" },
@@ -2296,6 +2328,38 @@ ok("la feuille de l'eau détaille la restriction, son arrêté, et l'état de la
   && eauFeuille.arrete === "L'arrêté en vigueur, jusqu'au 31 octobre"
   && /^Plus haute que 30 des 30 années comparables, au 15 août\. Piézomètre Puits de la Fontaine \(Montbard-21\), à \d+ km\.$/.test(eauFeuille.piezo),
   JSON.stringify(eauFeuille));
+/* Jalon 18, lot 2 : la rivière. La situation d'un débit se lit par la part des
+   années plus basses ; la tendance de la hauteur, à deux centimètres près. */
+const riviereDit = await pg.evaluate(async () => {
+  const E = await import("/src/eau.js");
+  const serie = (actuel) => { const l = []; for (let an = 2000; an <= 2026; an++) for (let j = 1; j <= 20; j++)
+    l.push({ date_obs_elab: `${an}-08-${String(j).padStart(2, "0")}`, resultat_obs_elab: an === 2026 ? actuel : 500 + an }); return l; };
+  const h = v => v.map((x, i) => ({ resultat_obs: x, date_obs: `t${i}` }));
+  const bas = E.etatDebit(serie(100)), haut = E.etatDebit(serie(9000));
+  return { bas: `${bas?.classe} ${bas?.plusBas}/${bas?.annees} ${bas?.mediane}`, haut: haut?.classe,
+    tendances: [E.tendanceHauteur(h([500, 530])), E.tendanceHauteur(h([500, 470])), E.tendanceHauteur(h([500, 510])), E.tendanceHauteur(h([500]))].map(String).join(" ") };
+});
+ok("la situation d'un débit se lit par la part des années plus basses, et la tendance de la hauteur à deux centimètres près",
+  riviereDit.bas === "très bas 0/26 2513" && riviereDit.haut === "très haut" && riviereDit.tendances === "en hausse en baisse stable null",
+  JSON.stringify(riviereDit));
+
+/* La rivière dans la feuille de l'eau : la station qui mesure le débit passe
+   devant l'échelle de secours plus proche. */
+await tuileEau.first().click();
+await pg.waitForFunction(() => { const c = [...document.querySelectorAll("#feuille-corps .carte")].find(x => /Rivière/.test(x.textContent));
+  return c && !/Lecture de la rivière/.test(c.textContent); }, null, { timeout: 15000 }).catch(() => {});
+const riviereFeuille = await pg.evaluate(() => {
+  const c = [...document.querySelectorAll("#feuille-corps .carte")].find(x => /Rivière/.test(x.textContent));
+  const dd = t => [...(c?.querySelectorAll("dt") || [])].find(x => x.textContent === t)?.nextElementSibling?.textContent || "";
+  return { station: c?.querySelector(".pl-lieu")?.textContent || "", hauteur: dd("Hauteur"), debit: dd("Débit"), saison: dd("Pour la saison"),
+    phrase: [...(c?.querySelectorAll(".pl-lieu") || [])][1]?.textContent || "" };
+});
+await pg.evaluate(() => history.back()); await pg.waitForTimeout(400);
+ok("la rivière retenue mesure le débit, et la feuille dit sa hauteur, sa tendance et sa situation",
+  /^La Seine à Fain, à \d+ km$/.test(riviereFeuille.station) && riviereFeuille.hauteur === "55 cm, en hausse"
+  && riviereFeuille.debit === "800 l/s" && riviereFeuille.saison === "très bas"
+  && riviereFeuille.phrase === "Sur les sept derniers jours, 100 l/s contre 1 m³/s en médiane des 31 années précédentes à la même date, le plus bas de toutes.",
+  JSON.stringify(riviereFeuille));
 ok("le graphique borne sa largeur, et se résume en une phrase",
   semGraphe.borne === "520px"
   && semGraphe.resume === "De 25 à 30 degrés au plus chaud, 5,4 millimètres de pluie en tout.",
