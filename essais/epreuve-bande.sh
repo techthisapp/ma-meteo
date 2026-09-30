@@ -266,7 +266,10 @@ case "$N" in
      ATTENDU="la feuille du climat compare les 7 derniers jours entre lieux suivis, en une requête à l.archive" ;;
   81) # Une station a son pied au-dessus de son sommet.
      perl -0pi -e 's/\["Megève", "FR", 45\.8544, 6\.6575, 820, 2371,/["Megève", "FR", 45.8544, 6.6575, 2371, 820,/' src/stations.js
-     ATTENDU="la liste des stations couvre la France et ses voisins, le pied sous le sommet" ;;
+     ATTENDU="la liste des stations couvre la France et ses voisins, le pied sous le sommet, rangées sous leur domaine" ;;
+  84) # Les stations ne sont plus rangées sous les Trois Vallées.
+     perl -0pi -e 's/, "Les Trois Vallées"\]/, null]/g' src/stations.js
+     ATTENDU="la liste des stations couvre la France et ses voisins, le pied sous le sommet, rangées sous leur domaine" ;;
   82) # Une station à dix heures de route passe pour proche.
      perl -0pi -e 's/^export const MINUTES_MAX = 60;/export const MINUTES_MAX = 600;/m' src/neige.js
      ATTENDU="les stations proches sont celles à une heure de route, en une requête à OSRM" ;;

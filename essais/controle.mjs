@@ -1939,13 +1939,18 @@ ok("le passé finit hier, l'avenir commence demain, et le seuil de la pluie cro�
 const stationsDit = await pg.evaluate(async () => {
   const { STATIONS } = await import("/src/stations.js");
   return { n: STATIONS.length,
-    formes: STATIONS.every(s => s.length === 7 && typeof s[0] === "string" && s[4] < s[5]
+    formes: STATIONS.every(s => s.length === 8 && typeof s[0] === "string" && s[4] < s[5]
       && s[2] > 41 && s[2] < 49.5 && s[3] > -2.5 && s[3] < 9.5),
+    /* Les stations se rangent sous leur domaine, qui figure lui-même dans la liste. */
+    parents: STATIONS.every(s => s[7] === null || STATIONS.some(t => t[0] === s[7])),
+    courchevel: STATIONS.find(s => s[0] === "Courchevel")?.[7] || "",
+    rangees: STATIONS.filter(s => s[7]).length,
     pays: [...new Set(STATIONS.map(s => s[1]))].sort().join(" "),
     megeve: STATIONS.find(s => s[0] === "Megève")?.slice(4, 6).join("-") || "" };
 });
-ok("la liste des stations couvre la France et ses voisins, le pied sous le sommet",
-  stationsDit.n >= 400 && stationsDit.formes && stationsDit.pays === "AD CH DE ES FR IT" && stationsDit.megeve === "820-2371",
+ok("la liste des stations couvre la France et ses voisins, le pied sous le sommet, rangées sous leur domaine",
+  stationsDit.n >= 400 && stationsDit.formes && stationsDit.pays === "AD CH DE ES FR IT" && stationsDit.megeve === "820-2371"
+  && stationsDit.parents && stationsDit.courchevel === "Les Trois Vallées" && stationsDit.rangees >= 20,
   JSON.stringify(stationsDit));
 
 /* Jalon 16, lot 2 : les stations à une heure de route, par OSRM ; sans

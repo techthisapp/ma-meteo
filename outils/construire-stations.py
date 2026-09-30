@@ -20,6 +20,7 @@ de trajet réelle.
 """
 
 import json
+import math
 import sys
 from datetime import date
 
@@ -59,9 +60,62 @@ def point(p, g):
     return sum(x[1] for x in anneau) / len(anneau), sum(x[0] for x in anneau) / len(anneau)
 
 
+def emprise(p):
+    """L'emprise d'un domaine : le rectangle orienté qui cadre sa carte dans
+    OpenSkiMap, centre, orientation en degrés, largeur et hauteur en mètres."""
+    v = p.get("viewportHint") or {}
+    if not v.get("center"):
+        return None
+    return {"lon": v["center"][0], "lat": v["center"][1], "b": v.get("bearing") or 0,
+            "w": v.get("rotatedWidthMeters") or 0, "h": v.get("rotatedHeightMeters") or 0}
+
+
+def dedans(lat, lon, e):
+    dx = (lon - e["lon"]) * 111320 * math.cos(math.radians(e["lat"]))
+    dy = (lat - e["lat"]) * 110540
+    t = -math.radians(e["b"])
+    u = dx * math.cos(t) - dy * math.sin(t)
+    v = dx * math.sin(t) + dy * math.cos(t)
+    return abs(u) <= e["w"] / 2 and abs(v) <= e["h"] / 2
+
+
+def coins(e):
+    """Les quatre coins de l'emprise, ramenés aux quatre cinquièmes."""
+    t = math.radians(e["b"])
+    out = []
+    for a, b in ((1, 1), (1, -1), (-1, 1), (-1, -1)):
+        u, v = a * e["w"] / 2 * 0.8, b * e["h"] / 2 * 0.8
+        dx, dy = u * math.cos(t) + v * math.sin(t), -u * math.sin(t) + v * math.cos(t)
+        out.append((e["lat"] + dy / 110540, e["lon"] + dx / (111320 * math.cos(math.radians(e["lat"])))))
+    return out
+
+
+def domaines(aires):
+    """Le domaine de chaque station, décidé par Jérôme le 30 septembre 2026 :
+    les stations regroupées sous leur domaine. OpenSkiMap ne relie pas un
+    domaine à ses stations ; une station appartient à un domaine si son centre
+    et au moins trois des quatre coins de son emprise tombent dans l'emprise
+    d'un domaine qui a au moins 1,8 fois ses kilomètres de pistes. Elle se
+    range sous le plus grand de ceux qui la contiennent. Le centre seul rangeait
+    des voisins indépendants, Roc d'Enfer et Praz de Lys-Sommand sous les
+    Portes du Soleil ; l'emprise entière les écarte. Éprouvé sur les Trois
+    Vallées, Paradiski et les Portes du Soleil."""
+    parent = {}
+    for s in aires:
+        if not s["e"]:
+            continue
+        cands = [D for D in aires if D is not s and D["e"] and D["km"] >= 1.8 * max(s["km"], 1)
+                 and dedans(s["e"]["lat"], s["e"]["lon"], D["e"])
+                 and sum(dedans(la, lo, D["e"]) for la, lo in coins(s["e"])) >= 3]
+        if cands:
+            parent[s["id"]] = max(cands, key=lambda D: D["km"])["nom"]
+    return parent
+
+
 def main(chemin):
     d = json.load(open(chemin, encoding="utf-8"))
     retenus = []
+    aires = []
     for f in d["features"]:
         p = f["properties"]
         pays = sorted({pl.get("iso3166_1Alpha2") for pl in (p.get("places") or [])} & PAYS)
@@ -82,14 +136,18 @@ def main(chemin):
         lat, lon = pt
         if not voisin_proche(pays[0], lat, lon):
             continue
-        retenus.append([p["name"], pays[0], round(lat, 4), round(lon, 4), round(bas), round(haut), round(pistes)])
+        retenus.append([p["name"], pays[0], round(lat, 4), round(lon, 4), round(bas), round(haut), round(pistes), p["id"]])
+        aires.append({"id": p["id"], "nom": p["name"], "km": pistes, "e": emprise(p)})
+    parent = domaines(aires)
+    retenus = [x[:7] + [parent.get(x[7])] for x in retenus]
     retenus.sort(key=lambda x: (x[1] != "FR", x[1], x[0]))
     tete = (
         "/* Les stations de ski de France et des pays voisins proches, jalon 16.\n"
         f"   Construit le {date.today().isoformat()} par outils/construire-stations.py.\n"
         "   Données © contributeurs OpenStreetMap, licence ODbL, par OpenSkiMap.\n"
         "   Chaque station : [nom, pays, latitude, longitude, altitude du pied,\n"
-        "   altitude du sommet, kilomètres de pistes de ski alpin]. */\n"
+        "   altitude du sommet, kilomètres de pistes de ski alpin, domaine auquel\n"
+        "   la station appartient ou null]. */\n"
     )
     corps = "export const STATIONS = [\n" + ",\n".join(
         "  " + json.dumps(x, ensure_ascii=False) for x in retenus) + ",\n];\n"

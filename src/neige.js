@@ -25,7 +25,10 @@ const OSRM = "https://router.project-osrm.org/table/v1/driving/";
 const CACHE = "mameteo.neige.proches.v1";
 const GARDE = 30 * 24 * 3600 * 1000;
 
-const deStation = s => ({ nom: s[0], pays: s[1], lat: s[2], lon: s[3], pied: s[4], sommet: s[5], km: s[6] });
+/* Le domaine d'une station, ou null si elle est indépendante : les stations
+   se présentent regroupées sous leur domaine, décidé le 30 septembre 2026. */
+const deStation = s => ({ nom: s[0], pays: s[1], lat: s[2], lon: s[3], pied: s[4], sommet: s[5], km: s[6],
+  domaine: s[7] ?? null });
 
 /* Les stations à moins de cent kilomètres à vol d'oiseau, les plus proches
    d'abord, quatre-vingts au plus. */
