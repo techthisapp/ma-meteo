@@ -297,6 +297,18 @@ case "$N" in
   91) # Les durées d'OSRM se décalent d'une destination.
      perl -0pi -e 's/\(durees\[k \+ 1\] == null \? null : Math\.round\(durees\[k \+ 1\] \/ 60\)\)/(durees[k] == null ? null : Math.round(durees[k] \/ 60))/' src/trajets.js
      ATTENDU="les plages proches sont celles à une heure de route, en une requête à OSRM" ;;
+  92) # L'extrême de la marée reste calé sur l'heure.
+     perl -0pi -e 's/    const dx = courbe \? \(a - c\) \/ \(2 \* courbe\) : 0;/    const dx = 0;/' src/plage.js
+     ATTENDU="les marées se situent entre deux heures, pleines et basses mers avec leur hauteur" ;;
+  93) # La porte de la plage paraît toute l'année.
+     perl -0pi -e 's/  if \(m >= 6 && m <= 9\) return true;/  return true;/' src/plage.js
+     ATTENDU="la saison de la plage va de juin à septembre, et au-delà tant que l.eau dépasse 20°" ;;
+  94) # Le classement se lit de travers.
+     perl -0pi -e 's/const QUALITES = \{ 0: "non classée", 1: "excellente", 2: "bonne"/const QUALITES = { 0: "non classée", 1: "bonne", 2: "excellente"/' src/plage.js
+     ATTENDU="la feuille de la plage dit les marées, le marnage, la qualité de l.eau classée et mène à la fiche du ministère" ;;
+  95) # La porte de la plage disparaît de l'accueil.
+     perl -0pi -e 's/      \+ \(saisonPlage \? `<button type="button" class="carte rangee porte porte-large" data-feuille="plage">`/      + (false \&\& saisonPlage ? `<button type="button" class="carte rangee porte porte-large" data-feuille="plage">`/' src/app.js
+     ATTENDU="en saison, une porte large mène à la plage, avec l.eau et les vagues" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

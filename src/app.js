@@ -20,7 +20,7 @@ import * as Relief from "./relief.js";
 import * as Temps from "./temps.js";
 import { vueTemps, vueSemaine, vueVigilance, vueCiel, vueCarte, vueCommunes, vueReglages,
   vueAjout, vueParapluie, vueRessenti, vueActivites, vueBeauTemps, vueAir,
-  vueClimat, vueNeige, bandeauAccueil, basculerSemaine, semaineEstEtendue } from "./vues.js";
+  vueClimat, vueNeige, vuePlage, bandeauAccueil, basculerSemaine, semaineEstEtendue } from "./vues.js";
 import { moments } from "./ecritures.js";
 import * as Vig from "./vigilance.js";
 import * as Astres from "./astres.js";
@@ -34,6 +34,7 @@ import * as Bande from "./bande.js";
 import * as Version from "./version.js";
 import * as Scenarios from "./scenarios.js";
 import * as Neige from "./neige.js";
+import * as Plage from "./plage.js";
 import * as Deplacement from "./deplacement.js";
 import * as Radar from "./radar.js";
 
@@ -549,6 +550,10 @@ function ecranAccueil() {
     const saisonNeige = !!nz && nz.resumes.length > 0 && Neige.enSaison(cleHeure().slice(0, 10), nz.resumes);
     const notable = saisonNeige ? Neige.chuteNotable(nz.resumes) : null;
     if (notable) lJour.unshift({ i: "neige", g: 6, t: notable.phrase, d: "feuille:neige" });
+    /* La plage, jalon 15 : la même porte large, de juin à septembre et au-delà
+       tant que l'eau de la plage la plus proche dépasse 20°. */
+    const pz = Plage.etatPlage(Reglages.lire());
+    const saisonPlage = !!pz && pz.resumes.length > 0 && Plage.enSaisonPlage(cleHeure().slice(0, 10), pz.resumes);
     /* Le renversement de température ne se dit qu'avec demain : c'est de cette
        journée qu'il parle. L'évènement du Soleil, lui, ne vaut que pour les
        heures qui viennent. */
@@ -615,6 +620,9 @@ function ecranAccueil() {
       + (saisonNeige ? `<button type="button" class="carte rangee porte porte-large" data-feuille="neige">`
         + ico("neige", "") + `<span class="rangee-txt"><b>La neige</b>`
         + `<span>${esc(Neige.phraseNeige(nz.resumes))}</span></span>` + chevron + `</button>` : "")
+      + (saisonPlage ? `<button type="button" class="carte rangee porte porte-large" data-feuille="plage">`
+        + ico("goutte", "") + `<span class="rangee-txt"><b>La plage</b>`
+        + `<span>${esc(Plage.phrasePlage(pz.resumes))}</span></span>` + chevron + `</button>` : "")
       + `<div class="portes">`
         /* L'écran de questions s'ouvre d'ici.
 
@@ -994,7 +1002,7 @@ async function suivrePosition({ force } = {}) {
 const FEUILLES = { vigilance: vueVigilance, communes: vueCommunes,
   ajout: vueAjout, reglages: vueReglages, parapluie: vueParapluie,
   ressenti: vueRessenti, activites: vueActivites, beautemps: vueBeauTemps,
-  air: vueAir, climat: vueClimat, neige: vueNeige };
+  air: vueAir, climat: vueClimat, neige: vueNeige, plage: vuePlage };
 
 /* Accroches : un contenu court n'occupe pas tout l'écran. */
 const ACCROCHE = { vigilance: "moyenne", communes: "grande",
@@ -1157,6 +1165,7 @@ async function charger() {
   lireEnsemble(g);
   lireScenarios(g);
   lireNeigeDe(g);
+  lirePlageDe(g);
   lireAir(g);
   lirePluieProche(g);
   /* Le journal de justesse note ce qui vient d'être servi. Il n'affiche rien et
@@ -1176,6 +1185,16 @@ async function charger() {
 async function lireNeigeDe(g) {
   const mien = generation;
   try { await Neige.chargerNeige(g, cleHeure()); } catch { return; }
+  if (mien !== generation) return;
+  rendre();
+  if (vueCourante) rendreFeuille();
+}
+
+/* La mer des plages proches, jalon 15 : lue elle aussi sans retarder la
+   prévision. */
+async function lirePlageDe(g) {
+  const mien = generation;
+  try { await Plage.chargerPlage(g, cleHeure()); } catch { return; }
   if (mien !== generation) return;
   rendre();
   if (vueCourante) rendreFeuille();

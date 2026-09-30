@@ -2058,16 +2058,20 @@ const plagesDit = await pg.evaluate(async () => {
   const { PLAGES } = await import("/src/plages.js");
   const fr = PLAGES.filter(p => p[1] === "FR");
   return { n: PLAGES.length, fr: fr.length,
-    formes: PLAGES.every(p => p.length === 6 && typeof p[0] === "string" && p[2] > 41 && p[2] < 51.6 && p[3] > -5.5 && p[3] < 10),
+    formes: PLAGES.every(p => p.length === 8 && typeof p[0] === "string" && p[2] > 41 && p[2] < 51.6 && p[3] > -5.5 && p[3] < 10),
+    /* Le classement officiel de la qualité de l'eau et la fiche du ministère. */
+    classees: fr.filter(p => [0, 1, 2, 3, 4].includes(p[6])).length / fr.length,
+    fiches: fr.filter(p => /^[0-9A-Za-z]+:[0-9AB]{2,3}$/.test(p[7] || "")).length / fr.length,
     /* Quelques liens de la source portent un code faux, tenu pour inconnu. */
     departements: fr.filter(p => !/^(\d{2}|2A|2B)$/.test(p[5] || "")).length <= 5,
     capitales: PLAGES.filter(p => p[0] === p[0].toUpperCase() && /[A-Z]{3}/.test(p[0])).length,
-    basques: PLAGES.some(p => p[0] === "Côte des Basques" && p[5] === "64"),
+    basques: PLAGES.some(p => p[0] === "Côte des Basques" && p[5] === "64" && p[6] === 1 && p[7] === "001130:064"),
     pays: [...new Set(PLAGES.map(p => p[1]))].sort().join(" ") };
 });
 ok("la liste des plages couvre la France et ses côtes voisines, chaque plage française située, les noms lisibles",
   plagesDit.n >= 2000 && plagesDit.fr >= 1800 && plagesDit.formes && plagesDit.departements
-  && plagesDit.capitales < 60 && plagesDit.basques && plagesDit.pays === "BE ES FR IT", JSON.stringify(plagesDit));
+  && plagesDit.capitales < 60 && plagesDit.basques && plagesDit.pays === "BE ES FR IT"
+  && plagesDit.classees > 0.95 && plagesDit.fiches > 0.95, JSON.stringify(plagesDit));
 /* Jalon 15, lot 2 : les plages à une heure de route, par le module commun des
    trajets ; sans réponse d'OSRM, une estimation à vol d'oiseau. */
 const plagesProches = await pg.evaluate(async () => {
@@ -2087,6 +2091,70 @@ ok("les plages proches sont celles à une heure de route, en une requête à OSR
   JSON.stringify(plagesProches));
 ok("sans réponse d'OSRM, les plages proches s'estiment à vol d'oiseau, marquées comme telles",
   plagesProches.repli === "A:true B:true", plagesProches.repli);
+/* Jalon 15, lot 3 : la mer des plages. Les marées se tirent de la hauteur de
+   la mer, l'extrême situé entre deux heures ; les plages montrées sont
+   espacées de cinq kilomètres ; la phrase et la saison. */
+const merDit = await pg.evaluate(async () => {
+  const P = await import("/src/plage.js");
+  const time = Array.from({ length: 24 }, (_, k) => `2026-07-01T${String(k).padStart(2, "0")}:00`);
+  const niveau = time.map((_, k) => 2 * Math.cos(((k - 6.5) / 12.4) * 2 * Math.PI));
+  const m = P.marees(time, niveau, "2026-07-01T00:00");
+  const pl = (nom, lat, lon) => ({ nom, lat, lon, pays: "FR" });
+  const vues = P.choisir([pl("A", 43.48, -1.56), pl("B", 43.49, -1.56), pl("C", 43.60, -1.50)], 4).map(p => p.nom).join(" ");
+  const r = [{ nom: "Côte", mer: { eau: 21.9, vagues: 1, periode: 11, marees: [] } }];
+  return { m: m.map(x => `${x.type} ${x.heure} ${x.hauteur}`).join(" | "), vues,
+    phrase: P.phrasePlage(r), calme: P.phrasePlage([{ nom: "Anse", mer: { eau: 18, vagues: 0.1, marees: [] } }]),
+    saison: [P.enSaisonPlage("2026-07-15", []), P.enSaisonPlage("2026-10-10", r),
+      P.enSaisonPlage("2026-10-10", [{ mer: { eau: 17 } }]), P.enSaisonPlage("2026-05-20", [])].join(" ") };
+});
+ok("les marées se situent entre deux heures, pleines et basses mers avec leur hauteur",
+  merDit.m === "haute 06 h 30 2 | basse 12 h 42 -2 | haute 18 h 54 2", merDit.m);
+ok("les plages montrées sont espacées de cinq kilomètres, et la phrase dit l'eau et les vagues",
+  merDit.vues === "A C" && merDit.phrase === "Côte, eau à 21,9°, vagues de 1 m." && merDit.calme === "Anse, eau à 18°, mer calme.",
+  JSON.stringify(merDit));
+ok("la saison de la plage va de juin à septembre, et au-delà tant que l'eau dépasse 20°",
+  merDit.saison === "true true false false", merDit.saison);
+/* Jalon 15, lot 3 : l'affichage de la plage, sur un état posé dans la page, puis
+   retiré. La porte large au-dessus de la grille ; la feuille avec l'eau, les
+   marées, le classement de la qualité de l'eau et la fiche du ministère. */
+await pg.evaluate(async () => {
+  const P = await import("/src/plage.js"), R = await import("/src/reglages.js");
+  const g = R.lire();
+  const mer = { eau: 22.4, vagues: 1.2, periode: 9, marees: [{ type: "basse", heure: "12 h 52", hauteur: -2.1 }, { type: "haute", heure: "19 h 06", hauteur: 1.3 }] };
+  P.poserPlage({ cle: `${g.lat.toFixed(3)},${g.lon.toFixed(3)}`, proches: [1], heure: "2026-08-18T09:00", resumes: [
+    { nom: "Plage A", pays: "FR", minutes: 12, estime: false, commune: "Biarritz", departement: "64", qualite: 1, fiche: "001130:064", mer,
+      air: { air: 24, max: 27, vent: 10, direction: 270, uv: 6 } },
+    { nom: "Plage B", pays: "FR", minutes: 20, estime: false, commune: null, departement: "64", qualite: 4, fiche: null, mer,
+      air: { air: 24, max: 27, vent: 10, direction: 270, uv: 6 } }] });
+});
+await onglet("semaine");
+await onglet("accueil");
+const plageAcc = await pg.evaluate(() => {
+  const porte = document.querySelector('#ecran .porte-large[data-feuille="plage"]');
+  return { porte: !!porte, sous: porte?.querySelector(".rangee-txt span")?.textContent || "" };
+});
+const portePlageVue = await pg.locator('#ecran .porte-large[data-feuille="plage"]').count();
+if (portePlageVue) await pg.locator('#ecran .porte-large[data-feuille="plage"]').click();
+await pg.waitForTimeout(600);
+const plageFeuille = await pg.evaluate(() => {
+  const c = [...document.querySelectorAll("#feuille-corps .pl-pl")];
+  const dd = (i, t) => [...(c[i]?.querySelectorAll("dt") || [])].find(x => x.textContent === t)?.nextElementSibling?.textContent || "";
+  return { cartes: c.length, marees: dd(0, "Marées"), marnage: dd(0, "Marnage"), qA: dd(0, "Qualité de l'eau"), qB: dd(1, "Qualité de l'eau"),
+    lieuB: c[1]?.querySelector(".pl-lieu")?.textContent || "",
+    fiche: c[0]?.querySelector("a.pl-fiche")?.getAttribute("href") || "", ficheB: !!c[1]?.querySelector("a.pl-fiche") };
+});
+if (portePlageVue) { await pg.evaluate(() => history.back()); await pg.waitForTimeout(400); }
+await pg.evaluate(async () => { const P = await import("/src/plage.js"); P.poserPlage(null); });
+await onglet("semaine");
+await onglet("accueil");
+ok("en saison, une porte large mène à la plage, avec l'eau et les vagues",
+  plageAcc.porte && plageAcc.sous === "Plage A, eau à 22,4°, vagues de 1,2 m.", JSON.stringify(plageAcc));
+ok("la feuille de la plage dit les marées, le marnage, la qualité de l'eau classée et mène à la fiche du ministère",
+  plageFeuille.cartes === 2 && plageFeuille.marees === "Basse mer 12 h 52, pleine mer 19 h 06" && plageFeuille.marnage === "3,4 m"
+  && plageFeuille.qA === "excellente, saison 2024" && plageFeuille.qB === "insuffisante, saison 2024"
+  && plageFeuille.lieuB === "Pyrénées-Atlantiques"
+  && plageFeuille.fiche === "https://baignades.sante.gouv.fr/baignades/profil.do?idSite=001130&codeDept=064" && !plageFeuille.ficheB,
+  JSON.stringify(plageFeuille));
 ok("le graphique borne sa largeur, et se résume en une phrase",
   semGraphe.borne === "520px"
   && semGraphe.resume === "De 25 à 30 degrés au plus chaud, 5,4 millimètres de pluie en tout.",
@@ -2403,8 +2471,12 @@ await ecranCiel(pg, "soleil");
 const placeSoleil = await pg.evaluate(() =>
   document.querySelector("#ecran .ci-astre").style.getPropertyValue("--ax"));
 await onglet("accueil");
+/* Les deux lectures se font à quelques secondes d'écart, sur une horloge qui
+   avance : quand une minute tombe entre elles, le Soleil a bougé d'un dixième
+   de point, 15,8 contre 15,9 le 30 septembre 2026. Trois dixièmes de
+   tolérance, l'avancée d'une à deux minutes, gardent la garde juste. */
 ok("le Soleil est à la même place sur les deux écrans",
-  placeAccueil === placeSoleil && parseFloat(placeAccueil) < 30,
+  Math.abs(parseFloat(placeAccueil) - parseFloat(placeSoleil)) <= 0.3 && parseFloat(placeAccueil) < 30,
   `${placeAccueil} contre ${placeSoleil}`);
 
 /* La règle de choix, éprouvée sur des cas que la charge d'essai ne porte pas :

@@ -19,6 +19,7 @@ import * as Ensemble from "./ensemble.js";
 import * as Scenarios from "./scenarios.js";
 import * as Comparaison from "./comparaison.js";
 import * as Neige from "./neige.js";
+import * as Plage from "./plage.js";
 import { cleHeure } from "./horloge.js";
 import * as Parapluie from "./parapluie.js";
 import * as Reponse from "./reponse.js";
@@ -4108,6 +4109,58 @@ export function vueNeige(ctx, rendre) {
   return { titre, sous, corps: tete + cartes.join("")
     + `<p class="note">Stations : OpenSkiMap, © contributeurs OpenStreetMap, licence ODbL. `
     + `Neige : prévision calculée à l'altitude du pied et du sommet de chaque station. `
+    + `Durées de route : OSRM.</p>` };
+}
+
+/* La feuille de la plage, jalon 15, lot 3 : les plages à une heure de route,
+   quatre au plus, espacées de cinq kilomètres. Pour chacune, l'eau, les
+   vagues, le vent, l'air et l'indice UV, et les marées : les heures des
+   pleines et basses mers, et le marnage. Les hauteurs rapportées au niveau
+   moyen de la mer, moins deux mètres, plus un, déroutaient ; l'écart entre
+   les deux se lit d'un coup. */
+export function vuePlage(ctx, rendre) {
+  const titre = "La plage", sous = ctx?.commune || "";
+  const pz = Plage.etatPlage(ctx);
+  if (!pz) {
+    Plage.chargerPlage(ctx, cleHeure()).then(() => rendre()).catch(() => {});
+    return { titre, sous, corps: `<div class="carte"><p class="note">Lecture des plages…</p></div>` };
+  }
+  if (!pz.proches.length) return { titre, sous, corps: `<div class="carte"><p class="note">Aucune plage à une heure de route.</p></div>` };
+  if (!pz.resumes.length) return { titre, sous, corps: `<div class="carte"><p class="note">La mer a besoin du réseau.</p></div>` };
+  const fr = v => String(v).replace(".", ",");
+  const carte = p => {
+    const m = p.mer, a = p.air;
+    const lieu = p.commune || (p.departement ? Vig.nomDe(p.departement) : "") || "";
+    const suite = m.marees.slice(0, 2).map((x, i) => {
+      const nom = x.type === "haute" ? "pleine mer" : "basse mer";
+      return `${i ? nom : nom[0].toUpperCase() + nom.slice(1)} ${x.heure}`;
+    }).join(", ");
+    const h = m.marees.find(x => x.type === "haute"), b = m.marees.find(x => x.type === "basse");
+    const marnage = h && b ? `${fr(Math.round((h.hauteur - b.hauteur) * 10) / 10)} m` : "";
+    return `<div class="carte pl-pl"><div class="ng-tete"><b>${esc(p.nom)}</b>`
+      + `<span>${p.minutes} min de route${p.estime ? ", estimées" : ""}</span></div>`
+      + (lieu ? `<p class="pl-lieu">${esc(lieu)}</p>` : "")
+      + `<dl class="ng-val">`
+      + (m.eau !== null ? `<dt>Eau</dt><dd>${fr(m.eau)}°</dd>` : "")
+      + (m.vagues !== null ? `<dt>Vagues</dt><dd>${m.vagues < 0.3 ? "mer calme" : `${fr(m.vagues)} m${m.periode ? `, toutes les ${m.periode} s` : ""}`}</dd>` : "")
+      + (a ? `<dt>Vent</dt><dd>${a.vent} km/h</dd><dt>Air, au plus chaud</dt><dd>${a.max}°</dd>`
+        + `<dt>Indice UV</dt><dd>${a.uv}</dd>` : "")
+      + (suite ? `<dt>Marées</dt><dd>${esc(suite)}</dd>` : "")
+      + (marnage ? `<dt>Marnage</dt><dd>${marnage}</dd>` : "")
+      + (Plage.qualiteDe(p.qualite) ? `<dt>Qualité de l'eau</dt><dd class="${p.qualite === 4 ? "pl-alerte" : ""}">`
+        + `${Plage.qualiteDe(p.qualite)}, saison ${Plage.SAISON}</dd>` : "")
+      + `</dl>`
+      + (Plage.ficheDe(p.fiche) ? `<a class="pl-fiche" href="${Plage.ficheDe(p.fiche)}" target="_blank" rel="noopener">`
+        + `Derniers prélèvements et interdictions, sur le site du ministère</a>` : "")
+      + `</div>`;
+  };
+  const tete = `<div class="carte retenir"><div class="conseils">${conseilsHTML([
+    { i: "goutte", g: 1, t: Plage.phrasePlage(pz.resumes) }])}</div></div>`;
+  return { titre, sous, corps: tete + pz.resumes.map(carte).join("")
+    + `<p class="note">Plages et qualité de l'eau : eaux de baignade déclarées à la Commission européenne, `
+    + `classement de la saison ${Plage.SAISON} établi sur quatre saisons de prélèvements ; `
+    + `le drapeau du jour se voit sur place. Mer : Open-Meteo, `
+    + `modèle de vagues ; marées estimées d'après la hauteur de la mer, heure par heure, à quelques minutes près. `
     + `Durées de route : OSRM.</p>` };
 }
 

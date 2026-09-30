@@ -104,10 +104,34 @@ def commune(lat, lon):
         return None
 
 
+DISCO = "https://discodata.eea.europa.eu/sql"
+
+
+def sql(requete, lignes=6000):
+    u = f"{DISCO}?{urllib.parse.urlencode({'query': requete, 'p': 1, 'nrOfHits': lignes})}"
+    return json.load(urllib.request.urlopen(u, timeout=180)).get("results", [])
+
+
+def classements():
+    """Le classement officiel de chaque site pour la dernière saison publiée,
+    au titre de la directive 2006/7/CE : 1 excellent, 2 bon, 3 suffisant,
+    4 insuffisant, 0 non classé. Demandé par Jérôme le 30 septembre 2026. Une
+    qualité de fond, établie sur quatre saisons de prélèvements, non l'état du
+    jour."""
+    saison = sql("SELECT MAX(season) AS s FROM [WISE_BWD].[latest].[assessment_BathingWaterStatus] WHERE countryCode='FR'", 1)[0]["s"]
+    q = {}
+    for pays in ("FR", "ES", "IT", "BE"):
+        for r in sql(f"SELECT bathingWaterIdentifier AS i, quality AS q FROM [WISE_BWD].[latest].[assessment_BathingWaterStatus] "
+                     f"WHERE season={saison} AND countryCode='{pays}'"):
+            c = (r.get("q") or "")[:1]
+            q[r["i"]] = int(c) if c.isdigit() else None
+    return saison, q
+
+
 def lire(pays):
     sites, depart = [], 0
     while True:
-        q = urllib.parse.urlencode({"where": f"countryCode='{pays}'", "outFields": "nameText,specialisedZoneType,lat,lon,link",
+        q = urllib.parse.urlencode({"where": f"countryCode='{pays}'", "outFields": "nameText,specialisedZoneType,lat,lon,link,thematicIdIdentifier",
                                     "f": "json", "returnGeometry": "false", "resultOffset": depart,
                                     "resultRecordCount": 1000, "orderByFields": "OBJECTID"})
         d = json.load(urllib.request.urlopen(f"{COUCHE}?{q}", timeout=120))
@@ -119,6 +143,8 @@ def lire(pays):
 
 
 def main():
+    saison, qualites = classements()
+    print("classement de la saison", saison, ":", len(qualites), "sites")
     retenus = []
     for pays in ("FR", "ES", "IT", "BE"):
         for a in lire(pays):
@@ -135,14 +161,20 @@ def main():
                 code = None
             # Les noms espagnols portent le code du point de prélèvement, « Pm1 ».
             nom = re.sub(r"\s+Pm\s*\d+$", "", a["nameText"].strip(), flags=re.I)
-            retenus.append([propre(nom), pays, round(lat, 4), round(lon, 4), code])
+            # La fiche du ministère de la Santé, pour les derniers prélèvements et une
+            # éventuelle interdiction temporaire : identifiant du site et code du
+            # département, tels que le lien les porte.
+            fiche = re.search(r"idSite=([0-9A-Za-z]+)&codeDept=([0-9AB]{2,3})", a.get("link") or "")
+            retenus.append([propre(nom), pays, round(lat, 4), round(lon, 4), code,
+                            qualites.get(a.get("thematicIdIdentifier")),
+                            f"{fiche.group(1)}:{fiche.group(2)}" if fiche and pays == "FR" else None])
     francaises = [x for x in retenus if x[1] == "FR"]
     with ThreadPoolExecutor(max_workers=6) as ex:
         communes = list(ex.map(lambda x: commune(x[2], x[3]), francaises))
     for x, c in zip(francaises, communes):
         x.insert(4, c)
     for x in retenus:
-        if len(x) == 5:
+        if len(x) == 7:
             x.insert(4, None)
     print("communes trouvées :", sum(1 for x in francaises if x[4]), "sur", len(francaises))
     retenus.sort(key=lambda x: (x[1] != "FR", x[1], x[5] or "", x[4] or "", x[0]))
@@ -152,9 +184,11 @@ def main():
         "   Source : eaux de baignade déclarées au titre de la directive 2006/7/CE,\n"
         "   Agence européenne de l'environnement ; communes françaises par le\n"
         "   service d'adresses de l'État. Chaque plage : [nom, pays, latitude,\n"
-        "   longitude, commune ou null, département ou null]. */\n"
+        "   longitude, commune ou null, département ou null, classement de la\n"
+        "   qualité de l'eau (1 excellent, 2 bon, 3 suffisant, 4 insuffisant,\n"
+        "   0 non classé) ou null, fiche du ministère « idSite:codeDept » ou null]. */\n"
     )
-    corps = "export const PLAGES = [\n" + ",\n".join("  " + json.dumps(x, ensure_ascii=False) for x in retenus) + ",\n];\n"
+    corps = f"export const SAISON_QUALITE = {saison};\n\n" + "export const PLAGES = [\n" + ",\n".join("  " + json.dumps(x, ensure_ascii=False) for x in retenus) + ",\n];\n"
     open("src/plages.js", "w", encoding="utf-8").write(tete + corps)
     compte = {}
     for x in retenus:
