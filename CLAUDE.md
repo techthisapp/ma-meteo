@@ -160,3 +160,10 @@ Points connus à reprendre :
    manque à la source.
 3. Les sections de `LISEZ-MOI.md` qui suivent le tableau des écrans gardent le
    récit de leur époque ; le tableau, lui, est à jour au 1er octobre 2026.
+4. Les heures affichées sont celles de Paris. L'outre-mer n'est pas visé,
+   décision de Jérôme du 2 octobre 2026 : rien à faire tant que personne ne
+   s'en sert hors de la métropole.
+
+Intégration continue, depuis le 2 octobre 2026 : `.github/workflows/controles.yml`
+passe la suite complète sur les machines de GitHub à chaque envoi sur `main`.
+Son résultat se lit par `gh run list --workflow controles.yml`.

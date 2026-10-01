@@ -1,0 +1,39 @@
+# La suite complète des contrôles, sur les machines de GitHub, à chaque envoi
+# sur main et à chaque demande de fusion. Jusqu'ici elle ne tournait que sur
+# le Mac de Jérôme. Les contrôles servent leurs propres données et refusent
+# toute requête vers le vrai réseau : ils ne dépendent d'aucun service tiers.
+# Audit du 1er octobre 2026, constat 6.3.
+name: Contrôles
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  controles:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Outils des contrôles
+        run: npm ci
+      - name: Navigateur des contrôles
+        run: npx playwright install --with-deps chromium
+      - name: Suite complète
+        run: bash essais/passe.sh 8137
+      - name: Image de la jointure du ciel couvert
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: couture
+          path: /tmp/couture.*
+          if-no-files-found: ignore
