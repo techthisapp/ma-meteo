@@ -2,6 +2,13 @@
 # Épreuve des gardes de la bande horaire de l'accueil, jalon 10, lot 1.
 # Usage : essais/epreuve-bande.sh <n>
 set -u
+# Le navigateur des contrôles : celui du poste de développement de claude.ai
+# s'il existe, sinon celui que Playwright installe (npx playwright install
+# chromium). Le chemin était écrit en dur jusqu'au 1er octobre 2026, ce qui
+# empêchait les contrôles de démarrer ailleurs, sur un poste avec Claude Code.
+if [ -z "${CHROMIUM:-}" ] && [ -x /opt/pw-browsers/chromium-1194/chrome-linux/chrome ]; then
+  CHROMIUM=/opt/pw-browsers/chromium-1194/chrome-linux/chrome
+fi
 cd "$(dirname "$0")/.."
 N="$1"
 OLD="$PWD"
@@ -412,7 +419,7 @@ if diff -q "$OLD/src/bande.js" src/bande.js >/dev/null \
   echo "FAUTE $N NON APPLIQUÉE"; exit 3
 fi
 
-SORTIE=$(CHROMIUM=/opt/pw-browsers/chromium-1194/chrome-linux/chrome \
+SORTIE=$(CHROMIUM="${CHROMIUM:-}" \
   PORT_ESSAIS=$PORT_ESSAIS JUSQUA="$JUSQUA" timeout 900 node essais/controle.mjs 2>&1)
 echo "$SORTIE" > "/tmp/epreuve-bande-$N.log"
 if echo "$SORTIE" | grep -q "ÉCHEC  $ATTENDU"; then
