@@ -16,7 +16,7 @@
 
 import { rangDe, NOMS } from "./vigieau.js";
 import { distanceKm } from "./postes.js";
-import { recaler } from "./horloge.js";
+import { recaler, elaguer } from "./horloge.js";
 
 const VIGIEAU = "https://api.vigieau.gouv.fr/api/zones";
 const HUBEAU = "https://hubeau.eaufrance.fr/api/v1/niveaux_nappes";
@@ -25,11 +25,18 @@ const GARDE_NAPPE = 24 * 3600 * 1000;
 
 export const RESSOURCES = { SUP: "Eaux de surface", SOU: "Eaux souterraines", AEP: "Eau potable" };
 
+/* Un lien venu d'un service n'entre dans la page qu'en https : une adresse
+   `javascript:` ou autre se serait exécutée au toucher. Audit du 1er octobre
+   2026, constat 2.4. */
+export const lienSur = u => {
+  try { const x = new URL(u); return x.protocol === "https:" ? x.href : null; } catch { return null; }
+};
+
 /* La restriction de la commune : le niveau le plus grave, et le détail par
    ressource, chacun avec son arrêté. */
 export function restrictionsDe(zones) {
   const l = (Array.isArray(zones) ? zones : []).map(z => ({ type: z.type, nom: z.nom, niveau: z.niveauGravite,
-    rang: rangDe(z.niveauGravite), arrete: z.arrete?.cheminFichier || null, fin: z.arrete?.dateFinValidite?.slice(0, 10) || null }))
+    rang: rangDe(z.niveauGravite), arrete: lienSur(z.arrete?.cheminFichier), fin: z.arrete?.dateFinValidite?.slice(0, 10) || null }))
     .filter(z => z.rang > 0);
   const pire = l.reduce((a, z) => (z.rang > (a?.rang || 0) ? z : a), null);
   return { rang: pire?.rang || 0, niveau: pire ? NOMS[pire.niveau] : null, zones: l.sort((a, b) => b.rang - a.rang) };
@@ -122,7 +129,7 @@ export async function lireNappe(g, aujourdhui, fetcheur = fetch) {
   try {
     const c = JSON.parse(localStorage.getItem(CACHE) || "{}");
     c[cle] = { t: Date.now(), n };
-    localStorage.setItem(CACHE, JSON.stringify(c));
+    localStorage.setItem(CACHE, JSON.stringify(elaguer(c, GARDE_NAPPE)));
   } catch { /* plein */ }
   return n;
 }
@@ -208,7 +215,7 @@ export async function lireRiviere(g, maintenant = new Date(), fetcheur = fetch) 
       try {
         const c = JSON.parse(localStorage.getItem(CACHE_STATIONS) || "{}");
         c[cleS] = { t: Date.now(), l: stations.slice(0, 3) };
-        localStorage.setItem(CACHE_STATIONS, JSON.stringify(c));
+        localStorage.setItem(CACHE_STATIONS, JSON.stringify(elaguer(c, 30 * 24 * 3600 * 1000)));
       } catch { /* plein */ }
       break;
     }
@@ -250,7 +257,7 @@ export async function lireRiviere(g, maintenant = new Date(), fetcheur = fetch) 
       if (r.ok) riviere.situation = etatDebit((await r.json()).data);
       const c = JSON.parse(localStorage.getItem(CACHE_RIVIERE) || "{}");
       c[s.code_station] = { t: Date.now(), s: riviere.situation };
-      localStorage.setItem(CACHE_RIVIERE, JSON.stringify(c));
+      localStorage.setItem(CACHE_RIVIERE, JSON.stringify(elaguer(c, GARDE_NAPPE)));
     } catch { /* la situation manque, le temps réel reste */ }
     return riviere;
   }

@@ -1003,13 +1003,17 @@ let releveEnCours = false;
 
 async function suivrePosition({ force } = {}) {
   if (!Reglages.enPosition() || releveEnCours) return false;
-  const avant = Reglages.position();
-  if (!force && avant && Date.now() - avant.t < FRAICHE) return false;
+  const dernier = Reglages.position();
+  if (!force && dernier && Date.now() - dernier.t < FRAICHE) return false;
   if (!await Reglages.positionAutorisee()) return false;
+  /* Le déplacement se mesure sur les relevés précis, qui restent sur
+     l'appareil ; la position publique, arrondie au kilomètre, ne le dirait
+     qu'à un kilomètre près. */
+  const avant = Reglages.releve() || dernier;
   releveEnCours = true;
   try {
-    const apres = await Reglages.releverPosition();
-    const bouge = !avant || Reglages.ecart(avant, apres) > BOUGE;
+    await Reglages.releverPosition();
+    const bouge = !avant || Reglages.ecart(avant, Reglages.releve()) > BOUGE;
     if (bouge) charger(); else rendre();
     return bouge;
   } catch {
@@ -1320,7 +1324,8 @@ async function nommerPosition() {
   const p = Reglages.position();
   if (!p || p.lat === null || p.commune) return;
   const mien = generation;
-  const l = await Reglages.communeDe(p.lat, p.lon);
+  const r = Reglages.releve() || p;
+  const l = await Reglages.communeDe(r.lat, r.lon);
   if (mien !== generation || !l) return;
   Reglages.nommerPosition(l);
   rendre();

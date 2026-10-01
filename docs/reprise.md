@@ -2,7 +2,7 @@
 
 > **Bascule dans Claude Code, 1er octobre 2026.** Ce document a été tenu dans claude.ai jusqu'à la version 118. Sur le poste de Jérôme, Git emploie ses propres identifiants : publier se fait par `git push origin main`, sans jeton ni réglage de mandataire. Les commandes à jeton plus bas datent de claude.ai et ne servent plus. Les règles de travail à jour sont dans `CLAUDE.md` à la racine du dépôt.
 
-> **Publications depuis Claude Code, 1er octobre 2026 : versions 119 et 120.** Dossier de travail : `~/Documents/Claude/Projects/ma-meteo`. Node.js 24 et GitHub CLI installés ; GitHub CLI est connecté au compte `techthisapp`. La suite complète tourne sur le Mac par `bash essais/passe.sh 8137` : 987 contrôles à la version 120, tous verts. Les sections plus bas décrivent l'environnement de claude.ai et ne s'appliquent plus telles quelles.
+> **Publications depuis Claude Code, 1er octobre 2026 : versions 119 à 123.** Dossier de travail : `~/Documents/Claude/Projects/ma-meteo`. Node.js 24 et GitHub CLI installés ; GitHub CLI est connecté au compte `techthisapp`. La suite complète tourne sur le Mac par `bash essais/passe.sh 8137`, tous les contrôles verts ; le nombre à jour est dans `CLAUDE.md`. Un audit complet de la version 120 est dans `docs/audit-2026-10-01.md`, avec le suivi des lots : A, B et C faits, D à G à venir. Les sections plus bas décrivent l'environnement de claude.ai et ne s'appliquent plus telles quelles.
 
 
 Document écrit le 10 septembre 2026. À lire en entier avant de commencer.

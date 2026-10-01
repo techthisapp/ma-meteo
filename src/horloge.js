@@ -38,6 +38,19 @@ export const jourLong = t =>
 
 export const heureTxt = h => `${deux(h)} h`;
 
+/* Les caches indexés par lieu gardaient chaque position visitée, sans limite :
+   un historique de déplacements sur l'appareil, et un stockage qui finissait
+   plein. Une entrée périmée est retirée, et seules les vingt plus récentes
+   restent. Audit du 1er octobre 2026, constat 2.3. */
+export const ENTREES_MAX = 20;
+export function elaguer(c, garde, maintenant = Date.now()) {
+  const gardees = Object.entries(c).filter(([, e]) => Number.isFinite(e?.t) && maintenant - e.t < garde)
+    .sort((a, b) => b[1].t - a[1].t).slice(0, ENTREES_MAX);
+  for (const k of Object.keys(c)) delete c[k];
+  for (const [k, e] of gardees) c[k] = e;
+  return c;
+}
+
 /* Les heures d'Open-Meteo, recalées sur l'heure de Paris. Le service écrit
    toute une réponse avec un seul décalage, celui du moment de la requête, et
    vingt-quatre heures par jour : vérifié le 1er octobre 2026 sur l'archive

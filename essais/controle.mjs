@@ -1131,6 +1131,10 @@ pg.on("pageerror", e => erreurs.push(String(e)));
    avec la source : les colonnes demandées, et rien de plus. L'ensemble porte le
    même domaine à un préfixe près et reste hors du compte. */
 const appelsHoraire = [];
+/* Toutes les adresses demandées par la page, pour vérifier ce qui part de la
+   position. */
+const appelsTous = [];
+pg.on("request", r => appelsTous.push(r.url()));
 pg.on("request", r => {
   if (r.url().startsWith("https://api.open-meteo.com")) appelsHoraire.push(r.url());
 });
@@ -4824,6 +4828,7 @@ ok("l'état désactivé neutralise le contrôle", await pg.evaluate(() => {
 
 marquerSection("\n--- Ma position ---"); console.log("\n--- Ma position ---");
 // L'appareil se tient à Grenoble : le relevé doit y mener et la feuille se fermer.
+const avantPos = appelsTous.length;
 await pg.locator("#coPos").click();
 await pg.waitForTimeout(1500);
 ok("l'appui sur Ma position ferme la feuille",
@@ -4832,10 +4837,26 @@ ok("la position devient le lieu courant",
   (await txt("#navLieuNom")) === "Grenoble", await txt("#navLieuNom"));
 ok("la barre de tête porte la cible en mode position",
   await pg.locator("#navPos:visible").count() === 1);
+/* Depuis la version 123, le lieu courant porte la position arrondie au
+   centième de degré, et le relevé précis reste sur l'appareil. */
 ok("la prévision est relue pour la position", await pg.evaluate(() => {
   const g = JSON.parse(localStorage.getItem("mameteo.reglages.v1"));
-  return g.auto === true && Math.abs(g.lat - 45.1885) < 0.001;
+  return g.auto === true && g.lat === 45.19 && Math.abs(g.releve?.lat - 45.1885) < 0.001;
 }));
+/* Audit du 1er octobre 2026, constat 2.2 : les services ne reçoivent que la
+   position arrondie, au kilomètre pour la prévision, à cent mètres pour le
+   service d'adresses ; le relevé précis ne part jamais. Le faux service
+   d'adresses place la commune de Grenoble aux mêmes coordonnées que le relevé :
+   une commune choisie garde ses coordonnées, qui sont publiques. Le contrôle
+   juge donc les seules requêtes du lieu courant parties après l'appui sur
+   Ma position : prévision, ensemble, air et nom de la position. */
+const duLieu = appelsTous.slice(avantPos).filter(u => (/api\.open-meteo\.com\/v1\/forecast/.test(u) && /&(daily|hourly)=/.test(u))
+  || /ensemble-api|air-quality-api/.test(u) || /api-adresse\.data\.gouv\.fr\/reverse/.test(u));
+ok("les services ne reçoivent que la position arrondie",
+  duLieu.some(u => u.includes("open-meteo.com") && u.includes("latitude=45.19&"))
+  && duLieu.some(u => u.includes("/reverse/") && u.includes("lat=45.189&"))
+  && !duLieu.some(u => /45\.1885|5\.7245/.test(u)),
+  duLieu.filter(u => /45\.18/.test(u)).map(u => u.slice(0, 90)).slice(0, 4).join(" "));
 
 await pg.locator("#navLieu").click();
 await pg.waitForTimeout(1200);
@@ -5462,6 +5483,64 @@ ok("hors connexion, l'application se recharge et seule une navigation reçoit la
 ok("une adresse à paramètres n'entre pas dans la copie hors ligne", coqueDit.parametres === 0, JSON.stringify(coqueDit));
 await ctxCoque.close();
 
+/* Audit du 1er octobre 2026, lot C, la confidentialité. */
+const ctxLotC = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+const pgLotC = await ctxLotC.newPage();
+await ouvrirPage(pgLotC);
+
+/* Constats 2.3 et 2.4, sur les fonctions seules : l'élagage des caches par
+   lieu, et les liens venus d'un service. */
+const lotCPur = await pgLotC.evaluate(async () => {
+  const H = await import("/src/horloge.js"), Eau = await import("/src/eau.js");
+  const t = 1_000_000_000;
+  const c = { vieux: { t: t - 50 } };
+  for (let k = 0; k < 30; k++) c[`p${k}`] = { t: t - k };
+  H.elaguer(c, 40, t);
+  /* Deux entrées seulement : le plafond ne joue pas, seule la péremption
+     retire la plus vieille. */
+  const deux = H.elaguer({ vieux: { t: t - 50 }, neuf: { t: t - 1 } }, 40, t);
+  return { restent: Object.keys(c).length, vieux: "vieux" in c, recent: "p0" in c, ancien: "p29" in c,
+    perime: Object.keys(deux).join(" "),
+    js: Eau.lienSur("javascript:alert(1)"), http: Eau.lienSur("http://exemple.gouv.fr/a.pdf"),
+    https: Eau.lienSur("https://exemple.gouv.fr/a.pdf") };
+});
+ok("les caches par lieu oublient les entrées périmées et n'en gardent que vingt",
+  lotCPur.restent === 20 && !lotCPur.vieux && lotCPur.recent && !lotCPur.ancien && lotCPur.perime === "neuf",
+  JSON.stringify(lotCPur));
+ok("un lien venu d'un service n'entre dans la page qu'en https",
+  lotCPur.js === null && lotCPur.http === null && lotCPur.https === "https://exemple.gouv.fr/a.pdf", JSON.stringify(lotCPur));
+
+/* Constat 2.1 : les réglages nomment tous les services qui reçoivent le lieu,
+   et ne prétendent plus qu'aucune donnée n'est envoyée. */
+await pgLotC.locator("#btnReglages").click();
+await pgLotC.waitForTimeout(600);
+const reglagesDit = await pgLotC.evaluate(() => document.getElementById("feuille-corps")?.textContent || "");
+ok("les réglages disent quels services reçoivent le lieu affiché",
+  !/aucune donnée envoyée/i.test(reglagesDit)
+  && ["Open-Meteo", "Météo-France", "data.gouv.fr", "Atmo France", "VigiEau", "Hub'eau", "OSRM", "RainViewer", "EUMETSAT"]
+    .every(m => reglagesDit.includes(m)) && /arrondies à un kilomètre/.test(reglagesDit),
+  reglagesDit.slice(0, 160));
+
+/* Constat 2.3 : le bouton efface tout ce que l'application garde, après
+   confirmation. */
+await pgLotC.evaluate(() => {
+  localStorage.setItem("mameteo.plage.proches.v1", JSON.stringify({ "45.190,5.720": { t: Date.now(), l: [] } }));
+  localStorage.setItem("autre.application", "garde");
+});
+pgLotC.once("dialog", d => d.accept());
+await Promise.all([pgLotC.waitForEvent("load"), pgLotC.locator("#rgEffacer").click()]);
+await pgLotC.waitForTimeout(400);
+/* L'application rechargée peut réécrire ses réglages par défaut : le
+   contrôle juge la clé qu'il a posée lui-même. */
+const effaceDit = await pgLotC.evaluate(() => ({
+  plage: localStorage.getItem("mameteo.plage.proches.v1"), autre: localStorage.getItem("autre.application") }));
+ok("le bouton d'effacement retire les données de l'application, et elles seules",
+  effaceDit.plage === null && effaceDit.autre === "garde", JSON.stringify(effaceDit));
+await ctxLotC.close();
+
 marquerSection("\n--- Suivi de la position ---"); console.log("\n--- Suivi de la position ---");
 
 /* L'application s'ouvre en mode position sur un relevé ancien, pris ailleurs.
@@ -5490,7 +5569,7 @@ ok("le relevé silencieux suit l'appareil",
   await pgSuivi.locator("#navLieuNom").innerText());
 ok("la prévision est relue aux nouvelles coordonnées", await pgSuivi.evaluate(() => {
   const g = JSON.parse(localStorage.getItem("mameteo.reglages.v1"));
-  return Math.abs(g.lat - 45.1885) < 0.001 && Math.abs(g.lon - 5.7245) < 0.001;
+  return g.lat === 45.19 && g.lon === 5.72 && Math.abs(g.releve?.lat - 45.1885) < 0.001;
 }));
 ok("le suivi n'ajoute pas de commune suivie", await pgSuivi.evaluate(() =>
   JSON.parse(localStorage.getItem("mameteo.reglages.v1")).suivies.length === 0));

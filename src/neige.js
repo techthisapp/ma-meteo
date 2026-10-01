@@ -13,7 +13,7 @@
 
 import { STATIONS } from "./stations.js";
 import { distanceKm } from "./postes.js";
-import { recaler } from "./horloge.js";
+import { recaler, elaguer } from "./horloge.js";
 
 export const RAYON_KM = 100;
 export const MINUTES_MAX = 60;
@@ -81,7 +81,7 @@ export async function prochesGardees(g, fetcheur = fetch) {
     const c = JSON.parse(localStorage.getItem(CACHE) || "{}");
     /* Une estimation ne se garde pas : la prochaine ouverture retentera OSRM. */
     c[cle] = { t: Date.now(), l, estime: l.some(s => s.estime) };
-    localStorage.setItem(CACHE, JSON.stringify(c));
+    localStorage.setItem(CACHE, JSON.stringify(elaguer(c, GARDE)));
   } catch { /* plein */ }
   return l;
 }

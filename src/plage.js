@@ -12,7 +12,7 @@ import { PLAGES, SAISON_QUALITE } from "./plages.js";
 import { distanceKm } from "./postes.js";
 import { dureesMinutes } from "./trajets.js";
 import { cardinal } from "./previsions.js";
-import { recaler } from "./horloge.js";
+import { recaler, elaguer } from "./horloge.js";
 
 export const RAYON_KM = 100;
 export const MINUTES_MAX = 60;
@@ -69,7 +69,7 @@ export async function prochesGardees(g, fetcheur = fetch) {
   try {
     const c = JSON.parse(localStorage.getItem(CACHE) || "{}");
     c[cle] = { t: Date.now(), l, estime: l.some(p => p.estime) };
-    localStorage.setItem(CACHE, JSON.stringify(c));
+    localStorage.setItem(CACHE, JSON.stringify(elaguer(c, GARDE)));
   } catch { /* plein */ }
   return l;
 }

@@ -452,12 +452,34 @@ case "$N" in
   138) # Une adresse à paramètres entre de nouveau dans la copie.
      perl -0pi -e 's/if \(r\.ok && !r\.redirected && !u\.search\) \{/if (r.ok \&\& !r.redirected) {/' sw.js
      ATTENDU="une adresse à paramètres n.entre pas dans la copie hors ligne" ;;
+  139) # La position publique garde de nouveau le dix-millième de degré.
+     perl -0pi -e 's/export const envoi = v => Math\.round\(v \* 100\) \/ 100;/export const envoi = v => Math.round(v * 10000) \/ 10000;/' src/reglages.js
+     ATTENDU="les services ne reçoivent que la position arrondie" ;;
+  140) # Le service d'adresses reçoit de nouveau le relevé précis.
+     perl -0pi -e 's/const lat = Math\.round\(latBrute \* 1000\) \/ 1000, lon = Math\.round\(lonBrute \* 1000\) \/ 1000;/const lat = latBrute, lon = lonBrute;/' src/reglages.js
+     ATTENDU="les services ne reçoivent que la position arrondie" ;;
+  141) # Les réglages prétendent de nouveau qu'aucune donnée n'est envoyée.
+     perl -0pi -e 's/Aucun compte, aucune base de données\. Pour lire/Aucun compte, aucune base de données, aucune donnée envoyée. Pour lire/' src/vues.js
+     ATTENDU="les réglages disent quels services reçoivent le lieu affiché" ;;
+  142) # Les caches par lieu ne sont plus plafonnés.
+     perl -0pi -e 's/\.sort\(\(a, b\) => b\[1\]\.t - a\[1\]\.t\)\.slice\(0, ENTREES_MAX\);/.sort((a, b) => b[1].t - a[1].t);/' src/horloge.js
+     ATTENDU="les caches par lieu oublient les entrées périmées et n.en gardent que vingt" ;;
+  143) # Les caches par lieu gardent de nouveau les entrées périmées.
+     perl -0pi -e 's/maintenant - e\.t < garde\)/true)/' src/horloge.js
+     ATTENDU="les caches par lieu oublient les entrées périmées et n.en gardent que vingt" ;;
+  144) # Le bouton d'effacement n'efface plus rien.
+     perl -0pi -e 's/if \(k\.startsWith\("mameteo\."\)\) localStorage\.removeItem\(k\);/if (false) { }/' src/vues.js
+     ATTENDU="le bouton d.effacement retire les données de l.application, et elles seules" ;;
+  145) # Un lien venu d'un service entre de nouveau quel que soit son protocole.
+     perl -0pi -e 's/return x\.protocol === "https:" \? x\.href : null;/return x.href;/' src/eau.js
+     ATTENDU="un lien venu d.un service n.entre dans la page qu.en https" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
 if diff -q "$OLD/src/bande.js" src/bande.js >/dev/null \
   && diff -q "$OLD/src/app.js" src/app.js >/dev/null \
   && diff -q "$OLD/src/horloge.js" src/horloge.js >/dev/null \
+  && diff -q "$OLD/src/reglages.js" src/reglages.js >/dev/null \
   && diff -q "$OLD/src/air.js" src/air.js >/dev/null \
   && diff -q "$OLD/src/ensemble.js" src/ensemble.js >/dev/null \
   && diff -q "$OLD/styles.css" styles.css >/dev/null \

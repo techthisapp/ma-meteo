@@ -3889,11 +3889,17 @@ export function vueReglages(ctx, rendre, majEtat) {
   const per = Parapluie.periodes(al);
   const ALERTES = [["Première alerte", 0], ["Seconde alerte", 1]];
 
+  /* Tous les services qui reçoivent le lieu affiché. La carte n'en citait que
+     quatre et affirmait qu'aucune donnée n'était envoyée. Audit du
+     1er octobre 2026, constat 2.1. */
   const sources = [
-    ["Prévision", "Open-Meteo, AROME de Météo-France forcé sur les deux premiers jours"],
-    ["Recherche de commune", "interface adresse de data.gouv.fr"],
-    ["Vigilance", "renvoi vers Météo-France"],
-    ["Air et pollens", "analyses européennes de Copernicus, servies par Open-Meteo"],
+    ["Prévision, air, pollens, mer, neige", "Open-Meteo, avec AROME de Météo-France sur les deux premiers jours et les analyses Copernicus pour l'air"],
+    ["Vigilance, pluie dans l'heure", "Météo-France"],
+    ["Communes", "interfaces adresse et découpage administratif de data.gouv.fr"],
+    ["Indice officiel de l'air", "Atmo France"],
+    ["Eau", "VigiEau et Hub'eau"],
+    ["Durées de route", "serveur public de démonstration OSRM"],
+    ["Couches de la carte", "RainViewer, EUMETSAT et le système européen d'information sur les feux de forêt"],
   ];
 
   return {
@@ -3966,10 +3972,26 @@ export function vueReglages(ctx, rendre, majEtat) {
       + `Rechercher une mise à jour</button><span class="note" id="rgMaj" role="status"></span></div>`
       + `</div>`
 
-      + `<p class="note">Aucun compte, aucune base de données, aucune donnée envoyée. `
-      + `Les réglages restent sur cet appareil.</p>`,
+      + `<div class="carte"><div class="carte-tete"><h3>Données de cet appareil</h3></div>`
+      + `<p class="note" id="rgDonnees">Aucun compte, aucune base de données. Pour lire la météo, l'application `
+      + `envoie aux services de la carte « Sources » les coordonnées du lieu affiché ; en mode position, `
+      + `elles sont arrondies à un kilomètre environ. Les communes suivies partent ensemble dans une même `
+      + `requête. Les réglages, les lieux suivis et les données gardées restent sur cet appareil.</p>`
+      + `<div class="rangee"><button type="button" class="bouton-borde" id="rgEffacer">`
+      + `Effacer les données de cet appareil</button></div></div>`,
 
     brancher(bloc) {
+      /* Efface tout ce que l'application garde sur l'appareil : réglages, lieux
+         suivis, dernier relevé de position, prévisions et caches. La copie hors
+         ligne de l'application elle-même reste. Audit du 1er octobre 2026,
+         constat 2.3. */
+      bloc.querySelector("#rgEffacer")?.addEventListener("click", () => {
+        if (!confirm("Effacer les réglages, les lieux suivis, la dernière position et les données gardées sur cet appareil ?")) return;
+        try {
+          for (const k of Object.keys(localStorage)) if (k.startsWith("mameteo.")) localStorage.removeItem(k);
+        } catch { /* stockage indisponible */ }
+        location.reload();
+      });
       const chercher = bloc.querySelector("#rgChercher");
       const dit = bloc.querySelector("#rgMaj");
       if (chercher) {

@@ -54,6 +54,12 @@ function estAlertes(v) {
     && v[0] >= 0 && v[0] < v[1] && v[1] < 24;
 }
 
+/* La position publique de l'appareil, celle que reçoivent les services, au
+   centième de degré : un kilomètre environ, la maille des modèles de
+   prévision. Le relevé au dix-millième désignait la maison. Audit du
+   1er octobre 2026, constat 2.2. */
+export const envoi = v => Math.round(v * 100) / 100;
+
 /* Clé d'un lieu : ses coordonnées arrondies au dix-millième, soit une dizaine
    de mètres. Deux entrées de la même commune ne peuvent pas coexister. */
 export const cleLieu = l => (l && l.lat !== null && l.lon !== null)
@@ -71,6 +77,13 @@ if (!Array.isArray(etat.suivies)) etat.suivies = [];
 if (etat.ecriture !== "ruban" && etat.ecriture !== "liste") etat.ecriture = "ruban";
 if (typeof etat.auto !== "boolean") etat.auto = false;
 if (etat.auto && !etat.position) etat.auto = false;
+/* Reprise des réglages écrits avant la version 123 : le relevé précis passe
+   dans `releve`, et la position publique s'arrondit au kilomètre. */
+if (etat.position && !etat.releve) {
+  etat.releve = { lat: etat.position.lat, lon: etat.position.lon };
+  etat.position = { ...etat.position, lat: envoi(etat.position.lat), lon: envoi(etat.position.lon) };
+  if (etat.auto) { etat.lat = etat.position.lat; etat.lon = etat.position.lon; }
+}
 /* En mode position, le lieu courant n'est pas une commune choisie : le reprendre
    dans la liste y ferait entrer une commune que personne n'a demandée. */
 if (!etat.suivies.length && etat.lat !== null && !etat.auto) etat.suivies = [nu(etat)];
@@ -133,6 +146,9 @@ export function poserLieu(l) {
 
 export const enPosition = () => etat.auto === true;
 export const position = () => (etat.position ? { ...etat.position } : null);
+/* Le relevé précis, au dix-millième de degré, ne quitte pas l'appareil : il ne
+   sert qu'à savoir si l'appareil a bougé. */
+export const releve = () => (etat.releve ? { ...etat.releve } : null);
 
 /* Écart entre deux points, en mètres. Sur quelques kilomètres la projection
    plate suffit : il ne s'agit que de savoir si la prévision doit être relue. */
@@ -146,18 +162,18 @@ export function ecart(a, b) {
 
 export function poserPosition(p) {
   if (!p || p.lat === null || p.lat === undefined) return lire();
-  const lat = Math.round(p.lat * 10000) / 10000;
-  const lon = Math.round(p.lon * 10000) / 10000;
+  const releve = { lat: Math.round(p.lat * 10000) / 10000, lon: Math.round(p.lon * 10000) / 10000 };
   /* Sans nom rendu par l'interface adresse, le nom précédent n'est repris que
      si la position n'a pas bougé de plus de deux kilomètres. Au delà, il
      désignerait une autre commune. */
-  const proche = ecart(etat.position, { lat, lon }) < 2000;
+  const proche = ecart(etat.releve ?? etat.position, releve) < 2000;
   const commune = p.commune ?? (proche ? etat.position?.commune ?? null : null);
   const codePostal = p.commune
     ? (p.codePostal ?? null)
     : (proche ? etat.position?.codePostal ?? null : null);
+  const lat = envoi(releve.lat), lon = envoi(releve.lon);
   const pos = { commune, codePostal, lat, lon, t: Date.now() };
-  etat = { ...etat, auto: true, position: pos, commune, codePostal, lat, lon, poste: null };
+  etat = { ...etat, auto: true, position: pos, releve, commune, codePostal, lat, lon, poste: null };
   ecrire();
   return lire();
 }
@@ -167,7 +183,7 @@ export function poserPosition(p) {
 export async function releverPosition() {
   const { lat, lon } = await geolocaliser();
   const l = await communeDe(lat, lon);
-  return poserPosition(l || { lat, lon });
+  return poserPosition({ ...(l || {}), lat, lon });
 }
 
 /* Une demande de position sans geste de l'utilisateur ferait surgir la demande
@@ -419,7 +435,11 @@ export async function chercherCommune(q) {
    quand le point tombe hors d'un territoire communal, au large ou en limite de
    côte : une adresse ordinaire est alors demandée, et sa commune sert. Sans ce
    repli, une position en bord de mer restait anonyme. */
-export async function communeDe(lat, lon) {
+export async function communeDe(latBrute, lonBrute) {
+  /* Le service d'adresses ne reçoit qu'un point au millième de degré, une
+     centaine de mètres : assez pour nommer la commune, trop peu pour désigner
+     une maison. Audit du 1er octobre 2026, constat 2.2. */
+  const lat = Math.round(latBrute * 1000) / 1000, lon = Math.round(lonBrute * 1000) / 1000;
   const base = `https://api-adresse.data.gouv.fr/reverse/?lat=${lat}&lon=${lon}`;
   for (const u of [`${base}&type=municipality`, base]) {
     try {
