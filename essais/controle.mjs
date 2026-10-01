@@ -5906,6 +5906,33 @@ ok("la barre de tête nomme le département de la commune, non celui de son code
   depDit.tete === "Haute-Savoie", JSON.stringify(depDit));
 await ctxDepF.close();
 
+/* Audit du 1er octobre 2026, constat 1.8 : un téléphone réglé sur Honolulu
+   voit 21 h la veille quand il est 9 h à Paris. Il doit trouver l'heure et la
+   journée de Paris dans les données, et l'accueil s'afficher. */
+const ctxFuseau = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Pacific/Honolulu", isMobile: true, hasTouch: true,
+});
+await ctxFuseau.addInitScript(amorce(FAIN));
+await brancherRoutes(ctxFuseau);
+const pgFuseau = await ctxFuseau.newPage();
+await ouvrirPage(pgFuseau);
+await pgFuseau.waitForTimeout(600);
+const fuseauDit = await pgFuseau.evaluate(async () => {
+  const P = await import("/src/previsions.js"), H = await import("/src/horloge.js");
+  const c = P.chargeCourante();
+  return { telephone: new Date().getHours(), heure: c?.hourly?.time?.[P.iHeure()] ?? null, jour: c?.daily?.time?.[P.iJour()] ?? null,
+    temperature: !!document.querySelector("#ecran .bd-deg"),
+    ete: H.instantParis("2026-08-18T09:00") === Date.parse("2026-08-18T09:00:00+02:00"),
+    hiver: H.instantParis("2026-12-01T09:00") === Date.parse("2026-12-01T09:00:00+01:00") };
+});
+ok("un téléphone réglé sur un autre fuseau lit l'heure et la journée de Paris",
+  fuseauDit.telephone === 21 && fuseauDit.heure === "2026-08-18T09:00" && fuseauDit.jour === "2026-08-18" && fuseauDit.temperature,
+  JSON.stringify(fuseauDit));
+ok("une heure des données se lit comme un instant de Paris, en été comme en hiver",
+  fuseauDit.ete && fuseauDit.hiver, JSON.stringify(fuseauDit));
+await ctxFuseau.close();
+
 marquerSection("\n--- Suivi de la position ---"); console.log("\n--- Suivi de la position ---");
 
 /* L'application s'ouvre en mode position sur un relevé ancien, pris ailleurs.

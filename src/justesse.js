@@ -13,7 +13,7 @@
    écoulées, au delà l'heure visée a disparu de la source et la comparaison
    n'aurait plus de terme. */
 
-import { cleHeure } from "./horloge.js";
+import { cleHeure, instantParis } from "./horloge.js";
 
 const CACHE = "mameteo.justesse.v1";
 
@@ -92,7 +92,7 @@ export function noter(charge, lieu, maintenant = new Date(), scenarios = null) {
     const t = h.temperature_2m[i];
     if (t === null || t === undefined) continue;
     const cible = h.time[i].slice(0, 13);
-    const ecart = (Date.parse(`${h.time[i]}:00`) - t0) / 3600000;
+    const ecart = (instantParis(h.time[i]) - t0) / 3600000;
 
     /* Une heure passée est un relevé : il se pose sur les lignes déjà notées
        pour elle, et n'en ouvre aucune. Une heure à venir est une prévision. */
@@ -140,7 +140,7 @@ export function noter(charge, lieu, maintenant = new Date(), scenarios = null) {
 
   // L'oubli : par l'âge d'abord, par le nombre ensuite, les plus vieilles en tête.
   const limite = t0 - JOURS_GARDES * 86400000;
-  j.lignes = j.lignes.filter(l => Date.parse(`${l.c}:00:00`) >= limite);
+  j.lignes = j.lignes.filter(l => instantParis(`${l.c}:00`) >= limite);
   if (j.lignes.length > LIGNES_MAX) j.lignes = j.lignes.slice(j.lignes.length - LIGNES_MAX);
   ecrire(j);
   return { notes: nouvelles.length, releves, completees };

@@ -16,7 +16,7 @@
    13 degrés est : la nappe s'y arrête, ce qui est exact, elle ne sait rien
    au delà. */
 
-import { recaler, chercher } from "./horloge.js";
+import { recaler, chercher, cleJour } from "./horloge.js";
 
 export const S = 41.0, N = 51.4, O = -5.6, E = 10.0;
 export const PAS_LAT = 0.55, PAS_LON = 0.80;
@@ -115,8 +115,7 @@ export function adresse() {
    demandées : la valeur se pose sur la maille demandée, l'écart valant moins
    d'un demi-pas de modèle. */
 /* La date locale, celle de l'appareil, au format que le service emploie. */
-export const dateLocale = (t = new Date()) =>
-  `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+export const dateLocale = (t = new Date()) => cleJour(t);
 
 /* Le rang de la journée en cours dans les dates rendues. À défaut, la première :
    une valeur de la veille vaut mieux que rien, et l'écart est d'une nuit. */

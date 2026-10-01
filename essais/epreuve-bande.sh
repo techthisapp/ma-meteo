@@ -560,6 +560,15 @@ case "$N" in
   174) # La barre de tête nomme de nouveau le département du code postal.
      perl -0pi -e 's/Vig\.nomDe\(Reglages\.departementDu\(g\)\)/Vig.nomDe(Reglages.departementDu({ codePostal: g.codePostal }))/' src/app.js
      ATTENDU="la barre de tête nomme le département de la commune, non celui de son code postal" ;;
+  175) # L'heure se cherche de nouveau à l'heure de l'appareil.
+     perl -0pi -e 's/export const cleHeure = \(d = new Date\(\)\) => `\$\{cleJour\(d\)\}T\$\{HEURE_PARIS\.format\(d\)\}:00`;/export const cleHeure = (d = new Date()) => `\${cleJour(d)}T\${String(d.getHours()).padStart(2, "0")}:00`;/' src/horloge.js
+     ATTENDU="un téléphone réglé sur un autre fuseau lit l.heure et la journée de Paris" ;;
+  176) # Le jour se cherche de nouveau sur le calendrier de l'appareil.
+     perl -0pi -e 's/export const cleJour = d => JOUR_PARIS\.format\(d\);/export const cleJour = d => cleJourLocal(d);/' src/horloge.js
+     ATTENDU="un téléphone réglé sur un autre fuseau lit l.heure et la journée de Paris" ;;
+  177) # Une heure des données se lit de nouveau comme une heure de l'appareil.
+     perl -0pi -e 's/  let x = mur - 3600 \* 1000;\n  for \(let k = 0; k < 3; k\+\+\) \{/  let x = mur - 3600 * 1000;\n  return Date.parse(`\${t}:00`);\n  for (let k = 0; k < 3; k++) {/' src/horloge.js
+     ATTENDU="une heure des données se lit comme un instant de Paris, en été comme en hiver" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

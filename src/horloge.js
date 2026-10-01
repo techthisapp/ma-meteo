@@ -8,11 +8,39 @@
 
 const deux = n => String(n).padStart(2, "0");
 
-// Clé d'un jour, en heure locale.
-export const cleJour = d => `${d.getFullYear()}-${deux(d.getMonth() + 1)}-${deux(d.getDate())}`;
+/* Les clés d'un instant, à l'heure de Paris, celle des données : toute
+   réponse d'Open-Meteo est demandée et recalée à l'heure de Paris. Un
+   téléphone réglé sur un autre fuseau, en voyage ou outre-mer, cherchait
+   « maintenant » à son heure à lui : six heures de décalage à Montréal, et
+   près de minuit une journée introuvable, « Prévision indisponible ». Audit
+   du 1er octobre 2026, constat 1.8. */
+const JOUR_PARIS = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit" });
+const HEURE_PARIS = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Paris", hour: "2-digit", hourCycle: "h23" });
 
-// Clé de l'heure en cours, telle qu'elle paraît dans la série horaire.
-export const cleHeure = (d = new Date()) => `${cleJour(d)}T${deux(d.getHours())}:00`;
+// Clé du jour d'un instant, à l'heure de Paris.
+export const cleJour = d => JOUR_PARIS.format(d);
+
+// Clé de l'heure d'un instant, telle qu'elle paraît dans la série horaire.
+export const cleHeure = (d = new Date()) => `${cleJour(d)}T${HEURE_PARIS.format(d)}:00`;
+
+/* Clé d'une date construite à partir d'un libellé, lue sur le calendrier de
+   l'appareil : pour l'arithmétique sur les libellés eux-mêmes, où l'instant
+   n'a pas de sens. */
+export const cleJourLocal = d => `${d.getFullYear()}-${deux(d.getMonth() + 1)}-${deux(d.getDate())}`;
+
+/* L'instant d'une heure écrite à l'heure de Paris, « 2026-08-18T09:00 ».
+   `Date.parse` la lisait à l'heure de l'appareil. Trois tours suffisent à
+   caler le décalage, changement d'heure compris. */
+export function instantParis(t) {
+  const [a, m, j, h, mn] = t.split(/[-T:]/).map(Number);
+  const mur = Date.UTC(a, m - 1, j, h || 0, mn || 0);
+  let x = mur - 3600 * 1000;
+  for (let k = 0; k < 3; k++) {
+    const [a2, m2, j2, h2, mn2] = aParis(x).split(/[-T:]/).map(Number);
+    x += mur - Date.UTC(a2, m2 - 1, j2, h2, mn2);
+  }
+  return x;
+}
 
 /* L'heure de la charge en mémoire. Le cache autorisait une relecture toutes les
    heures, rien ne la déclenchait : cette clé est ce que le retour au premier

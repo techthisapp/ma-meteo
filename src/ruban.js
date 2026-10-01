@@ -45,7 +45,7 @@
    ferait du bruit : la forme, les symboles et les seuils nommés suffisent. */
 
 import { angleFleche, TRACE_FLECHE } from "./fleche.js";
-import { nombreFr, jourCourt, heureTxt, esc, cleJour } from "./horloge.js";
+import { nombreFr, jourCourt, heureTxt, esc, cleJourLocal } from "./horloge.js";
 import { plagesDe, dCardinal, CARD_ABR, iCard } from "./previsions.js";
 import { icoCiel, icoTemps, couleurT, couleurUV } from "./icones.js";
 import { alignerSur, LAME } from "./ensemble.js";
@@ -966,7 +966,7 @@ export function dessiner(s) {
   const kFin = Math.min(s.n - 1, dec + FEN - 1);
   const dFin = new Date(`${s.jour[kFin]}T00:00:00`);
   dFin.setHours(s.heure[kFin] + 1);
-  const jFin = cleJour(dFin);
+  const jFin = cleJourLocal(dFin);
   const lib = `${HJ(dec)} à ${nomJour(s, jFin)}${heureTxt(dFin.getHours())}`;
   const chev = droite => `<svg viewBox="0 0 24 24" aria-hidden="true">`
     + `<path d="${droite ? "M9 5l7 7-7 7" : "M15 5l-7 7 7 7"}" fill="none" `

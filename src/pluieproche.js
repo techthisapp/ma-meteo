@@ -21,7 +21,7 @@
    horaire, qui vient d'un autre modèle et les contredirait. */
 
 import { JETON } from "./vigilance.js";
-import { recaler, chercher } from "./horloge.js";
+import { recaler, chercher, instantParis } from "./horloge.js";
 
 const SERVICE = "https://webservice.meteofrance.com/v3/nowcast/rain";
 
@@ -98,12 +98,12 @@ export function lireRepli(d) {
   const parHeure = 60 / PAS_REPLI;
   const pas = m.time.map((t, k) => {
     const mm = m.precipitation[k];
-    if (!Number.isFinite(mm)) return { t: Date.parse(`${t}:00`), i: 0 };
+    if (!Number.isFinite(mm)) return { t: instantParis(t), i: 0 };
     const taux = mm * parHeure;
     const i = mm < SEUILS_REPLI.lame ? 1
       : taux < SEUILS_REPLI.moderee ? 2
         : taux < SEUILS_REPLI.forte ? 3 : 4;
-    return { t: Date.parse(`${t}:00`), i };
+    return { t: instantParis(t), i };
   }).filter(x => Number.isFinite(x.t));
   if (pas.length < 2) return null;
   return { dispo: true, nom: null, maj: null, pas, source: "repli", pasMinutes: PAS_REPLI };
