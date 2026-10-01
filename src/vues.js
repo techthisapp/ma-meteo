@@ -2300,7 +2300,7 @@ export function vueCarte(ctx, rendre, majEtat) {
 
    Le sélecteur se pose en tête du contenu, sous le ciel : le ciel est le sujet,
    on choisit ensuite lequel. Il ne peut pas se poser sur la ligne du titre comme
-   celui de l'écran Le temps, ces deux écrans portant leur titre peint dans le
+   celui de la page « Heure par heure », ces deux écrans portant leur titre peint dans le
    ciel et non dans la coque.
 
    Chaque écran garde son propre corps entier. La fusion ne mêle pas deux
@@ -3899,7 +3899,7 @@ export function vueReglages(ctx, rendre, majEtat) {
   return {
     titre: "Réglages",
     corps:
-      `<div class="carte"><div class="carte-tete"><h3>Écriture de l'écran Le temps</h3></div>`
+      `<div class="carte"><div class="carte-tete"><h3>Écriture de la page « Heure par heure »</h3></div>`
       + `<div class="seg">` + Reglages.ECRITURES.map(([k, n]) =>
         `<button type="button" data-ecriture="${k}"${k === g.ecriture ? ' class="actif"' : ""}>${esc(n)}</button>`)
         .join("") + `</div></div>`

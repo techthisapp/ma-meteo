@@ -1696,6 +1696,12 @@ await pg.locator("#btnReglages").click();
 await pg.waitForTimeout(500);
 ok("les réglages disent la version",
   await pg.evaluate(n => document.getElementById("rgVersion")?.textContent === String(n), versionDit.numero));
+/* La page s'appelle « Heure par heure » depuis la version 104 ; la carte des
+   réglages portait encore l'ancien nom jusqu'à la version 119. */
+const titresReglages = await pg.evaluate(() => [...document.querySelectorAll("#feuille-corps .carte-tete h3")].map(h => h.textContent));
+ok("les réglages nomment l'écriture de la page « Heure par heure »",
+  titresReglages.includes("Écriture de la page « Heure par heure »") && !titresReglages.some(t => /Le temps/.test(t)),
+  JSON.stringify(titresReglages));
 await pg.evaluate(() => history.back());
 await pg.waitForTimeout(500);
 /* La feuille doit s'être refermée : laissée ouverte, elle double les
@@ -2433,6 +2439,13 @@ const eauFeuille = await pg.evaluate(() => {
     piezo: document.querySelector("#feuille-corps .pl-lieu")?.textContent || "" };
 });
 if (tuileEauVue) { await pg.evaluate(() => history.back()); await pg.waitForTimeout(400); }
+/* Une tuile qui ouvre une feuille dit au lecteur d'écran laquelle. Jusqu'à la
+   version 119, toutes disaient « voir l'air qu'on respire », la tuile de l'eau
+   comprise. */
+const tuilesVers = await pg.evaluate(() => Object.fromEntries([...document.querySelectorAll("#ecran .bd-m.tuile[data-feuille]")]
+  .map(b => [b.dataset.feuille, b.getAttribute("aria-label").replace(/^.*, /, "")])));
+ok("une tuile qui ouvre une feuille dit au lecteur d'écran celle qu'elle ouvre",
+  tuilesVers.air === "voir l'air qu'on respire" && tuilesVers.eau === "voir l'eau", JSON.stringify(tuilesVers));
 ok("la tuile de l'eau dit la restriction et la nappe, et une alerte se dit parmi les conseils",
   /L'eau\s*Alerte\s*nappe très haute/.test(eauAcc.tuile) && eauAcc.classe === "v-attention"
   && eauAcc.conseil === "Restriction d'eau : alerte, usages de l'eau encadrés par arrêté.", JSON.stringify(eauAcc));
@@ -3990,7 +4003,7 @@ marquerSection("\n--- La destination Le ciel ---"); console.log("\n--- La destin
 /* Le soleil et la lune sont deux écrans d'une même destination depuis le
    3 septembre 2026. Le sélecteur se pose en tête du contenu, sous le ciel : ces
    deux écrans portent leur titre peint dans le ciel et non dans la coque, où le
-   sélecteur de l'écran Le temps se range. */
+   sélecteur de la page « Heure par heure » se range. */
 await pg.locator('[data-onglet="ciel"]').click();
 await pg.waitForTimeout(500);
 /* Trois écrans depuis le 20 septembre 2026 : le Soleil, la Lune et les
@@ -4020,7 +4033,7 @@ ok("le sélecteur ouvre l'autre écran",
   `${await pg.locator("#ecran #ptLune").count()} lune, `
   + `${await pg.locator("#ecran #ptSoleil").count()} soleil`);
 
-/* Le choix se garde, comme l'écriture de l'écran Le temps : revenir sur Le ciel
+/* Le choix se garde, comme l'écriture de la page « Heure par heure » : revenir sur Le ciel
    rend l'écran qu'on regardait, non le premier des deux. */
 await onglet("accueil");
 await pg.locator('[data-onglet="ciel"]').click();

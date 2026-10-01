@@ -395,6 +395,11 @@ function prochainAstre() {
 
 /* ---------- Écran d'accueil ---------- */
 
+/* Ce qu'un lecteur d'écran dit d'une tuile qui ouvre une feuille : la feuille
+   qu'elle ouvre. Jusqu'à la version 119, toutes disaient « voir l'air qu'on
+   respire », la tuile de l'eau comprise. */
+const TUILE_VERS = { air: "voir l'air qu'on respire", eau: "voir l'eau" };
+
 function ecranAccueil() {
   const g = Reglages.lire();
   const c = P.chargeCourante();
@@ -686,7 +691,7 @@ function ecranAccueil() {
         + (tuiles.length ? `<div class="bd-mesures tuiles">`
           + tuiles.map(([n, v, e, c, voie, sym, teinte, feuille]) =>
             `<button type="button" class="bd-m tuile" `
-            + (feuille ? `data-feuille="${feuille}" aria-label="${esc(n)}, ${esc(v)}, ${esc(e)}, voir l'air qu'on respire">`
+            + (feuille ? `data-feuille="${feuille}" aria-label="${esc(n)}, ${esc(v)}, ${esc(e)}, ${TUILE_VERS[feuille]}">`
               : `data-detail="${esc(voie)}" aria-label="${esc(n)}, ${esc(v)}, ${esc(e)}, voir les vingt-quatre heures">`)
             + `<span class="tu-pa pa-${teinte}">${ico(sym, "")}</span>`
             + `<span class="tu-t"><i>${esc(n)}</i><b${c ? ` class="${c}"` : ""}>${valeurUnite(v)}</b>`

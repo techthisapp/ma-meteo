@@ -66,13 +66,13 @@ Installation sur un nouveau poste : `npm install`, puis
 
 | Commande | Effet |
 |---|---|
-| `bash essais/passe.sh 8137` | La suite complète, sur une copie du dépôt dans `/tmp/passe-<port>` ; une douzaine de minutes, 985 contrôles à la version 119 |
+| `bash essais/passe.sh 8137` | La suite complète, sur une copie du dépôt dans `/tmp/passe-<port>` ; une douzaine de minutes, 987 contrôles à la version 120 |
 | `JUSQUA="La bande horaire" bash essais/passe.sh 8137` | La suite jusqu'à la fin d'une section, ici quatre minutes et environ 145 contrôles |
 | `bash essais/epreuve-bande.sh <n>` | Une erreur volontaire : le script introduit l'erreur numéro n dans une copie et vérifie que le contrôle attendu échoue. Verdicts possibles : vue, non vue, ou épreuve interrompue |
 | `JUSQUA_EPREUVE="<section>" bash essais/epreuve-bande.sh <n>` | Idem quand le contrôle visé est au-delà de la bande horaire |
 
 Les erreurs volontaires sont numérotées dans `essais/epreuve-bande.sh` ; la
-dernière porte le numéro 119. Tout contrôle nouveau a son erreur volontaire, et
+dernière porte le numéro 121. Tout contrôle nouveau a son erreur volontaire, et
 une erreur volontaire éprouvée pendant que son contrôle échoue déjà sur le bon
 code doit être repassée.
 
@@ -130,7 +130,7 @@ Les consignes détaillées du projet sont dans `docs/consignes/`.
 
 ## État au 1er octobre 2026
 
-Version 119, publiée depuis Claude Code. Jalons livrés : 1 à 4, 7 à 18, dont 14, la comparaison ; 15, les
+Version 120, publiée depuis Claude Code. Jalons livrés : 1 à 4, 7 à 18, dont 14, la comparaison ; 15, les
 plages ; 16, la neige ; 17, la semaine au plus loin ; 18, les couches de la
 carte et l'eau. Jalons restants : 6, la justesse des prévisions publiée, vers
 la fin octobre ; 5, la 3D, écartée pour le moment.
@@ -141,9 +141,5 @@ Points connus à reprendre :
    `src/trajets.js`.
 2. Le vent des plages se dit sans rapport au rivage : l'orientation des plages
    manque à la source.
-3. La carte « Écriture de l'écran Le temps » des réglages porte encore l'ancien
-   nom de la page « Heure par heure », `src/vues.js`.
-4. Toute tuile de l'accueil qui ouvre une feuille annonce « voir l'air qu'on
-   respire » aux lecteurs d'écran, la tuile « L'eau » comprise, `src/app.js`.
-5. Les sections de `LISEZ-MOI.md` qui suivent le tableau des écrans gardent le
+3. Les sections de `LISEZ-MOI.md` qui suivent le tableau des écrans gardent le
    récit de leur époque ; le tableau, lui, est à jour au 1er octobre 2026.

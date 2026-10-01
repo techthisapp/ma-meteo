@@ -251,7 +251,7 @@ export function poserEcriture(e) {
 /* Les écrans de la destination Le ciel. Le soleil ouvre : il parle de la journée
    en cours, quand la Lune parle d'un cycle qui déborde la journée.
 
-   Le choix se garde, comme l'écriture de l'écran Le temps : revenir sur Le ciel
+   Le choix se garde, comme l'écriture de la page « Heure par heure » : revenir sur Le ciel
    doit rendre l'écran qu'on regardait, non recommencer au premier. Les étoiles
    s'ajouteront ici au jalon 9 ; un segment qui ne mènerait nulle part
    maintenant serait une promesse que l'application ne tient pas. */

@@ -395,11 +395,18 @@ case "$N" in
   119) # L'ouverture se juge de nouveau sur l'attribut hidden.
      perl -0pi -e 's/  if \(!dejaOuverte\) \{/  if (\$("feuille").hidden) {/' src/app.js
      ATTENDU="une feuille refermée avant sa première image reste fermée, et rouverte pendant sa fermeture reste ouverte" ;;
+  120) # La carte des réglages reprend l'ancien nom de la page.
+     perl -0pi -e 's/<h3>Écriture de la page « Heure par heure »<\/h3>/<h3>Écriture de l\x27écran Le temps<\/h3>/' src/vues.js
+     ATTENDU="les réglages nomment l.écriture de la page « Heure par heure »" ;;
+  121) # Toute tuile qui ouvre une feuille annonce de nouveau l'air qu'on respire.
+     perl -0pi -e 's/\$\{esc\(e\)\}, \$\{TUILE_VERS\[feuille\]\}">/\$\{esc(e)\}, voir l\x27air qu\x27on respire">/' src/app.js
+     ATTENDU="une tuile qui ouvre une feuille dit au lecteur d.écran celle qu.elle ouvre" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
 if diff -q "$OLD/src/bande.js" src/bande.js >/dev/null \
   && diff -q "$OLD/src/app.js" src/app.js >/dev/null \
+  && diff -q "$OLD/src/vues.js" src/vues.js >/dev/null \
   && diff -q "$OLD/styles.css" styles.css >/dev/null \
   && diff -q "$OLD/src/ecritures.js" src/ecritures.js >/dev/null \
   && diff -q "$OLD/src/ruban.js" src/ruban.js >/dev/null \
