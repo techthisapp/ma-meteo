@@ -253,6 +253,19 @@ function separerModeles(brut, modeles) {
 /* La dernière série horaire connue, reprise du cache quand la requête échoue.
    Elle ne sert que si elle couvre encore l'heure en cours : une série de la
    veille rendrait une fenêtre entièrement passée. */
+/* La charge telle qu'elle s'écrit sur l'appareil. La série de secours n'y
+   garde que les colonnes qu'on relit, l'heure, la pluie et la température :
+   entière, elle doublait la taille du cache et le temps de sa lecture à
+   chaque lancement. En mémoire, elle reste entière, la reprise du temps
+   sensible comparant son identité à celle de la série fondue. Audit du
+   1er octobre 2026, constat 5.8. */
+export const COLONNES_SECOURS = ["time", "precipitation", "temperature_2m"];
+function pourCache(c) {
+  const b = c?.horaireSecours;
+  if (!b) return c;
+  return { ...c, horaireSecours: Object.fromEntries(COLONNES_SECOURS.filter(k => Array.isArray(b[k])).map(k => [k, b[k]])) };
+}
+
 /* La dernière charge gardée pour cette clé, tant qu'elle couvre l'heure et le
    jour en cours : c'est elle que l'écran garde hors connexion. */
 function chargeGardee(cle) {
@@ -349,7 +362,7 @@ export async function charger({ lat, lon }) {
     heureCharge = heureCle();
     enEchec = false;
     try {
-      localStorage.setItem(CACHE, JSON.stringify({ cle, t: Date.now(), h: heureCharge, d: charge }));
+      localStorage.setItem(CACHE, JSON.stringify({ cle, t: Date.now(), h: heureCharge, d: pourCache(charge) }));
     } catch { /* quota atteint, le cache n'est pas indispensable */ }
     return charge;
   } catch {

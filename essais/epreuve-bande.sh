@@ -515,6 +515,15 @@ case "$N" in
   159) # La grille de la carte n'est plus relue sur l'appareil.
      perl -0pi -e 's/  if \(!garde\) garde = lireGarde\(CACHE\);\n//' src/nappe.js
      ATTENDU="la grille de la carte se garde sur l.appareil après un relancement" ;;
+  160) # Le ciel animé continue hors de l'écran.
+     perl -0pi -e 's/if \(horsEcran\) arreter\(\); else relancer\(\);/relancer();/' src/temps.js
+     ATTENDU="le ciel animé s.arrête hors de l.écran et reprend à son retour" ;;
+  161) # Un retour au premier plan relance une boucle même si une tourne déjà.
+     perl -0pi -e 's/ \|\| horsEcran \|\| boucle !== null\) return;/ || horsEcran) return;/' src/temps.js
+     ATTENDU="un retour au premier plan ne lance pas de seconde boucle d.animation" ;;
+  162) # La série de secours s'écrit de nouveau entière sur l'appareil.
+     perl -0pi -e 's/  if \(!b\) return c;\n  return \{ \.\.\.c, horaireSecours/  return c;\n  return { ...c, horaireSecours/' src/previsions.js
+     ATTENDU="la série de secours ne garde sur l.appareil que les colonnes relues" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

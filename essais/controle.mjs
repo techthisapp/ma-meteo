@@ -5674,6 +5674,40 @@ for (let k = 0; k < 4; k++) {
 ecouteursDit.apres = await pgLotE.evaluate(() => window.__redimensions());
 ok("la carte redessinée ne multiplie pas ses écouteurs", ecouteursDit.apres === ecouteursDit.premier, JSON.stringify(ecouteursDit));
 
+/* Constats 5.6 et 5.9 : le ciel animé de l'accueil s'arrête quand le
+   défilement le sort de l'écran et reprend à son retour ; un retour au
+   premier plan ne lance pas une seconde boucle, ce qui doublerait le rythme
+   des images demandées. */
+await pgLotE.locator('[data-onglet="accueil"]').click(); await pgLotE.waitForTimeout(700);
+const animeDit = await pgLotE.evaluate(async () => {
+  const T = await import("/src/temps.js");
+  const attendre = ms => new Promise(r => setTimeout(r, ms));
+  const haut = T.anime();
+  window.scrollTo(0, document.documentElement.scrollHeight); await attendre(500);
+  const bas = T.anime();
+  window.scrollTo(0, 0); await attendre(500);
+  const retour = T.anime();
+  const raf = window.requestAnimationFrame;
+  let n = 0;
+  window.requestAnimationFrame = f => { n++; return raf(f); };
+  await attendre(600); const avant = n; n = 0;
+  for (let k = 0; k < 3; k++) document.dispatchEvent(new Event("visibilitychange"));
+  await attendre(600); const apres = n;
+  window.requestAnimationFrame = raf;
+  return { haut, bas, retour, avant, apres };
+});
+ok("le ciel animé s'arrête hors de l'écran et reprend à son retour",
+  animeDit.haut && !animeDit.bas && animeDit.retour, JSON.stringify(animeDit));
+ok("un retour au premier plan ne lance pas de seconde boucle d'animation",
+  animeDit.avant > 0 && animeDit.apres < animeDit.avant * 1.5, JSON.stringify(animeDit));
+
+/* Constat 5.8 : la série de secours écrite sur l'appareil ne garde que les
+   trois colonnes qu'on relit. */
+const secoursDit = await pgLotE.evaluate(() => Object.keys(
+  JSON.parse(localStorage.getItem("mameteo.previsions.v1") || "null")?.d?.horaireSecours || {}).sort().join(","));
+ok("la série de secours ne garde sur l'appareil que les colonnes relues",
+  secoursDit === "precipitation,temperature_2m,time", secoursDit);
+
 /* La grille de la carte, lue une fois, se sert de l'appareil après un
    rechargement de la page, sans nouvelle requête. */
 const grilleE = await pgLotE.evaluate(async () => {

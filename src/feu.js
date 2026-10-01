@@ -432,6 +432,7 @@ function image(ms) {
 export function poser(cv) {
   arreter();
   toileActive = cv || null;
+  suivreEcran(toileActive);
   if (!toileActive) return;
   if (figee()) { dessiner(toileActive, 6.2, Number(toileActive.dataset.chaud)); return; }
   debut = null;
@@ -443,11 +444,34 @@ export function arreter() {
   if (boucle !== null) { cancelAnimationFrame(boucle); boucle = null; }
 }
 
+/* La boucle ne tourne que si la toile est à l'écran : elle continuait à trente
+   images par seconde une fois le ciel sorti par le défilement. Une seule
+   relance pour le retour au premier plan comme pour le retour à l'écran, et
+   seulement si aucune boucle ne tourne déjà : deux boucles pouvaient sinon
+   tourner ensemble après un rendu fait en arrière-plan. Audit du 1er octobre
+   2026, constats 5.6 et 5.9. */
+let observateur = null;
+let horsEcran = false;
+
+function relancer() {
+  if (!toileActive || !toileActive.isConnected || figee() || document.hidden || horsEcran || boucle !== null) return;
+  debut = null;
+  boucle = requestAnimationFrame(image);
+}
+
+function suivreEcran(cv) {
+  observateur?.disconnect();
+  observateur = null;
+  horsEcran = false;
+  if (!cv || typeof IntersectionObserver !== "function") return;
+  observateur = new IntersectionObserver(([e]) => {
+    horsEcran = !e.isIntersecting;
+    if (horsEcran) arreter(); else relancer();
+  });
+  observateur.observe(cv);
+}
+
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) arreter();
-  else if (toileActive && toileActive.isConnected && !figee()) {
-    // La reprise repart de l'instant courant : le feu ne saute pas.
-    debut = null;
-    boucle = requestAnimationFrame(image);
-  }
+  else relancer();
 });
