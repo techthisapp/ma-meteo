@@ -12,6 +12,7 @@ import { PLAGES, SAISON_QUALITE } from "./plages.js";
 import { distanceKm } from "./postes.js";
 import { dureesMinutes } from "./trajets.js";
 import { cardinal } from "./previsions.js";
+import { recaler } from "./horloge.js";
 
 export const RAYON_KM = 100;
 export const MINUTES_MAX = 60;
@@ -261,7 +262,7 @@ export async function chargerPlage(g, heure, fetcheur = fetch) {
     const vues = choisir(proches);
     try {
       const [rm, ra] = await Promise.all([fetcheur(adresseMer(vues)), fetcheur(adresseAir(vues))]);
-      const mer = rm.ok ? await rm.json() : [], air = ra.ok ? await ra.json() : [];
+      const mer = rm.ok ? recaler(await rm.json()) : [], air = ra.ok ? recaler(await ra.json()) : [];
       const tm = Array.isArray(mer) ? mer : [mer], ta = Array.isArray(air) ? air : [air];
       const communes = await Promise.all(vues.map(p => communeDe(p, fetcheur)));
       resumes = vues.map((p, i) => ({ ...p, commune: communes[i], mer: resumeMer(tm[i], heure), air: resumeAir(ta[i], heure),
@@ -295,7 +296,7 @@ export async function lireMerCarte(heure, fetcheur = fetch) {
     hourly: "sea_surface_temperature,wave_height" });
   const r = await fetcheur(`${MARIN}?${q}`);
   if (!r.ok) throw new Error(`mer ${r.status}`);
-  const d = await r.json();
+  const d = recaler(await r.json());
   const t = Array.isArray(d) ? d : [d];
   const r1 = v => (Number.isFinite(v) ? Math.round(v * 10) / 10 : null);
   const l = pts.map((p, i) => {

@@ -28,7 +28,7 @@ Les sources de données, toutes interrogées depuis le navigateur :
 
 | Source | Emploi | Particularités |
 |---|---|---|
-| Open-Meteo | Prévision, ensembles, archive, mer, sol, neige, air | Quota gratuit compté par adresse : des essais répétés depuis un même poste finissent en refus 429. Le téléphone de l'utilisateur n'est pas concerné |
+| Open-Meteo | Prévision, ensembles, archive, mer, sol, neige, air | Quota gratuit compté par adresse : des essais répétés depuis un même poste finissent en refus 429. Le téléphone de l'utilisateur n'est pas concerné. Une réponse garde un seul décalage horaire, celui du moment de la requête : toute lecture passe par `recaler` de `src/horloge.js`, qui la récrit à l'heure de Paris |
 | Météo-France | Vigilance | |
 | VigiEau | Restrictions d'eau, par département et pour un point | Accepte les requêtes de l'application |
 | Hub'eau | Nappes, rivières, étiage ONDE, température de l'eau | Lent, huit à treize secondes par appel ; les lectures se font après l'affichage, avec trente secondes d'attente au plus |
@@ -66,13 +66,13 @@ installe Playwright 1.63.0, puis `npx playwright install chromium`.
 
 | Commande | Effet |
 |---|---|
-| `bash essais/passe.sh 8137` | La suite complète, sur une copie du dépôt dans `/tmp/passe-<port>` ; une douzaine de minutes, 988 contrôles depuis le lot A de l'audit |
+| `bash essais/passe.sh 8137` | La suite complète, sur une copie du dépôt dans `/tmp/passe-<port>` ; une douzaine de minutes, 990 contrôles à la version 121 |
 | `JUSQUA="La bande horaire" bash essais/passe.sh 8137` | La suite jusqu'à la fin d'une section, ici quatre minutes et environ 145 contrôles |
 | `bash essais/epreuve-bande.sh <n>` | Une erreur volontaire : le script introduit l'erreur numéro n dans une copie et vérifie que le contrôle attendu échoue. Verdicts possibles : vue, non vue, ou épreuve interrompue |
 | `JUSQUA_EPREUVE="<section>" bash essais/epreuve-bande.sh <n>` | Idem quand le contrôle visé est au-delà de la bande horaire |
 
 Les erreurs volontaires sont numérotées dans `essais/epreuve-bande.sh` ; la
-dernière porte le numéro 122. Tout contrôle nouveau a son erreur volontaire, et
+dernière porte le numéro 125. Tout contrôle nouveau a son erreur volontaire, et
 une erreur volontaire éprouvée pendant que son contrôle échoue déjà sur le bon
 code doit être repassée.
 
@@ -132,7 +132,7 @@ Les consignes détaillées du projet sont dans `docs/consignes/`.
 
 ## État au 1er octobre 2026
 
-Version 120, publiée depuis Claude Code. Jalons livrés : 1 à 4, 7 à 18, dont 14, la comparaison ; 15, les
+Version 121, publiée depuis Claude Code. Jalons livrés : 1 à 4, 7 à 18, dont 14, la comparaison ; 15, les
 plages ; 16, la neige ; 17, la semaine au plus loin ; 18, les couches de la
 carte et l'eau. Jalons restants : 6, la justesse des prévisions publiée, vers
 la fin octobre ; 5, la 3D, écartée pour le moment.

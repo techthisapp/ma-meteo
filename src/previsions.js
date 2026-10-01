@@ -8,7 +8,7 @@
 
    Rien de ce qui est au-dessus de ce module ne sait qu'il existe deux modèles. */
 
-import { cleJour, cleHeure, heureCle } from "./horloge.js";
+import { cleJour, cleHeure, heureCle, recaler, heuresDeParis } from "./horloge.js";
 
 const CACHE = "mameteo.previsions.v1";
 const TTL = 3600 * 1000;
@@ -261,7 +261,7 @@ async function prendre(url, essais) {
   for (let k = 0; k <= essais; k++) {
     try {
       const r = await fetch(url);
-      if (r.ok) return await r.json();
+      if (r.ok) return recaler(await r.json());
     } catch { /* réseau indisponible, on retente */ }
   }
   return null;
@@ -272,7 +272,7 @@ export async function charger({ lat, lon }) {
   /* La clé porte aussi la règle de lecture du temps sensible : une charge
      écrite avant elle porte les codes bruts, et la servir ferait reparaître la
      bruine qu'un seul modèle voit jusqu'à la fin de l'heure. */
-  const cle = `${lat},${lon}|${JOURS}j|${JOURS_AROME}a|${PASSE_H}p|${COLONNES}c|apaise1`;
+  const cle = `${lat},${lon}|${JOURS}j|${JOURS_AROME}a|${PASSE_H}p|${COLONNES}c|apaise1|recale1`;
   try {
     const c = JSON.parse(localStorage.getItem(CACHE) || "null");
     if (c && c.cle === cle && c.h === heureCle() && Date.now() - c.t < TTL) {
@@ -624,7 +624,12 @@ export function momentsJour(date) {
     if (t.slice(0, 10) !== date) return;
     lots[Math.floor(Number(t.slice(11, 13)) / 6)].push(j);
   });
-  if (lots.some(l => l.length !== 6)) return null;
+  /* Une tranche est complète quand elle porte toutes les heures que l'horloge
+     de Paris connaît ce jour-là : cinq pour la nuit du passage à l'heure
+     d'été, où deux heures du matin n'existe pas. */
+  const existe = heuresDeParis(date);
+  const attendues = [0, 1, 2, 3].map(q => [0, 1, 2, 3, 4, 5].filter(k => existe.has(q * 6 + k)).length);
+  if (lots.some((l, q) => l.length !== attendues[q])) return null;
 
   const val = (c, j) => {
     const v = (h[c] || [])[j];

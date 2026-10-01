@@ -4,6 +4,8 @@
    l'après-midi, le soir ou le lendemain. Une seule requête pour toutes les
    villes, gardée une heure. */
 
+import { recaler } from "./horloge.js";
+
 export const VILLES = [
   ["Paris", 48.857, 2.352], ["Lyon", 45.764, 4.836], ["Marseille", 43.296, 5.37], ["Toulouse", 43.605, 1.444],
   ["Bordeaux", 44.838, -0.579], ["Lille", 50.629, 3.057], ["Nantes", 47.218, -1.554], ["Strasbourg", 48.573, 7.752],
@@ -57,7 +59,7 @@ export async function lireVilles(fetcheur = fetch) {
   if (lu && Date.now() - lu.t < GARDE) return lu.l;
   const r = await fetcheur(adresseVilles());
   if (!r.ok) throw new Error(`villes ${r.status}`);
-  const d = await r.json();
+  const d = recaler(await r.json());
   const l = Array.isArray(d) ? d : [d];
   lu = { t: Date.now(), l };
   return l;

@@ -15,7 +15,7 @@
    par pas de vingt. Les deux seuils de chaque pollen sont ceux que le service de
    pollens de Copernicus emploie lui-même pour délimiter la saison et le pic. */
 
-import { cleHeure } from "./horloge.js";
+import { cleHeure, recaler } from "./horloge.js";
 
 const SERVICE = "https://air-quality-api.open-meteo.com/v1/air-quality";
 const JOURS = 4;
@@ -141,7 +141,7 @@ export async function charger({ lat, lon }) {
   try {
     const r = await fetch(`${SERVICE}?latitude=${lat}&longitude=${lon}`
       + `&timezone=Europe%2FParis&hourly=${colonnes.join(",")}&forecast_days=${JOURS}`);
-    if (r.ok) d = reduire((await r.json()).hourly);
+    if (r.ok) d = reduire(recaler(await r.json()).hourly);
   } catch { d = null; }
   charge = d;
   if (d) {

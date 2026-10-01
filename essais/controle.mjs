@@ -5232,10 +5232,11 @@ ok("l'évapotranspiration est demandée en horaire et en quotidien",
 ok("la signature des colonnes entre dans la clé du cache",
   await pg.evaluate(() => {
     const c = JSON.parse(localStorage.getItem("mameteo.previsions.v1") || "null");
-    /* La clé porte la signature des colonnes, puis le jeton de la règle de
-       lecture du temps sensible : deux raisons distinctes de ne pas servir une
-       charge écrite par une version d'avant. */
-    return c && /\|[0-9a-z]+c\|apaise1$/.test(c.cle) ? "" : `clé ${c ? c.cle : "absente"}`;
+    /* La clé porte la signature des colonnes, le jeton de la règle de lecture
+       du temps sensible, puis celui du recalage des heures sur l'heure de
+       Paris : trois raisons distinctes de ne pas servir une charge écrite par
+       une version d'avant. */
+    return c && /\|[0-9a-z]+c\|apaise1\|recale1$/.test(c.cle) ? "" : `clé ${c ? c.cle : "absente"}`;
   }) === "");
 await pg.locator("#feuille-fermer").click();
 await pg.waitForTimeout(400);
@@ -5258,6 +5259,48 @@ ok("l'état vide porte un symbole, un titre, une phrase et une action",
 ok("l'état vide propose une action secondaire",
   await pgVide.locator('.etat-vide .bouton-borde[data-action="geo"]').count() === 1);
 await ctxVide.close();
+
+/* Le changement d'heure, vérifié le 1er octobre 2026 : Open-Meteo écrit toute
+   une réponse avec le décalage du moment de la requête, vingt-quatre heures
+   par jour. Une prévision lue en heure d'été autour du 25 octobre se lit à
+   l'heure de Paris, l'heure en double retirée ; lue en heure d'hiver autour du
+   28 mars 2027, elle porte vingt-trois heures ce jour-là et ses quatre moments
+   s'ouvrent. La température vaut le rang de l'heure dans la réponse : midi le
+   26 octobre, à l'heure d'hiver, est la heure écrite 13 h, rang 61. */
+const ctxHeure = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+await ctxHeure.route(/api\.open-meteo\.com/, route => {
+  const u = new URL(route.request().url());
+  if (u.searchParams.get("models")) { route.fulfill({ status: 404, body: "" }); return; }
+  const ete = u.searchParams.get("latitude") === "45.5";
+  const jours = ete ? ["2026-10-24", "2026-10-25", "2026-10-26"] : ["2027-03-27", "2027-03-28", "2027-03-29"];
+  const d = { utc_offset_seconds: ete ? 7200 : 3600 };
+  const colonnes = nom => (u.searchParams.get(nom) || "").split(",").filter(Boolean);
+  if (colonnes("daily").length) d.daily = { time: jours, ...Object.fromEntries(colonnes("daily").map(c => [c, jours.map(() => 1)])) };
+  if (colonnes("hourly").length) {
+    const time = jours.flatMap(j => Array.from({ length: 24 }, (_, h) => `${j}T${String(h).padStart(2, "0")}:00`));
+    d.hourly = { time, ...Object.fromEntries(colonnes("hourly").map(c => [c, time.map((_, i) => i)])) };
+  }
+  route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
+});
+const pgHeure = await ctxHeure.newPage();
+await ouvrirPage(pgHeure);
+const heureDit = await pgHeure.evaluate(async () => {
+  const P = await import("/src/previsions.js");
+  const h = (await P.charger({ lat: 45.5, lon: 5 }))?.hourly;
+  const oct25 = h ? h.time.filter(t => t.startsWith("2026-10-25")).length : -1;
+  const midi26 = h ? h.temperature_2m[h.time.indexOf("2026-10-26T12:00")] : null;
+  const m = (await P.charger({ lat: 46.5, lon: 5 }))?.hourly;
+  const mars28 = m ? m.time.filter(t => t.startsWith("2027-03-28")).length : -1;
+  return { oct25, midi26, mars28, moments: P.momentsJour("2027-03-28")?.length ?? null };
+});
+ok("une prévision lue en heure d'été se lit à l'heure de Paris après le passage à l'heure d'hiver",
+  heureDit.oct25 === 24 && heureDit.midi26 === 61, JSON.stringify(heureDit));
+ok("le jour du passage à l'heure d'été porte vingt-trois heures et ouvre ses quatre moments",
+  heureDit.mars28 === 23 && heureDit.moments === 4, JSON.stringify(heureDit));
+await ctxHeure.close();
 
 marquerSection("\n--- Suivi de la position ---"); console.log("\n--- Suivi de la position ---");
 

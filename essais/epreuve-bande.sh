@@ -404,12 +404,21 @@ case "$N" in
   122) # L'application interroge un hôte qu'aucune route d'essai ne sert.
      perl -0pi -e 's/\z/\nfetch("https:\/\/exemple.invalid\/fuite").catch(() => {});\n/' src/app.js
      ATTENDU="aucune requête ne sort vers le vrai réseau" ;;
+  123) # Les réponses d'Open-Meteo ne sont plus recalées sur l'heure de Paris.
+     perl -0pi -e 's/if \(r\.ok\) return recaler\(await r\.json\(\)\);/if (r.ok) return await r.json();/' src/previsions.js
+     ATTENDU="une prévision lue en heure d.été se lit à l.heure de Paris après le passage à l.heure d.hiver" ;;
+  124) # Les quatre moments exigent de nouveau six heures par tranche.
+     perl -0pi -e 's/if \(lots\.some\(\(l, q\) => l\.length !== attendues\[q\]\)\) return null;/if (lots.some(l => l.length !== 6)) return null;/' src/previsions.js
+     ATTENDU="le jour du passage à l.heure d.été porte vingt-trois heures et ouvre ses quatre moments" ;;
+  125) # L'heure en double du passage à l'heure d'hiver n'est plus retirée.
+     perl -0pi -e 's/if \(!vus\.has\(t\)\) \{ vus\.add\(t\); garder\.push\(i\); \}/garder.push(i);/' src/horloge.js
+     ATTENDU="une prévision lue en heure d.été se lit à l.heure de Paris après le passage à l.heure d.hiver" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
 if diff -q "$OLD/src/bande.js" src/bande.js >/dev/null \
   && diff -q "$OLD/src/app.js" src/app.js >/dev/null \
-  && diff -q "$OLD/src/vues.js" src/vues.js >/dev/null \
+  && diff -q "$OLD/src/horloge.js" src/horloge.js >/dev/null \
   && diff -q "$OLD/styles.css" styles.css >/dev/null \
   && diff -q "$OLD/src/ecritures.js" src/ecritures.js >/dev/null \
   && diff -q "$OLD/src/ruban.js" src/ruban.js >/dev/null \

@@ -16,6 +16,8 @@
    13 degrés est : la nappe s'y arrête, ce qui est exact, elle ne sait rien
    au delà. */
 
+import { recaler } from "./horloge.js";
+
 export const S = 41.0, N = 51.4, O = -5.6, E = 10.0;
 export const PAS_LAT = 0.55, PAS_LON = 0.80;
 export const COLS = Math.round((E - O) / PAS_LON) + 1;   // 20
@@ -130,7 +132,7 @@ export async function charger(fetcheur = fetch) {
   let d = null;
   try {
     const r = await fetcheur(adresse());
-    if (r.ok) d = lire(await r.json());
+    if (r.ok) d = lire(recaler(await r.json()));
   } catch { d = null; }
   garde = { d, exp: t + (d ? GARDE : 60 * 1000) };
   return d;
@@ -164,7 +166,7 @@ export async function chargerAir(fetcheur = fetch) {
   let d = null;
   try {
     const r = await fetcheur(adresseAir());
-    if (r.ok) d = lireAir(await r.json());
+    if (r.ok) d = lireAir(recaler(await r.json()));
   } catch { d = null; }
   gardeAir = { d, exp: t + (d ? GARDE_AIR : 60 * 1000) };
   return d;

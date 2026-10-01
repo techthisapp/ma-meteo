@@ -16,6 +16,7 @@
 
 import { rangDe, NOMS } from "./vigieau.js";
 import { distanceKm } from "./postes.js";
+import { recaler } from "./horloge.js";
 
 const VIGIEAU = "https://api.vigieau.gouv.fr/api/zones";
 const HUBEAU = "https://hubeau.eaufrance.fr/api/v1/niveaux_nappes";
@@ -357,7 +358,7 @@ export async function lireSol(g, aujourdhui, fetcheur = fetch) {
     hourly: "soil_moisture_9_to_27cm", daily: "precipitation_sum,et0_fao_evapotranspiration", past_days: "7", forecast_days: "4" });
   const r = await fetcheur(`${PREVISION_SOL}?${q}`);
   if (!r.ok) throw new Error(`sol ${r.status}`);
-  return bilanSol(await r.json(), aujourdhui);
+  return bilanSol(recaler(await r.json()), aujourdhui);
 }
 
 /* L'état de l'eau pour la commune affichée. */

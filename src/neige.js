@@ -13,6 +13,7 @@
 
 import { STATIONS } from "./stations.js";
 import { distanceKm } from "./postes.js";
+import { recaler } from "./horloge.js";
 
 export const RAYON_KM = 100;
 export const MINUTES_MAX = 60;
@@ -149,7 +150,7 @@ export async function lireNeige(stations, heure, fetcheur = fetch) {
   if (lue.has(cle)) return lue.get(cle);
   const r = await fetcheur(u);
   if (!r.ok) throw new Error(`neige ${r.status}`);
-  const res = reduireNeige(await r.json(), stations, heure);
+  const res = reduireNeige(recaler(await r.json()), stations, heure);
   lue.set(cle, res);
   return res;
 }
@@ -239,7 +240,7 @@ export async function lireNeigeCarte(heure, fetcheur = fetch) {
     elevation: pts.map(s => Math.round(s.sommet)).join(","), hourly: "snow_depth", forecast_days: "1", timezone: "Europe/Paris" });
   const r = await fetcheur(`${PREVISION}?${q}`);
   if (!r.ok) throw new Error(`neige ${r.status}`);
-  const d = await r.json();
+  const d = recaler(await r.json());
   const t = Array.isArray(d) ? d : [d];
   const l = pts.map((s, i) => {
     const h = t[i]?.hourly;

@@ -38,6 +38,61 @@ export const jourLong = t =>
 
 export const heureTxt = h => `${deux(h)} h`;
 
+/* Les heures d'Open-Meteo, recalées sur l'heure de Paris. Le service écrit
+   toute une réponse avec un seul décalage, celui du moment de la requête, et
+   vingt-quatre heures par jour : vérifié le 1er octobre 2026 sur l'archive
+   autour du 26 octobre 2025 et sur la prévision de Sydney autour du 4 octobre
+   2026. Une prévision lue avant le passage à l'heure d'hiver écrivait donc les
+   heures suivantes en heure d'été, et l'écran les montrait en retard d'une
+   heure. Chaque heure est convertie en instant par le décalage annoncé, puis
+   récrite à l'heure de Paris. Le jour de l'heure d'hiver, la seconde heure de
+   deux heures du matin est retirée de toutes les colonnes ; le jour de l'heure
+   d'été, deux heures du matin manque, comme à l'horloge. */
+const PARIS = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Paris", year: "numeric", month: "2-digit",
+  day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+const aParis = ms => PARIS.format(ms).replace(" ", "T");
+
+export const enHeureDeParis = (t, decalage) => {
+  const [a, m, j, h, mn] = t.split(/[-T:]/).map(Number);
+  return aParis(Date.UTC(a, m - 1, j, h || 0, mn || 0) - decalage * 1000);
+};
+
+function recalerSerie(b, decalage) {
+  const n = b.time.length;
+  if (!n) return;
+  const temps = b.time.map(t => enHeureDeParis(t, decalage));
+  if (temps.every((t, i) => t === b.time[i])) return;
+  const vus = new Set(), garder = [];
+  temps.forEach((t, i) => { if (!vus.has(t)) { vus.add(t); garder.push(i); } });
+  for (const [c, v] of Object.entries(b)) {
+    if (Array.isArray(v) && v.length === n) b[c] = garder.map(i => (c === "time" ? temps[i] : v[i]));
+  }
+}
+
+export function recaler(d) {
+  if (Array.isArray(d)) return d.map(recaler);
+  const decalage = d?.utc_offset_seconds;
+  if (!Number.isFinite(decalage)) return d;
+  for (const nom of ["hourly", "minutely_15"]) if (Array.isArray(d[nom]?.time)) recalerSerie(d[nom], decalage);
+  for (const c of ["sunrise", "sunset"]) {
+    if (Array.isArray(d.daily?.[c])) d.daily[c] = d.daily[c].map(t => (typeof t === "string" && t.includes("T") ? enHeureDeParis(t, decalage) : t));
+  }
+  if (typeof d.current?.time === "string") d.current.time = enHeureDeParis(d.current.time, decalage);
+  return d;
+}
+
+/* Les heures qui existent à Paris un jour donné : vingt-trois le jour de
+   l'heure d'été, deux heures du matin manquant. */
+export function heuresDeParis(date) {
+  const [a, m, j] = date.split("-").map(Number);
+  const out = new Set();
+  for (let k = -3; k < 27; k++) {
+    const t = aParis(Date.UTC(a, m - 1, j, k));
+    if (t.startsWith(date)) out.add(Number(t.slice(11, 13)));
+  }
+  return out;
+}
+
 /* Un instant, dit comme on le dirait : « 14 h » quand l'heure est ronde,
    « 14:30 » sinon, et le jour devant quand ce n'est pas aujourd'hui. Sans le
    jour, « jusqu'à 06 h » se lirait comme dans une heure. */

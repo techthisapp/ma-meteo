@@ -21,6 +21,7 @@
    horaire, qui vient d'un autre modèle et les contredirait. */
 
 import { JETON } from "./vigilance.js";
+import { recaler } from "./horloge.js";
 
 const SERVICE = "https://webservice.meteofrance.com/v3/nowcast/rain";
 
@@ -115,7 +116,7 @@ async function chargerRepli(lat, lon, fetcheur) {
   try {
     const r = await fetcheur(u);
     if (!r.ok) return null;
-    return lireRepli(await r.json());
+    return lireRepli(recaler(await r.json()));
   } catch { return null; }
 }
 
