@@ -76,6 +76,8 @@ const D = {
     + '<g class="ic-b"><path d="M12 13c1.2 1.3 2 2.2 2 3.4a2 2 0 0 1-4 0c0-1 .6-1.8 2-3.4z"'
     + ' stroke-linejoin="round"/></g>',
   vent: '<path d="M3 8.4h11a3 3 0 1 0-3-3M3 13h15a3 3 0 1 1-3 3M3 17.6h8"/>',
+  /* Les cours d'eau sur la carte, jalon 18 : deux lignes qui serpentent. */
+  riviere: '<path d="M8 3c-3 3 3 6 0 9s3 6 0 9M16 3c-3 3 3 6 0 9s3 6 0 9"/>',
   /* La mer, pour les plages sur la carte, jalon 18. */
   vague: '<path d="M3 9c1.5-1.6 3-1.6 4.5 0s3 1.6 4.5 0 3-1.6 4.5 0 3 1.6 4.5 0M3 14c1.5-1.6 3-1.6 4.5 0s3 1.6 4.5 0 3-1.6 4.5 0 3 1.6 4.5 0M3 19c1.5-1.6 3-1.6 4.5 0s3 1.6 4.5 0 3-1.6 4.5 0 3 1.6 4.5 0"/>',
   lune: '<g class="ic-b"><path d="M20.2 14.6A8.6 8.6 0 0 1 9.4 3.8a8.6 8.6 0 1 0 10.8 10.8z"/></g>',

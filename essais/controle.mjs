@@ -571,6 +571,21 @@ function hydroCorps(u) {
       { code_station: "H0000001", libelle_station: "LA SEINE A FAIN - ECHELLE DE SECOURS", libelle_cours_eau: "LA SEINE", longitude_station: FAIN.lon + 0.004, latitude_station: FAIN.lat },
       { code_station: "H0000002", libelle_station: "LA SEINE A FAIN", libelle_cours_eau: "LA SEINE", longitude_station: FAIN.lon + 0.03, latitude_station: FAIN.lat }] };
   }
+  /* Les cours d'eau sur la carte : trois stations autour de la commune d'essai,
+     les mesures de la plus récente à la plus ancienne. La première monte de
+     quatre centimètres en six heures, la deuxième baisse de trois, la
+     troisième est stable. */
+  if (u.includes("/observations_tr?bbox=")) {
+    /* Une dizaine de kilomètres autour de la commune : plus près, les trois
+       étiquettes tombaient sur son repère et s'effaçaient, comme le veut la
+       règle des chevauchements. */
+    const st = [["R1", 0.15, 0.07, 800, 840], ["R2", -0.16, -0.06, 500, 470], ["R3", 0.03, -0.13, 300, 305]];
+    const data = [];
+    for (let k = 6; k >= 0; k--) for (const [code, dlo, dla, a, b] of st)
+      data.push({ code_station: code, latitude: FAIN.lat + dla, longitude: FAIN.lon + dlo,
+        date_obs: `2026-08-18T0${9 - (6 - k) > 9 ? 9 : 3 + k}:00:00Z`, resultat_obs: a + Math.round((b - a) * k / 6) });
+    return { count: data.length, data };
+  }
   if (u.includes("/observations_tr")) {
     const debit = u.includes("H0000002");
     const data = [];
@@ -2508,6 +2523,17 @@ const pointsDit = await pg.evaluate(async () => {
 });
 ok("les plages de la carte s'espacent de soixante kilomètres, les grands domaines de vingt-cinq, les plus grands d'abord",
   pointsDit.plages === "P0 P70 P140" && pointsDit.domaines === "Grand Loin", JSON.stringify(pointsDit));
+/* Jalon 18, lot 3 : la lecture des cours d'eau d'un cadre, regroupée par
+   station, quel que soit l'ordre des mesures. */
+const rivPur = await pg.evaluate(async () => {
+  const E = await import("/src/eau.js");
+  const o = (c, t, v) => ({ code_station: c, date_obs: `2026-08-18T0${t}:00:00Z`, resultat_obs: v, latitude: 47, longitude: 4 });
+  const repond = async () => ({ ok: true, json: async () => ({ data: [o("A", 3, 100), o("B", 9, 50), o("A", 9, 130), o("B", 3, 80), o("A", 6, 110)] }) });
+  const l = await E.lireRivieresCarte({ o: 3, s: 46, e: 5, n: 48 }, new Date("2026-08-18T10:00:00Z"), repond);
+  return l.map(r => `${r.code}:${r.h}:${r.ecart}`).sort().join(" ");
+});
+ok("les cours d'eau d'un cadre se regroupent par station, la hauteur la plus récente et l'écart sur six heures",
+  rivPur === "A:130:30 B:50:-30", rivPur);
 ok("le graphique borne sa largeur, et se résume en une phrase",
   semGraphe.borne === "520px"
   && semGraphe.resume === "De 25 à 30 degrés au plus chaud, 5,4 millimètres de pluie en tout.",
@@ -9838,6 +9864,27 @@ ok("le choix de la nappe d'air se garde d'une visite à l'autre",
     const R = await import("/src/reglages.js");
     return R.nappe() === "air" ? "" : `réglage ${R.nappe()}`;
   }) === "");
+
+/* Jalon 18, lot 3 : les cours d'eau sur la carte. Sur la France entière, aucune
+   lecture, et l'invitation à zoomer ; à l'échelle du département, une lecture de
+   la zone visible et les trois stations, chacune avec sa hauteur et sa
+   tendance. Dernier contrôle de la page : il déplace la vue. */
+const rivAvant = appelsHubeau.filter(u => u.includes("observations_tr?bbox=")).length;
+await pgNap.locator("#caRivieres").evaluate(b => b.click());
+await pgNap.waitForTimeout(1500);
+const rivFrance = { lectures: appelsHubeau.filter(u => u.includes("observations_tr?bbox=")).length - rivAvant,
+  mot: await pgNap.evaluate(() => document.getElementById("caMot")?.textContent || "") };
+await pgNap.locator("#caIci").evaluate(b => b.click());
+await pgNap.waitForTimeout(500);
+for (let k = 0; k < 4; k++) { await pgNap.locator("#caPlus").evaluate(b => b.click()); await pgNap.waitForTimeout(300); }
+await pgNap.waitForFunction(() => document.querySelectorAll(".ca-pv-riv:not([hidden])").length === 3, null, { timeout: 8000 }).catch(() => {});
+const rivZoom = await pgNap.evaluate(() => [...document.querySelectorAll(".ca-pv-riv:not([hidden])")].map(e => `${e.textContent}`
+  + (e.querySelector(".ca-t-haut") ? " haut" : e.querySelector(".ca-t-bas") ? " bas" : "")).sort().join(" | "));
+const rivMention = await pgNap.evaluate(() => /Cours d'eau Hub'eau/.test(document.getElementById("caCredit")?.textContent || ""));
+await pgNap.locator("#caRivieres").evaluate(b => b.click());
+ok("les cours d'eau ne se lisent qu'en zoomant, et chaque station dit sa hauteur et sa tendance",
+  rivFrance.lectures === 0 && /Zoomez/.test(rivFrance.mot)
+  && rivZoom === "0,31 m | 0,47 m bas | 0,84 m haut" && rivMention, JSON.stringify({ rivFrance, rivZoom, rivMention }));
 
 await ctxNap.close();
 

@@ -1480,6 +1480,9 @@ export function vueCarte(ctx, rendre, majEtat) {
       + `<button type="button" class="ca-ch" id="caNeige" role="switch" `
       + `aria-checked="${Reglages.neigecarte() ? "true" : "false"}">`
       + ico("neige", "") + `<span>Neige</span></button>`
+      + `<button type="button" class="ca-ch" id="caRivieres" role="switch" `
+      + `aria-checked="${Reglages.rivierecarte() ? "true" : "false"}">`
+      + ico("riviere", "") + `<span>Cours d'eau</span></button>`
       + `</div>`
       + `</div>`
       + `<p class="ca-mot" id="caMot" role="status" hidden></p>`
@@ -1522,6 +1525,11 @@ export function vueCarte(ctx, rendre, majEtat) {
       const zonePrev = bloc.querySelector("#caPrevs"), momentsEl = bloc.querySelector("#caMoments");
       let previAllume = Reglages.previcarte(), villesLues = null;
       let plagesAllume = Reglages.plagecarte(), merLue = null, neigeAllume = Reglages.neigecarte(), neigeLue = null;
+      /* Les cours d'eau : à partir d'un zoom de l'ordre du département, la zone
+         visible élargie d'un tiers, lue une fois la carte immobile, réutilisée
+         tant qu'on y reste pendant dix minutes. */
+      const ZOOM_RIVIERES = 7.5;
+      let rivAllume = Reglages.rivierecarte(), rivLue = null, rivZone = null, rivT = 0, rivMinuteur = null;
       let momentPrev = Villes.momentDe(Number(cleHeure().slice(11, 13)));
 
       /* Les repères sont créés une fois et déplacés ensuite : les recréer à
@@ -1562,6 +1570,7 @@ export function vueCarte(ctx, rendre, majEtat) {
         const pris = boutons.filter(b => !b.hidden).map(b => ({
           x: parseFloat(b.style.getPropertyValue("--rx")), y: parseFloat(b.style.getPropertyValue("--ry")), w: 30, h: 30 }));
         zonePrev?.querySelectorAll(".ca-pv").forEach(el => {
+          if (el.classList.contains("ca-pv-riv") && vue.z < ZOOM_RIVIERES) { el.hidden = true; return; }
           const p = Carte.surEcran(vue, Number(el.dataset.lat), Number(el.dataset.lon), l, h);
           el.hidden = false;
           const w = el.offsetWidth || 48, ht = el.offsetHeight || 22;
@@ -1576,6 +1585,7 @@ export function vueCarte(ctx, rendre, majEtat) {
         });
         const e = Carte.echelleBarre(vue, cv.clientWidth);
         barre.style.setProperty("--eb", `${Math.round(e.px)}px`);
+        if (rivAllume) planRivieres();
         barre.querySelector("span").textContent = `${e.km} km`;
       };
 
@@ -1885,6 +1895,7 @@ export function vueCarte(ctx, rendre, majEtat) {
           + (previAllume || plagesAllume || neigeAllume ? `<span>${[previAllume && "Prévisions", plagesAllume && "mer",
             neigeAllume && "neige"].filter(Boolean).join(", ").replace(/^./, c => c.toUpperCase())} Open-Meteo</span>` : "")
           + (neigeAllume ? `<span>Stations OpenSkiMap, © contributeurs OpenStreetMap</span>` : "")
+          + (rivAllume ? `<span>Cours d'eau Hub'eau</span>` : "")
           + (choisie === "eau" ? `<span>Restrictions <a href="https://vigieau.gouv.fr" target="_blank" `
             + `rel="noopener noreferrer">VigiEau</a></span>` : "")
           + (foudreAllume || nuagesAllume
@@ -2095,7 +2106,11 @@ export function vueCarte(ctx, rendre, majEtat) {
           + `data-lon="${s.lon}" title="${esc(s.nom)}">${ico("neige", "")}<b>${s.sol} cm</b></span>`).join("") : "";
         const mers = plagesAllume && merLue ? merLue.map(p => `<span class="ca-pv ca-pv-mer" data-lat="${p.lat}" data-lon="${p.lon}" `
           + `title="${esc(p.nom)}">${ico("vague", "")}<b>${fr1(Math.round(p.eau))}°</b>${p.vagues !== null ? `<i>${fr1(p.vagues)} m</i>` : ""}</span>`).join("") : "";
-        zonePrev.innerHTML = neiges + mers + previs;
+        const rivs = rivAllume && rivLue ? rivLue.map(r => `<span class="ca-pv ca-pv-riv" data-lat="${r.lat}" data-lon="${r.lon}" `
+          + `title="Station ${esc(r.code)}">${ico("riviere", "")}<b>${fr1((Math.round(r.h / 10) / 100).toFixed(2))} m</b>`
+          + (r.ecart >= 20 ? `<span class="ca-t ca-t-haut" aria-label="en hausse"></span>` : r.ecart <= -20 ? `<span class="ca-t ca-t-bas" aria-label="en baisse"></span>` : "")
+          + `</span>`).join("") : "";
+        zonePrev.innerHTML = neiges + mers + rivs + previs;
         placer();
       };
       const lireVilles = () => Villes.lireVilles().then(l => { if (!cv.isConnected) return; villesLues = l; poserPrevis(); })
@@ -2132,7 +2147,34 @@ export function vueCarte(ctx, rendre, majEtat) {
           poserPrevis();
         });
       };
+      /* La lecture des cours d'eau, planifiée à chaque mouvement de la carte et
+         lancée quand elle s'immobilise ; rien en deçà du zoom requis. */
+      function planRivieres() {
+        clearTimeout(rivMinuteur);
+        rivMinuteur = setTimeout(() => {
+          if (!cv.isConnected || !rivAllume || vue.z < ZOOM_RIVIERES) return;
+          const l = cv.clientWidth, h = cv.clientHeight;
+          const a = Carte.depuisEcran(vue, 0, 0, l, h), b = Carte.depuisEcran(vue, l, h, l, h);
+          const bb = { o: a.lon, n: a.lat, e: b.lon, s: b.lat };
+          const z0 = rivZone;
+          if (z0 && bb.o >= z0.o && bb.e <= z0.e && bb.s >= z0.s && bb.n <= z0.n && Date.now() - rivT < 600000) return;
+          const dlo = (bb.e - bb.o) / 3, dla = (bb.n - bb.s) / 3;
+          const z = { o: bb.o - dlo, e: bb.e + dlo, s: bb.s - dla, n: bb.n + dla };
+          rivZone = z; rivT = Date.now();
+          Eau.lireRivieresCarte(z).then(lu => { if (!cv.isConnected) return; rivLue = lu; poserPrevis(); })
+            .catch(() => { rivZone = null; if (cv.isConnected) dire("Les cours d'eau ont besoin du réseau."); });
+        }, 900);
+      }
       interrupteur("#caPlages", lireMer, Reglages.poserPlagecarte, () => plagesAllume, v => { plagesAllume = v; }, () => merLue);
+      const rivB = bloc.querySelector("#caRivieres");
+      rivB.addEventListener("click", () => {
+        rivAllume = !rivAllume;
+        Reglages.poserRivierecarte(rivAllume);
+        rivB.setAttribute("aria-checked", rivAllume ? "true" : "false");
+        mention();
+        if (rivAllume && vue.z < ZOOM_RIVIERES) dire("Zoomez sur la carte pour voir les cours d'eau.");
+        poserPrevis();
+      });
       interrupteur("#caNeige", lireNeigeC, Reglages.poserNeigecarte, () => neigeAllume, v => { neigeAllume = v; }, () => neigeLue);
       if (plagesAllume) lireMer();
       if (neigeAllume) lireNeigeC();

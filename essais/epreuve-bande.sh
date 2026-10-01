@@ -374,6 +374,13 @@ case "$N" in
      # Sa vérification est dans la section des nappes de la carte : lancer avec JUSQUA_EPREUVE.
      perl -0pi -e 's/zonePrev\.innerHTML = neiges \+ mers \+ previs;/zonePrev.innerHTML = previs + neiges + mers;/' src/vues.js
      ATTENDU="la mer et la neige se posent sur la carte avant les prévisions, sans chevauchement, sources citées" ;;
+  116) # Les cours d'eau se lisent sur la France entière.
+     # Sa vérification est dans la section des nappes de la carte : lancer avec JUSQUA_EPREUVE.
+     perl -0pi -e 's/const ZOOM_RIVIERES = 7\.5;/const ZOOM_RIVIERES = 0;/' src/vues.js
+     ATTENDU="les cours d.eau ne se lisent qu.en zoomant, et chaque station dit sa hauteur et sa tendance" ;;
+  117) # L'écart d'une station se lit à l'envers.
+     perl -0pi -e 's/    ecart: e\.recent\.resultat_obs - e\.ancien\.resultat_obs \}\)\);/    ecart: e.ancien.resultat_obs - e.recent.resultat_obs }));/' src/eau.js
+     ATTENDU="les cours d.eau d.un cadre se regroupent par station, la hauteur la plus récente et l.écart sur six heures" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

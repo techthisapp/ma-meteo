@@ -2362,3 +2362,10 @@ button.rangee:active{background:var(--surface-2)}
 .ca-moments button[aria-pressed="true"]{background:var(--accent);color:#fff;font-weight:var(--graisse-semibold)}
 .ca-pv i{font-style:normal;font-weight:400;color:var(--etiquette-2);margin-left:3px}
 .ca-pv-neige svg,.ca-pv-mer svg{color:var(--accent)}
+/* La tendance d'un cours d'eau : un petit triangle, vers le haut quand l'eau a
+   monté de deux centimètres au moins en six heures, vers le bas quand elle a
+   baissé d'autant. */
+.ca-pv-riv svg{color:var(--accent)}
+.ca-t{display:inline-block;width:0;height:0;margin-left:4px;border-left:4px solid transparent;border-right:4px solid transparent}
+.ca-t-haut{border-bottom:6px solid #d97a1e}
+.ca-t-bas{border-top:6px solid var(--accent)}

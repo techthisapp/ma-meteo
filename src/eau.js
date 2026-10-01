@@ -395,3 +395,28 @@ export function tuileEau(e) {
   const classe = !r ? "" : r.rang >= 4 ? "v-brulant" : r.rang === 3 ? "v-chaud" : r.rang === 2 ? "v-attention" : "";
   return { valeur, sous, classe };
 }
+
+/* ---------- Les cours d'eau sur la carte, jalon 18, lot 3 ----------
+
+   Les hauteurs d'eau des six dernières heures, pour toutes les stations d'un
+   cadre : la plus récente, et l'écart avec la plus ancienne. Hub'eau rend les
+   mesures de la plus récente à la plus ancienne. À l'échelle d'un département,
+   une quinzaine de stations, soixante-quinze kilooctets, quatre secondes. */
+export async function lireRivieresCarte(bb, maintenant = new Date(), fetcheur = fetch) {
+  const depuis = new Date(maintenant.getTime() - 6 * 3600 * 1000).toISOString().slice(0, 19) + "Z";
+  const r = await avecDelai(fetcheur, `${HYDRO}/observations_tr?bbox=${bb.o.toFixed(3)},${bb.s.toFixed(3)},${bb.e.toFixed(3)},${bb.n.toFixed(3)}`
+    + `&grandeur_hydro=H&date_debut_obs=${depuis}&size=10000&fields=code_station,date_obs,resultat_obs,longitude,latitude`);
+  if (!r.ok) throw new Error(`hydrometrie ${r.status}`);
+  const par = new Map();
+  for (const o of (await r.json()).data || []) {
+    if (!Number.isFinite(o.resultat_obs) || !Number.isFinite(o.latitude)) continue;
+    const e = par.get(o.code_station);
+    if (!e) par.set(o.code_station, { code: o.code_station, lat: o.latitude, lon: o.longitude, recent: o, ancien: o });
+    else {
+      if (o.date_obs > e.recent.date_obs) e.recent = o;
+      if (o.date_obs < e.ancien.date_obs) e.ancien = o;
+    }
+  }
+  return [...par.values()].map(e => ({ code: e.code, lat: e.lat, lon: e.lon, h: e.recent.resultat_obs,
+    ecart: e.recent.resultat_obs - e.ancien.resultat_obs }));
+}
