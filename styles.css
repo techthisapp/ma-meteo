@@ -1275,7 +1275,10 @@ button.rangee:active{background:var(--surface-2)}
   text-transform:uppercase;letter-spacing:.04em;
 }
 .ca-p-titre + *{margin-top:0}
-.ca-grille{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--espace-xs)}
+/* Quatre interrupteurs par rangée depuis le 30 septembre 2026 : à trois, celui
+   des prévisions ajoutait une rangée et le panneau ouvert couvrait plus des deux
+   cinquièmes de la carte, ce qu'un contrôle interdit. */
+.ca-grille{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--espace-xs)}
 .ca-ch{
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
   min-height:56px;padding:var(--espace-xs) 2px;
@@ -2340,3 +2343,16 @@ button.rangee:active{background:var(--surface-2)}
    trou dans la grille de deux colonnes : la dernière d'un nombre impair prend
    toute la largeur. */
 .bd-mesures.tuiles > :last-child:nth-child(odd){grid-column:1 / -1}
+
+/* Les prévisions des villes sur la carte, jalon 18 : de petites étiquettes,
+   l'icône du temps et la température, et le choix du moment en haut. */
+.ca-prevs{position:absolute;inset:0;pointer-events:none}
+.ca-pv{position:absolute;left:var(--rx);top:var(--ry);transform:translate(-50%,-50%);display:flex;align-items:center;gap:2px;
+  padding:1px 6px 1px 3px;border-radius:var(--rayon-plein);background:color-mix(in srgb, var(--surface) 88%, transparent);
+  box-shadow:0 1px 3px rgba(0,0,0,.18);font-size:12px;font-weight:var(--graisse-semibold);color:var(--etiquette);white-space:nowrap}
+.ca-pv svg{width:18px;height:18px}
+.ca-pv[hidden]{display:none}
+.ca-moments{position:absolute;top:var(--espace-sm);left:50%;transform:translateX(-50%);display:flex;gap:2px;padding:3px;
+  border-radius:var(--rayon-plein);background:color-mix(in srgb, var(--surface) 92%, transparent);box-shadow:0 1px 4px rgba(0,0,0,.18);z-index:2}
+.ca-moments button{font:inherit;font-size:12px;border:0;background:transparent;color:var(--etiquette-2);padding:5px 9px;border-radius:var(--rayon-plein);min-height:30px}
+.ca-moments button[aria-pressed="true"]{background:var(--accent);color:#fff;font-weight:var(--graisse-semibold)}

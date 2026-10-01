@@ -768,6 +768,17 @@ const brancherRoutes = async c => {
         body: JSON.stringify(grilleCorps(u)) });
       return;
     }
+    /* Les prévisions des villes, jalon 18 : la requête se reconnaît à ses
+       trente-six villes, Paris en tête. Chaque ville a deux jours d'heures, un
+       temps qui dépend de son rang, 10° la nuit et 20° à 15 h. */
+    if (u.includes("latitude=48.857%2C45.764")) {
+      const lats = new URL(u).searchParams.get("latitude").split(",");
+      const time = ["2026-08-18", "2026-08-19"].flatMap(j => Array.from({ length: 24 }, (_, h) => `${j}T${String(h).padStart(2, "0")}:00`));
+      const temp = t => { const h = Number(t.slice(11, 13)); return 10 + 10 * Math.max(0, 1 - Math.abs(h - 15) / 9); };
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(lats.map((_, i) => ({
+        hourly: { time, weather_code: time.map(() => [0, 3, 61][i % 3]), temperature_2m: time.map(temp), is_day: time.map(t => (+t.slice(11, 13) >= 7 && +t.slice(11, 13) < 20 ? 1 : 0)) } }))) });
+      return;
+    }
     /* Le sol, jalon 18 : la requête se reconnaît à l'humidité du sol. Un sol sec
        à 18 %, une semaine sans pluie qui a évaporé 21 mm, 3 mm attendus d'ici
        après-demain. */
@@ -2455,6 +2466,18 @@ await pg.evaluate(() => history.back()); await pg.waitForTimeout(400);
 ok("la feuille de l'eau dit l'humidité du sol, la semaine écoulée, la pluie attendue et le conseil d'arrosage",
   solFeuille.humidite === "sec, 18 %" && solFeuille.semaine === "0 mm de pluie, 21 mm évaporés" && solFeuille.attendue === "3 mm"
   && solFeuille.conseil === "Arrosage utile, mais encadré par l'arrêté en vigueur : vérifiez les usages permis.", JSON.stringify(solFeuille));
+/* Jalon 18, lot 3 : le temps d'une ville pour chaque moment. */
+const momentDit = await pg.evaluate(async () => {
+  const V = await import("/src/villes.js");
+  const time = ["2026-08-18", "2026-08-19"].flatMap(j => Array.from({ length: 24 }, (_, h) => `${j}T${String(h).padStart(2, "0")}:00`));
+  const x = { hourly: { time, weather_code: time.map(t => (t === "2026-08-18T16:00" ? 95 : t.startsWith("2026-08-19") ? 3 : 1)),
+    temperature_2m: time.map(t => Number(t.slice(11, 13)) + (t.startsWith("2026-08-19") ? 0.4 : 0)), is_day: time.map(t => (+t.slice(11, 13) >= 7 && +t.slice(11, 13) < 20 ? 1 : 0)) } };
+  const m = k => { const r = V.tempsMoment(x, k, "2026-08-18"); return `${r.code}${r.jour ? "j" : "n"} ${r.t}${k === "demain" ? ` ${r.min}/${r.max}` : ""}`; };
+  return { matin: m("matin"), apres: m("apres"), soir: m("soir"), demain: m("demain"), defauts: [10, 15, 20, 23].map(V.momentDe).join(" ") };
+});
+ok("le temps d'une ville se lit pour chaque moment : 9 h, le maximum de l'après-midi, 21 h, le lendemain",
+  momentDit.matin === "1j 9" && momentDit.apres === "95j 17" && momentDit.soir === "1n 21" && momentDit.demain === "3j 12 0/23"
+  && momentDit.defauts === "matin apres soir demain", JSON.stringify(momentDit));
 ok("le graphique borne sa largeur, et se résume en une phrase",
   semGraphe.borne === "520px"
   && semGraphe.resume === "De 25 à 30 degrés au plus chaud, 5,4 millimètres de pluie en tout.",
@@ -9167,12 +9190,14 @@ ok("le panneau ouvert laisse à la carte la plus grande part du cadre",
   tuiles.hauteur <= tuiles.hauteurCadre * 0.42,
   `${Math.round(tuiles.hauteur)} sur ${Math.round(tuiles.hauteurCadre)}`);
 
-ok("les tuiles vont par trois sur une rangée",
+/* Quatre par rangée depuis le 30 septembre 2026 : à trois, l'interrupteur des
+   prévisions ajoutait une rangée et le panneau dépassait sa part du cadre. */
+ok("les tuiles vont par quatre sur une rangée",
   (() => {
-    const t = tuiles.tuiles.slice(0, 4);
-    return t[0].top === t[1].top && t[1].top === t[2].top && t[3].top > t[2].top
-      && t[0].left < t[1].left && t[1].left < t[2].left;
-  })(), tuiles.tuiles.slice(0, 4).map(t => `${t.id}@${t.left},${t.top}`).join(" "));
+    const t = tuiles.tuiles.slice(0, 5);
+    return t[0].top === t[1].top && t[1].top === t[2].top && t[2].top === t[3].top && t[4].top > t[3].top
+      && t[0].left < t[1].left && t[1].left < t[2].left && t[2].left < t[3].left;
+  })(), tuiles.tuiles.slice(0, 5).map(t => `${t.id}@${t.left},${t.top}`).join(" "));
 
 ok("chaque tuile porte son nom sous son icône",
   tuiles.tuiles.every(t => t.nom.length > 0 && t.icoSous),
@@ -9326,6 +9351,35 @@ ok("la nappe des restrictions d'eau teinte les départements en restriction, et 
 ok("sa légende nomme les quatre classes, et la mention cite VigiEau",
   restrictionsDit.titre === "Restrictions d'eau, en vigueur" && restrictionsDit.grads === "Vigilance Alerte Renforcée Crise" && restrictionsDit.mention,
   JSON.stringify(restrictionsDit));
+
+/* Jalon 18, lot 3 : les prévisions des villes sur la carte. Les étiquettes se
+   posent sans se chevaucher, le sélecteur s'ouvre sur le moment en cours, et le
+   lendemain donne le minimum et le maximum. */
+const previAvant = await pgNap.evaluate(() => document.getElementById("caPrevi")?.getAttribute("aria-checked"));
+if (previAvant !== "true") await pgNap.locator("#caPrevi").evaluate(b => b.click());
+await pgNap.waitForFunction(() => document.querySelectorAll(".ca-pv:not([hidden])").length > 0, null, { timeout: 8000 }).catch(() => {});
+const previsDit = await pgNap.evaluate(() => {
+  const vis = [...document.querySelectorAll(".ca-pv:not([hidden])")];
+  const r = vis.map(e => e.getBoundingClientRect());
+  let chevauche = 0;
+  for (let i = 0; i < r.length; i++) for (let j = i + 1; j < r.length; j++)
+    if (r[i].left < r[j].right && r[j].left < r[i].right && r[i].top < r[j].bottom && r[j].top < r[i].bottom) chevauche++;
+  return { vus: vis.length, chevauche, paris: vis.find(e => e.title === "Paris")?.textContent || "",
+    moment: document.querySelector('#caMoments button[aria-pressed="true"]')?.dataset.moment || "",
+    selecteur: !document.getElementById("caMoments").hidden,
+    mention: /Prévisions Open-Meteo/.test(document.getElementById("caCredit")?.textContent || "") };
+});
+await pgNap.locator('#caMoments button[data-moment="demain"]').evaluate(b => b.click());
+await pgNap.waitForTimeout(300);
+const previsDemain = await pgNap.evaluate(() => [...document.querySelectorAll(".ca-pv:not([hidden])")].find(e => e.title === "Paris")?.textContent || "");
+await pgNap.locator("#caPrevi").evaluate(b => b.click());
+await pgNap.waitForTimeout(300);
+const previsEteint = await pgNap.evaluate(() => ({ pv: document.querySelectorAll(".ca-pv").length, selecteur: !document.getElementById("caMoments").hidden }));
+ok("les prévisions des villes se posent sur la carte sans se chevaucher, au moment en cours",
+  previsDit.vus >= 8 && previsDit.chevauche === 0 && previsDit.paris === "13°" && previsDit.moment === "matin" && previsDit.selecteur && previsDit.mention,
+  JSON.stringify(previsDit));
+ok("le lendemain donne le minimum et le maximum, et l'interrupteur éteint retire tout",
+  previsDemain === "10° 20°" && previsEteint.pv === 0 && !previsEteint.selecteur, JSON.stringify({ previsDemain, previsEteint }));
 
 /* La vigilance ne peut pas teinter le fond sous une nappe qui le couvre. Elle
    passe alors en liseré par-dessus : le bord du département porte la couleur du

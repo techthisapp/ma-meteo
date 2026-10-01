@@ -22,6 +22,7 @@ import * as Neige from "./neige.js";
 import * as Plage from "./plage.js";
 import * as VigiEau from "./vigieau.js";
 import * as Eau from "./eau.js";
+import * as Villes from "./villes.js";
 import { cleHeure } from "./horloge.js";
 import * as Parapluie from "./parapluie.js";
 import * as Reponse from "./reponse.js";
@@ -1420,6 +1421,12 @@ export function vueCarte(ctx, rendre, majEtat) {
       + `aria-label="Carte de ${esc(g.commune || "la position")} et de ses alentours"></canvas>`
       + `<canvas class="ca-vent" id="caToileVent" aria-hidden="true"></canvas>`
       + `<div class="ca-reperes" id="caReperes"></div>`
+      /* Les prévisions des villes, jalon 18 : une couche d'étiquettes posée sous
+         les repères des lieux, et le choix du moment. */
+      + `<div class="ca-prevs" id="caPrevs" aria-hidden="true"></div>`
+      + `<div class="ca-moments" id="caMoments" role="group" aria-label="Moment des prévisions" hidden>`
+      + Villes.MOMENTS.map(([m, n]) => `<button type="button" data-moment="${m}" aria-pressed="false">${n}</button>`).join("")
+      + `</div>`
       + `<div class="ca-outils">`
       + `<button type="button" class="ca-o" id="caCouches" aria-expanded="false" `
       + `aria-controls="caPanneau" aria-label="Couches de la carte">`
@@ -1464,6 +1471,9 @@ export function vueCarte(ctx, rendre, majEtat) {
       + `<button type="button" class="ca-ch" id="caFeux" role="switch" `
       + `aria-checked="${Reglages.feuxcarte() ? "true" : "false"}">`
       + ico("feu", "") + `<span>Feux</span></button>`
+      + `<button type="button" class="ca-ch" id="caPrevi" role="switch" `
+      + `aria-checked="${Reglages.previcarte() ? "true" : "false"}">`
+      + ico("soleil", "") + `<span>Prévisions</span></button>`
       + `</div>`
       + `</div>`
       + `<p class="ca-mot" id="caMot" role="status" hidden></p>`
@@ -1503,6 +1513,9 @@ export function vueCarte(ctx, rendre, majEtat) {
       const zone = bloc.querySelector("#caReperes");
       const barre = bloc.querySelector("#caEchelle");
       if (!cv) return;
+      const zonePrev = bloc.querySelector("#caPrevs"), momentsEl = bloc.querySelector("#caMoments");
+      let previAllume = Reglages.previcarte(), villesLues = null;
+      let momentPrev = Villes.momentDe(Number(cleHeure().slice(11, 13)));
 
       /* Les repères sont créés une fois et déplacés ensuite : les recréer à
          chaque image perdrait le focus du clavier au milieu d'un geste. */
@@ -1529,6 +1542,30 @@ export function vueCarte(ctx, rendre, majEtat) {
             const nom = b.querySelector(".ca-r-nom");
             const large = nom ? nom.offsetWidth : 0;
             b.classList.toggle("ca-r-gauche", p.x + 26 + large > l - 8);
+          }
+        });
+        /* Les étiquettes des prévisions, dans l'ordre des villes : une étiquette
+           qui en chevaucherait une autre, ou un repère de lieu, s'efface, pour
+           que la carte du pays reste lisible. */
+        /* Chaque étiquette se compare aux rectangles réels déjà posés, centrés
+           sur leur point, avec deux points de marge : une première version
+           comparait une seule largeur et une hauteur fixe, et laissait deux
+           étiquettes se chevaucher. Les repères des lieux comptent pour un
+           carré de trente points. */
+        const pris = boutons.filter(b => !b.hidden).map(b => ({
+          x: parseFloat(b.style.getPropertyValue("--rx")), y: parseFloat(b.style.getPropertyValue("--ry")), w: 30, h: 30 }));
+        zonePrev?.querySelectorAll(".ca-pv").forEach(el => {
+          const v = Villes.VILLES[Number(el.dataset.k)];
+          const p = Carte.surEcran(vue, v[1], v[2], l, h);
+          el.hidden = false;
+          const w = el.offsetWidth || 48, ht = el.offsetHeight || 22;
+          const dehors = p.x < w / 2 || p.y < ht / 2 || p.x > l - w / 2 || p.y > h - ht / 2;
+          const serre = pris.some(q => Math.abs(q.x - p.x) < (w + q.w) / 2 + 2 && Math.abs(q.y - p.y) < (ht + q.h) / 2 + 2);
+          el.hidden = dehors || serre;
+          if (!el.hidden) {
+            el.style.setProperty("--rx", `${p.x.toFixed(1)}px`);
+            el.style.setProperty("--ry", `${p.y.toFixed(1)}px`);
+            pris.push({ x: p.x, y: p.y, w, h: ht });
           }
         });
         const e = Carte.echelleBarre(vue, cv.clientWidth);
@@ -1839,6 +1876,7 @@ export function vueCarte(ctx, rendre, majEtat) {
               + `rel="noopener noreferrer">Open-Meteo</a></span>` + propre;
           })()
           + (vigiAllume ? `<span>Vigilance Météo-France</span>` : "")
+          + (previAllume ? `<span>Prévisions Open-Meteo</span>` : "")
           + (choisie === "eau" ? `<span>Restrictions <a href="https://vigieau.gouv.fr" target="_blank" `
             + `rel="noopener noreferrer">VigiEau</a></span>` : "")
           + (foudreAllume || nuagesAllume
@@ -2024,6 +2062,37 @@ export function vueCarte(ctx, rendre, majEtat) {
       /* La vigilance de tout le pays, une lecture de mille deux cents octets. Un
          département au vert ne paraît pas dans la table : la couche ne teinte
          que ce qui est en vigilance. */
+      /* Les prévisions des villes : l'interrupteur, le choix du moment, et les
+         étiquettes, chacune avec l'icône du temps et sa température, ou le
+         minimum et le maximum pour le lendemain. */
+      const poserPrevis = () => {
+        momentsEl.hidden = !previAllume;
+        momentsEl.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.moment === momentPrev ? "true" : "false"));
+        if (!previAllume || !villesLues) { zonePrev.innerHTML = ""; placer(); return; }
+        const jour = cleHeure().slice(0, 10);
+        zonePrev.innerHTML = Villes.VILLES.map((v, k) => {
+          const m = Villes.tempsMoment(villesLues[k], momentPrev, jour);
+          if (!m || m.code === null || m.t === null) return "";
+          const t = momentPrev === "demain" ? `${m.min}° ${m.max}°` : `${m.t}°`;
+          return `<span class="ca-pv" data-k="${k}" title="${esc(v[0])}">${icoTemps(icoCiel(m.code, m.jour), "")}<b>${t}</b></span>`;
+        }).join("");
+        placer();
+      };
+      const lireVilles = () => Villes.lireVilles().then(l => { if (!cv.isConnected) return; villesLues = l; poserPrevis(); })
+        .catch(() => { if (cv.isConnected) dire("Les prévisions ont besoin du réseau."); });
+      const previB = bloc.querySelector("#caPrevi");
+      previB.addEventListener("click", () => {
+        previAllume = !previAllume;
+        Reglages.poserPrevicarte(previAllume);
+        previB.setAttribute("aria-checked", previAllume ? "true" : "false");
+        mention();
+        if (previAllume && !villesLues) lireVilles();
+        poserPrevis();
+      });
+      momentsEl.querySelectorAll("button").forEach(b => b.addEventListener("click", () => { momentPrev = b.dataset.moment; poserPrevis(); }));
+      if (previAllume) lireVilles();
+      poserPrevis();
+
       /* Les restrictions d'eau de tout le pays, une lecture de VigiEau. */
       const lireEau = async () => {
         try {

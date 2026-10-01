@@ -30,6 +30,7 @@ const DEFAUT = {
   foudrecarte: true,   // la foudre observée par satellite sur la carte
   nuagescarte: false,  // les nuages vus du satellite sur la carte
   feuxcarte: false,    // les foyers vus par satellite sur la carte
+  previcarte: false,   // les prévisions des villes sur la carte, jalon 18
   // Ni `nappe` ni `pluiecarte` n'ont de valeur par défaut : c'est leur absence
   // qui déclenche la reprise des anciens réglages, `radar` puis `nappe`.
 };
@@ -305,6 +306,8 @@ export function poserNuagescarte(v) { poser({ nuagescarte: v === true }); }
    de l'année, et la couche serait vide le reste du temps. */
 export const feuxcarte = () => etat.feuxcarte === true;
 export function poserFeuxcarte(v) { poser({ feuxcarte: v === true }); }
+export const previcarte = () => etat.previcarte === true;
+export function poserPrevicarte(v) { poser({ previcarte: v === true }); }
 
 /* La pluie, allumée au départ : c'est la couche pour laquelle la carte a été
    faite. Elle a longtemps été une nappe, exclusive des trois autres, alors

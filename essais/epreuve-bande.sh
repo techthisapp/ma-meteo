@@ -356,6 +356,13 @@ case "$N" in
   110) # Le conseil d'arrosage ne se dit plus dans la feuille.
      perl -0pi -e 's/    \+ `<p class="pl-lieu">\$\{esc\(Eau\.conseilArrosage\(s, r\)\)\}<\/p>`;/    + "";/' src/vues.js
      ATTENDU="la feuille de l.eau dit l.humidité du sol, la semaine écoulée, la pluie attendue et le conseil d.arrosage" ;;
+  111) # Les étiquettes des prévisions ne s'effacent plus quand elles se chevauchent.
+     # Sa vérification est dans la section des nappes de la carte : lancer avec JUSQUA_EPREUVE.
+     perl -0pi -e 's/          el\.hidden = dehors \|\| serre;/          el.hidden = dehors;/' src/vues.js
+     ATTENDU="les prévisions des villes se posent sur la carte sans se chevaucher, au moment en cours" ;;
+  112) # L'après-midi prend 15 h au lieu du maximum.
+     perl -0pi -e 's/  const valeur = moment === "apres" \? Math\.max\(\.\.\.temps\) : h\.temperature_2m\[kr\];/  const valeur = h.temperature_2m[kr];/' src/villes.js
+     ATTENDU="le temps d.une ville se lit pour chaque moment : 9 h, le maximum de l.après-midi, 21 h, le lendemain" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
@@ -382,7 +389,8 @@ if diff -q "$OLD/src/bande.js" src/bande.js >/dev/null \
   && diff -q "$OLD/src/trajets.js" src/trajets.js >/dev/null \
   && diff -q "$OLD/src/vigieau.js" src/vigieau.js >/dev/null \
   && diff -q "$OLD/src/eau.js" src/eau.js >/dev/null \
-  && diff -q "$OLD/src/temps.js" src/temps.js >/dev/null; then
+  && diff -q "$OLD/src/temps.js" src/temps.js >/dev/null \
+  && diff -q "$OLD/src/villes.js" src/villes.js >/dev/null; then
   echo "FAUTE $N NON APPLIQUÉE"; exit 3
 fi
 
