@@ -213,7 +213,10 @@ function image(ms) {
 function rendre(avecMouvement) {
   const etat = lireEtat && lireEtat();
   if (!toile || !etat || !etat.champ) return 0;
-  const dpr = window.devicePixelRatio || 1;
+  /* Densité plafonnée à 2, comme les toiles du ciel : à 3, une carte plein écran
+     d'iPhone pesait 2,5 millions de pixels par toile au lieu de 1,1. Audit du
+     1er octobre 2026, constat 5.7. */
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
   const l = toile.clientWidth || 320, h = toile.clientHeight || 320;
   if (toile.width !== Math.round(l * dpr) || toile.height !== Math.round(h * dpr)) {
     toile.width = Math.round(l * dpr);

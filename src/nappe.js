@@ -69,6 +69,28 @@ export const GARDE_AIR = 3 * 3600 * 1000;
 let garde = null;
 let gardeAir = null;
 
+/* Les deux grilles se gardent aussi sur l'appareil, aux mêmes durées : iOS
+   ferme souvent l'application en arrière-plan, et chaque ouverture de la carte
+   après un relancement coûtait 380 appels comptés par Open-Meteo, 760 avec la
+   nappe de l'air, au-delà des 600 par minute du quota gratuit. Les valeurs
+   s'écrivent au dixième, huit kilooctets environ. Audit du 1er octobre 2026,
+   constat 5.4. */
+const CACHE = "mameteo.nappe.v1", CACHE_AIR = "mameteo.nappe-air.v1";
+const versJson = d => Object.fromEntries(Object.entries(d).map(([k, v]) => [k, v instanceof Float32Array
+  ? Array.from(v, x => (Number.isNaN(x) ? null : Math.round(x * 10) / 10)) : v]));
+const depuisJson = d => Object.fromEntries(Object.entries(d).map(([k, v]) => [k, Array.isArray(v)
+  ? Float32Array.from(v, x => (x === null ? NaN : x)) : v]));
+function lireGarde(cle) {
+  try {
+    const c = JSON.parse(localStorage.getItem(cle) || "null");
+    return c?.d && Date.now() < c.exp ? { d: depuisJson(c.d), exp: c.exp } : null;
+  } catch { return null; }
+}
+function ecrireGarde(cle, g) {
+  if (!g.d) return;
+  try { localStorage.setItem(cle, JSON.stringify({ exp: g.exp, d: versJson(g.d) })); } catch { /* plein */ }
+}
+
 export function points() {
   const p = [];
   for (let r = 0; r < RANGS; r++) {
@@ -128,6 +150,7 @@ export function lire(d, aujourdhui = dateLocale()) {
 
 export async function charger(fetcheur = fetch) {
   const t = Date.now();
+  if (!garde) garde = lireGarde(CACHE);
   if (garde && t < garde.exp) return garde.d;
   let d = null;
   try {
@@ -135,6 +158,7 @@ export async function charger(fetcheur = fetch) {
     if (r.ok) d = lire(recaler(await r.json()));
   } catch { d = null; }
   garde = { d, exp: t + (d ? GARDE : 60 * 1000) };
+  ecrireGarde(CACHE, garde);
   return d;
 }
 
@@ -162,6 +186,7 @@ export function lireAir(d) {
 
 export async function chargerAir(fetcheur = fetch) {
   const t = Date.now();
+  if (!gardeAir) gardeAir = lireGarde(CACHE_AIR);
   if (gardeAir && t < gardeAir.exp) return gardeAir.d;
   let d = null;
   try {
@@ -169,10 +194,14 @@ export async function chargerAir(fetcheur = fetch) {
     if (r.ok) d = lireAir(recaler(await r.json()));
   } catch { d = null; }
   gardeAir = { d, exp: t + (d ? GARDE_AIR : 60 * 1000) };
+  ecrireGarde(CACHE_AIR, gardeAir);
   return d;
 }
 
-export function oublier() { garde = null; gardeAir = null; }
+export function oublier() {
+  garde = null; gardeAir = null;
+  try { localStorage.removeItem(CACHE); localStorage.removeItem(CACHE_AIR); } catch { /* stockage indisponible */ }
+}
 
 /* La valeur en un point quelconque, par interpolation bilinéaire sur les quatre
    mailles voisines. Hors de l'emprise, rien : une nappe qui prolongerait sa

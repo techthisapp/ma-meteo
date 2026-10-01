@@ -5629,6 +5629,75 @@ ok("le bouton d'effacement retire les données de l'application, et elles seules
   effaceDit.plage === null && effaceDit.autre === "garde", JSON.stringify(effaceDit));
 await ctxLotC.close();
 
+/* Audit du 1er octobre 2026, lot E, les performances. Constats 5.2 et 5.7, sur
+   le texte : les sources secondaires passent par le rendu regroupé, et toute
+   toile plafonne sa densité à 2. */
+const appTexte = await (await fetch(`${RACINE_HTTP}src/app.js`)).text();
+const regroupeTexte = ["lireNeigeDe", "lirePlageDe", "lireEauDe", "lireEnsemble", "lireAir", "lirePluieProche"].map(f => {
+  const i = appTexte.indexOf(`async function ${f}(`);
+  const corps = appTexte.slice(i, appTexte.indexOf("\n}\n", i));
+  return `${f}:${/rafraichir\(\)/.test(corps) && !/\brendre\(\);/.test(corps)}`;
+});
+ok("les sources secondaires passent par le rendu regroupé", regroupeTexte.every(x => x.endsWith(":true")), regroupeTexte.join(" "));
+const densiteTexte = [];
+for (const f of ["carte", "vent", "vues", "temps", "feu", "relief"]) {
+  const t = await (await fetch(`${RACINE_HTTP}src/${f}.js`)).text();
+  const usages = t.match(/[^\n]{0,30}devicePixelRatio/g) || [];
+  densiteTexte.push(`${f}:${usages.length && usages.every(u => /Math\.min\(2, window\.devicePixelRatio/.test(u))}`);
+}
+ok("toute toile plafonne sa densité à 2", densiteTexte.every(x => x.endsWith(":true")), densiteTexte.join(" "));
+
+/* Constats 5.3 et 5.4, en page. Les écouteurs de redimensionnement se
+   comptent : quatre allers et retours sur la carte ne doivent pas en
+   ajouter. */
+const ctxLotE = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+await ctxLotE.addInitScript(amorce(FAIN));
+await ctxLotE.addInitScript(() => {
+  const actifs = new Set();
+  const ajouter = window.addEventListener.bind(window), retirer = window.removeEventListener.bind(window);
+  window.addEventListener = (t, f, o) => { if (t === "resize") actifs.add(f); return ajouter(t, f, o); };
+  window.removeEventListener = (t, f, o) => { if (t === "resize") actifs.delete(f); return retirer(t, f, o); };
+  window.__redimensions = () => actifs.size;
+});
+await brancherRoutes(ctxLotE);
+const pgLotE = await ctxLotE.newPage();
+await ouvrirPage(pgLotE);
+await pgLotE.locator('[data-onglet="carte"]').click(); await pgLotE.waitForTimeout(700);
+const ecouteursDit = { premier: await pgLotE.evaluate(() => window.__redimensions()) };
+for (let k = 0; k < 4; k++) {
+  await pgLotE.locator('[data-onglet="accueil"]').click(); await pgLotE.waitForTimeout(300);
+  await pgLotE.locator('[data-onglet="carte"]').click(); await pgLotE.waitForTimeout(500);
+}
+ecouteursDit.apres = await pgLotE.evaluate(() => window.__redimensions());
+ok("la carte redessinée ne multiplie pas ses écouteurs", ecouteursDit.apres === ecouteursDit.premier, JSON.stringify(ecouteursDit));
+
+/* La grille de la carte, lue une fois, se sert de l'appareil après un
+   rechargement de la page, sans nouvelle requête. */
+const grilleE = await pgLotE.evaluate(async () => {
+  const N = await import("/src/nappe.js");
+  N.oublier();
+  const n = N.COLS * N.RANGS;
+  window.__appelsGrille = 0;
+  const repond = async () => { window.__appelsGrille++; return { ok: true, json: async () => Array.from({ length: n }, (_, i) => ({
+    current: { temperature_2m: i % 40, wind_speed_10m: 3, wind_direction_10m: 90, time: "2026-08-18T12:00" },
+    daily: { time: ["2026-08-18", "2026-08-19"], uv_index_max: [4, 5] } })) }; };
+  const d = await N.charger(repond);
+  return { appels: window.__appelsGrille, t5: d?.temp?.[5] ?? null };
+});
+await pgLotE.reload(); await pgLotE.waitForTimeout(500);
+grilleE.apres = await pgLotE.evaluate(async () => {
+  const N = await import("/src/nappe.js");
+  let appels = 0;
+  const d = await N.charger(async () => { appels++; return { ok: false }; });
+  return { appels, t5: d?.temp?.[5] ?? null };
+});
+ok("la grille de la carte se garde sur l'appareil après un relancement",
+  grilleE.appels === 1 && grilleE.t5 === 5 && grilleE.apres.appels === 0 && grilleE.apres.t5 === 5, JSON.stringify(grilleE));
+await ctxLotE.close();
+
 marquerSection("\n--- Suivi de la position ---"); console.log("\n--- Suivi de la position ---");
 
 /* L'application s'ouvre en mode position sur un relevé ancien, pris ailleurs.

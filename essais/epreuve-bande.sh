@@ -503,12 +503,26 @@ case "$N" in
   155) # Le manifeste décrit de nouveau la table de la semaine.
      perl -0pi -e 's/"description": "Prévision heure par heure et à seize jours/"description": "Prévision horaire, table de la semaine/' manifest.webmanifest
      ATTENDU="la page et le manifeste se décrivent avec les noms d.écrans actuels" ;;
+  156) # Une source secondaire redessine de nouveau tout l'écran sans attendre.
+     perl -0pi -e 's/if \(mien !== generation \|\| !d\) return;\n  rafraichir\(\);/if (mien !== generation || !d) return;\n  rendre();\n  if (vueCourante) rendreFeuille();/' src/app.js
+     ATTENDU="les sources secondaires passent par le rendu regroupé" ;;
+  157) # L'écouteur précédent de la carte n'est plus retiré.
+     perl -0pi -e 's/  if \(avant\) window\.removeEventListener\("resize", avant\);\n//' src/vues.js
+     ATTENDU="la carte redessinée ne multiplie pas ses écouteurs" ;;
+  158) # La carte reprend la densité entière de l'écran.
+     perl -0pi -e 's/const dpr = Math\.min\(2, window\.devicePixelRatio \|\| 1\);/const dpr = window.devicePixelRatio || 1;/' src/carte.js
+     ATTENDU="toute toile plafonne sa densité à 2" ;;
+  159) # La grille de la carte n'est plus relue sur l'appareil.
+     perl -0pi -e 's/  if \(!garde\) garde = lireGarde\(CACHE\);\n//' src/nappe.js
+     ATTENDU="la grille de la carte se garde sur l.appareil après un relancement" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
 if diff -q "$OLD/src/bande.js" src/bande.js >/dev/null \
   && diff -q "$OLD/src/app.js" src/app.js >/dev/null \
   && diff -q "$OLD/src/horloge.js" src/horloge.js >/dev/null \
+  && diff -q "$OLD/src/nappe.js" src/nappe.js >/dev/null \
+  && diff -q "$OLD/src/carte.js" src/carte.js >/dev/null \
   && diff -q "$OLD/manifest.webmanifest" manifest.webmanifest >/dev/null \
   && diff -q "$OLD/src/reglages.js" src/reglages.js >/dev/null \
   && diff -q "$OLD/src/air.js" src/air.js >/dev/null \

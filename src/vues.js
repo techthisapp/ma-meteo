@@ -1392,6 +1392,16 @@ const NAPPES_CARTE = [
    Les repères sont des boutons du document, non des dessins sur la toile : un
    repère se touche, se nomme et s'atteint au clavier, ce qu'un pixel peint ne
    fait pas. Ils sont replacés à chaque image plutôt que redessinés. */
+/* Les écouteurs de redimensionnement des écrans redessinés à chaque rendu :
+   un par nom, le précédent retiré avant que le suivant se pose. */
+const redimensions = new Map();
+function poserRedimension(nom, f) {
+  const avant = redimensions.get(nom);
+  if (avant) window.removeEventListener("resize", avant);
+  redimensions.set(nom, f);
+  window.addEventListener("resize", f, { passive: true });
+}
+
 export function vueCarte(ctx, rendre, majEtat) {
   const g = Reglages.lire();
   if (!Number.isFinite(g.lat) || !Number.isFinite(g.lon)) {
@@ -2287,7 +2297,10 @@ export function vueCarte(ctx, rendre, majEtat) {
       if (auDepart && auDepart.source === "air") lireAir();
       if (vigiAllume) lireVigi();
 
-      window.addEventListener("resize", revoir, { passive: true });
+      /* Un seul écouteur à la fois : chaque rendu de la carte en ajoutait un,
+         qui gardait l'ancienne carte en mémoire et la redessinait à chaque
+         rotation. Audit du 1er octobre 2026, constat 5.3. */
+      poserRedimension("carte", revoir);
     },
   };
 }
@@ -2374,7 +2387,10 @@ export function nuitCivile(maintenant, g) {
 function peindreCiel(cv, vue, g, options = {}) {
   const affichage = options.affichage || Reglages.affichageCiel();
   const cardinaux = options.cardinaux !== false;
-  const dpr = window.devicePixelRatio || 1;
+  /* Densité plafonnée à 2, comme les toiles du ciel : à 3, une carte plein écran
+     d'iPhone pesait 2,5 millions de pixels par toile au lieu de 1,1. Audit du
+     1er octobre 2026, constat 5.7. */
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
   const l = cv.clientWidth, h = cv.clientHeight;
   if (!l || !h) return;
   if (cv.width !== Math.round(l * dpr) || cv.height !== Math.round(h * dpr)) {
@@ -4606,7 +4622,7 @@ export function vueClimat(ctx, rendre, majEtat) {
           const peindre = () => {
             const l = cv.clientWidth, ht = cv.clientHeight;
             if (!l || !ht) return;
-            const r = Math.min(3, window.devicePixelRatio || 1);
+            const r = Math.min(2, window.devicePixelRatio || 1);
             cv.width = Math.round(l * r); cv.height = Math.round(ht * r);
             const x = cv.getContext("2d");
             x.setTransform(r, 0, 0, r, 0, 0);
@@ -4619,7 +4635,7 @@ export function vueClimat(ctx, rendre, majEtat) {
             }
           };
           requestAnimationFrame(peindre);
-          window.addEventListener("resize", peindre, { passive: true });
+          poserRedimension("climat", peindre);
         }
       })();
     },

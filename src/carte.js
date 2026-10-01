@@ -123,7 +123,10 @@ const TRAITS = [
    pas ce qu'il peint là, et les couches ne savent rien du fond. */
 export function dessiner(cv, vue, nappes) {
   const ctx = cv.getContext("2d");
-  const dpr = window.devicePixelRatio || 1;
+  /* Densité plafonnée à 2, comme les toiles du ciel : à 3, une carte plein écran
+     d'iPhone pesait 2,5 millions de pixels par toile au lieu de 1,1. Audit du
+     1er octobre 2026, constat 5.7. */
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
   const l = cv.clientWidth || 320, h = cv.clientHeight || 320;
   if (cv.width !== Math.round(l * dpr) || cv.height !== Math.round(h * dpr)) {
     cv.width = Math.round(l * dpr);

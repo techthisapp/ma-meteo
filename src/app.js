@@ -1167,6 +1167,21 @@ function brancherGlissement() {
    pendant qu'une autre court. Seule la plus récente écrit l'écran. */
 let generation = 0;
 
+/* Les sources secondaires arrivent l'une après l'autre dans les premières
+   secondes, et chacune redessinait tout l'écran : treize à quinze rendus
+   complets au lancement, toiles du ciel recréées à chaque fois. Leurs rendus
+   se regroupent en un seul par image d'écran ; page masquée, il attend son
+   retour au premier plan. Audit du 1er octobre 2026, constat 5.2. */
+let rafraichissement = 0;
+function rafraichir() {
+  if (rafraichissement) return;
+  rafraichissement = requestAnimationFrame(() => {
+    rafraichissement = 0;
+    rendre();
+    if (vueCourante) rendreFeuille();
+  });
+}
+
 /* La vigilance en vigueur, gardée pour le rendu qui est synchrone. Elle se lit
    après la prévision, sans la retarder : un bulletin manquant ne doit pas
    priver l'écran de son temps qu'il fait. */
@@ -1178,7 +1193,7 @@ async function lireVigilance() {
   const change = JSON.stringify(v) !== JSON.stringify(vigilance);
   vigilance = v;
   ctx.vigilance = v;
-  if (change) { rendre(); if (vueCourante) rendreFeuille(); }
+  if (change) rafraichir();
 }
 
 async function charger() {
@@ -1226,8 +1241,7 @@ async function lireNeigeDe(g) {
   const mien = generation;
   try { await Neige.chargerNeige(g, cleHeure()); } catch { return; }
   if (mien !== generation) return;
-  rendre();
-  if (vueCourante) rendreFeuille();
+  rafraichir();
 }
 
 /* La mer des plages proches, jalon 15 : lue elle aussi sans retarder la
@@ -1236,8 +1250,7 @@ async function lirePlageDe(g) {
   const mien = generation;
   try { await Plage.chargerPlage(g, cleHeure()); } catch { return; }
   if (mien !== generation) return;
-  rendre();
-  if (vueCourante) rendreFeuille();
+  rafraichir();
 }
 
 /* L'eau de la commune, jalon 18 : la restriction en vigueur et la nappe la plus
@@ -1245,11 +1258,10 @@ async function lirePlageDe(g) {
 async function lireEauDe(g) {
   const mien = generation;
   /* La rivière arrive après, plus lente : elle redessine à son arrivée. */
-  const surRiviere = () => { if (mien === generation) { rendre(); if (vueCourante) rendreFeuille(); } };
+  const surRiviere = () => { if (mien === generation) rafraichir(); };
   try { await Eau.chargerEau(g, cleHeure().slice(0, 10), fetch, surRiviere); } catch { return; }
   if (mien !== generation) return;
-  rendre();
-  if (vueCourante) rendreFeuille();
+  rafraichir();
 }
 
 async function lireScenarios(g) {
@@ -1265,8 +1277,7 @@ async function lireEnsemble(g) {
   const mien = generation;
   const d = await Ensemble.charger({ lat: g.lat, lon: g.lon });
   if (mien !== generation || !d) return;
-  rendre();
-  if (vueCourante) rendreFeuille();
+  rafraichir();
   /* Le journal a déjà écrit ses lignes sans les scénarios, la prévision étant
      servie la première. Il repasse pour y poser la part des scénarios mouillés,
      à côté de la probabilité de la source. */
@@ -1282,8 +1293,7 @@ async function lireAir(g) {
   const mien = generation;
   const d = await Air.charger({ lat: g.lat, lon: g.lon });
   if (mien !== generation || !d) return;
-  rendre();
-  if (vueCourante) rendreFeuille();
+  rafraichir();
 }
 
 /* La pluie dans l'heure, gardée pour le rendu qui est synchrone. Comme la
@@ -1295,8 +1305,7 @@ async function lirePluieProche(g) {
   if (mien !== generation) return;
   pluieProche = d;
   ctx.pluieProche = d;
-  rendre();
-  if (vueCourante) rendreFeuille();
+  rafraichir();
   lireDeplacement(g);
 }
 
