@@ -350,6 +350,12 @@ case "$N" in
      # Sa vérification est dans la section du suivi de la position : lancer avec JUSQUA_EPREUVE.
      perl -0pi -e 's/    const larg = Math\.round\(haut \* \(pf\.width \/ pf\.height\)\);/    const larg = Math.round(haut * (pf.width \/ pf.height) \/ 4);/; s/bx\.drawImage\(pf, larg \* i, 0, larg \+ 1, haut\);/bx.drawImage(pf, 0, 0, pf.width \/ 2, pf.height, larg * i, 0, larg + 1, haut);/' src/temps.js
      ATTENDU="la couche se répète sans couture verticale" ;;
+  109) # Il faudrait cinquante millimètres attendus pour renoncer à arroser.
+     perl -0pi -e 's/  if \(sol\.pluie3 >= 5\) return/  if (sol.pluie3 >= 50) return/' src/eau.js
+     ATTENDU="l.humidité du sol se classe, et le conseil d.arrosage suit la pluie attendue, la sécheresse et la restriction" ;;
+  110) # Le conseil d'arrosage ne se dit plus dans la feuille.
+     perl -0pi -e 's/    \+ `<p class="pl-lieu">\$\{esc\(Eau\.conseilArrosage\(s, r\)\)\}<\/p>`;/    + "";/' src/vues.js
+     ATTENDU="la feuille de l.eau dit l.humidité du sol, la semaine écoulée, la pluie attendue et le conseil d.arrosage" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

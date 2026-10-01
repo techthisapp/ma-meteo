@@ -4246,6 +4246,18 @@ function etiageHTML(e, t) {
       + `${t.heure ? ` à ${t.heure.replace(":", " h ")}` : ""}.</p>` : "");
 }
 
+/* Le sol et l'arrosage : l'humidité où plongent les racines, le bilan de la
+   semaine, la pluie attendue, et le conseil. */
+function solHTML(s, r) {
+  if (s === undefined) return `<p class="note">Lecture du sol…</p>`;
+  if (!s) return `<p class="note">L'humidité du sol a besoin du réseau.</p>`;
+  const fr = v => String(v).replace(".", ",");
+  return `<dl class="ng-val"><dt>Humidité du sol, 9 à 27 cm</dt><dd class="${/sec/.test(s.classe) ? "pl-alerte" : ""}">${esc(s.classe)}, ${s.humidite} %</dd>`
+    + `<dt>Sept derniers jours</dt><dd>${fr(s.pluie7)} mm de pluie, ${s.eau7} mm évaporés</dd>`
+    + `<dt>Pluie attendue d'ici après-demain</dt><dd>${fr(s.pluie3)} mm</dd></dl>`
+    + `<p class="pl-lieu">${esc(Eau.conseilArrosage(s, r))}</p>`;
+}
+
 /* La feuille de l'eau, jalon 18, lot 2 : la restriction en vigueur, ressource
    par ressource avec son arrêté, et l'état de la nappe phréatique la plus
    proche, recalculé faute d'indicateur publié. */
@@ -4273,8 +4285,9 @@ export function vueEau(ctx, rendre) {
     + `<div class="carte"><h3>Restrictions</h3>${restr}</div>`
     + `<div class="carte"><h3>Nappe phréatique</h3>${nappe}</div>`
     + `<div class="carte"><h3>Rivière</h3>${riviereHTML(ez.riviere)}${etiageHTML(ez.etiage, ez.temperature)}</div>`
+    + `<div class="carte"><h3>Le sol et l'arrosage</h3>${solHTML(ez.sol, ez.restriction)}</div>`
     + `<p class="note">Restrictions : VigiEau, pour les particuliers. Nappe, rivière, étiage observé par le réseau ONDE et température de l'eau : `
-    + `mesures des réseaux nationaux, Hub'eau ; `
+    + `mesures des réseaux nationaux, Hub'eau. Sol : humidité et évaporation estimées par Open-Meteo ; `
     + `l'état compare les trente derniers jours aux mêmes jours de chaque année depuis 1995, sur le principe de `
     + `l'indicateur du BRGM.</p>` };
 }

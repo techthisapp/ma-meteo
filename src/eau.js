@@ -314,6 +314,52 @@ export async function lireTemperature(g, aujourdhui, fetcheur = fetch) {
     heure: (m.heure_mesure_temp || "").slice(0, 5), km: Math.round(m.km) } : null;
 }
 
+/* ---------- Le sol et l'arrosage, jalon 18 ----------
+
+   La prévision estime l'humidité du sol par couches ; celle de 9 à 27 cm, où
+   plongent les racines, se classe en quatre, repères pour un sol moyen : très
+   sec sous 15 %, sec jusqu'à 22 %, frais jusqu'à 30 %, humide au-delà. Le bilan
+   de la semaine oppose la pluie tombée à l'eau évaporée. Le conseil d'arrosage
+   suit une règle simple : une restriction d'alerte l'encadre ; cinq
+   millimètres attendus d'ici après-demain le rendent inutile ; un sol sec qui a
+   perdu plus de dix millimètres en une semaine le rend utile. */
+const PREVISION_SOL = "https://api.open-meteo.com/v1/forecast";
+export const CLASSES_SOL = [[0.15, "très sec"], [0.22, "sec"], [0.30, "frais"], [9, "humide"]];
+
+export function bilanSol(d, aujourdhui) {
+  const h = d?.hourly, j = d?.daily;
+  if (!h?.time || !j?.time) return null;
+  const k = h.time.indexOf(`${aujourdhui}T12:00`);
+  const v = h.soil_moisture_9_to_27cm?.[k >= 0 ? k : h.time.length - 1];
+  const kj = j.time.indexOf(aujourdhui);
+  if (!Number.isFinite(v) || kj < 7) return null;
+  const somme = (l, a, b) => l.slice(a, b).reduce((x, y) => x + (Number.isFinite(y) ? y : 0), 0);
+  const pluie7 = somme(j.precipitation_sum, kj - 7, kj), eau7 = somme(j.et0_fao_evapotranspiration, kj - 7, kj);
+  const pluie3 = somme(j.precipitation_sum, kj, kj + 3);
+  const r1 = x => Math.round(x * 10) / 10;
+  return { humidite: Math.round(v * 100), classe: CLASSES_SOL.find(([s]) => v < s)[1],
+    pluie7: r1(pluie7), eau7: Math.round(eau7), bilan7: r1(pluie7 - eau7), pluie3: r1(pluie3) };
+}
+
+export function conseilArrosage(sol, restriction) {
+  if (!sol) return null;
+  const encadre = restriction && restriction.rang >= 2;
+  const besoin = /sec/.test(sol.classe) && sol.bilan7 <= -10 && sol.pluie3 < 5;
+  if (sol.pluie3 >= 5) return `Inutile d'arroser : ${Math.round(sol.pluie3)} mm de pluie attendus d'ici après-demain.`;
+  if (besoin && encadre) return "Arrosage utile, mais encadré par l'arrêté en vigueur : vérifiez les usages permis.";
+  if (besoin) return `Arrosage utile : le sol a perdu ${Math.round(-sol.bilan7)} mm en une semaine.`;
+  if (encadre) return "Pas besoin d'arroser pour l'instant ; l'arrosage reste encadré par l'arrêté en vigueur.";
+  return "Pas besoin d'arroser pour l'instant.";
+}
+
+export async function lireSol(g, aujourdhui, fetcheur = fetch) {
+  const q = new URLSearchParams({ latitude: g.lat.toFixed(4), longitude: g.lon.toFixed(4), timezone: "Europe/Paris",
+    hourly: "soil_moisture_9_to_27cm", daily: "precipitation_sum,et0_fao_evapotranspiration", past_days: "7", forecast_days: "4" });
+  const r = await fetcheur(`${PREVISION_SOL}?${q}`);
+  if (!r.ok) throw new Error(`sol ${r.status}`);
+  return bilanSol(await r.json(), aujourdhui);
+}
+
 /* L'état de l'eau pour la commune affichée. */
 let etat = null;
 const cleDeLieu = g => `${g.lat.toFixed(3)},${g.lon.toFixed(3)}`;
@@ -327,7 +373,8 @@ export async function chargerEau(g, aujourdhui, fetcheur = fetch, surRiviere = n
   const [rz, nappe] = await Promise.all([
     fetcheur(`${VIGIEAU}?lon=${g.lon}&lat=${g.lat}&profil=particulier`).then(r => (r.ok ? r.json() : [])).catch(() => null),
     lireNappe(g, aujourdhui, fetcheur).catch(() => null)]);
-  const e = { cle: cleDeLieu(g), restriction: rz ? restrictionsDe(rz) : null, nappe, riviere: undefined, etiage: undefined, temperature: undefined };
+  const e = { cle: cleDeLieu(g), restriction: rz ? restrictionsDe(rz) : null, nappe, riviere: undefined, etiage: undefined,
+    temperature: undefined, sol: undefined };
   etat = e;
   /* La rivière, l'étiage et la température de l'eau, plus lents, arrivent
      chacun à son tour. */
@@ -335,6 +382,7 @@ export async function chargerEau(g, aujourdhui, fetcheur = fetch, surRiviere = n
   apres(lireRiviere(g, new Date(), fetcheur), "riviere");
   apres(lireEtiage(g, aujourdhui, fetcheur), "etiage");
   apres(lireTemperature(g, aujourdhui, fetcheur), "temperature");
+  apres(lireSol(g, aujourdhui, fetcheur), "sol");
   return etat;
 }
 

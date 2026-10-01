@@ -768,6 +768,19 @@ const brancherRoutes = async c => {
         body: JSON.stringify(grilleCorps(u)) });
       return;
     }
+    /* Le sol, jalon 18 : la requête se reconnaît à l'humidité du sol. Un sol sec
+       à 18 %, une semaine sans pluie qui a évaporé 21 mm, 3 mm attendus d'ici
+       après-demain. */
+    if (u.includes("soil_moisture_9_to_27cm")) {
+      const jours = ["2026-08-11", "2026-08-12", "2026-08-13", "2026-08-14", "2026-08-15", "2026-08-16", "2026-08-17",
+        "2026-08-18", "2026-08-19", "2026-08-20", "2026-08-21"];
+      const time = jours.flatMap(j => Array.from({ length: 24 }, (_, h) => `${j}T${String(h).padStart(2, "0")}:00`));
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+        hourly: { time, soil_moisture_9_to_27cm: time.map(() => 0.18) },
+        daily: { time: jours, precipitation_sum: jours.map(j => (j === "2026-08-18" ? 1 : j === "2026-08-19" ? 2 : 0)),
+          et0_fao_evapotranspiration: jours.map(() => 3) } }) });
+      return;
+    }
     /* La comparaison entre lieux se reconnaît à ses dates de début et de fin,
        demandées nulle part ailleurs sur ce service. */
     if (u.includes("start_date=")) {
@@ -2407,6 +2420,41 @@ ok("la feuille de l'eau dit l'étiage de la dernière campagne et la températur
   && /^Étiage observé le 10 août dans un rayon d'environ 35 km, sur 4 cours d'eau : 2 à sec, 1 à écoulement interrompu, 1 à écoulement faible\. Le plus proche, Le Ru de Fain à Fain, à \d+ km : écoulement faible\.$/.test(etiageFeuille[0])
   && etiageFeuille[1] === "Eau de la rivière : 18,5°, mesurée à La Seine à Fain le 16 août à 14 h 00.",
   JSON.stringify(etiageFeuille));
+/* Jalon 18, lot 2 : le sol et l'arrosage. L'humidité se classe en quatre, le
+   bilan oppose la pluie à l'évaporation, le conseil suit sa règle. */
+const solDit = await pg.evaluate(async () => {
+  const E = await import("/src/eau.js");
+  const jours = Array.from({ length: 11 }, (_, k) => `2026-07-${String(10 + k).padStart(2, "0")}`);
+  const charge = (v, pluie) => ({ hourly: { time: [`2026-07-17T12:00`], soil_moisture_9_to_27cm: [v] },
+    daily: { time: jours, precipitation_sum: pluie, et0_fao_evapotranspiration: jours.map(() => 3) } });
+  const sec = E.bilanSol(charge(0.13, jours.map(() => 0)), "2026-07-17");
+  const mouille = E.bilanSol(charge(0.2, jours.map((_, k) => (k === 8 ? 8 : 0))), "2026-07-17");
+  const frais = E.bilanSol(charge(0.26, jours.map((_, k) => (k < 7 ? 4 : 0))), "2026-07-17");
+  return { sec: `${sec.classe} ${sec.humidite} ${sec.pluie7} ${sec.eau7} ${sec.pluie3}`,
+    conseils: [E.conseilArrosage(sec, null), E.conseilArrosage(mouille, { rang: 3 }), E.conseilArrosage(frais, null),
+      E.conseilArrosage(frais, { rang: 2 })].join(" | ") };
+});
+ok("l'humidité du sol se classe, et le conseil d'arrosage suit la pluie attendue, la sécheresse et la restriction",
+  solDit.sec === "très sec 13 0 21 0"
+  && solDit.conseils === "Arrosage utile : le sol a perdu 21 mm en une semaine. | Inutile d'arroser : 8 mm de pluie attendus d'ici après-demain. | "
+    + "Pas besoin d'arroser pour l'instant. | Pas besoin d'arroser pour l'instant ; l'arrosage reste encadré par l'arrêté en vigueur.",
+  JSON.stringify(solDit));
+
+/* Le sol et l'arrosage dans la feuille de l'eau, pour la commune d'essai, en
+   alerte : un sol sec qui a perdu 21 mm, arrosage utile mais encadré. */
+await tuileEau.first().click();
+await pg.waitForFunction(() => { const c = [...document.querySelectorAll("#feuille-corps .carte")].find(x => /Le sol et l'arrosage/.test(x.textContent));
+  return c && !/Lecture du sol/.test(c.textContent); }, null, { timeout: 15000 }).catch(() => {});
+const solFeuille = await pg.evaluate(() => {
+  const c = [...document.querySelectorAll("#feuille-corps .carte")].find(x => /Le sol et l'arrosage/.test(x.textContent));
+  const dd = t => [...(c?.querySelectorAll("dt") || [])].find(x => x.textContent === t)?.nextElementSibling?.textContent || "";
+  return { humidite: dd("Humidité du sol, 9 à 27 cm"), semaine: dd("Sept derniers jours"), attendue: dd("Pluie attendue d'ici après-demain"),
+    conseil: c?.querySelector(".pl-lieu")?.textContent || "" };
+});
+await pg.evaluate(() => history.back()); await pg.waitForTimeout(400);
+ok("la feuille de l'eau dit l'humidité du sol, la semaine écoulée, la pluie attendue et le conseil d'arrosage",
+  solFeuille.humidite === "sec, 18 %" && solFeuille.semaine === "0 mm de pluie, 21 mm évaporés" && solFeuille.attendue === "3 mm"
+  && solFeuille.conseil === "Arrosage utile, mais encadré par l'arrêté en vigueur : vérifiez les usages permis.", JSON.stringify(solFeuille));
 ok("le graphique borne sa largeur, et se résume en une phrase",
   semGraphe.borne === "520px"
   && semGraphe.resume === "De 25 à 30 degrés au plus chaud, 5,4 millimètres de pluie en tout.",
@@ -5287,7 +5335,11 @@ await pgCourt.waitForTimeout(1400);
 /* Le contrat avec la source. Les heures portent sur les sept jours, c'est
    d'elles que la semaine tire ses moments. AROME reste à trois jours : au delà
    il ne rend que des colonnes vides. */
-const uHoraire = urls.find(u => u.includes("hourly=") && !u.includes("models="));
+/* La lecture du sol, jalon 18, est une requête distincte, faite après la
+   prévision pour la feuille de l'eau : elle se reconnaît à l'humidité du sol et
+   ne compte pas comme une prévision de plus. */
+const prevues = urls.filter(u => !u.includes("soil_moisture"));
+const uHoraire = prevues.find(u => u.includes("hourly=") && !u.includes("models="));
 const uArome = urls.find(u => u.includes("models=meteofrance_arome"));
 ok("les heures sont demandées sur sept jours",
   !!uHoraire && uHoraire.includes("forecast_days=7"), uHoraire || "aucune requête horaire");
@@ -5301,8 +5353,8 @@ ok("deux journées écoulées sont demandées avec les heures",
 ok("AROME porte les mêmes journées écoulées",
   !!uArome && uArome.includes("past_days=2"), uArome || "aucune requête AROME");
 ok("aucune requête horaire supplémentaire n'est émise",
-  urls.filter(u => u.includes("hourly=")).length === 2,
-  urls.filter(u => u.includes("hourly=")).length + " requêtes horaires");
+  prevues.filter(u => u.includes("hourly=")).length === 2,
+  prevues.filter(u => u.includes("hourly=")).length + " requêtes horaires");
 
 await pgCourt.locator('[data-onglet="semaine"]').click();
 await pgCourt.waitForTimeout(500);
