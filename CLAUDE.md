@@ -48,7 +48,9 @@ indisponibles pour construire les listes.
 1. Monter la version à deux endroits : `const VERSION` dans `sw.js` et dans
    `src/version.js`, au format `ma-meteo-vNNN`.
 2. Tout module importé doit figurer dans la coque de `sw.js` ; un contrôle le
-   vérifie, et un oubli casse l'application hors connexion.
+   vérifie, imports dynamiques compris, et un oubli casse l'application hors
+   connexion. Les listes des plages et des stations se chargent à la demande
+   depuis la version 128 et restent dans la coque.
 3. Ne publier qu'une suite complète entièrement verte.
 4. Le message de commit, en français, décrit la demande, le choix, les défauts
    trouvés en route et le bilan des contrôles.
@@ -73,13 +75,13 @@ installe Playwright 1.63.0, puis `npx playwright install chromium`.
 
 | Commande | Effet |
 |---|---|
-| `bash essais/passe.sh 8137` | La suite complète, sur une copie du dépôt dans `/tmp/passe-<port>` ; une douzaine de minutes, 1026 contrôles à la version 127 |
+| `bash essais/passe.sh 8137` | La suite complète, sur une copie du dépôt dans `/tmp/passe-<port>` ; une douzaine de minutes, 1027 contrôles à la version 128 |
 | `JUSQUA="La bande horaire" bash essais/passe.sh 8137` | La suite jusqu'à la fin d'une section, ici quatre minutes et environ 145 contrôles |
 | `bash essais/epreuve-bande.sh <n>` | Une erreur volontaire : le script introduit l'erreur numéro n dans une copie et vérifie que le contrôle attendu échoue. Verdicts possibles : vue, non vue, ou épreuve interrompue |
 | `JUSQUA_EPREUVE="<section>" bash essais/epreuve-bande.sh <n>` | Idem quand le contrôle visé est au-delà de la bande horaire |
 
 Les erreurs volontaires sont numérotées dans `essais/epreuve-bande.sh` ; la
-dernière porte le numéro 167. Tout contrôle nouveau a son erreur volontaire, et
+dernière porte le numéro 169. Tout contrôle nouveau a son erreur volontaire, et
 une erreur volontaire éprouvée pendant que son contrôle échoue déjà sur le bon
 code doit être repassée.
 
@@ -139,7 +141,7 @@ Les consignes détaillées du projet sont dans `docs/consignes/`.
 
 ## État au 1er octobre 2026
 
-Version 127, publiée depuis Claude Code. Jalons livrés : 1 à 4, 7 à 18, dont 14, la comparaison ; 15, les
+Version 128, publiée depuis Claude Code. Jalons livrés : 1 à 4, 7 à 18, dont 14, la comparaison ; 15, les
 plages ; 16, la neige ; 17, la semaine au plus loin ; 18, les couches de la
 carte et l'eau. Jalons restants : 6, la justesse des prévisions publiée, vers
 la fin octobre ; 5, la 3D, écartée pour le moment.

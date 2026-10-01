@@ -8,7 +8,6 @@
    marquée comme telle et jamais gardée. Le résultat se garde trente jours par
    commune. */
 
-import { PLAGES, SAISON_QUALITE } from "./plages.js";
 import { distanceKm } from "./postes.js";
 import { dureesMinutes } from "./trajets.js";
 import { cardinal } from "./previsions.js";
@@ -28,7 +27,20 @@ const dePlage = p => ({ nom: p[0], pays: p[1], lat: p[2], lon: p[3], commune: p[
    la Santé, demandés par Jérôme le 30 septembre 2026. Le drapeau de baignade,
    hissé chaque jour par les sauveteurs, n'est publié nulle part de façon
    lisible : l'application ne le donne pas. */
-export const SAISON = SAISON_QUALITE;
+/* La liste des eaux de baignade pèse 159 kilooctets : elle se charge à la
+   première demande, non au lancement. L'année du classement vient avec elle ;
+   on ne la lit que dans la feuille de la plage, une fois la liste chargée.
+   Audit du 1er octobre 2026, constat 5.1. */
+let PLAGES = null;
+export let SAISON = null;
+export async function listePlages() {
+  if (!PLAGES) {
+    const m = await import("./plages.js");
+    PLAGES = m.PLAGES;
+    SAISON = m.SAISON_QUALITE;
+  }
+  return PLAGES;
+}
 const QUALITES = { 0: "non classée", 1: "excellente", 2: "bonne", 3: "suffisante", 4: "insuffisante" };
 export const qualiteDe = q => (q === null || q === undefined ? null : QUALITES[q] ?? null);
 export const ficheDe = f => {
@@ -65,7 +77,7 @@ export async function prochesGardees(g, fetcheur = fetch) {
     const e = JSON.parse(localStorage.getItem(CACHE) || "{}")[cle];
     if (e && Date.now() - e.t < GARDE && !e.estime) return e.l;
   } catch { /* cache indisponible */ }
-  const l = await proches(g, PLAGES, fetcheur);
+  const l = await proches(g, await listePlages(), fetcheur);
   try {
     const c = JSON.parse(localStorage.getItem(CACHE) || "{}");
     c[cle] = { t: Date.now(), l, estime: l.some(p => p.estime) };
@@ -310,7 +322,7 @@ export function plagesCarte(liste = PLAGES, ecart = 60) {
 let merCarte = null;
 export async function lireMerCarte(heure, fetcheur = fetch) {
   if (merCarte && Date.now() - merCarte.t < 3600 * 1000 && merCarte.h === heure.slice(0, 13)) return merCarte.l;
-  const pts = plagesCarte();
+  const pts = plagesCarte(await listePlages());
   const q = new URLSearchParams({ ...coords(pts), timezone: "Europe/Paris", forecast_days: "1",
     hourly: "sea_surface_temperature,wave_height" });
   const r = await fetcheur(`${MARIN}?${q}`);

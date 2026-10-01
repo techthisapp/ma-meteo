@@ -539,6 +539,12 @@ case "$N" in
   167) # L'état de l'eau n'est plus relu sur l'appareil.
      perl -0pi -e 's/  if \(gardee\?\.e\?\.restriction\) \{ etat = gardee\.e; return etat; \}\n//' src/eau.js
      ATTENDU="l.état de l.eau se garde une heure une fois ses lectures arrivées" ;;
+  168) # La liste des plages se charge de nouveau au lancement.
+     perl -0pi -e 's/(import \{ recaler, elaguer, lireGardee, ecrireGardee \} from "\.\/horloge\.js";)/$1\nimport { PLAGES as LISTE_STATIQUE } from ".\/plages.js";/' src/plage.js
+     ATTENDU="l.accueil s.affiche sans les listes des plages et des stations" ;;
+  169) # La liste des stations se charge de nouveau au lancement.
+     perl -0pi -e 's/(import \{ recaler, elaguer, lireGardee, ecrireGardee \} from "\.\/horloge\.js";)/$1\nimport { STATIONS as LISTE_STATIQUE } from ".\/stations.js";/' src/neige.js
+     ATTENDU="l.accueil s.affiche sans les listes des plages et des stations" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

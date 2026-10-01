@@ -5090,7 +5090,10 @@ marquerSection("\n--- La coque hors ligne ---"); console.log("\n--- La coque hor
   const suivre = f => {
     if (vus.has(f)) return;
     vus.add(f);
-    for (const m of lu(f).matchAll(/from\s+"\.\/([^"]+\.js)"/g)) {
+    /* Les imports dynamiques comptent aussi : les listes des plages et des
+       stations se chargent à la demande depuis la version 128, et doivent
+       rester dans la coque pour servir hors connexion. */
+    for (const m of lu(f).matchAll(/(?:from\s+|import\(\s*)"\.\/([^"]+\.js)"/g)) {
       suivre(`src/${m[1]}`);
     }
   };
@@ -5802,6 +5805,26 @@ ok("la commune d'une plage se garde sur l'appareil", cAE > 0 && cBE === cAE, JSO
 ok("les plages lues se gardent pour l'heure", plAE > 0 && plBE === plAE && plN1E > 0 && plN2E === plN1E, JSON.stringify(sourcesGardeDit));
 ok("l'état de l'eau se garde une heure une fois ses lectures arrivées", eAE > 0 && eBE === eAE, JSON.stringify(sourcesGardeDit));
 await ctxLotE2.close();
+
+/* Audit du 1er octobre 2026, constat 5.1 : les listes des plages et des
+   stations, 217 kilooctets, ne sont plus sur le chemin du premier affichage.
+   Refusées toutes deux, l'accueil s'affiche quand même ; un import statique
+   aurait fait échouer toute l'application. */
+const ctxListes = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+await ctxListes.addInitScript(amorce(FAIN));
+await brancherRoutes(ctxListes);
+await ctxListes.route(/\/src\/(plages|stations)\.js/, r => r.abort());
+const pgListes = await ctxListes.newPage();
+await ouvrirPage(pgListes);
+await pgListes.waitForTimeout(800);
+const listesDit = await pgListes.evaluate(() => ({
+  temperature: !!document.querySelector("#ecran .bd-deg"), tuiles: document.querySelectorAll("#ecran .bd-m").length }));
+ok("l'accueil s'affiche sans les listes des plages et des stations",
+  listesDit.temperature && listesDit.tuiles > 0, JSON.stringify(listesDit));
+await ctxListes.close();
 
 marquerSection("\n--- Suivi de la position ---"); console.log("\n--- Suivi de la position ---");
 

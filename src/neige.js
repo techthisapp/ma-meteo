@@ -11,7 +11,6 @@
    prend le relais, 55 kilomètres valant environ une heure de route, et le
    résultat le dit. */
 
-import { STATIONS } from "./stations.js";
 import { distanceKm } from "./postes.js";
 import { recaler, elaguer, lireGardee, ecrireGardee } from "./horloge.js";
 
@@ -24,6 +23,14 @@ export const KM_PAR_HEURE_ESTIMEE = 55;
 const CANDIDATES_MAX = 80;
 const OSRM = "https://router.project-osrm.org/table/v1/driving/";
 const CACHE = "mameteo.neige.proches.v1";
+
+/* La liste des stations se charge à la première demande, non au lancement.
+   Audit du 1er octobre 2026, constat 5.1. */
+let STATIONS = null;
+export async function listeStations() {
+  if (!STATIONS) STATIONS = (await import("./stations.js")).STATIONS;
+  return STATIONS;
+}
 const GARDE = 30 * 24 * 3600 * 1000;
 
 /* Le domaine d'une station, ou null si elle est indépendante : les stations
@@ -76,7 +83,7 @@ export async function prochesGardees(g, fetcheur = fetch) {
     const e = c[cle];
     if (e && Date.now() - e.t < GARDE && !e.estime) return e.l;
   } catch { /* cache indisponible */ }
-  const l = await proches(g, STATIONS, fetcheur);
+  const l = await proches(g, await listeStations(), fetcheur);
   try {
     const c = JSON.parse(localStorage.getItem(CACHE) || "{}");
     /* Une estimation ne se garde pas : la prochaine ouverture retentera OSRM. */
@@ -239,7 +246,7 @@ export function domainesCarte(liste = STATIONS, ecart = 25) {
 let neigeCarte = null;
 export async function lireNeigeCarte(heure, fetcheur = fetch) {
   if (neigeCarte && Date.now() - neigeCarte.t < 3600 * 1000 && neigeCarte.h === heure.slice(0, 13)) return neigeCarte.l;
-  const pts = domainesCarte();
+  const pts = domainesCarte(await listeStations());
   const q = new URLSearchParams({ latitude: pts.map(s => s.lat.toFixed(4)).join(","), longitude: pts.map(s => s.lon.toFixed(4)).join(","),
     elevation: pts.map(s => Math.round(s.sommet)).join(","), hourly: "snow_depth", forecast_days: "1", timezone: "Europe/Paris" });
   const r = await fetcheur(`${PREVISION}?${q}`);
