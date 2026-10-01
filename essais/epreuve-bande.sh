@@ -524,12 +524,28 @@ case "$N" in
   162) # La série de secours s'écrit de nouveau entière sur l'appareil.
      perl -0pi -e 's/  if \(!b\) return c;\n  return \{ \.\.\.c, horaireSecours/  return c;\n  return { ...c, horaireSecours/' src/previsions.js
      ATTENDU="la série de secours ne garde sur l.appareil que les colonnes relues" ;;
+  163) # Un bulletin de vigilance n'est plus relu sur l'appareil.
+     perl -0pi -e 's/const garde = gardes\.get\(cle\) \|\| lireGardee\(CACHE, cle, 2 \* 86400 \* 1000\);/const garde = gardes.get(cle);/' src/vigilance.js
+     ATTENDU="un bulletin de vigilance lu n.est pas relu après un relancement" ;;
+  164) # La neige lue n'est plus relue sur l'appareil.
+     perl -0pi -e 's/  if \(gardee\) return gardee\.res;\n//' src/neige.js
+     ATTENDU="la neige lue se garde pour l.heure" ;;
+  165) # La commune d'une plage n'est plus relue sur l'appareil.
+     perl -0pi -e 's/  if \(gardee\) return gardee\.nom;\n//' src/plage.js
+     ATTENDU="la commune d.une plage se garde sur l.appareil" ;;
+  166) # Les plages lues ne sont plus relues sur l'appareil.
+     perl -0pi -e 's/  if \(gardee\) \{ etat = \{ cle, proches, resumes: gardee\.resumes, heure \}; return etat; \}\n//' src/plage.js
+     ATTENDU="les plages lues se gardent pour l.heure" ;;
+  167) # L'état de l'eau n'est plus relu sur l'appareil.
+     perl -0pi -e 's/  if \(gardee\?\.e\?\.restriction\) \{ etat = gardee\.e; return etat; \}\n//' src/eau.js
+     ATTENDU="l.état de l.eau se garde une heure une fois ses lectures arrivées" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
 if diff -q "$OLD/src/bande.js" src/bande.js >/dev/null \
   && diff -q "$OLD/src/app.js" src/app.js >/dev/null \
   && diff -q "$OLD/src/horloge.js" src/horloge.js >/dev/null \
+  && diff -q "$OLD/src/vigilance.js" src/vigilance.js >/dev/null \
   && diff -q "$OLD/src/nappe.js" src/nappe.js >/dev/null \
   && diff -q "$OLD/src/carte.js" src/carte.js >/dev/null \
   && diff -q "$OLD/manifest.webmanifest" manifest.webmanifest >/dev/null \

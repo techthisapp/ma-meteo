@@ -43,6 +43,25 @@ export const heureTxt = h => `${deux(h)} h`;
    plein. Une entrée périmée est retirée, et seules les vingt plus récentes
    restent. Audit du 1er octobre 2026, constat 2.3. */
 export const ENTREES_MAX = 20;
+
+/* Une entrée gardée sur l'appareil dans une table indexée, valable `garde`
+   millisecondes après son écriture. Les sources secondaires n'étaient gardées
+   qu'en mémoire, et iOS ferme souvent l'application en arrière-plan : chaque
+   lancement relisait la vigilance, la neige, les plages et l'eau, douze à
+   vingt requêtes. Audit du 1er octobre 2026, constat 5.5. */
+export function lireGardee(table, cle, garde, maintenant = Date.now()) {
+  try {
+    const e = JSON.parse(localStorage.getItem(table) || "{}")[cle];
+    return e && Number.isFinite(e.t) && maintenant - e.t < garde ? e : null;
+  } catch { return null; }
+}
+export function ecrireGardee(table, cle, e, garde) {
+  try {
+    const c = JSON.parse(localStorage.getItem(table) || "{}");
+    c[cle] = e;
+    localStorage.setItem(table, JSON.stringify(elaguer(c, garde)));
+  } catch { /* stockage plein ou indisponible */ }
+}
 export function elaguer(c, garde, maintenant = Date.now()) {
   const gardees = Object.entries(c).filter(([, e]) => Number.isFinite(e?.t) && maintenant - e.t < garde)
     .sort((a, b) => b[1].t - a[1].t).slice(0, ENTREES_MAX);

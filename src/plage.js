@@ -12,7 +12,7 @@ import { PLAGES, SAISON_QUALITE } from "./plages.js";
 import { distanceKm } from "./postes.js";
 import { dureesMinutes } from "./trajets.js";
 import { cardinal } from "./previsions.js";
-import { recaler, elaguer } from "./horloge.js";
+import { recaler, elaguer, lireGardee, ecrireGardee } from "./horloge.js";
 
 export const RAYON_KM = 100;
 export const MINUTES_MAX = 60;
@@ -216,8 +216,20 @@ export function phraseCreneau(c) {
    embarquée ne l'a presque jamais, le service d'adresses s'étant tu pendant sa
    construction. Le contour des communes d'abord ; un point en mer n'est dans
    aucun, et l'adresse la plus proche prend le relais. */
+/* La commune d'une plage ne change pas : elle se garde un an sur l'appareil,
+   au lieu de deux requêtes par plage à chaque lecture. */
+const CACHE_COMMUNES = "mameteo.plage.communes.v1";
 export async function communeDe(p, fetcheur = fetch) {
   if (p.commune || p.pays !== "FR") return p.commune;
+  const cle = `${p.lat},${p.lon}`;
+  const gardee = lireGardee(CACHE_COMMUNES, cle, 365 * 86400 * 1000);
+  if (gardee) return gardee.nom;
+  const nom = await communeLue(p, fetcheur);
+  if (nom) ecrireGardee(CACHE_COMMUNES, cle, { t: Date.now(), nom }, 365 * 86400 * 1000);
+  return nom;
+}
+
+async function communeLue(p, fetcheur) {
   try {
     const r = await fetcheur(`https://geo.api.gouv.fr/communes?lat=${p.lat}&lon=${p.lon}&fields=nom`);
     const l = r.ok ? await r.json() : [];
@@ -253,10 +265,16 @@ const cleDeLieu = g => `${g.lat.toFixed(3)},${g.lon.toFixed(3)}`;
 export const etatPlage = g => (etat && Number.isFinite(g?.lat) && etat.cle === cleDeLieu(g) ? etat : null);
 export const poserPlage = e => { etat = e; };
 
+/* Les plages lues se gardent sur l'appareil pour l'heure : audit du
+   1er octobre 2026, constat 5.5. */
+const CACHE_LUES = "mameteo.plage.lues.v1";
 export async function chargerPlage(g, heure, fetcheur = fetch) {
   if (!Number.isFinite(g?.lat)) return null;
   const cle = cleDeLieu(g);
   const proches = await prochesGardees(g, fetcheur);
+  const cleLue = `${cle}|${heure.slice(0, 13)}`;
+  const gardee = proches.length ? lireGardee(CACHE_LUES, cleLue, 3600 * 1000) : null;
+  if (gardee) { etat = { cle, proches, resumes: gardee.resumes, heure }; return etat; }
   let resumes = [];
   if (proches.length) {
     const vues = choisir(proches);
@@ -268,6 +286,7 @@ export async function chargerPlage(g, heure, fetcheur = fetch) {
       resumes = vues.map((p, i) => ({ ...p, commune: communes[i], mer: resumeMer(tm[i], heure), air: resumeAir(ta[i], heure),
         creneau: creneauBaignade(ta[i], tm[i], heure) }))
         .filter(p => p.mer);
+      if (resumes.length) ecrireGardee(CACHE_LUES, cleLue, { t: Date.now(), resumes }, 3600 * 1000);
     } catch { resumes = etat?.cle === cle ? etat.resumes : []; }
   }
   etat = { cle, proches, resumes, heure };

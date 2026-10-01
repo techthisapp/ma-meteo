@@ -20,6 +20,8 @@
    Si le service se tait, rien ne s'affiche. Une vigilance qu'on ne sait pas
    lire ne se remplace pas par un message d'erreur sur l'écran d'accueil. */
 
+import { lireGardee, ecrireGardee } from "./horloge.js";
+
 const SERVICE = "https://webservice.meteofrance.com/v3/warning/full";
 /* Le jeton du service, non celui de la vigilance : il ouvre aussi la pluie dans
    l'heure, que `pluieproche.js` lit ici plutôt que de la recopier. Un jeton
@@ -191,10 +193,13 @@ function plages(items) {
 
 /* Une échéance du service, gardée pour elle-même. Sans `echeance`, la réponse
    porte le jour en cours ; avec `J1`, le lendemain, dans la même forme. */
+/* Les bulletins lus se gardent aussi sur l'appareil, jusqu'à la même échéance
+   qu'en mémoire : audit du 1er octobre 2026, constat 5.5. */
+const CACHE = "mameteo.vigilance.v1";
 async function charger(dep, echeance) {
   const cle = `${dep}|${echeance || "J0"}`;
-  const garde = gardes.get(cle);
-  if (garde && Date.now() < garde.exp) return garde.d;
+  const garde = gardes.get(cle) || lireGardee(CACHE, cle, 2 * 86400 * 1000);
+  if (garde && Date.now() < garde.exp) { gardes.set(cle, garde); return garde.d; }
 
   let d = null;
   try {
@@ -205,6 +210,7 @@ async function charger(dep, echeance) {
   if (!d || !Array.isArray(d.timelaps)) d = null;
   const t = Date.now();
   gardes.set(cle, { t, d, exp: jusqua(d, t) });
+  if (d) ecrireGardee(CACHE, cle, gardes.get(cle), 2 * 86400 * 1000);
   return d;
 }
 

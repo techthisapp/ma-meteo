@@ -16,7 +16,7 @@
 
 import { rangDe, NOMS } from "./vigieau.js";
 import { distanceKm } from "./postes.js";
-import { recaler, elaguer } from "./horloge.js";
+import { recaler, elaguer, lireGardee, ecrireGardee } from "./horloge.js";
 
 const VIGIEAU = "https://api.vigieau.gouv.fr/api/zones";
 const HUBEAU = "https://hubeau.eaufrance.fr/api/v1/niveaux_nappes";
@@ -376,8 +376,14 @@ export const poserEau = e => { etat = e; };
 
 /* La restriction et la nappe d'abord ; la rivière, plus lente, ensuite, sans
    retarder la tuile : `surRiviere` redessine quand elle arrive. */
+/* L'état de l'eau, une fois ses quatre lectures lentes arrivées, se garde une
+   heure sur l'appareil : audit du 1er octobre 2026, constat 5.5. Seul un état
+   dont la restriction a été lue se garde. */
+const CACHE_ETAT = "mameteo.eau.etat.v1";
 export async function chargerEau(g, aujourdhui, fetcheur = fetch, surRiviere = null) {
   if (!Number.isFinite(g?.lat)) return null;
+  const gardee = lireGardee(CACHE_ETAT, `${cleDeLieu(g)}|${aujourdhui}`, 3600 * 1000);
+  if (gardee?.e?.restriction) { etat = gardee.e; return etat; }
   /* Une réponse en erreur n'est pas une liste vide : VigiEau rend une liste
      vide quand aucune zone ne couvre le point, et une erreur se lisait ainsi
      comme « aucune restriction ». Audit du 1er octobre 2026, constat 1.4. */
@@ -390,10 +396,12 @@ export async function chargerEau(g, aujourdhui, fetcheur = fetch, surRiviere = n
   /* La rivière, l'étiage et la température de l'eau, plus lents, arrivent
      chacun à son tour. */
   const apres = (p, cle) => p.catch(() => null).then(v => { e[cle] = v; if (etat === e && surRiviere) surRiviere(); });
-  apres(lireRiviere(g, new Date(), fetcheur), "riviere");
-  apres(lireEtiage(g, aujourdhui, fetcheur), "etiage");
-  apres(lireTemperature(g, aujourdhui, fetcheur), "temperature");
-  apres(lireSol(g, aujourdhui, fetcheur), "sol");
+  Promise.all([apres(lireRiviere(g, new Date(), fetcheur), "riviere"),
+    apres(lireEtiage(g, aujourdhui, fetcheur), "etiage"),
+    apres(lireTemperature(g, aujourdhui, fetcheur), "temperature"),
+    apres(lireSol(g, aujourdhui, fetcheur), "sol")]).then(() => {
+    if (e.restriction) ecrireGardee(CACHE_ETAT, `${e.cle}|${aujourdhui}`, { t: Date.now(), e }, 3600 * 1000);
+  });
   return etat;
 }
 

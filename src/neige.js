@@ -13,7 +13,7 @@
 
 import { STATIONS } from "./stations.js";
 import { distanceKm } from "./postes.js";
-import { recaler, elaguer } from "./horloge.js";
+import { recaler, elaguer, lireGardee, ecrireGardee } from "./horloge.js";
 
 export const RAYON_KM = 100;
 export const MINUTES_MAX = 60;
@@ -143,15 +143,19 @@ export function reduireNeige(reponse, stations, heure) {
   })).filter(s => s.bas && s.haut);
 }
 
-const lue = new Map();
+/* La neige lue se garde sur l'appareil pour l'heure, au lieu d'une table en
+   mémoire qui grandissait d'une entrée par heure et par lieu : audit du
+   1er octobre 2026, constats 5.5 et 5.14. */
+const CACHE_NEIGE = "mameteo.neige.lue.v1";
 export async function lireNeige(stations, heure, fetcheur = fetch) {
   const u = adresseNeige(stations);
   const cle = `${u}|${heure.slice(0, 13)}`;
-  if (lue.has(cle)) return lue.get(cle);
+  const gardee = lireGardee(CACHE_NEIGE, cle, 3600 * 1000);
+  if (gardee) return gardee.res;
   const r = await fetcheur(u);
   if (!r.ok) throw new Error(`neige ${r.status}`);
   const res = reduireNeige(recaler(await r.json()), stations, heure);
-  lue.set(cle, res);
+  ecrireGardee(CACHE_NEIGE, cle, { t: Date.now(), res }, 3600 * 1000);
   return res;
 }
 

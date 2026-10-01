@@ -5732,6 +5732,77 @@ ok("la grille de la carte se garde sur l'appareil après un relancement",
   grilleE.appels === 1 && grilleE.t5 === 5 && grilleE.apres.appels === 0 && grilleE.apres.t5 === 5, JSON.stringify(grilleE));
 await ctxLotE.close();
 
+/* Audit du 1er octobre 2026, constat 5.5 : les sources secondaires lues se
+   gardent sur l'appareil. La vigilance d'abord, en page : un bulletin lu
+   n'est pas relu après un rechargement. */
+const ctxLotE2 = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+let appelsVigE = 0;
+await ctxLotE2.route(/webservice\.meteofrance\.com\/v3\/warning\/full/, r => {
+  appelsVigE++;
+  r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ timelaps: [], phenomenons_max_colors: [] }) });
+});
+const pgLotE2 = await ctxLotE2.newPage();
+await ouvrirPage(pgLotE2);
+await pgLotE2.evaluate(async () => { const V = await import("/src/vigilance.js"); await V.lire("21"); });
+const vigGardeDit = { premier: appelsVigE };
+await pgLotE2.reload(); await pgLotE2.waitForTimeout(400);
+await pgLotE2.evaluate(async () => { const V = await import("/src/vigilance.js"); await V.lire("21"); });
+vigGardeDit.apres = appelsVigE;
+ok("un bulletin de vigilance lu n'est pas relu après un relancement",
+  vigGardeDit.premier > 0 && vigGardeDit.apres === vigGardeDit.premier, JSON.stringify(vigGardeDit));
+
+/* Puis la neige, les communes des plages, les plages et l'eau, sur leurs
+   fonctions, avec un faux service qui compte ses appels. */
+const sourcesGardeDit = await pgLotE2.evaluate(async () => {
+  const N = await import("/src/neige.js"), Pl = await import("/src/plage.js"), E = await import("/src/eau.js");
+  localStorage.clear();
+  const heure = "2026-08-18T12:00", jour = "2026-08-18";
+  const compte = { neige: 0, communes: 0, plages: 0, eau: 0 };
+  const rep = v => ({ ok: true, json: async () => v });
+  const nombre = u => (new URL(u).searchParams.get("latitude") || "").split(",").length;
+  /* Les appels à OSRM ne se comptent pas : une durée estimée faute d'OSRM ne
+     se garde jamais, et la lecture suivante retente le service, par choix. */
+  const faux = quoi => async u => {
+    if (!u.includes("project-osrm")) compte[quoi]++;
+    if (u.includes("geo.api.gouv.fr")) return rep([{ nom: "Biarritz" }]);
+    if (u.includes("marine-api")) return rep(Array.from({ length: nombre(u) }, () => ({ hourly: { time: [heure],
+      wave_height: [0.5], wave_period: [6], wave_direction: [270], sea_surface_temperature: [20], sea_level_height_msl: [0.1] } })));
+    if (u.includes("api.open-meteo.com") && quoi === "plages") return rep(Array.from({ length: nombre(u) }, () => ({
+      hourly: { time: [heure], temperature_2m: [25], wind_speed_10m: [10], wind_direction_10m: [270], precipitation: [0] },
+      daily: { time: [jour], temperature_2m_max: [26], uv_index_max: [5], sunrise: [`${jour}T07:10`], sunset: [`${jour}T20:50`] } })));
+    if (u.includes("vigieau")) return rep([]);
+    if (quoi === "neige") return rep([]);
+    return { ok: false, status: 500, json: async () => ({}) };
+  };
+  const deux = [{ nom: "Une", lat: 45.2, lon: 6.3, pied: 1200, sommet: 2300 },
+    { nom: "Deux", lat: 45.4, lon: 6.6, pied: 1500, sommet: 2700 }];
+  await N.lireNeige(deux, heure, faux("neige")); await N.lireNeige(deux, heure, faux("neige"));
+  const plage = { lat: 43.48, lon: -1.56, pays: "FR" };
+  await Pl.communeDe(plage, faux("communes")); const avantCommunes = compte.communes;
+  await Pl.communeDe(plage, faux("communes"));
+  const g = { lat: 43.48, lon: -1.56 };
+  const p1 = await Pl.chargerPlage(g, heure, faux("plages")); const avantPlages = compte.plages;
+  const p2 = await Pl.chargerPlage(g, heure, faux("plages"));
+  await E.chargerEau({ lat: 45.5, lon: 5.5 }, jour, faux("eau"));
+  await new Promise(r => setTimeout(r, 300));
+  const avantEau = compte.eau;
+  await E.chargerEau({ lat: 45.5, lon: 5.5 }, jour, faux("eau"));
+  return { neige: compte.neige, communes: `${avantCommunes} ${compte.communes}`,
+    plages: `${avantPlages} ${compte.plages} ${p1?.resumes?.length ?? 0} ${p2?.resumes?.length ?? 0}`,
+    eau: `${avantEau} ${compte.eau}` };
+});
+const [cAE, cBE] = sourcesGardeDit.communes.split(" ").map(Number);
+const [plAE, plBE, plN1E, plN2E] = sourcesGardeDit.plages.split(" ").map(Number);
+const [eAE, eBE] = sourcesGardeDit.eau.split(" ").map(Number);
+ok("la neige lue se garde pour l'heure", sourcesGardeDit.neige === 1, JSON.stringify(sourcesGardeDit));
+ok("la commune d'une plage se garde sur l'appareil", cAE > 0 && cBE === cAE, JSON.stringify(sourcesGardeDit));
+ok("les plages lues se gardent pour l'heure", plAE > 0 && plBE === plAE && plN1E > 0 && plN2E === plN1E, JSON.stringify(sourcesGardeDit));
+ok("l'état de l'eau se garde une heure une fois ses lectures arrivées", eAE > 0 && eBE === eAE, JSON.stringify(sourcesGardeDit));
+await ctxLotE2.close();
+
 marquerSection("\n--- Suivi de la position ---"); console.log("\n--- Suivi de la position ---");
 
 /* L'application s'ouvre en mode position sur un relevé ancien, pris ailleurs.
