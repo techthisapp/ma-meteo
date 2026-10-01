@@ -137,9 +137,13 @@ la fin octobre ; 5, la 3D, écartée pour le moment.
 
 Points connus à reprendre :
 
-1. `LISEZ-MOI.md` décrit encore des écrans renommés depuis : « Le temps » est
-   devenu « Heure par heure », « La semaine » est devenue « À venir ».
-2. Le module de la neige garde sa propre requête à OSRM ; la raccorder à
+1. Le module de la neige garde sa propre requête à OSRM ; la raccorder à
    `src/trajets.js`.
-3. Le vent des plages se dit sans rapport au rivage : l'orientation des plages
+2. Le vent des plages se dit sans rapport au rivage : l'orientation des plages
    manque à la source.
+3. La carte « Écriture de l'écran Le temps » des réglages porte encore l'ancien
+   nom de la page « Heure par heure », `src/vues.js`.
+4. Toute tuile de l'accueil qui ouvre une feuille annonce « voir l'air qu'on
+   respire » aux lecteurs d'écran, la tuile « L'eau » comprise, `src/app.js`.
+5. Les sections de `LISEZ-MOI.md` qui suivent le tableau des écrans gardent le
+   récit de leur époque ; le tableau, lui, est à jour au 1er octobre 2026.

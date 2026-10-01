@@ -7,23 +7,38 @@ service dorsal, sans base de données, sans compte. Métropole française.
 
 ## Contenu
 
-| Écran | Ce qu'il porte |
-|---|---|
-| Accueil | Le panneau de vigilance s'il y en a une, puis le bandeau du ciel plein cadre portant le temps qu'il fait, le jour, la température, le ciel et les bornes du jour, et trois blocs en échelle de temps : « Aujourd'hui » avec les quatre mesures et les faits du jour, « Les 24 prochaines heures » en tableau de tranches de six heures, « Demain et après-demain » avec ce qui mérite d'être su au-delà |
-| Le temps | Vingt-quatre heures glissantes en deux écritures : ruban à sept voies, table à treize colonnes |
-| La semaine | Sept jours : symbole de ciel et lame sous lui, borne basse à gauche, plage de température sur une échelle commune, borne haute à droite, point du moment sur la journée en cours. Un appui ouvre la journée sur ses quatre moments |
-| Le soleil | Bandeau du ciel plein cadre avec le Soleil à sa vraie place, trajectoire du jour, course du disque, durée du jour, clarté et nuit noire, ruban et table des trois crépuscules |
-| La lune | Bandeau du ciel plein cadre avec la Lune en relief à sa vraie place et la vignette de sa phase devant son nom, trajectoire du jour croisée avec celle du Soleil, course du jour, temps au-dessus de l'horizon, âge, lunaison, quatre prochaines phases avec leur délai |
-| Vigilance | Bulletin en vigueur, phénomènes signalés avec leur niveau et leur fenêtre, renvoi vers Météo-France, en feuille |
-| Mes lieux | Lieux suivis, chacun sous son propre ciel, réordonnables, en feuille. L'ajout se pousse derrière le bouton de la tête |
-| Réglages | Écriture retenue pour l'écran du temps, sources, coordonnées, en feuille |
+La barre d'onglets porte quatre destinations : Accueil, À venir, Le ciel et La
+carte. « Heure par heure » est une page de détail, ouverte dans l'onglet où l'on
+se trouve. Le reste se présente en feuilles, qui s'empilent et se referment par
+le bouton de fermeture, le voile, la touche Échap ou un glissement vers le bas.
 
-Les cinq premiers écrans sont des destinations de la barre d'onglets. Communes,
-Vigilance et Réglages sont des présentations en feuille.
+| Onglet ou page | Ce qu'il porte |
+|---|---|
+| Accueil | De haut en bas : le bandeau du ciel plein cadre, avec la réponse du matin, la date, la température, le ciel et les bornes du jour ; le panneau de vigilance, quand une vigilance est en vigueur ou annoncée pour demain ; la pluie dans l'heure, quand elle approche, avec son sens d'arrivée et neuf échéances ; le bloc « Aujourd'hui », avec la bande horaire des 24 heures, trois conseils au plus et les tuiles Ressenti, Pluie, Vent, Ciel, Humidité, Indice UV, Pression, Air, et L'eau quand ses données existent ; « Les 24 prochaines heures » en tableau de nuit, matin, après-midi et soirée ; le bloc du lendemain ; les portes larges « La neige » et « La plage » en saison ; la grille des quatre portes « Quand faire quoi », « Où est le beau temps », « L'air qu'on respire » et « Le climat d'ici » ; la source |
+| Heure par heure | Page de détail, ouverte par « Plus de détails » dans la bande horaire, par une heure de la bande, la température, le ciel, une tuile, un conseil, ou par « Voir les heures » dans À venir. Deux écritures au choix. Le ruban couvre de l'avant-veille à sept jours de prévision, par fenêtre de 24 heures en portrait et de 48 heures en paysage, sur sept voies dépliables : Ciel, Température, Pluie, Vent, Indice UV, Humidité, Pression. La liste donne les 24 prochaines heures en douze colonnes |
+| À venir | Le graphique des températures, du vent et de la pluie ; les grandes lignes des sept jours et la tendance de la semaine suivante ; la liste des journées, d'hier et avant-hier jusqu'à seize jours, chacune avec son ciel, sa pluie ou ses rafales, ses bornes sur une échelle commune et sa confiance en un mot, fiable, à confirmer ou incertain. Un appui ouvre la journée sur ses quatre moments, la comparaison des modèles ICON et ECMWF et le bouton « Voir les heures ». « Voir plus » prolonge la liste jusqu'à cinq semaines par la tendance du modèle GFS |
+| Le ciel | Trois écrans au choix sous le ciel plein cadre. Soleil : prochain événement, trajectoire du jour, lever, midi solaire et coucher, durée du jour, clarté, nuit noire et les trois crépuscules. Lune : phase et part éclairée, trajectoire croisée avec celle du Soleil, lever, passage au méridien et coucher, temps au-dessus de l'horizon, âge, lunaison et quatre prochaines phases. Étoiles : la voûte vers le sud, en plein écran au toucher, avec un curseur de la nuit par pas de cinq minutes, la Lune et les planètes, le choix des étoiles affichées et la fiche d'une constellation ; dessous, la nuit qui vient, les constellations à voir ce soir et le prochain essaim d'étoiles filantes |
+| La carte | La France avec les lieux suivis. Une nappe au choix : Restrictions d'eau, Température, Indice UV, Qualité de l'air, ou aucune. Par-dessus, à volonté : Pluie, avec sa chronologie, Vent, Vigilance, Foudre, Nuages, Feux, Prévisions du matin, de l'après-midi, du soir ou du lendemain, Plages, Neige, Cours d'eau |
+
+| Feuille | Ce qu'elle porte | Accès |
+|---|---|---|
+| Mes lieux | Ma position, puis dix lieux suivis au plus, chacun sous son propre ciel ; bascule d'un appui, suppression d'un glissement à gauche, déplacement d'un appui long | Nom de la commune dans la barre de tête |
+| Ajouter un lieu | Recherche par nom de commune ou code postal | Bouton d'ajout de « Mes lieux » |
+| Réglages | Écriture de la page « Heure par heure », heures d'alerte, pollens suivis, rappel automatique sur iPhone, sources, justesse des prévisions, version de l'application | Roue dentée de la barre de tête |
+| Vigilance | Niveau, conduite à tenir, phénomènes signalés, annonce du lendemain, renvoi vers Météo-France | Panneau de vigilance de l'accueil |
+| Parapluie ou Capuche | Fenêtre de pluie, pluie la plus forte, rafales, rappels à poser dans l'agenda | Jeton de la barre de tête, réponse du matin |
+| Mon ressenti | Conseil du jour et correction au ressenti, trop chaud ou trop froid | Réponse du matin |
+| Quand faire quoi | Le premier créneau favorable des 48 prochaines heures pour courir, rouler à vélo, étendre le linge, aérer, arroser, laver la voiture | Porte de l'accueil |
+| Où est le beau temps | Les lieux suivis classés par ensoleillement, aujourd'hui ou demain, et une grille à la ronde à la demande | Porte de l'accueil |
+| L'air qu'on respire | Indice européen, polluants, indice ATMO officiel et ses sous-indices, pollens | Porte de l'accueil, tuile Air, conseils de l'air et des pollens |
+| Le climat d'ici | La journée dans l'histoire, la comparaison d'une période avec une autre année ou d'autres lieux, les records du jour, la saison face à la normale, les bandes de réchauffement | Porte de l'accueil |
+| La neige | Par domaine ou station à une heure de route au plus : durée de route, neige en haut et en bas, neige fraîche, chutes à sept jours, limite pluie et neige, rafales au sommet | Porte de l'accueil en saison, conseil de chute notable |
+| La plage | Quatre plages au plus à une heure de route : température de l'eau, vagues, vent, marées, créneau de baignade, qualité de l'eau | Porte de l'accueil en saison |
+| L'eau | Restrictions de la commune, nappe phréatique, rivière la plus proche avec son étiage et sa température, sol et arrosage | Tuile L'eau, conseil de restriction |
 
 ## Changement de commune
 
-La commune vit dans la barre de tête, à la même place sur les cinq écrans. Un
+La commune vit dans la barre de tête, à la même place sur les quatre onglets. Un
 appui ouvre la liste des communes suivies, un second bascule. Aucun écran ne
 répète la commune : le grand titre nomme l'écran, ou porte le jour sur
 l'accueil.
@@ -36,7 +51,7 @@ où l'appareil se trouve, la cible dit qu'il suivra.
 Les symboles du ciel se dessinent en deux groupes : la masse prend le gris du
 ciel, l'accent prend sa couleur propre, jaune pour le soleil, bleu pour la
 pluie, orange pour l'orage. Ils sont réservés aux endroits qui décrivent le
-ciel : le bandeau, la table de la semaine, la liste des communes. Ailleurs les
+ciel : le bandeau, la liste « À venir », la liste des communes. Ailleurs les
 symboles restent monochromes, un symbole coloré au milieu d'un texte détournant
 le regard.
 
@@ -158,7 +173,7 @@ heures, ce qui revenait à comparer un après-midi à une nuit : la ligne
 paraissait tous les jours de beau temps, et nommait « le plus chaud de demain »
 un relevé du petit matin, très en dessous du maximum réel du lendemain. Les deux
 maximums viennent maintenant des journées entières, à la même source que la
-table de la semaine : les deux écrans s'accordent au degré.
+liste « À venir » : les deux écrans s'accordent au degré.
 
 | Règle | Ce qu'elle dit | Seuil |
 |---|---|---|
@@ -180,7 +195,7 @@ table de la semaine : les deux écrans s'accordent au degré.
 Les alertes journalières ont disparu comme mécanisme distinct. Elles portaient
 leurs propres seuils sur des moyennes de journée et annonçaient jusqu'à quatre
 jours : « 32° mercredi » annoncé un dimanche est de l'almanach, non un fait
-marquant, et la semaine est là pour cela. Le troisième bloc fait tourner le même
+marquant, et l'écran « À venir » est là pour cela. Le troisième bloc fait tourner le même
 moteur sur demain puis sur après-demain, une journée à la fois, et garde la
 précision horaire.
 
@@ -240,17 +255,17 @@ maintenant : après « cette nuit », « matin » ne peut désigner que le lende
 L'après-midi s'abrège pour lui seul : à cinquante points de large il passait à
 la ligne et décalait toute la ligne d'entête.
 
-L'écran du temps garde deux écritures, le ruban et la table. Son sélecteur se
+La page « Heure par heure » garde deux écritures, le ruban et la table. Son sélecteur se
 tient sur la ligne du titre, à droite et compact : posé sous le titre, il
 coûtait une bande de soixante points avant le premier chiffre. Le ruban et la
 table commencent maintenant en haut de la page.
 
 Ce qui mérite d'être retenu se lit sur l'accueil, sous « À retenir », et nulle
-part ailleurs. En tête de l'écran du temps, les mêmes phrases se redisaient un
+part ailleurs. En tête de la page « Heure par heure », les mêmes phrases se redisaient un
 écran plus loin, à l'endroit où l'on vient justement chercher le détail.
 
 Les chiffres de l'accueil mènent à leurs vingt-quatre heures. Le grand chiffre
-et les quatre mesures ouvrent l'écran du temps en ruban, sur la voie
+et les quatre mesures ouvrent la page « Heure par heure » en ruban, sur la voie
 correspondante déjà dépliée, et la page se place dessus. Le libellé du ciel mène
 à la voie Ciel.
 
@@ -263,7 +278,7 @@ correspondante déjà dépliée, et la page se place dessus. Le libellé du ciel
 | Indice UV | Indice UV |
 | Libellé du ciel | Ciel |
 
-## La semaine, journée par journée
+## À venir, journée par journée
 
 Les heures portent maintenant sur les sept jours, comme la charge quotidienne :
 chaque rangée se résume de ses heures, et un appui l'ouvre sur ses quatre
@@ -286,7 +301,7 @@ ou le risque d'abord, la rafale ensuite au delà de quarante kilomètres par
 heure. Les seuils sont ceux de la rangée fermée : elle annonce huit pour cent de
 risque, le volet ne peut pas se taire dessus.
 
-Un seul volet reste ouvert à la fois. Sept ouverts feraient de la semaine une
+Un seul volet reste ouvert à la fois. Sept ouverts feraient de l'écran « À venir » une
 page à défiler, ce que la rangée fermée évitait justement. Sur la journée en
 cours, un moment déjà passé s'efface.
 
@@ -298,12 +313,12 @@ montre.
 La portée demandée à la source entre dans la clé du cache. Sans cela, une charge
 écrite par la version d'avant, qui ne demandait que deux jours d'heures, restait
 servie jusqu'à la fin de l'heure en cours : le nouveau code tournait sur
-l'ancienne donnée et la semaine ne s'ouvrait que sur ses deux premières
+l'ancienne donnée et l'écran « À venir » ne s'ouvrait que sur ses deux premières
 journées. La clé porte donc les deux horizons, celui des heures et celui
 d'AROME, et le jour où ils changent la charge gardée cesse d'être servie
 d'elle-même, sans compteur à penser à incrémenter.
 
-La table de la semaine est devenue une liste de boutons. Une cible de liste veut
+La table de l'écran « À venir » est devenue une liste de boutons. Une cible de liste veut
 son `aria-expanded`, son clavier et son focus, ce qu'une cellule de table ne
 donne pas ; les colonnes s'alignent par leurs largeurs fixes, comme avant.
 
@@ -438,7 +453,7 @@ d'instant se lirait de travers. Le titre au-dessus dit déjà la même chose des
 températures, « 18° à 32° aujourd'hui ».
 
 La pluie se dit en millimètres quand il en tombe, en risque sinon, comme dans la
-table de la semaine.
+liste « À venir ».
 
 Le ressenti ne paraît que s'il s'écarte d'au moins deux degrés du maximum du
 jour. Sinon la pluie prend sa place : « Ressenti 32° » à côté d'un maximum de 32°
@@ -878,7 +893,7 @@ révision installée par Playwright ne correspond pas à celle du poste.
 `node essais/vue-ecran.mjs` rend un écran dans les deux thèmes, en haut et en
 bas de page, sous `essais/captures`. Les variables `ECRAN` et `QUAND` portent la
 destination et l'instant à figer, `OUVRIRVOIE` la voie du ruban à déplier et
-`OUVRIR` le rang de la journée à ouvrir dans la semaine.
+`OUVRIR` le rang de la journée à ouvrir dans « À venir ».
 
 Le lanceur sert le dossier, fige l'horloge au 18 août 2026 à 9 h, détourne les
 trois appels Open-Meteo vers `meteo.json`, sert une vigilance orange de
@@ -897,14 +912,14 @@ en ajoute six : chaque mesure nommée une seule fois, une case par mesure et par
 moment, aucune ligne creuse de bout en bout, aucun nom de tranche qui passe à la
 ligne, aucune borne de température collée par un trait, et la carte sous quatre
 cents points. Un septième, sur un temps calme, vérifie que le tableau ne garde
-que ses lignes utiles. La semaine ajoute onze
+que ses lignes utiles. L'écran « À venir » ajoute onze
 contrôles : sept rangées ouvrables, aucun volet ouvert à l'arrivée, l'ouverture
 sur quatre moments, les quatre noms de tranche, un seul volet ouvert à la fois,
 la fermeture au second appui, la borne qui compte et rien de superflu dans
 chaque volet, la rafale signalée, le moment passé effacé, et sur une charge
 écourtée en milieu de journée, la journée incomplète qui ne s'ouvre pas ni ne
 porte de chevron. Deux autres gardent le contrat avec la source : les heures
-demandées sur sept jours, AROME sur trois. Deux derniers reprennent le défaut tel qu'il s'est produit : une charge gardée sous l'ancienne forme ne doit pas être servie, et la semaine doit s'ouvrir sur ses sept journées après elle. Sept contrôles portent
+demandées sur sept jours, AROME sur trois. Deux derniers reprennent le défaut tel qu'il s'est produit : une charge gardée sous l'ancienne forme ne doit pas être servie, et l'écran « À venir » doit s'ouvrir sur ses sept journées après elle. Sept contrôles portent
 sur la vignette de la Lune et sur la lecture de son écran : la vignette est
 devant le nom de la phase, elle porte des pixels opaques, sa part sombre est
 franche, elle dit la même phase que le ciel, elle garde sa pleine matière sous
@@ -955,9 +970,9 @@ de l'inclinaison du limbe, et la présence des deux courbes de trajectoire.
 Le ciel de l'accueil ajoute la toile du temps : elle couvre le panneau, elle se
 peint après l'astre et au-dessus de lui, elle porte des pixels et elle bouge.
 Sept contrôles gardent la cohérence entre écrans, chaque paire lue sur deux
-rendus : les bornes du bandeau sont celles de la rangée Auj. de la semaine, la
+rendus : les bornes du bandeau sont celles de la rangée Auj. de « À venir », la
 tuile de pluie dit ce que dit cette rangée, la pluie de demain porte les mêmes
-millimètres sur l'accueil et sur la semaine, le sous-titre du temps porte le
+millimètres sur l'accueil et sur « À venir », le sous-titre de « Heure par heure » porte le
 chiffre du bandeau, il s'écrit sans décimale, les températures de la liste
 aussi, et le gel s'annonce au degré rond avec le mot accordé. Les trois derniers
 tournent sur une charge décalée de sept degrés et six dixièmes, la charge
@@ -975,7 +990,7 @@ deux fois.
 
 Trois contrôles gardent le renversement de température : rien ne se dit quand
 demain vaut aujourd'hui, la phrase paraît quand l'écart est réel, et le maximum
-qu'elle nomme est celui que porte la table de la semaine.
+qu'elle nomme est celui que porte la liste « À venir ».
 
 Huit contrôles gardent le ciel à deux astres : le Soleil seul quand la Lune est
 couchée, les deux ensemble quand ils sont levés, la Lune seule la nuit, la même
