@@ -1244,6 +1244,43 @@ ok("le bouton de commune ouvre la feuille des communes",
    des contextes qui portent de la pluie. */
 ok("une journée sèche ne fait paraître aucun jeton de parapluie",
   await pg.locator("#navJeton").isHidden());
+/* Une feuille refermée avant la première image de son ouverture reste fermée,
+   et une feuille rouverte pendant les 260 ms de sa fermeture reste ouverte.
+   L'image d'écran est retenue à la main : l'ordre des événements ne dépend
+   pas de la vitesse du poste. Sur un Mac rapide, le contrôle de la rivière
+   refermait la feuille de l'eau avant cette image, et la feuille restait
+   ouverte sans entrée d'historique, le 1er octobre 2026. */
+const feuilleCourse = await pg.evaluate(async () => {
+  const f = document.getElementById("feuille"), reglages = document.getElementById("btnReglages");
+  const etat = () => `${f.hidden ? "masquée" : "visible"} ${f.classList.contains("ouverte") ? "ouverte" : "fermée"}`
+    + ` ${history.state?.feuille ? "historique" : "sans"}`;
+  const attendre = ms => new Promise(r => setTimeout(r, ms));
+  const retour = () => { const p = new Promise(r => addEventListener("popstate", () => setTimeout(r, 0), { once: true }));
+    history.back(); return p; };
+  const raf = window.requestAnimationFrame, retenues = [];
+  window.requestAnimationFrame = cb => { retenues.push(cb); return 0; };
+  reglages.click();
+  await retour();
+  window.requestAnimationFrame = raf;
+  retenues.forEach(cb => cb(performance.now()));
+  await attendre(400);
+  const avantImage = etat();
+  if (!f.hidden && !history.state?.feuille) return { avantImage };
+  reglages.click();
+  await attendre(400);
+  await retour();
+  await attendre(50);
+  reglages.click();
+  await attendre(400);
+  const pendantFermeture = etat();
+  /* Sans entrée d'historique, un retour quitterait la page d'essai. */
+  if (history.state?.feuille) await retour();
+  await attendre(400);
+  return { avantImage, pendantFermeture, apres: etat() };
+});
+ok("une feuille refermée avant sa première image reste fermée, et rouverte pendant sa fermeture reste ouverte",
+  feuilleCourse.avantImage === "masquée fermée sans" && feuilleCourse.pendantFermeture === "visible ouverte historique"
+  && feuilleCourse.apres === "masquée fermée sans", JSON.stringify(feuilleCourse));
 
 marquerSection("\n--- Écran d'accueil ---"); console.log("\n--- Écran d'accueil ---");
 ok("le jour est porté par le ciel, non par un titre d'écran",

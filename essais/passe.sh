@@ -13,6 +13,7 @@ set -u
 if [ -z "${CHROMIUM:-}" ] && [ -x /opt/pw-browsers/chromium-1194/chrome-linux/chrome ]; then
   CHROMIUM=/opt/pw-browsers/chromium-1194/chrome-linux/chrome
 fi
+. "$(dirname "$0")/borne.sh"
 cd "$(dirname "$0")/.."
 OLD="$PWD"
 PORT_ESSAIS="${1:-8137}"
@@ -26,4 +27,4 @@ cd "$COPIE"
 # section, la seconde dit le temps de chacune.
 CHROMIUM="${CHROMIUM:-}" \
   PORT_ESSAIS=$PORT_ESSAIS JUSQUA="${JUSQUA:-}" CHRONO="${CHRONO:-}" \
-  timeout 900 node essais/controle.mjs
+  borne 900 node essais/controle.mjs

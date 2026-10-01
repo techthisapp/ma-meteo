@@ -9,6 +9,7 @@ set -u
 if [ -z "${CHROMIUM:-}" ] && [ -x /opt/pw-browsers/chromium-1194/chrome-linux/chrome ]; then
   CHROMIUM=/opt/pw-browsers/chromium-1194/chrome-linux/chrome
 fi
+. "$(dirname "$0")/borne.sh"
 cd "$(dirname "$0")/.."
 N="$1"
 OLD="$PWD"
@@ -388,6 +389,12 @@ case "$N" in
   117) # L'écart d'une station se lit à l'envers.
      perl -0pi -e 's/    ecart: e\.recent\.resultat_obs - e\.ancien\.resultat_obs \}\)\);/    ecart: e.ancien.resultat_obs - e.recent.resultat_obs }));/' src/eau.js
      ATTENDU="les cours d.eau d.un cadre se regroupent par station, la hauteur la plus récente et l.écart sur six heures" ;;
+  118) # L'ouverture en attente ne regarde plus si la feuille a été refermée.
+     perl -0pi -e 's/      if \(vueCourante === null\) return;\n      \$\("voile"\)\.classList\.add/      \$("voile").classList.add/' src/app.js
+     ATTENDU="une feuille refermée avant sa première image reste fermée, et rouverte pendant sa fermeture reste ouverte" ;;
+  119) # L'ouverture se juge de nouveau sur l'attribut hidden.
+     perl -0pi -e 's/  if \(!dejaOuverte\) \{/  if (\$("feuille").hidden) {/' src/app.js
+     ATTENDU="une feuille refermée avant sa première image reste fermée, et rouverte pendant sa fermeture reste ouverte" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
@@ -420,7 +427,7 @@ if diff -q "$OLD/src/bande.js" src/bande.js >/dev/null \
 fi
 
 SORTIE=$(CHROMIUM="${CHROMIUM:-}" \
-  PORT_ESSAIS=$PORT_ESSAIS JUSQUA="$JUSQUA" timeout 900 node essais/controle.mjs 2>&1)
+  PORT_ESSAIS=$PORT_ESSAIS JUSQUA="$JUSQUA" borne 900 node essais/controle.mjs 2>&1)
 echo "$SORTIE" > "/tmp/epreuve-bande-$N.log"
 if echo "$SORTIE" | grep -q "ÉCHEC  $ATTENDU"; then
   echo "FAUTE $N vue par : $ATTENDU"

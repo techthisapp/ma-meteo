@@ -1059,18 +1059,25 @@ function rendreFeuille() {
 
 function ouvrirFeuille(vue, enRetour) {
   if (!FEUILLES[vue]) return;
-  if (!enRetour && vueCourante && !$("feuille").hidden) pile.push(vueCourante);
+  /* La feuille est ouverte tant qu'une vue est courante. L'attribut hidden ne
+     le dit pas à temps : il tombe une image après l'ouverture et revient
+     260 ms après la fermeture. Une fermeture demandée avant cette image était
+     annulée par l'ouverture en attente, et une réouverture pendant ces 260 ms
+     se perdait. */
+  const dejaOuverte = vueCourante !== null;
+  if (!enRetour && dejaOuverte) pile.push(vueCourante);
   vueCourante = vue;
   rendreFeuille();
   $("feuille").classList.toggle("moyenne", ACCROCHE[vue] === "moyenne");
   $("feuille-retour").hidden = !pile.length;
   $("feuille-corps").scrollTop = 0;
 
-  if ($("feuille").hidden) {
+  if (!dejaOuverte) {
     $("voile").hidden = false;
     $("feuille").hidden = false;
     document.body.classList.add("fige");
     requestAnimationFrame(() => {
+      if (vueCourante === null) return;
       $("voile").classList.add("visible");
       $("feuille").classList.add("ouverte");
       $("feuille").focus();
@@ -1081,7 +1088,7 @@ function ouvrirFeuille(vue, enRetour) {
 
 function fermerFeuille() {
   const f = $("feuille");
-  if (f.hidden) return;
+  if (vueCourante === null) return;
   f.classList.remove("ouverte");
   $("voile").classList.remove("visible");
   document.body.classList.remove("fige");
@@ -1089,7 +1096,7 @@ function fermerFeuille() {
      page, et les réglages y doublaient par exemple le sélecteur « Ruban » de
      l'écran du temps. Elle ne se vide que si rien ne l'a rouverte entre-temps. */
   setTimeout(() => {
-    if (f.classList.contains("ouverte")) return;
+    if (vueCourante !== null) return;
     f.hidden = true; $("voile").hidden = true;
     $("feuille-corps").innerHTML = "";
   }, 260);
@@ -1427,11 +1434,11 @@ $("ecran").addEventListener("click", ev => {
 });
 
 window.addEventListener("keydown", ev => {
-  if (ev.key === "Escape" && !$("feuille").hidden) history.back();
+  if (ev.key === "Escape" && vueCourante !== null) history.back();
 });
 
 window.addEventListener("popstate", () => {
-  if (!$("feuille").hidden) { if (pile.length) retour(); else fermerFeuille(); return; }
+  if (vueCourante !== null) { if (pile.length) retour(); else fermerFeuille(); return; }
   if (detail) quitterDetail();
 });
 

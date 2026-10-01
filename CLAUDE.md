@@ -66,13 +66,13 @@ Installation sur un nouveau poste : `npm install`, puis
 
 | Commande | Effet |
 |---|---|
-| `bash essais/passe.sh 8137` | La suite complète, sur une copie du dépôt dans `/tmp/passe-<port>` ; une douzaine de minutes, environ 985 contrôles |
+| `bash essais/passe.sh 8137` | La suite complète, sur une copie du dépôt dans `/tmp/passe-<port>` ; une douzaine de minutes, 985 contrôles à la version 119 |
 | `JUSQUA="La bande horaire" bash essais/passe.sh 8137` | La suite jusqu'à la fin d'une section, ici quatre minutes et environ 145 contrôles |
 | `bash essais/epreuve-bande.sh <n>` | Une erreur volontaire : le script introduit l'erreur numéro n dans une copie et vérifie que le contrôle attendu échoue. Verdicts possibles : vue, non vue, ou épreuve interrompue |
 | `JUSQUA_EPREUVE="<section>" bash essais/epreuve-bande.sh <n>` | Idem quand le contrôle visé est au-delà de la bande horaire |
 
 Les erreurs volontaires sont numérotées dans `essais/epreuve-bande.sh` ; la
-dernière porte le numéro 117. Tout contrôle nouveau a son erreur volontaire, et
+dernière porte le numéro 119. Tout contrôle nouveau a son erreur volontaire, et
 une erreur volontaire éprouvée pendant que son contrôle échoue déjà sur le bon
 code doit être repassée.
 
@@ -94,6 +94,11 @@ Règles apprises à l'usage :
 7. Vérifier qu'un nom de fichier est libre avant de le créer.
 8. Un script en cours d'exécution se remplace d'un seul geste, par un fichier
    neuf renommé, jamais en le réécrivant en place.
+9. La commande `timeout` manque sous macOS : `passe.sh` et `epreuve-bande.sh`
+   bornent la durée de la suite par `essais/borne.sh`, qui emploie `perl`
+   quand `timeout` est absent. Les autres scripts `essais/epreuve-*.sh`,
+   antérieurs, visent encore le navigateur et la commande du poste de
+   claude.ai.
 
 ## Construction des listes embarquées
 
@@ -125,7 +130,7 @@ Les consignes détaillées du projet sont dans `docs/consignes/`.
 
 ## État au 1er octobre 2026
 
-Version 118. Jalons livrés : 1 à 4, 7 à 18, dont 14, la comparaison ; 15, les
+Version 119, publiée depuis Claude Code. Jalons livrés : 1 à 4, 7 à 18, dont 14, la comparaison ; 15, les
 plages ; 16, la neige ; 17, la semaine au plus loin ; 18, les couches de la
 carte et l'eau. Jalons restants : 6, la justesse des prévisions publiée, vers
 la fin octobre ; 5, la 3D, écartée pour le moment.
