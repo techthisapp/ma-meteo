@@ -272,3 +272,37 @@ export async function chargerPlage(g, heure, fetcheur = fetch) {
   etat = { cle, proches, resumes, heure };
   return etat;
 }
+
+/* ---------- Les plages sur la carte, jalon 18, lot 3 ----------
+
+   Une plage tous les soixante kilomètres de côte environ, la première de la
+   liste à chaque fois, et pour chacune l'eau et les vagues de l'heure. Une
+   requête au service marin pour toutes, gardée une heure. */
+let pointsMer = null;
+export function plagesCarte(liste = PLAGES, ecart = 60) {
+  if (pointsMer && liste === PLAGES) return pointsMer;
+  const out = [];
+  for (const p of liste.map(dePlage)) if (out.every(q => distanceKm(p.lat, p.lon, q.lat, q.lon) >= ecart)) out.push(p);
+  if (liste === PLAGES) pointsMer = out;
+  return out;
+}
+
+let merCarte = null;
+export async function lireMerCarte(heure, fetcheur = fetch) {
+  if (merCarte && Date.now() - merCarte.t < 3600 * 1000 && merCarte.h === heure.slice(0, 13)) return merCarte.l;
+  const pts = plagesCarte();
+  const q = new URLSearchParams({ ...coords(pts), timezone: "Europe/Paris", forecast_days: "1",
+    hourly: "sea_surface_temperature,wave_height" });
+  const r = await fetcheur(`${MARIN}?${q}`);
+  if (!r.ok) throw new Error(`mer ${r.status}`);
+  const d = await r.json();
+  const t = Array.isArray(d) ? d : [d];
+  const r1 = v => (Number.isFinite(v) ? Math.round(v * 10) / 10 : null);
+  const l = pts.map((p, i) => {
+    const h = t[i]?.hourly;
+    const k = h?.time ? Math.max(0, h.time.indexOf(heure)) : -1;
+    return k < 0 ? null : { nom: p.nom, lat: p.lat, lon: p.lon, eau: r1(h.sea_surface_temperature[k]), vagues: r1(h.wave_height[k]) };
+  }).filter(p => p && p.eau !== null);
+  merCarte = { t: Date.now(), h: heure.slice(0, 13), l };
+  return l;
+}

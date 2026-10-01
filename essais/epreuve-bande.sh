@@ -363,6 +363,17 @@ case "$N" in
   112) # L'après-midi prend 15 h au lieu du maximum.
      perl -0pi -e 's/  const valeur = moment === "apres" \? Math\.max\(\.\.\.temps\) : h\.temperature_2m\[kr\];/  const valeur = h.temperature_2m[kr];/' src/villes.js
      ATTENDU="le temps d.une ville se lit pour chaque moment : 9 h, le maximum de l.après-midi, 21 h, le lendemain" ;;
+  113) # Les plages de la carte ne s'espacent plus.
+     perl -0pi -e 's/if \(out\.every\(q => distanceKm\(p\.lat, p\.lon, q\.lat, q\.lon\) >= ecart\)\) out\.push\(p\);/out.push(p);/' src/plage.js
+     ATTENDU="les plages de la carte s.espacent de soixante kilomètres, les grands domaines de vingt-cinq, les plus grands d.abord" ;;
+  114) # Les domaines sans neige portent une étiquette à 0 cm.
+     # Sa vérification est dans la section des nappes de la carte : lancer avec JUSQUA_EPREUVE.
+     perl -0pi -e 's/neigeLue\.filter\(s => s\.sol > 0\)\.map/neigeLue.map/' src/vues.js
+     ATTENDU="la mer et la neige se posent sur la carte avant les prévisions, sans chevauchement, sources citées" ;;
+  115) # Les prévisions passent avant la mer et la neige.
+     # Sa vérification est dans la section des nappes de la carte : lancer avec JUSQUA_EPREUVE.
+     perl -0pi -e 's/zonePrev\.innerHTML = neiges \+ mers \+ previs;/zonePrev.innerHTML = previs + neiges + mers;/' src/vues.js
+     ATTENDU="la mer et la neige se posent sur la carte avant les prévisions, sans chevauchement, sources citées" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

@@ -1275,10 +1275,11 @@ button.rangee:active{background:var(--surface-2)}
   text-transform:uppercase;letter-spacing:.04em;
 }
 .ca-p-titre + *{margin-top:0}
-/* Quatre interrupteurs par rangée depuis le 30 septembre 2026 : à trois, celui
-   des prévisions ajoutait une rangée et le panneau ouvert couvrait plus des deux
-   cinquièmes de la carte, ce qu'un contrôle interdit. */
-.ca-grille{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--espace-xs)}
+/* Cinq interrupteurs par rangée depuis le 1er octobre 2026 : à trois, puis à
+   quatre, les prévisions, les plages et la neige ajoutaient des rangées, et le
+   panneau ouvert couvrait plus des deux cinquièmes de la carte, ce qu'un
+   contrôle interdit. */
+.ca-grille{display:grid;grid-template-columns:repeat(5,1fr);gap:var(--espace-xs)}
 .ca-ch{
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
   min-height:56px;padding:var(--espace-xs) 2px;
@@ -2353,6 +2354,11 @@ button.rangee:active{background:var(--surface-2)}
 .ca-pv svg{width:18px;height:18px}
 .ca-pv[hidden]{display:none}
 .ca-moments{position:absolute;top:var(--espace-sm);left:50%;transform:translateX(-50%);display:flex;gap:2px;padding:3px;
-  border-radius:var(--rayon-plein);background:color-mix(in srgb, var(--surface) 92%, transparent);box-shadow:0 1px 4px rgba(0,0,0,.18);z-index:2}
+  border-radius:var(--rayon-plein);background:color-mix(in srgb, var(--surface) 92%, transparent);box-shadow:0 1px 4px rgba(0,0,0,.18)}
+/* Le panneau des couches ouvert passe devant le choix du moment, qui en masquait
+   le haut. */
+.ca-moments.sous-panneau{visibility:hidden}
 .ca-moments button{font:inherit;font-size:12px;border:0;background:transparent;color:var(--etiquette-2);padding:5px 9px;border-radius:var(--rayon-plein);min-height:30px}
 .ca-moments button[aria-pressed="true"]{background:var(--accent);color:#fff;font-weight:var(--graisse-semibold)}
+.ca-pv i{font-style:normal;font-weight:400;color:var(--etiquette-2);margin-left:3px}
+.ca-pv-neige svg,.ca-pv-mer svg{color:var(--accent)}

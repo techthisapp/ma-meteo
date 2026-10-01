@@ -768,6 +768,13 @@ const brancherRoutes = async c => {
         body: JSON.stringify(grilleCorps(u)) });
       return;
     }
+    if (u.includes("hourly=snow_depth") && u.includes("elevation=")) {
+      const lats = new URL(u).searchParams.get("latitude").split(",");
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(lats.map((_, i) => ({ hourly: {
+        time: Array.from({ length: 24 }, (_, h) => `2026-08-18T${String(h).padStart(2, "0")}:00`),
+        snow_depth: Array.from({ length: 24 }, () => (i % 2 ? 0 : 0.5)) } }))) });
+      return;
+    }
     /* Les prévisions des villes, jalon 18 : la requête se reconnaît à ses
        trente-six villes, Paris en tête. Chaque ville a deux jours d'heures, un
        temps qui dépend de son rang, 10° la nuit et 20° à 15 h. */
@@ -900,6 +907,16 @@ const brancherRoutes = async c => {
     const u = r.request().url();
     appelsVigieau.push(u);
     r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(u.includes("/api/zones") ? VIGIEAU_ZONES : VIGIEAU) });
+  });
+  /* La mer et la neige sur la carte, jalon 18 : une charge par point, l'eau à
+     17° et plus selon le rang, des vagues de 0,4 m et plus ; un domaine sur deux
+     enneigé à 50 cm au sommet, l'autre sans neige. */
+  const heuresCarte = Array.from({ length: 24 }, (_, h) => `2026-08-18T${String(h).padStart(2, "0")}:00`);
+  await c.route(/marine-api\.open-meteo\.com/, r => {
+    const lats = (new URL(r.request().url()).searchParams.get("latitude") || "").split(",");
+    r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(lats.map((_, i) => ({ hourly: { time: heuresCarte,
+      sea_surface_temperature: heuresCarte.map(() => 17 + (i % 6)), wave_height: heuresCarte.map(() => 0.4 + (i % 4) * 0.5),
+      wave_period: heuresCarte.map(() => 8), wave_direction: heuresCarte.map(() => 270), sea_level_height_msl: heuresCarte.map(() => 0) } }))) });
   });
   await c.route(/hubeau\.eaufrance\.fr/, r => {
     const u = r.request().url();
@@ -2478,6 +2495,19 @@ const momentDit = await pg.evaluate(async () => {
 ok("le temps d'une ville se lit pour chaque moment : 9 h, le maximum de l'après-midi, 21 h, le lendemain",
   momentDit.matin === "1j 9" && momentDit.apres === "95j 17" && momentDit.soir === "1n 21" && momentDit.demain === "3j 12 0/23"
   && momentDit.defauts === "matin apres soir demain", JSON.stringify(momentDit));
+/* Jalon 18, lot 3 : l'espacement des points de la mer et de la neige. */
+const pointsDit = await pg.evaluate(async () => {
+  const P = await import("/src/plage.js"), N = await import("/src/neige.js");
+  const pl = km => [`P${km}`, "FR", 45, 1 + km / 78.7, null, "33", 1, null];
+  const st = (nom, lon, km, dom = null) => [nom, "FR", 45, lon, 1000, 2000, km, dom];
+  /* Soixante kilomètres tout juste se mesurent un peu moins sur la sphère : la
+     dernière plage d'essai est à soixante-dix de la précédente. */
+  return { plages: P.plagesCarte([pl(0), pl(30), pl(70), pl(140)], 60).map(p => p.nom).join(" "),
+    domaines: N.domainesCarte([st("Petit", 7, 30), st("Grand", 6, 100), st("Voisin", 6.1, 50), st("Rattaché", 8, 60, "Grand"), st("Loin", 7.5, 45)], 25)
+      .map(s => s.nom).join(" ") };
+});
+ok("les plages de la carte s'espacent de soixante kilomètres, les grands domaines de vingt-cinq, les plus grands d'abord",
+  pointsDit.plages === "P0 P70 P140" && pointsDit.domaines === "Grand Loin", JSON.stringify(pointsDit));
 ok("le graphique borne sa largeur, et se résume en une phrase",
   semGraphe.borne === "520px"
   && semGraphe.resume === "De 25 à 30 degrés au plus chaud, 5,4 millimètres de pluie en tout.",
@@ -9190,14 +9220,15 @@ ok("le panneau ouvert laisse à la carte la plus grande part du cadre",
   tuiles.hauteur <= tuiles.hauteurCadre * 0.42,
   `${Math.round(tuiles.hauteur)} sur ${Math.round(tuiles.hauteurCadre)}`);
 
-/* Quatre par rangée depuis le 30 septembre 2026 : à trois, l'interrupteur des
-   prévisions ajoutait une rangée et le panneau dépassait sa part du cadre. */
-ok("les tuiles vont par quatre sur une rangée",
+/* Cinq par rangée depuis le 1er octobre 2026 : les prévisions, les plages et la
+   neige ajoutaient des rangées, et le panneau dépassait sa part du cadre. Les
+   cinq nappes tiennent sur une rangée, les superpositions commencent dessous. */
+ok("les tuiles vont par cinq sur une rangée",
   (() => {
-    const t = tuiles.tuiles.slice(0, 5);
-    return t[0].top === t[1].top && t[1].top === t[2].top && t[2].top === t[3].top && t[4].top > t[3].top
-      && t[0].left < t[1].left && t[1].left < t[2].left && t[2].left < t[3].left;
-  })(), tuiles.tuiles.slice(0, 5).map(t => `${t.id}@${t.left},${t.top}`).join(" "));
+    const t = tuiles.tuiles.slice(0, 6);
+    return t.slice(0, 5).every(x => x.top === t[0].top) && t[5].top > t[4].top
+      && t.slice(0, 5).every((x, i) => i === 0 || x.left > t[i - 1].left);
+  })(), tuiles.tuiles.slice(0, 6).map(t => `${t.id}@${t.left},${t.top}`).join(" "));
 
 ok("chaque tuile porte son nom sous son icône",
   tuiles.tuiles.every(t => t.nom.length > 0 && t.icoSous),
@@ -9378,6 +9409,36 @@ const previsEteint = await pgNap.evaluate(() => ({ pv: document.querySelectorAll
 ok("les prévisions des villes se posent sur la carte sans se chevaucher, au moment en cours",
   previsDit.vus >= 8 && previsDit.chevauche === 0 && previsDit.paris === "13°" && previsDit.moment === "matin" && previsDit.selecteur && previsDit.mention,
   JSON.stringify(previsDit));
+/* Jalon 18, lot 3 : la mer et la neige sur la carte, avec les prévisions aussi
+   allumées. La neige et la mer passent d'abord ; un domaine sans neige ne porte
+   pas d'étiquette ; aucune étiquette n'en chevauche une autre ; le sélecteur des
+   moments se retire derrière le panneau ouvert. */
+for (const id of ["#caPrevi", "#caPlages", "#caNeige"]) {
+  if (await pgNap.evaluate(i => document.querySelector(i)?.getAttribute("aria-checked"), id) !== "true") await pgNap.locator(id).evaluate(b => b.click());
+}
+await pgNap.waitForFunction(() => document.querySelectorAll(".ca-pv-mer:not([hidden])").length > 0
+  && document.querySelectorAll(".ca-pv-neige").length > 0, null, { timeout: 8000 }).catch(() => {});
+const carteDit = await pgNap.evaluate(async () => {
+  const dodo = m => new Promise(r => setTimeout(r, m));
+  const vis = [...document.querySelectorAll(".ca-pv:not([hidden])")];
+  const r = vis.map(e => e.getBoundingClientRect());
+  let chevauche = 0;
+  for (let i = 0; i < r.length; i++) for (let j = i + 1; j < r.length; j++)
+    if (r[i].left < r[j].right && r[j].left < r[i].right && r[i].top < r[j].bottom && r[j].top < r[i].bottom) chevauche++;
+  const res = { mer: vis.filter(e => e.classList.contains("ca-pv-mer")).length, neige: vis.filter(e => e.classList.contains("ca-pv-neige")).length,
+    zero: [...document.querySelectorAll(".ca-pv-neige")].some(e => /\b0 cm/.test(e.textContent)), chevauche,
+    mention: /Stations OpenSkiMap/.test(document.getElementById("caCredit")?.textContent || "")
+      && /Prévisions, mer, neige Open-Meteo/.test(document.getElementById("caCredit")?.textContent || "") };
+  document.getElementById("caCouches").click(); await dodo(250);
+  res.sousPanneau = getComputedStyle(document.getElementById("caMoments")).visibility === "hidden";
+  document.getElementById("caCouches").click(); await dodo(200);
+  return res;
+});
+for (const id of ["#caPlages", "#caNeige"]) await pgNap.locator(id).evaluate(b => b.click());
+await pgNap.waitForTimeout(200);
+ok("la mer et la neige se posent sur la carte avant les prévisions, sans chevauchement, sources citées",
+  carteDit.mer >= 6 && carteDit.neige >= 1 && !carteDit.zero && carteDit.chevauche === 0 && carteDit.mention && carteDit.sousPanneau,
+  JSON.stringify(carteDit));
 ok("le lendemain donne le minimum et le maximum, et l'interrupteur éteint retire tout",
   previsDemain === "10° 20°" && previsEteint.pv === 0 && !previsEteint.selecteur, JSON.stringify({ previsDemain, previsEteint }));
 

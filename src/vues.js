@@ -1474,6 +1474,12 @@ export function vueCarte(ctx, rendre, majEtat) {
       + `<button type="button" class="ca-ch" id="caPrevi" role="switch" `
       + `aria-checked="${Reglages.previcarte() ? "true" : "false"}">`
       + ico("soleil", "") + `<span>Prévisions</span></button>`
+      + `<button type="button" class="ca-ch" id="caPlages" role="switch" `
+      + `aria-checked="${Reglages.plagecarte() ? "true" : "false"}">`
+      + ico("vague", "") + `<span>Plages</span></button>`
+      + `<button type="button" class="ca-ch" id="caNeige" role="switch" `
+      + `aria-checked="${Reglages.neigecarte() ? "true" : "false"}">`
+      + ico("neige", "") + `<span>Neige</span></button>`
       + `</div>`
       + `</div>`
       + `<p class="ca-mot" id="caMot" role="status" hidden></p>`
@@ -1515,6 +1521,7 @@ export function vueCarte(ctx, rendre, majEtat) {
       if (!cv) return;
       const zonePrev = bloc.querySelector("#caPrevs"), momentsEl = bloc.querySelector("#caMoments");
       let previAllume = Reglages.previcarte(), villesLues = null;
+      let plagesAllume = Reglages.plagecarte(), merLue = null, neigeAllume = Reglages.neigecarte(), neigeLue = null;
       let momentPrev = Villes.momentDe(Number(cleHeure().slice(11, 13)));
 
       /* Les repères sont créés une fois et déplacés ensuite : les recréer à
@@ -1555,8 +1562,7 @@ export function vueCarte(ctx, rendre, majEtat) {
         const pris = boutons.filter(b => !b.hidden).map(b => ({
           x: parseFloat(b.style.getPropertyValue("--rx")), y: parseFloat(b.style.getPropertyValue("--ry")), w: 30, h: 30 }));
         zonePrev?.querySelectorAll(".ca-pv").forEach(el => {
-          const v = Villes.VILLES[Number(el.dataset.k)];
-          const p = Carte.surEcran(vue, v[1], v[2], l, h);
+          const p = Carte.surEcran(vue, Number(el.dataset.lat), Number(el.dataset.lon), l, h);
           el.hidden = false;
           const w = el.offsetWidth || 48, ht = el.offsetHeight || 22;
           const dehors = p.x < w / 2 || p.y < ht / 2 || p.x > l - w / 2 || p.y > h - ht / 2;
@@ -1876,7 +1882,9 @@ export function vueCarte(ctx, rendre, majEtat) {
               + `rel="noopener noreferrer">Open-Meteo</a></span>` + propre;
           })()
           + (vigiAllume ? `<span>Vigilance Météo-France</span>` : "")
-          + (previAllume ? `<span>Prévisions Open-Meteo</span>` : "")
+          + (previAllume || plagesAllume || neigeAllume ? `<span>${[previAllume && "Prévisions", plagesAllume && "mer",
+            neigeAllume && "neige"].filter(Boolean).join(", ").replace(/^./, c => c.toUpperCase())} Open-Meteo</span>` : "")
+          + (neigeAllume ? `<span>Stations OpenSkiMap, © contributeurs OpenStreetMap</span>` : "")
           + (choisie === "eau" ? `<span>Restrictions <a href="https://vigieau.gouv.fr" target="_blank" `
             + `rel="noopener noreferrer">VigiEau</a></span>` : "")
           + (foudreAllume || nuagesAllume
@@ -2035,6 +2043,8 @@ export function vueCarte(ctx, rendre, majEtat) {
       const montrer = v => {
         panneau.hidden = !v;
         ouvrir.setAttribute("aria-expanded", v ? "true" : "false");
+        /* Le choix du moment des prévisions se retire derrière le panneau ouvert. */
+        momentsEl?.classList.toggle("sous-panneau", v);
       };
       ouvrir.addEventListener("click", e => {
         e.stopPropagation();
@@ -2065,17 +2075,27 @@ export function vueCarte(ctx, rendre, majEtat) {
       /* Les prévisions des villes : l'interrupteur, le choix du moment, et les
          étiquettes, chacune avec l'icône du temps et sa température, ou le
          minimum et le maximum pour le lendemain. */
+      /* Toutes les étiquettes passent par une même couche, si bien que
+         l'effacement des chevauchements vaut entre elles. La neige et les plages
+         passent d'abord : allumées, c'est leur information qu'on cherche, et les
+         villes côtières, prioritaires, effaçaient presque toutes les plages. Les
+         prévisions des villes remplissent le reste. */
+      const fr1 = v => String(v).replace(".", ",");
       const poserPrevis = () => {
         momentsEl.hidden = !previAllume;
         momentsEl.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.moment === momentPrev ? "true" : "false"));
-        if (!previAllume || !villesLues) { zonePrev.innerHTML = ""; placer(); return; }
         const jour = cleHeure().slice(0, 10);
-        zonePrev.innerHTML = Villes.VILLES.map((v, k) => {
+        const previs = previAllume && villesLues ? Villes.VILLES.map((v, k) => {
           const m = Villes.tempsMoment(villesLues[k], momentPrev, jour);
           if (!m || m.code === null || m.t === null) return "";
           const t = momentPrev === "demain" ? `${m.min}° ${m.max}°` : `${m.t}°`;
-          return `<span class="ca-pv" data-k="${k}" title="${esc(v[0])}">${icoTemps(icoCiel(m.code, m.jour), "")}<b>${t}</b></span>`;
-        }).join("");
+          return `<span class="ca-pv" data-lat="${v[1]}" data-lon="${v[2]}" title="${esc(v[0])}">${icoTemps(icoCiel(m.code, m.jour), "")}<b>${t}</b></span>`;
+        }).join("") : "";
+        const neiges = neigeAllume && neigeLue ? neigeLue.filter(s => s.sol > 0).map(s => `<span class="ca-pv ca-pv-neige" data-lat="${s.lat}" `
+          + `data-lon="${s.lon}" title="${esc(s.nom)}">${ico("neige", "")}<b>${s.sol} cm</b></span>`).join("") : "";
+        const mers = plagesAllume && merLue ? merLue.map(p => `<span class="ca-pv ca-pv-mer" data-lat="${p.lat}" data-lon="${p.lon}" `
+          + `title="${esc(p.nom)}">${ico("vague", "")}<b>${fr1(Math.round(p.eau))}°</b>${p.vagues !== null ? `<i>${fr1(p.vagues)} m</i>` : ""}</span>`).join("") : "";
+        zonePrev.innerHTML = neiges + mers + previs;
         placer();
       };
       const lireVilles = () => Villes.lireVilles().then(l => { if (!cv.isConnected) return; villesLues = l; poserPrevis(); })
@@ -2091,6 +2111,31 @@ export function vueCarte(ctx, rendre, majEtat) {
       });
       momentsEl.querySelectorAll("button").forEach(b => b.addEventListener("click", () => { momentPrev = b.dataset.moment; poserPrevis(); }));
       if (previAllume) lireVilles();
+      /* Les plages et la neige : un interrupteur chacune, une lecture chacune. Sans
+         neige au sol dans aucun grand domaine, la carte le dit. */
+      const lireMer = () => Plage.lireMerCarte(cleHeure()).then(l => { if (!cv.isConnected) return; merLue = l; poserPrevis(); })
+        .catch(() => { if (cv.isConnected) dire("La mer a besoin du réseau."); });
+      const lireNeigeC = () => Neige.lireNeigeCarte(cleHeure()).then(l => {
+        if (!cv.isConnected) return;
+        neigeLue = l; poserPrevis();
+        if (neigeAllume && !l.some(s => s.sol > 0)) dire("Pas de neige au sol au sommet des grands domaines.");
+      }).catch(() => { if (cv.isConnected) dire("La neige a besoin du réseau."); });
+      const interrupteur = (id, lire, poserReglage, etat, majEtat, deja) => {
+        const b = bloc.querySelector(id);
+        b.addEventListener("click", () => {
+          const v = !etat();
+          majEtat(v);
+          poserReglage(v);
+          b.setAttribute("aria-checked", v ? "true" : "false");
+          mention();
+          if (v && !deja()) lire();
+          poserPrevis();
+        });
+      };
+      interrupteur("#caPlages", lireMer, Reglages.poserPlagecarte, () => plagesAllume, v => { plagesAllume = v; }, () => merLue);
+      interrupteur("#caNeige", lireNeigeC, Reglages.poserNeigecarte, () => neigeAllume, v => { neigeAllume = v; }, () => neigeLue);
+      if (plagesAllume) lireMer();
+      if (neigeAllume) lireNeigeC();
       poserPrevis();
 
       /* Les restrictions d'eau de tout le pays, une lecture de VigiEau. */

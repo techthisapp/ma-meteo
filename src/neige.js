@@ -215,3 +215,38 @@ export async function chargerNeige(g, heure, fetcheur = fetch) {
   return etat;
 }
 
+/* ---------- La neige sur la carte, jalon 18, lot 3 ----------
+
+   Les grands domaines, quarante kilomètres de pistes au moins, les plus grands
+   d'abord, espacés de vingt-cinq kilomètres, et pour chacun la neige au sol à
+   son sommet, à l'heure. Une requête pour tous, gardée une heure. */
+let domaines = null;
+export function domainesCarte(liste = STATIONS, ecart = 25) {
+  if (domaines && liste === STATIONS) return domaines;
+  const out = [];
+  for (const s of liste.map(deStation).filter(s => s.km >= 40 && !s.domaine).sort((a, b) => b.km - a.km)) {
+    if (out.every(q => distanceKm(s.lat, s.lon, q.lat, q.lon) >= ecart)) out.push(s);
+  }
+  if (liste === STATIONS) domaines = out;
+  return out;
+}
+
+let neigeCarte = null;
+export async function lireNeigeCarte(heure, fetcheur = fetch) {
+  if (neigeCarte && Date.now() - neigeCarte.t < 3600 * 1000 && neigeCarte.h === heure.slice(0, 13)) return neigeCarte.l;
+  const pts = domainesCarte();
+  const q = new URLSearchParams({ latitude: pts.map(s => s.lat.toFixed(4)).join(","), longitude: pts.map(s => s.lon.toFixed(4)).join(","),
+    elevation: pts.map(s => Math.round(s.sommet)).join(","), hourly: "snow_depth", forecast_days: "1", timezone: "Europe/Paris" });
+  const r = await fetcheur(`${PREVISION}?${q}`);
+  if (!r.ok) throw new Error(`neige ${r.status}`);
+  const d = await r.json();
+  const t = Array.isArray(d) ? d : [d];
+  const l = pts.map((s, i) => {
+    const h = t[i]?.hourly;
+    const k = h?.time ? Math.max(0, h.time.indexOf(heure)) : -1;
+    const v = k >= 0 ? h.snow_depth[k] : null;
+    return Number.isFinite(v) ? { nom: s.nom, lat: s.lat, lon: s.lon, sol: Math.round(v * 100) } : null;
+  }).filter(Boolean);
+  neigeCarte = { t: Date.now(), h: heure.slice(0, 13), l };
+  return l;
+}
