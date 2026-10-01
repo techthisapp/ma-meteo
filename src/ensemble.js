@@ -17,7 +17,7 @@
    kilooctets. La requête ne porte que sur la commune affichée, jamais sur
    l'aperçu des lieux suivis. */
 
-import { cleHeure, recaler } from "./horloge.js";
+import { cleHeure, recaler, chercher } from "./horloge.js";
 
 const SERVICE = "https://ensemble-api.open-meteo.com/v1/ensemble";
 const MODELE = "icon_seamless";
@@ -160,7 +160,7 @@ export async function charger({ lat, lon }) {
 
   let d = null;
   try {
-    const r = await fetch(`${SERVICE}?latitude=${lat}&longitude=${lon}`
+    const r = await chercher(`${SERVICE}?latitude=${lat}&longitude=${lon}`
       + `&timezone=Europe%2FParis&hourly=${DEMANDEES.join(",")}`
       + `&models=${MODELE}&forecast_days=${JOURS}`);
     if (r.ok) d = reduire(recaler(await r.json()).hourly);

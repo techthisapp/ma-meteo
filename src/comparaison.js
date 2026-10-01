@@ -14,6 +14,7 @@
    cumul, et la phrase ne la juge qu'au-delà de dix millimètres d'écart. */
 
 import { SERVICE_ARCHIVE, COLONNES } from "./climat.js";
+import { chercherEn } from "./horloge.js";
 
 const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
@@ -122,7 +123,7 @@ const lu = new Map();
 
 /* L'autre année, lue une fois par lieu et par année pendant la séance.
    `courante` est l'année du jour où la période se compte. */
-export async function lireAnnee(lat, lon, dates, annee, courante, fetcheur = fetch) {
+export async function lireAnnee(lat, lon, dates, annee, courante, fetcheur = chercherEn(20000)) {
   const cle = `${lat.toFixed(3)},${lon.toFixed(3)}|${dates[0]}|${dates.length}|${annee}|${courante}`;
   if (lu.has(cle)) return lu.get(cle);
   const d = memesDates(dates, annee, courante);
@@ -187,7 +188,7 @@ const luLieux = new Map();
 
 /* Les lieux se lisent dans l'archive pour le passé, dans la prévision pour
    l'avenir : une même requête pour tous, une seule source par période. */
-export async function lireLieux(lieux, dates, passe = false, fetcheur = fetch) {
+export async function lireLieux(lieux, dates, passe = false, fetcheur = chercherEn(20000)) {
   const cle = `${lieux.map(l => `${l.lat.toFixed(3)},${l.lon.toFixed(3)}`).join(";")}|${dates[0]}|${dates.length}|${passe}`;
   if (luLieux.has(cle)) return luLieux.get(cle);
   const r = await fetcheur(adresseLieux(lieux, dates, passe ? SERVICE_ARCHIVE : PREVISION));

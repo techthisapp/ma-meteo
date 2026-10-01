@@ -12,7 +12,7 @@
    résultat le dit. */
 
 import { distanceKm } from "./postes.js";
-import { recaler, elaguer, lireGardee, ecrireGardee } from "./horloge.js";
+import { recaler, elaguer, lireGardee, ecrireGardee, chercher } from "./horloge.js";
 
 export const RAYON_KM = 100;
 export const MINUTES_MAX = 60;
@@ -57,7 +57,7 @@ export function adresseOsrm(g, cands) {
 /* Les stations à une heure au plus, avec leur durée en minutes, les plus
    proches d'abord. Sans réponse d'OSRM, l'estimation à vol d'oiseau, marquée
    comme telle. */
-export async function proches(g, liste = STATIONS, fetcheur = fetch) {
+export async function proches(g, liste = STATIONS, fetcheur = chercher) {
   const cands = candidates(g, liste);
   if (!cands.length) return [];
   try {
@@ -76,7 +76,7 @@ export async function proches(g, liste = STATIONS, fetcheur = fetch) {
 }
 
 /* Les stations proches d'une commune, gardées trente jours. */
-export async function prochesGardees(g, fetcheur = fetch) {
+export async function prochesGardees(g, fetcheur = chercher) {
   const cle = `${g.lat.toFixed(3)},${g.lon.toFixed(3)}`;
   try {
     const c = JSON.parse(localStorage.getItem(CACHE) || "{}");
@@ -154,7 +154,7 @@ export function reduireNeige(reponse, stations, heure) {
    mémoire qui grandissait d'une entrée par heure et par lieu : audit du
    1er octobre 2026, constats 5.5 et 5.14. */
 const CACHE_NEIGE = "mameteo.neige.lue.v1";
-export async function lireNeige(stations, heure, fetcheur = fetch) {
+export async function lireNeige(stations, heure, fetcheur = chercher) {
   const u = adresseNeige(stations);
   const cle = `${u}|${heure.slice(0, 13)}`;
   const gardee = lireGardee(CACHE_NEIGE, cle, 3600 * 1000);
@@ -215,7 +215,7 @@ const cleDeLieu = g => `${g.lat.toFixed(3)},${g.lon.toFixed(3)}`;
 export const etatNeige = g => (etat && Number.isFinite(g?.lat) && etat.cle === cleDeLieu(g) ? etat : null);
 export const poserNeige = e => { etat = e; };
 
-export async function chargerNeige(g, heure, fetcheur = fetch) {
+export async function chargerNeige(g, heure, fetcheur = chercher) {
   if (!Number.isFinite(g?.lat)) return null;
   const cle = cleDeLieu(g);
   const proches = await prochesGardees(g, fetcheur);
@@ -244,7 +244,7 @@ export function domainesCarte(liste = STATIONS, ecart = 25) {
 }
 
 let neigeCarte = null;
-export async function lireNeigeCarte(heure, fetcheur = fetch) {
+export async function lireNeigeCarte(heure, fetcheur = chercher) {
   if (neigeCarte && Date.now() - neigeCarte.t < 3600 * 1000 && neigeCarte.h === heure.slice(0, 13)) return neigeCarte.l;
   const pts = domainesCarte(await listeStations());
   const q = new URLSearchParams({ latitude: pts.map(s => s.lat.toFixed(4)).join(","), longitude: pts.map(s => s.lon.toFixed(4)).join(","),

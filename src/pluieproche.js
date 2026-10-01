@@ -21,7 +21,7 @@
    horaire, qui vient d'un autre modèle et les contredirait. */
 
 import { JETON } from "./vigilance.js";
-import { recaler } from "./horloge.js";
+import { recaler, chercher } from "./horloge.js";
 
 const SERVICE = "https://webservice.meteofrance.com/v3/nowcast/rain";
 
@@ -122,7 +122,7 @@ async function chargerRepli(lat, lon, fetcheur) {
 
 /* Le produit de Météo-France d'abord, le repli ensuite. Le repli part quand le
    radar ne couvre pas le point, et quand le service reste muet. */
-export async function charger(lat, lon, fetcheur = fetch) {
+export async function charger(lat, lon, fetcheur = chercher) {
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
   const k = cle(lat, lon);
   const g = gardes.get(k);

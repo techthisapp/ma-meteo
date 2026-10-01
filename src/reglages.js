@@ -1,6 +1,8 @@
 /* Réglages, en stockage local. Commune courante, communes suivies, écriture
    retenue pour l'écran du temps. Ni compte, ni base, ni service dorsal. */
 
+import { chercher } from "./horloge.js";
+
 const CLE = "mameteo.reglages.v1";
 
 // Au delà, la liste ne se lit plus d'un coup d'œil et la requête d'aperçu enfle.
@@ -413,7 +415,7 @@ export async function chercherCommune(q) {
   const u = "https://api-adresse.data.gouv.fr/search/?type=municipality&limit=8&q="
     + encodeURIComponent(t);
   try {
-    const r = await fetch(u);
+    const r = await chercher(u, {}, 5000);
     if (!r.ok) return [];
     const d = await r.json();
     return (d.features || []).map(f => {
@@ -443,7 +445,7 @@ export async function communeDe(latBrute, lonBrute) {
   const base = `https://api-adresse.data.gouv.fr/reverse/?lat=${lat}&lon=${lon}`;
   for (const u of [`${base}&type=municipality`, base]) {
     try {
-      const r = await fetch(u);
+      const r = await chercher(u, {}, 5000);
       if (!r.ok) continue;
       const d = await r.json();
       const f = (d.features || [])[0];

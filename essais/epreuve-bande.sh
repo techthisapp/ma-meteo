@@ -545,6 +545,15 @@ case "$N" in
   169) # La liste des stations se charge de nouveau au lancement.
      perl -0pi -e 's/(import \{ recaler, elaguer, lireGardee, ecrireGardee \} from "\.\/horloge\.js";)/$1\nimport { STATIONS as LISTE_STATIQUE } from ".\/stations.js";/' src/neige.js
      ATTENDU="l.accueil s.affiche sans les listes des plages et des stations" ;;
+  170) # Une requête n'a de nouveau aucun délai.
+     perl -0pi -e 's/  setTimeout\(\(\) => arret\.abort\(\), delai\);\n//' src/horloge.js
+     ATTENDU="une prévision qui ne répond pas rend la main en moins de vingt-cinq secondes" ;;
+  171) # Un refus du quota se réessaie de nouveau sans attendre.
+     perl -0pi -e 's/      if \(k < essais\) await attendre\([^\n]*\n//' src/previsions.js
+     ATTENDU="un refus du quota attend avant le second essai, et une erreur 404 ne se réessaie pas" ;;
+  172) # Une erreur 404 se réessaie de nouveau.
+     perl -0pi -e 's/      if \(r\.status !== 429 && r\.status < 500\) return null;\n//' src/previsions.js
+     ATTENDU="un refus du quota attend avant le second essai, et une erreur 404 ne se réessaie pas" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

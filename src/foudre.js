@@ -39,6 +39,7 @@
    ne peint rien. */
 
 import { tuilesVues } from "./radar.js";
+import { chercher } from "./horloge.js";
 
 export const CAPACITES = "https://view.eumetsat.int/geoserver/mtg_fd/li_afa/ows"
   + "?service=WMS&version=1.3.0&request=GetCapabilities";
@@ -69,7 +70,7 @@ export function dernierDe(xml) {
   return Number.isFinite(t) ? t : null;
 }
 
-export async function charger(fetcheur = fetch) {
+export async function charger(fetcheur = chercher) {
   const t = Date.now();
   if (vu && t - quand < GARDE) return vu;
   const r = await fetcheur(CAPACITES, { cache: "no-store" });

@@ -29,6 +29,7 @@
    codes documentés rendent tous la même image, à l'octet près. */
 
 import { ZMIN, mx, my, echelle } from "./carte.js";
+import { chercher } from "./horloge.js";
 
 export const INDEX = "https://api.rainviewer.com/public/weather-maps.json";
 
@@ -73,7 +74,7 @@ let quand = 0;
    Le service en publie parfois aucune : le champ d'extrapolation était vide aux
    deux relevés du 5 septembre. La couche ne l'invente pas et s'arrête alors à
    la dernière image observée. */
-export async function charger(fetcheur = fetch) {
+export async function charger(fetcheur = chercher) {
   const t = Date.now();
   if (vu && t - quand < GARDE) return vu;
   const r = await fetcheur(INDEX, { cache: "no-store" });

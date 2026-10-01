@@ -5,6 +5,8 @@
    commune. Écrit pour les plages, jalon 15 ; la neige, jalon 16, a sa propre
    version, antérieure, à raccorder ici. */
 
+import { chercher } from "./horloge.js";
+
 const OSRM = "https://router.project-osrm.org/table/v1/driving/";
 
 export function adresseOsrm(g, pts) {
@@ -15,7 +17,7 @@ export function adresseOsrm(g, pts) {
 
 /* La durée en minutes vers chaque destination, null si la route manque. Lève
    une erreur si le service ne répond pas. */
-export async function dureesMinutes(g, pts, fetcheur = fetch) {
+export async function dureesMinutes(g, pts, fetcheur = chercher) {
   const r = await fetcheur(adresseOsrm(g, pts));
   if (!r.ok) throw new Error(`osrm ${r.status}`);
   const d = await r.json();

@@ -16,7 +16,7 @@
 
 import { rangDe, NOMS } from "./vigieau.js";
 import { distanceKm } from "./postes.js";
-import { recaler, elaguer, lireGardee, ecrireGardee } from "./horloge.js";
+import { recaler, elaguer, lireGardee, ecrireGardee, chercherEn } from "./horloge.js";
 
 const VIGIEAU = "https://api.vigieau.gouv.fr/api/zones";
 const HUBEAU = "https://hubeau.eaufrance.fr/api/v1/niveaux_nappes";
@@ -104,7 +104,7 @@ export function choisirPiezo(stations, g, aujourdhui) {
     .sort((a, b) => a.km - b.km)[0] || null;
 }
 
-export async function lireNappe(g, aujourdhui, fetcheur = fetch) {
+export async function lireNappe(g, aujourdhui, fetcheur = chercherEn(40000)) {
   const cle = `${g.lat.toFixed(2)},${g.lon.toFixed(2)}`;
   try {
     const e = JSON.parse(localStorage.getItem(CACHE) || "{}")[cle];
@@ -157,8 +157,10 @@ export const CLASSES_DEBIT = [[0.1, "très bas"], [0.2, "bas"], [0.4, "modérém
    retarder. */
 const avecDelai = async (fetcheur, u, ms = 30000) => {
   const c = typeof AbortController === "function" ? new AbortController() : null;
-  const t = c ? setTimeout(() => c.abort(), ms) : null;
-  try { return await fetcheur(u, c ? { signal: c.signal } : undefined); } finally { if (t) clearTimeout(t); }
+  if (c) setTimeout(() => c.abort(), ms);
+  /* Le minuteur n'est pas levé à l'arrivée des en-têtes : la lecture du corps,
+     deux à trois mégaoctets pour un débit, reste bornée. */
+  return fetcheur(u, c ? { signal: c.signal } : undefined);
 };
 
 /* La situation d'un débit, [{ date_obs_elab, resultat_obs_elab }] triés :
@@ -197,7 +199,7 @@ export function tendanceHauteur(obs) {
 }
 
 const CACHE_STATIONS = "mameteo.eau.stations.v1";
-export async function lireRiviere(g, maintenant = new Date(), fetcheur = fetch) {
+export async function lireRiviere(g, maintenant = new Date(), fetcheur = chercherEn(40000)) {
   let stations = [];
   const cleS = `${g.lat.toFixed(2)},${g.lon.toFixed(2)}`;
   try {
@@ -305,14 +307,14 @@ export function bilanEtiage(obs, g) {
 const cadre = (g, dlo = 0.45, dla = 0.3) => `${(g.lon - dlo).toFixed(3)},${(g.lat - dla).toFixed(3)},${(g.lon + dlo).toFixed(3)},${(g.lat + dla).toFixed(3)}`;
 const ilYa = (jour, n) => { const d = new Date(`${jour}T12:00`); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
 
-export async function lireEtiage(g, aujourdhui, fetcheur = fetch) {
+export async function lireEtiage(g, aujourdhui, fetcheur = chercherEn(40000)) {
   const r = await avecDelai(fetcheur, `${ONDE}?bbox=${cadre(g)}&date_observation_min=${ilYa(aujourdhui, 45)}&size=500`
     + `&fields=code_station,libelle_station,libelle_ecoulement,latitude,longitude,date_observation`);
   if (!r.ok) throw new Error(`onde ${r.status}`);
   return bilanEtiage((await r.json()).data, g);
 }
 
-export async function lireTemperature(g, aujourdhui, fetcheur = fetch) {
+export async function lireTemperature(g, aujourdhui, fetcheur = chercherEn(40000)) {
   const r = await avecDelai(fetcheur, `${TEMP}?bbox=${cadre(g)}&date_debut_mesure=${ilYa(aujourdhui, 7)}&size=200&sort=desc`
     + `&fields=libelle_station,resultat,date_mesure_temp,heure_mesure_temp,latitude,longitude`);
   if (!r.ok) throw new Error(`temperature ${r.status}`);
@@ -360,7 +362,7 @@ export function conseilArrosage(sol, restriction) {
   return "Pas besoin d'arroser pour l'instant.";
 }
 
-export async function lireSol(g, aujourdhui, fetcheur = fetch) {
+export async function lireSol(g, aujourdhui, fetcheur = chercherEn(40000)) {
   const q = new URLSearchParams({ latitude: g.lat.toFixed(4), longitude: g.lon.toFixed(4), timezone: "Europe/Paris",
     hourly: "soil_moisture_9_to_27cm", daily: "precipitation_sum,et0_fao_evapotranspiration", past_days: "7", forecast_days: "4" });
   const r = await fetcheur(`${PREVISION_SOL}?${q}`);
@@ -380,7 +382,7 @@ export const poserEau = e => { etat = e; };
    heure sur l'appareil : audit du 1er octobre 2026, constat 5.5. Seul un état
    dont la restriction a été lue se garde. */
 const CACHE_ETAT = "mameteo.eau.etat.v1";
-export async function chargerEau(g, aujourdhui, fetcheur = fetch, surRiviere = null) {
+export async function chargerEau(g, aujourdhui, fetcheur = chercherEn(40000), surRiviere = null) {
   if (!Number.isFinite(g?.lat)) return null;
   const gardee = lireGardee(CACHE_ETAT, `${cleDeLieu(g)}|${aujourdhui}`, 3600 * 1000);
   if (gardee?.e?.restriction) { etat = gardee.e; return etat; }
@@ -421,7 +423,7 @@ export function tuileEau(e) {
    cadre : la plus récente, et l'écart avec la plus ancienne. Hub'eau rend les
    mesures de la plus récente à la plus ancienne. À l'échelle d'un département,
    une quinzaine de stations, soixante-quinze kilooctets, quatre secondes. */
-export async function lireRivieresCarte(bb, maintenant = new Date(), fetcheur = fetch) {
+export async function lireRivieresCarte(bb, maintenant = new Date(), fetcheur = chercherEn(40000)) {
   const depuis = new Date(maintenant.getTime() - 6 * 3600 * 1000).toISOString().slice(0, 19) + "Z";
   const r = await avecDelai(fetcheur, `${HYDRO}/observations_tr?bbox=${bb.o.toFixed(3)},${bb.s.toFixed(3)},${bb.e.toFixed(3)},${bb.n.toFixed(3)}`
     + `&grandeur_hydro=H&date_debut_obs=${depuis}&size=10000&fields=code_station,date_obs,resultat_obs,longitude,latitude`);

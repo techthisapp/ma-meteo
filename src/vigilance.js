@@ -20,7 +20,7 @@
    Si le service se tait, rien ne s'affiche. Une vigilance qu'on ne sait pas
    lire ne se remplace pas par un message d'erreur sur l'écran d'accueil. */
 
-import { lireGardee, ecrireGardee } from "./horloge.js";
+import { lireGardee, ecrireGardee, chercher } from "./horloge.js";
 
 const SERVICE = "https://webservice.meteofrance.com/v3/warning/full";
 /* Le jeton du service, non celui de la vigilance : il ouvre aussi la pluie dans
@@ -203,7 +203,7 @@ async function charger(dep, echeance) {
 
   let d = null;
   try {
-    const r = await fetch(`${SERVICE}?domain=${encodeURIComponent(dep)}`
+    const r = await chercher(`${SERVICE}?domain=${encodeURIComponent(dep)}`
       + (echeance ? `&echeance=${echeance}` : "") + `&token=${JETON}`);
     if (r.ok) d = await r.json();
   } catch { d = null; }
@@ -327,7 +327,7 @@ export function lirePays(d) {
 
 /* La garde suit la publication, comme celle du bulletin détaillé : le niveau
    change aux mêmes heures. */
-export async function pays(fetcheur = fetch) {
+export async function pays(fetcheur = chercher) {
   const t = Date.now();
   if (paysGarde && t < paysGarde.exp) return paysGarde.d;
   let d = null;

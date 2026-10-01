@@ -11,7 +11,7 @@
 import { distanceKm } from "./postes.js";
 import { dureesMinutes } from "./trajets.js";
 import { cardinal } from "./previsions.js";
-import { recaler, elaguer, lireGardee, ecrireGardee } from "./horloge.js";
+import { recaler, elaguer, lireGardee, ecrireGardee, chercher } from "./horloge.js";
 
 export const RAYON_KM = 100;
 export const MINUTES_MAX = 60;
@@ -57,7 +57,7 @@ export function candidates(g, liste = PLAGES) {
     .slice(0, CANDIDATES_MAX);
 }
 
-export async function proches(g, liste = PLAGES, fetcheur = fetch) {
+export async function proches(g, liste = PLAGES, fetcheur = chercher) {
   const cands = candidates(g, liste);
   if (!cands.length) return [];
   try {
@@ -71,7 +71,7 @@ export async function proches(g, liste = PLAGES, fetcheur = fetch) {
   }
 }
 
-export async function prochesGardees(g, fetcheur = fetch) {
+export async function prochesGardees(g, fetcheur = chercher) {
   const cle = `${g.lat.toFixed(3)},${g.lon.toFixed(3)}`;
   try {
     const e = JSON.parse(localStorage.getItem(CACHE) || "{}")[cle];
@@ -231,7 +231,7 @@ export function phraseCreneau(c) {
 /* La commune d'une plage ne change pas : elle se garde un an sur l'appareil,
    au lieu de deux requêtes par plage à chaque lecture. */
 const CACHE_COMMUNES = "mameteo.plage.communes.v1";
-export async function communeDe(p, fetcheur = fetch) {
+export async function communeDe(p, fetcheur = chercher) {
   if (p.commune || p.pays !== "FR") return p.commune;
   const cle = `${p.lat},${p.lon}`;
   const gardee = lireGardee(CACHE_COMMUNES, cle, 365 * 86400 * 1000);
@@ -280,7 +280,7 @@ export const poserPlage = e => { etat = e; };
 /* Les plages lues se gardent sur l'appareil pour l'heure : audit du
    1er octobre 2026, constat 5.5. */
 const CACHE_LUES = "mameteo.plage.lues.v1";
-export async function chargerPlage(g, heure, fetcheur = fetch) {
+export async function chargerPlage(g, heure, fetcheur = chercher) {
   if (!Number.isFinite(g?.lat)) return null;
   const cle = cleDeLieu(g);
   const proches = await prochesGardees(g, fetcheur);
@@ -320,7 +320,7 @@ export function plagesCarte(liste = PLAGES, ecart = 60) {
 }
 
 let merCarte = null;
-export async function lireMerCarte(heure, fetcheur = fetch) {
+export async function lireMerCarte(heure, fetcheur = chercher) {
   if (merCarte && Date.now() - merCarte.t < 3600 * 1000 && merCarte.h === heure.slice(0, 13)) return merCarte.l;
   const pts = plagesCarte(await listePlages());
   const q = new URLSearchParams({ ...coords(pts), timezone: "Europe/Paris", forecast_days: "1",

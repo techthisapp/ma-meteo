@@ -8,7 +8,7 @@
 
    Rien de ce qui est au-dessus de ce module ne sait qu'il existe deux modèles. */
 
-import { cleJour, cleHeure, heureCle, recaler, heuresDeParis } from "./horloge.js";
+import { cleJour, cleHeure, heureCle, recaler, heuresDeParis, chercher, attendre } from "./horloge.js";
 
 const CACHE = "mameteo.previsions.v1";
 const TTL = 3600 * 1000;
@@ -291,9 +291,16 @@ function horaireRepris(cle) {
 async function prendre(url, essais) {
   for (let k = 0; k <= essais; k++) {
     try {
-      const r = await fetch(url);
+      const r = await chercher(url);
       if (r.ok) return recaler(await r.json());
-    } catch { /* réseau indisponible, on retente */ }
+      /* Un refus du quota ou une panne du serveur attend avant de réessayer, le
+         temps que le service demande par Retry-After, cinq secondes au plus ;
+         une autre erreur ne se réessaie pas. La relance immédiate doublait la
+         consommation du quota quand il était déjà épuisé. Audit du
+         1er octobre 2026, constat 1.3. */
+      if (r.status !== 429 && r.status < 500) return null;
+      if (k < essais) await attendre(Math.min(5000, 1000 * (Number(r.headers.get("Retry-After")) || 2)));
+    } catch { /* réseau indisponible ou trop lent, on retente */ }
   }
   return null;
 }

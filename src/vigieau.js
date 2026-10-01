@@ -5,6 +5,8 @@
    trois heures. Le service accepte les requêtes de l'application, vérifié le
    30 septembre 2026 depuis son adresse publiée. */
 
+import { chercher } from "./horloge.js";
+
 const API = "https://api.vigieau.gouv.fr/api";
 export const NIVEAUX = ["vigilance", "alerte", "alerte_renforcee", "crise"];
 export const NOMS = { vigilance: "Vigilance", alerte: "Alerte", alerte_renforcee: "Alerte renforcée", crise: "Crise" };
@@ -24,7 +26,7 @@ export function versRangs(liste) {
   return t;
 }
 
-export async function departements(fetcheur = fetch) {
+export async function departements(fetcheur = chercher) {
   if (lu && Date.now() - lu.t < GARDE) return lu.rangs;
   const r = await fetcheur(`${API}/departements`);
   if (!r.ok) throw new Error(`vigieau ${r.status}`);

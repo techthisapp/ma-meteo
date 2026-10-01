@@ -5826,6 +5826,57 @@ ok("l'accueil s'affiche sans les listes des plages et des stations",
   listesDit.temperature && listesDit.tuiles > 0, JSON.stringify(listesDit));
 await ctxListes.close();
 
+/* Audit du 1er octobre 2026, constat 1.3. Une prévision qui ne répond pas
+   rend la main en moins de vingt-cinq secondes, deux essais de dix au plus ;
+   le faux service retient sa réponse trente secondes. Puis un refus du quota
+   attend le délai demandé avant le second essai, et une erreur 404 ne se
+   réessaie pas. */
+let modeDelais = "muet";
+const appelsDelais = [];
+const ctxDelais = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+await ctxDelais.route(/api\.open-meteo\.com/, async route => {
+  const u = route.request().url();
+  const quoi = u.includes("models=") ? "arome" : u.includes("daily=") ? "jour" : "heure";
+  appelsDelais.push({ quoi, t: Date.now(), mode: modeDelais });
+  try {
+    if (modeDelais === "muet") {
+      await new Promise(r => setTimeout(r, 30000));
+      await route.fulfill({ status: 503, body: "" });
+      return;
+    }
+    if (quoi === "jour") {
+      const premier = appelsDelais.filter(x => x.quoi === "jour" && x.mode === "refus").length === 1;
+      if (premier) { await route.fulfill({ status: 429, headers: { "Retry-After": "1" }, body: "" }); return; }
+      await route.fulfill({ status: 200, contentType: "application/json",
+        body: JSON.stringify({ daily: { time: ["2026-08-18"], temperature_2m_max: [25] } }) });
+      return;
+    }
+    await route.fulfill({ status: 404, body: "" });
+  } catch { /* la page a abandonné la requête */ }
+});
+const pgDelais = await ctxDelais.newPage();
+await ouvrirPage(pgDelais);
+const delaisDit = {};
+delaisDit.muet = await pgDelais.evaluate(async () => {
+  const P = await import("/src/previsions.js");
+  const t0 = Date.now();
+  const r = await P.charger({ lat: 45.5, lon: 5 });
+  return { ms: Date.now() - t0, rendu: r === null };
+});
+ok("une prévision qui ne répond pas rend la main en moins de vingt-cinq secondes",
+  delaisDit.muet.ms < 25000 && delaisDit.muet.rendu, JSON.stringify(delaisDit));
+modeDelais = "refus";
+await pgDelais.evaluate(async () => { const P = await import("/src/previsions.js"); await P.charger({ lat: 46.5, lon: 5 }); });
+const jours = appelsDelais.filter(x => x.mode === "refus" && x.quoi === "jour");
+const heures = appelsDelais.filter(x => x.mode === "refus" && x.quoi === "heure");
+delaisDit.refus = { jours: jours.length, ecart: jours.length > 1 ? jours[1].t - jours[0].t : null, heures: heures.length };
+ok("un refus du quota attend avant le second essai, et une erreur 404 ne se réessaie pas",
+  delaisDit.refus.jours === 2 && delaisDit.refus.ecart >= 900 && delaisDit.refus.heures === 1, JSON.stringify(delaisDit));
+await ctxDelais.close();
+
 marquerSection("\n--- Suivi de la position ---"); console.log("\n--- Suivi de la position ---");
 
 /* L'application s'ouvre en mode position sur un relevé ancien, pris ailleurs.

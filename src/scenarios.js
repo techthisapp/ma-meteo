@@ -15,7 +15,7 @@
    réunis, de 2,3 à 4,4, plus large là où leurs médianes divergent ; ECMWF seul,
    de 5,4 à 7,9 de sept à quatorze jours. */
 
-import { cleHeure } from "./horloge.js";
+import { cleHeure, chercher } from "./horloge.js";
 
 const SERVICE = "https://ensemble-api.open-meteo.com/v1/ensemble";
 /* Les deux modèles se demandent dans une seule requête : le service les rend
@@ -98,7 +98,7 @@ async function lireModeles(lat, lon, fetcheur) {
 /* La charge des deux modèles pour une commune. Un modèle muet ne prive pas
    l'autre : chacun se lit à part, et la confiance se contente de celui qui a
    répondu. Rend null si aucun n'a répondu. */
-export async function charger({ lat, lon }, fetcheur = fetch) {
+export async function charger({ lat, lon }, fetcheur = chercher) {
   if (lat === null || lat === undefined) { charge = null; cleChargee = null; return null; }
   const cle = `${lat},${lon}|${MODELES.icon.id}+${MODELES.ecmwf.id}`;
   /* Les scénarios de la commune précédente sont oubliés dès la demande, et une
@@ -170,7 +170,7 @@ export function reduireTendance(daily) {
   }).filter(Boolean);
 }
 
-export async function chargerTendance(g, fetcheur = fetch) {
+export async function chargerTendance(g, fetcheur = chercher) {
   if (!Number.isFinite(g?.lat)) return null;
   const cle = cleDe(g);
   if (tendance && cleTendance === cle) return tendance;

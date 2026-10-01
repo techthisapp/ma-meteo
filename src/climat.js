@@ -37,6 +37,8 @@
    maille. Le cumul d'une saison entière, lui, se compare, et c'est la seule
    forme sous laquelle la pluie paraît ici. */
 
+import { chercherEn } from "./horloge.js";
+
 const SERVICE = "https://archive-api.open-meteo.com/v1/archive";
 /* Exposée pour la comparaison du jalon 14, qui lit la même archive. */
 export const SERVICE_ARCHIVE = SERVICE;
@@ -337,7 +339,7 @@ export function oublier() {
 
 /* La lecture complète. Deux appels : l'archive longue, gardée jusqu'au
    changement d'année, et l'année en cours, qui ne pèse que deux kilooctets. */
-export async function charger(lat, lon, aujourdhui, fetcheur = fetch) {
+export async function charger(lat, lon, aujourdhui, fetcheur = chercherEn(30000)) {
   const annee = +aujourdhui.slice(0, 4);
   const c = cle(lat, lon);
   let base = garde(c);

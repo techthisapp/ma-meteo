@@ -38,6 +38,22 @@ export const jourLong = t =>
 
 export const heureTxt = h => `${deux(h)} h`;
 
+/* Une requête bornée dans le temps, lecture du corps comprise : le minuteur
+   n'est pas levé à l'arrivée des en-têtes, et l'arrêt d'une requête déjà lue
+   ne fait rien. Presque aucun appel n'avait de délai, et un réseau à une
+   barre retenait l'écran jusqu'à l'abandon du système. Un signal fourni par
+   l'appelant prend la main, avec son propre délai. Audit du 1er octobre 2026,
+   constat 1.3. */
+export const DELAI_RESEAU = 10000;
+export function chercher(url, options = {}, delai = DELAI_RESEAU) {
+  if (options?.signal || typeof AbortController !== "function") return fetch(url, options);
+  const arret = new AbortController();
+  setTimeout(() => arret.abort(), delai);
+  return fetch(url, { ...options, signal: arret.signal });
+}
+export const chercherEn = delai => (url, options) => chercher(url, options, delai);
+export const attendre = ms => new Promise(r => setTimeout(r, ms));
+
 /* Les caches indexés par lieu gardaient chaque position visitée, sans limite :
    un historique de déplacements sur l'appareil, et un stockage qui finissait
    plein. Une entrée périmée est retirée, et seules les vingt plus récentes
