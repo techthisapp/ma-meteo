@@ -61,18 +61,18 @@ Aucun jeton ni secret dans le dépôt : Git emploie les identifiants du poste.
 
 ## Contrôles
 
-Installation sur un nouveau poste : `npm install`, puis
-`npx playwright install chromium`.
+Installation sur un nouveau poste : `npm ci`, qui suit `package-lock.json` et
+installe Playwright 1.63.0, puis `npx playwright install chromium`.
 
 | Commande | Effet |
 |---|---|
-| `bash essais/passe.sh 8137` | La suite complète, sur une copie du dépôt dans `/tmp/passe-<port>` ; une douzaine de minutes, 987 contrôles à la version 120 |
+| `bash essais/passe.sh 8137` | La suite complète, sur une copie du dépôt dans `/tmp/passe-<port>` ; une douzaine de minutes, 988 contrôles depuis le lot A de l'audit |
 | `JUSQUA="La bande horaire" bash essais/passe.sh 8137` | La suite jusqu'à la fin d'une section, ici quatre minutes et environ 145 contrôles |
 | `bash essais/epreuve-bande.sh <n>` | Une erreur volontaire : le script introduit l'erreur numéro n dans une copie et vérifie que le contrôle attendu échoue. Verdicts possibles : vue, non vue, ou épreuve interrompue |
 | `JUSQUA_EPREUVE="<section>" bash essais/epreuve-bande.sh <n>` | Idem quand le contrôle visé est au-delà de la bande horaire |
 
 Les erreurs volontaires sont numérotées dans `essais/epreuve-bande.sh` ; la
-dernière porte le numéro 121. Tout contrôle nouveau a son erreur volontaire, et
+dernière porte le numéro 122. Tout contrôle nouveau a son erreur volontaire, et
 une erreur volontaire éprouvée pendant que son contrôle échoue déjà sur le bon
 code doit être repassée.
 
@@ -84,8 +84,10 @@ Règles apprises à l'usage :
    le résultat : la charge décale l'instant où le ciel animé est photographié.
 3. Les contrôles servent leurs propres données : les faux services sont dans
    `brancherRoutes` de `essais/controle.mjs`, et `nav.newContext` est enveloppé
-   pour que tout contexte réponde d'office à VigiEau et à Hub'eau. Un contexte
-   d'essai ne doit jamais dépendre du réseau réel.
+   pour que tout contexte réponde d'office à VigiEau et à Hub'eau, et
+   une coupure à OSRM et à Météo-France. Un filet refuse toute autre
+   requête vers le réseau réel, et le contrôle « aucune requête ne sort vers
+   le vrai réseau » échoue si une seule passe le filet.
 4. La date des contrôles est figée au 18 août 2026, la commune d'essai est Fain.
 5. Le contrôle de jointure du ciel couvert enregistre `/tmp/couture.png` et
    `/tmp/couture.txt` : regarder l'image avant de corriger quoi que ce soit.

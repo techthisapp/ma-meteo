@@ -401,6 +401,9 @@ case "$N" in
   121) # Toute tuile qui ouvre une feuille annonce de nouveau l'air qu'on respire.
      perl -0pi -e 's/\$\{esc\(e\)\}, \$\{TUILE_VERS\[feuille\]\}">/\$\{esc(e)\}, voir l\x27air qu\x27on respire">/' src/app.js
      ATTENDU="une tuile qui ouvre une feuille dit au lecteur d.écran celle qu.elle ouvre" ;;
+  122) # L'application interroge un hôte qu'aucune route d'essai ne sert.
+     perl -0pi -e 's/\z/\nfetch("https:\/\/exemple.invalid\/fuite").catch(() => {});\n/' src/app.js
+     ATTENDU="aucune requête ne sort vers le vrai réseau" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

@@ -41,11 +41,28 @@ const nav = await chromium.launch({
    contextes qui posent leurs propres faux services gardent les leurs, une route
    posée après passant devant. Sans ce filet, le contexte du temps calme
    interrogeait le vrai VigiEau et recevait la crise en vigueur ce jour-là. */
+/* Filet de dernier rang, posé le 1er octobre 2026 : toute requête vers un
+   autre hôte que le serveur d'essai, qu'aucune route n'a servie, est refusée
+   et notée. Une passe relevait ce jour-là six requêtes réelles, trois vers
+   OSRM depuis Grenoble et trois vers Météo-France. Posé avant les autres
+   routes, il ne joue qu'en dernier ; le contrôle qui le juge est dans finir. */
+const sortantes = [];
 const nouveauContexte = nav.newContext.bind(nav);
 nav.newContext = async (...a) => {
   const c = await nouveauContexte(...a);
+  await c.route(/^https?:\/\/(?!localhost[:/]|127\.0\.0\.1[:/])/, r => {
+    const u = new URL(r.request().url());
+    sortantes.push(`${u.host}${u.pathname}`);
+    return r.abort();
+  });
   await c.route(/api\.vigieau\.gouv\.fr|hubeau\.eaufrance\.fr/, r => r.fulfill({ status: 200, contentType: "application/json",
     body: r.request().url().includes("hubeau") ? '{"count":0,"data":[]}' : "[]" }));
+  /* OSRM et Météo-France sont coupés d'office, comme les sources que la page
+     principale coupe déjà : les durées de route se rabattent sur l'estimation
+     à vol d'oiseau, la vigilance et la pluie dans l'heure se taisent. Une
+     réponse 503 aurait laissé une erreur dans la console, qu'un contrôle
+     refuse. Les contextes qui posent leurs faux services gardent les leurs. */
+  await c.route(/router\.project-osrm\.org|webservice\.meteofrance\.com/, r => r.abort());
   return c;
 };
 const ctx = await nav.newContext({
@@ -1158,6 +1175,12 @@ let arretDemande = false;
    condamnée et planterait avant de sortir. Le processus qui s'arrête ferme le
    navigateur et le serveur de toute façon. */
 const finir = (anticipe = false) => {
+  /* Le filet du réseau se juge à la fin de toute passe, entière ou écourtée. */
+  n++;
+  if (sortantes.length) {
+    ko++;
+    console.log(`  ÉCHEC  aucune requête ne sort vers le vrai réseau | ${[...new Set(sortantes)].join(" ")}`);
+  } else console.log("  ok     aucune requête ne sort vers le vrai réseau");
   console.log(`\n${n - ko} contrôles sur ${n}${ko ? `, ${ko} en échec` : ", tous vérifiés"}.`);
   if (anticipe) {
     console.log(`Arrêt demandé après la section « ${JUSQUA} » : les sections suivantes`
