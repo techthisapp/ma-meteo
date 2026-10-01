@@ -554,6 +554,12 @@ case "$N" in
   172) # Une erreur 404 se réessaie de nouveau.
      perl -0pi -e 's/      if \(r\.status !== 429 && r\.status < 500\) return null;\n//' src/previsions.js
      ATTENDU="un refus du quota attend avant le second essai, et une erreur 404 ne se réessaie pas" ;;
+  173) # Le département se déduit de nouveau du seul code postal.
+     perl -0pi -e 's/  return \/\^\(\\d\{2,3\}\|2A\|2B\)\$\/\.test\(c\) \? c : null;/  return null;/' src/reglages.js
+     ATTENDU="le département d.une commune vient du service d.adresses, le code postal n.étant qu.un secours" ;;
+  174) # La barre de tête nomme de nouveau le département du code postal.
+     perl -0pi -e 's/Vig\.nomDe\(Reglages\.departementDu\(g\)\)/Vig.nomDe(Reglages.departementDu({ codePostal: g.codePostal }))/' src/app.js
+     ATTENDU="la barre de tête nomme le département de la commune, non celui de son code postal" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

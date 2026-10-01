@@ -9,7 +9,7 @@
    couches, navigation par barre d'onglets, contenu posé sur le fond, feuilles
    pour les actions temporaires. */
 
-import { nombreFr, esc, departementDe, heureJour, enumerer, cleHeure } from "./horloge.js";
+import { nombreFr, esc, heureJour, enumerer, cleHeure } from "./horloge.js";
 import * as P from "./previsions.js";
 import * as Reglages from "./reglages.js";
 import { ico, icoTemps, icoCiel, tempsDe } from "./icones.js";
@@ -852,7 +852,7 @@ function rendre() {
   /* Le département sous la commune, d'après la troisième maquette : il lève
      l'ambiguïté des homonymes. Il se déduit du code postal, et son nom vient
      de la table de la vigilance, qui porte les cent un départements. */
-  const nomDep = Vig.nomDe(departementDe(g.codePostal));
+  const nomDep = Vig.nomDe(Reglages.departementDu(g));
   $("navLieuDep").textContent = nomDep || "";
   $("navLieuDep").hidden = !nomDep;
   $("navLieu").hidden = false;
@@ -1186,7 +1186,7 @@ function rafraichir() {
    après la prévision, sans la retarder : un bulletin manquant ne doit pas
    priver l'écran de son temps qu'il fait. */
 async function lireVigilance() {
-  const dep = departementDe(Reglages.lire().codePostal);
+  const dep = Reglages.departementDu(Reglages.lire());
   const mien = generation;
   const v = await Vig.lire(dep);
   if (mien !== generation) return;

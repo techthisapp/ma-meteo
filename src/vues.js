@@ -1,7 +1,7 @@
 /* Les vues de la feuille. Chacune rend un titre, un sous-titre facultatif, un
    corps et un branchement facultatif. */
 
-import { nombreFr, hhmm, heureTxt, jourCourt, jourLong, esc, departementDe,
+import { nombreFr, hhmm, heureTxt, jourCourt, jourLong, esc,
   heureJour, cleJour } from "./horloge.js";
 import * as P from "./previsions.js";
 import { ico, icoTemps, icoCiel, tempsDe, couleurT, teinteT,
@@ -565,7 +565,7 @@ function brancherSemaine(bloc) {
 
 export function vueVigilance(ctx) {
   const g = Reglages.lire();
-  const dep = departementDe(g.codePostal);
+  const dep = Reglages.departementDu(g);
   const v = ctx && ctx.vigilance;
   const lien = Vig.lienDe(dep);
   const externe = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" `

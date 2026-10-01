@@ -1,7 +1,7 @@
 /* Réglages, en stockage local. Commune courante, communes suivies, écriture
    retenue pour l'écran du temps. Ni compte, ni base, ni service dorsal. */
 
-import { chercher } from "./horloge.js";
+import { chercher, departementDe } from "./horloge.js";
 
 const CLE = "mameteo.reglages.v1";
 
@@ -68,9 +68,22 @@ export const cleLieu = l => (l && l.lat !== null && l.lon !== null)
   ? `${Number(l.lat).toFixed(4)},${Number(l.lon).toFixed(4)}` : null;
 
 const nu = l => ({
-  commune: l.commune, codePostal: l.codePostal ?? null,
+  commune: l.commune, codePostal: l.codePostal ?? null, departement: l.departement ?? null,
   lat: l.lat, lon: l.lon,
 });
+
+/* Le département d'une commune, tel que le service d'adresses le donne en tête
+   de son contexte, « 74, Haute-Savoie, Auvergne-Rhône-Alpes ». Le code postal
+   ne le dit pas toujours : un bureau distributeur dessert parfois des communes
+   d'un département voisin, vingt-six communes en tout, qui recevaient la
+   vigilance d'un autre département. La règle du code postal ne sert plus que
+   de secours, pour une commune enregistrée avant la version 130. Audit du
+   1er octobre 2026, constat 1.7. */
+const depDe = contexte => {
+  const c = String(contexte || "").split(",")[0].trim().toUpperCase();
+  return /^(\d{2,3}|2A|2B)$/.test(c) ? c : null;
+};
+export const departementDu = l => l?.departement || departementDe(l?.codePostal);
 
 /* Reprise des réglages écrits avant les communes suivies : la commune courante
    ouvre la liste, sinon l'application paraîtrait avoir tout oublié. */
@@ -173,9 +186,12 @@ export function poserPosition(p) {
   const codePostal = p.commune
     ? (p.codePostal ?? null)
     : (proche ? etat.position?.codePostal ?? null : null);
+  const departement = p.commune
+    ? (p.departement ?? null)
+    : (proche ? etat.position?.departement ?? null : null);
   const lat = envoi(releve.lat), lon = envoi(releve.lon);
-  const pos = { commune, codePostal, lat, lon, t: Date.now() };
-  etat = { ...etat, auto: true, position: pos, releve, commune, codePostal, lat, lon, poste: null };
+  const pos = { commune, codePostal, departement, lat, lon, t: Date.now() };
+  etat = { ...etat, auto: true, position: pos, releve, commune, codePostal, departement, lat, lon, poste: null };
   ecrire();
   return lire();
 }
@@ -245,7 +261,7 @@ export function retirerSuivie(cle) {
     if (!liste.length && etat.position) {
       const p = etat.position;
       etat = { ...etat, auto: true, commune: p.commune, codePostal: p.codePostal,
-        lat: p.lat, lon: p.lon, poste: null };
+        departement: p.departement ?? null, lat: p.lat, lon: p.lon, poste: null };
       ecrire();
       return { lire: lire(), change: true };
     }
@@ -423,6 +439,7 @@ export async function chercherCommune(q) {
       return {
         commune: f.properties.city || f.properties.name,
         codePostal: f.properties.postcode,
+        departement: depDe(f.properties.context),
         contexte: f.properties.context,
         lat: Math.round(lat * 10000) / 10000,
         lon: Math.round(lon * 10000) / 10000,
@@ -455,6 +472,7 @@ export async function communeDe(latBrute, lonBrute) {
       return {
         commune: nom,
         codePostal: f.properties.postcode ?? null,
+        departement: depDe(f.properties.context),
         lat: Math.round(lat * 10000) / 10000,
         lon: Math.round(lon * 10000) / 10000,
       };
@@ -470,8 +488,8 @@ export async function communeDe(latBrute, lonBrute) {
 export function nommerPosition(l) {
   if (!etat.auto || !etat.position || !l || !l.commune) return lire();
   if (ecart(etat.position, l) > 2000) return lire();
-  const pos = { ...etat.position, commune: l.commune, codePostal: l.codePostal ?? null };
-  etat = { ...etat, position: pos, commune: pos.commune, codePostal: pos.codePostal };
+  const pos = { ...etat.position, commune: l.commune, codePostal: l.codePostal ?? null, departement: l.departement ?? null };
+  etat = { ...etat, position: pos, commune: pos.commune, codePostal: pos.codePostal, departement: pos.departement };
   ecrire();
   return lire();
 }

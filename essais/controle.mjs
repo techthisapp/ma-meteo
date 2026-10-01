@@ -5877,6 +5877,35 @@ ok("un refus du quota attend avant le second essai, et une erreur 404 ne se rée
   delaisDit.refus.jours === 2 && delaisDit.refus.ecart >= 900 && delaisDit.refus.heures === 1, JSON.stringify(delaisDit));
 await ctxDelais.close();
 
+/* Audit du 1er octobre 2026, constat 1.7 : le département vient du contexte
+   du service d'adresses, non du code postal. Éloise a un code postal de
+   l'Ain, 01200, et se trouve en Haute-Savoie. */
+const ELOISE = { commune: "Éloise", codePostal: "01200", departement: "74", lat: 46.08, lon: 5.85 };
+const ctxDepF = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+await ctxDepF.addInitScript(amorce({ ...FAIN, ...ELOISE, suivies: [ELOISE] }));
+await brancherRoutes(ctxDepF);
+await ctxDepF.route(/api-adresse\.data\.gouv\.fr/, r => r.fulfill({ status: 200, contentType: "application/json",
+  body: JSON.stringify({ features: [{ geometry: { coordinates: [5.85, 46.08] },
+    properties: { city: "Éloise", name: "Éloise", postcode: "01200", context: "74, Haute-Savoie, Auvergne-Rhône-Alpes" } }] }) }));
+const pgDepF = await ctxDepF.newPage();
+await ouvrirPage(pgDepF);
+await pgDepF.waitForTimeout(400);
+const depDit = await pgDepF.evaluate(async () => {
+  const R = await import("/src/reglages.js");
+  const l = (await R.chercherCommune("Eloise"))[0];
+  const inverse = await R.communeDe(46.08, 5.85);
+  return { trouve: l?.departement, inverse: inverse?.departement, secours: R.departementDu({ codePostal: "01200" }),
+    tete: document.getElementById("navLieuDep")?.textContent || "" };
+});
+ok("le département d'une commune vient du service d'adresses, le code postal n'étant qu'un secours",
+  depDit.trouve === "74" && depDit.inverse === "74" && depDit.secours === "01", JSON.stringify(depDit));
+ok("la barre de tête nomme le département de la commune, non celui de son code postal",
+  depDit.tete === "Haute-Savoie", JSON.stringify(depDit));
+await ctxDepF.close();
+
 marquerSection("\n--- Suivi de la position ---"); console.log("\n--- Suivi de la position ---");
 
 /* L'application s'ouvre en mode position sur un relevé ancien, pris ailleurs.
