@@ -96,6 +96,14 @@ const COLONNES = [...`${HORAIRE}|${QUOTIDIEN}|${JOURS_QUOTIDIENS}`]
 
 let charge = null;
 let heureCharge = null;
+/* Le lieu de la charge en mémoire, le numéro de la dernière demande, et l'échec
+   de la dernière lecture. Audit du 1er octobre 2026, constats 1.1, 1.2 et
+   1.10 : une réponse lente d'une commune écrasait la charge de la suivante,
+   un échec réseau vidait l'écran au lieu de garder la dernière prévision, et
+   le retour dans l'application ne relisait rien après un échec. */
+let lieuCharge = null;
+let demande = 0;
+let enEchec = false;
 
 export const chargeCourante = () => charge;
 
@@ -245,6 +253,16 @@ function separerModeles(brut, modeles) {
 /* La dernière série horaire connue, reprise du cache quand la requête échoue.
    Elle ne sert que si elle couvre encore l'heure en cours : une série de la
    veille rendrait une fenêtre entièrement passée. */
+/* La dernière charge gardée pour cette clé, tant qu'elle couvre l'heure et le
+   jour en cours : c'est elle que l'écran garde hors connexion. */
+function chargeGardee(cle) {
+  try {
+    const c = JSON.parse(localStorage.getItem(CACHE) || "null");
+    if (!c || c.cle !== cle || !c.d?.hourly?.time?.includes(cleHeure())) return null;
+    return c.d.daily?.time?.includes(cleJour(new Date())) ? c : null;
+  } catch { return null; }
+}
+
 function horaireRepris(cle) {
   try {
     const c = JSON.parse(localStorage.getItem(CACHE) || "null");
@@ -268,7 +286,12 @@ async function prendre(url, essais) {
 }
 
 export async function charger({ lat, lon }) {
-  if (lat === null || lat === undefined) { charge = null; return null; }
+  if (lat === null || lat === undefined) { charge = null; lieuCharge = null; return null; }
+  /* La charge d'un autre lieu est oubliée dès la demande : l'écran montre
+     alors le chargement, non la prévision d'avant sous le nouveau nom. */
+  const lieu = `${lat},${lon}`;
+  const moi = ++demande;
+  if (lieuCharge !== lieu) { charge = null; lieuCharge = lieu; }
   /* La clé porte aussi la règle de lecture du temps sensible : une charge
      écrite avant elle porte les codes bruts, et la servir ferait reparaître la
      bruine qu'un seul modèle voit jusqu'à la fin de l'heure. */
@@ -276,7 +299,7 @@ export async function charger({ lat, lon }) {
   try {
     const c = JSON.parse(localStorage.getItem(CACHE) || "null");
     if (c && c.cle === cle && c.h === heureCle() && Date.now() - c.t < TTL) {
-      charge = c.d; heureCharge = c.h; return charge;
+      charge = c.d; heureCharge = c.h; enEchec = false; return charge;
     }
   } catch { /* cache indisponible */ }
 
@@ -301,32 +324,44 @@ export async function charger({ lat, lon }) {
   try {
     const [q, h] = await Promise.all([prendre(uq, 1), prendre(uh, 1)]);
     if (!q?.daily) throw new Error("quotidien indisponible");
-    charge = q;
-    charge.hourly = h?.hourly || horaireRepris(cle);
+    /* La charge se construit à part et ne remplace celle du module qu'à la
+       fin, si aucune demande plus récente n'est partie entre-temps. */
+    const neuve = q;
+    neuve.hourly = h?.hourly || horaireRepris(cle);
     /* La série de secours est gardée entière à côté de la série fondue : c'est
        elle qui permet de dire, plus tard, que les deux modèles ne s'accordent
        pas sur la pluie. */
-    charge.horaireSecours = charge.hourly || null;
-    if (charge.hourly && h?.hourly) {
+    neuve.horaireSecours = neuve.hourly || null;
+    if (neuve.hourly && h?.hourly) {
       const av = await prendre(ua, 0);
       if (av?.hourly) {
         for (const serie of separerModeles(av.hourly, AROME)) {
-          charge.hourly = fondre(charge.hourly, serie);
+          neuve.hourly = fondre(neuve.hourly, serie);
         }
       }
     }
+    if (moi !== demande) return null;
     /* La reprise du temps sensible vient après la fusion, et tourne même quand
        AROME manque : sans seconde voix elle n'a plus de désaccord à trancher,
        mais une source qui se contredit elle-même reste à reprendre. */
-    apaiserCharge(charge);
+    apaiserCharge(neuve);
+    charge = neuve;
     heureCharge = heureCle();
+    enEchec = false;
     try {
       localStorage.setItem(CACHE, JSON.stringify({ cle, t: Date.now(), h: heureCharge, d: charge }));
     } catch { /* quota atteint, le cache n'est pas indispensable */ }
     return charge;
   } catch {
-    charge = null;
-    return null;
+    if (moi !== demande) return null;
+    /* Hors connexion, la dernière prévision gardée pour ce lieu reste servie
+       tant qu'elle couvre l'heure en cours, comme le promet le bandeau ; à
+       défaut, celle qui est en mémoire, aux mêmes conditions. */
+    enEchec = true;
+    const gardee = chargeGardee(cle);
+    if (gardee) { charge = gardee.d; heureCharge = gardee.h; return charge; }
+    if (!charge?.hourly?.time?.includes(cleHeure())) charge = null;
+    return charge;
   }
 }
 
@@ -743,7 +778,7 @@ export function plagesDe(n, test) {
 export function surRetourAuPremierPlan(rappel) {
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) return;
-    if (heureCharge === null || heureCharge === heureCle()) return;
+    if (!enEchec && (heureCharge === null || heureCharge === heureCle())) return;
     rappel();
   });
 }

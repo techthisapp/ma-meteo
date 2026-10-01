@@ -413,12 +413,53 @@ case "$N" in
   125) # L'heure en double du passage à l'heure d'hiver n'est plus retirée.
      perl -0pi -e 's/if \(!vus\.has\(t\)\) \{ vus\.add\(t\); garder\.push\(i\); \}/garder.push(i);/' src/horloge.js
      ATTENDU="une prévision lue en heure d.été se lit à l.heure de Paris après le passage à l.heure d.hiver" ;;
+  126) # Hors connexion, la prévision gardée n'est plus servie.
+     perl -0pi -e 's/if \(gardee\) \{ charge = gardee\.d; heureCharge = gardee\.h; return charge; \}/if (false) { }/' src/previsions.js
+     ATTENDU="hors connexion, la dernière prévision gardée pour le lieu reste servie" ;;
+  127) # Le retour dans l'application ne relit plus rien après un échec.
+     perl -0pi -e 's/if \(!enEchec && \(heureCharge === null \|\| heureCharge === heureCle\(\)\)\) return;/if (heureCharge === null || heureCharge === heureCle()) return;/' src/previsions.js
+     ATTENDU="après un premier chargement manqué, le retour dans l.application relit la prévision" ;;
+  128) # Une réponse tardive remplace de nouveau la prévision.
+     perl -0pi -e 's/    if \(moi !== demande\) return null;\n    \/\* La reprise/    \/* La reprise/' src/previsions.js
+     ATTENDU="une réponse lente de la commune précédente n.écrase pas la prévision de la suivante" ;;
+  129) # La prévision de la commune précédente n'est plus oubliée.
+     perl -0pi -e 's/if \(lieuCharge !== lieu\) \{ charge = null; lieuCharge = lieu; \}/if (lieuCharge !== lieu) { lieuCharge = lieu; }/' src/previsions.js
+     ATTENDU="une commune demandée oublie aussitôt la prévision de la précédente" ;;
+  130) # L'air accepte de nouveau une réponse tardive.
+     perl -0pi -e 's/  if \(cleChargee !== cle\) return null;\n  charge = d;/  charge = d;/' src/air.js
+     ATTENDU="l.air, l.ensemble et les scénarios d.une commune précédente ne reparaissent pas sous la suivante" ;;
+  131) # L'ensemble accepte de nouveau une réponse tardive.
+     perl -0pi -e 's/  if \(cleChargee !== cle\) return null;\n  charge = d;/  charge = d;/' src/ensemble.js
+     ATTENDU="l.air, l.ensemble et les scénarios d.une commune précédente ne reparaissent pas sous la suivante" ;;
+  132) # Les scénarios acceptent de nouveau une réponse tardive.
+     perl -0pi -e 's/  if \(cleChargee !== cle\) return null;\n  if \(!icon && !ecmwf\)/  if (!icon && !ecmwf)/' src/scenarios.js
+     ATTENDU="l.air, l.ensemble et les scénarios d.une commune précédente ne reparaissent pas sous la suivante" ;;
+  133) # Une panne de VigiEau se lit de nouveau comme une liste vide.
+     perl -0pi -e 's/\.then\(r => \(r\.ok \? r\.json\(\) : null\)\)/.then(r => (r.ok ? r.json() : []))/' src/eau.js
+     ATTENDU="une panne de VigiEau ne se lit pas comme une absence de restriction" ;;
+  134) # Les mêmes dates réécrivent de nouveau l'année de chaque date.
+     perl -0pi -e 's/const an = a \+ ecart;/const an = annee;/' src/comparaison.js
+     ATTENDU="une période qui chevauche le 1er janvier garde ses deux années dans une autre année" ;;
+  135) # Une installation incomplète active de nouveau la version.
+     perl -0pi -e 's/(cache: "reload" \}\)\)\)\)\n      \.then\(\(\) => self\.skipWaiting\(\)\)),/$1\n      .catch(() => self.skipWaiting()),/' sw.js
+     ATTENDU="une installation incomplète ne remplace pas la version en place" ;;
+  136) # Le ciel des étoiles quitte la copie hors ligne.
+     perl -0pi -e 's/  "\.\/donnees\/ciel\.json",\n//' sw.js
+     ATTENDU="la copie hors ligne garde le ciel des étoiles et les icônes" ;;
+  137) # Toute requête reçoit de nouveau la page en secours.
+     perl -0pi -e 's/if \(navigation\) \{\n      const page/if (true) {\n      const page/' sw.js
+     ATTENDU="hors connexion, l.application se recharge et seule une navigation reçoit la page en secours" ;;
+  138) # Une adresse à paramètres entre de nouveau dans la copie.
+     perl -0pi -e 's/if \(r\.ok && !r\.redirected && !u\.search\) \{/if (r.ok \&\& !r.redirected) {/' sw.js
+     ATTENDU="une adresse à paramètres n.entre pas dans la copie hors ligne" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
 if diff -q "$OLD/src/bande.js" src/bande.js >/dev/null \
   && diff -q "$OLD/src/app.js" src/app.js >/dev/null \
   && diff -q "$OLD/src/horloge.js" src/horloge.js >/dev/null \
+  && diff -q "$OLD/src/air.js" src/air.js >/dev/null \
+  && diff -q "$OLD/src/ensemble.js" src/ensemble.js >/dev/null \
   && diff -q "$OLD/styles.css" styles.css >/dev/null \
   && diff -q "$OLD/src/ecritures.js" src/ecritures.js >/dev/null \
   && diff -q "$OLD/src/ruban.js" src/ruban.js >/dev/null \

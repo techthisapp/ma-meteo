@@ -371,8 +371,11 @@ export const poserEau = e => { etat = e; };
    retarder la tuile : `surRiviere` redessine quand elle arrive. */
 export async function chargerEau(g, aujourdhui, fetcheur = fetch, surRiviere = null) {
   if (!Number.isFinite(g?.lat)) return null;
+  /* Une réponse en erreur n'est pas une liste vide : VigiEau rend une liste
+     vide quand aucune zone ne couvre le point, et une erreur se lisait ainsi
+     comme « aucune restriction ». Audit du 1er octobre 2026, constat 1.4. */
   const [rz, nappe] = await Promise.all([
-    fetcheur(`${VIGIEAU}?lon=${g.lon}&lat=${g.lat}&profil=particulier`).then(r => (r.ok ? r.json() : [])).catch(() => null),
+    fetcheur(`${VIGIEAU}?lon=${g.lon}&lat=${g.lat}&profil=particulier`).then(r => (r.ok ? r.json() : null)).catch(() => null),
     lireNappe(g, aujourdhui, fetcheur).catch(() => null)]);
   const e = { cle: cleDeLieu(g), restriction: rz ? restrictionsDe(rz) : null, nappe, riviere: undefined, etiage: undefined,
     temperature: undefined, sol: undefined };

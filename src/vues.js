@@ -4087,7 +4087,7 @@ function brancherComparaison(cmp, bloc, g, c, date) {
       .map(a => `<option value="${a}"${a === annee ? " selected" : ""}>${a}</option>`).join("")
     + `</select></div>`;
   const cetteDe = async dates => {
-    if (Comparaison.estPassee(periodeTemps)) return Comparaison.lireAnnee(g.lat, g.lon, dates, anneeCourante);
+    if (Comparaison.estPassee(periodeTemps)) return Comparaison.lireAnnee(g.lat, g.lon, dates, anneeCourante, anneeCourante);
     const [s0] = await Comparaison.lireLieux([{ lat: g.lat, lon: g.lon, nom: "" }], dates, false);
     return dates.map(t => s0.jours.find(j => j.date === t) || { date: t });
   };
@@ -4105,7 +4105,7 @@ function brancherComparaison(cmp, bloc, g, c, date) {
     brancher();
     let cette = null, autre = null;
     try {
-      [cette, autre] = await Promise.all([cetteDe(dates), Comparaison.lireAnnee(g.lat, g.lon, dates, annee)]);
+      [cette, autre] = await Promise.all([cetteDe(dates), Comparaison.lireAnnee(g.lat, g.lon, dates, annee, anneeCourante)]);
     } catch { cette = null; autre = null; }
     if (!bloc.isConnected || mien !== jeton) return;
     const b = cette && autre?.length ? Comparaison.bilan(cette, autre, annee, periodeTemps) : null;

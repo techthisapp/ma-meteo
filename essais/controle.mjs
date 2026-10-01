@@ -5302,6 +5302,166 @@ ok("le jour du passage à l'heure d'été porte vingt-trois heures et ouvre ses 
   heureDit.mars28 === 23 && heureDit.moments === 4, JSON.stringify(heureDit));
 await ctxHeure.close();
 
+/* Audit du 1er octobre 2026, lot B. Une fausse prévision construite autour du
+   jour réel, rapide, lente ou en panne selon `modeLieux`. Le lieu A, latitude
+   45,5, porte des températures à partir de 100 ; le lieu B, à partir de 200.
+   La page n'a pas de commune : seul le contrôle demande des prévisions. */
+let modeLieux = "ok";
+const jourParis = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Paris" }).format(new Date());
+const ctxLotB = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+await ctxLotB.route(/open-meteo\.com/, async route => {
+  const u = new URL(route.request().url());
+  if (modeLieux === "panne" || u.searchParams.get("models")?.startsWith("meteofrance")) { route.abort(); return; }
+  const a = u.searchParams.get("latitude") === "45.5";
+  if (!a) {
+    if (!u.hostname.startsWith("api.")) { route.fulfill({ status: 500, body: "" }); return; }
+  } else if (modeLieux === "lent") await new Promise(r => setTimeout(r, 1500));
+  const base = a ? 100 : 200;
+  const j0 = new Date(`${jourParis()}T12:00:00Z`);
+  const jours = [-1, 0, 1].map(k => new Date(j0.getTime() + k * 864e5).toISOString().slice(0, 10));
+  const colonnes = nom => (u.searchParams.get(nom) || "").split(",").filter(Boolean);
+  const membres = c => (u.hostname.startsWith("ensemble") ? [c, `${c}_member01`, `${c}_member02`, `${c}_member03`] : [c]);
+  const d = {};
+  if (colonnes("daily").length) d.daily = { time: jours, ...Object.fromEntries(colonnes("daily").map(c => [c, jours.map(() => base)])) };
+  if (colonnes("hourly").length) {
+    const time = jours.flatMap(j => Array.from({ length: 24 }, (_, h) => `${j}T${String(h).padStart(2, "0")}:00`));
+    d.hourly = { time, ...Object.fromEntries(colonnes("hourly").flatMap(membres).map(c => [c, time.map((_, i) => base + i)])) };
+  }
+  route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
+});
+const pgLotB = await ctxLotB.newPage();
+await ouvrirPage(pgLotB);
+
+/* Constat 1.1 : hors connexion, après un changement d'heure, la dernière
+   prévision gardée pour le lieu reste servie. La page rechargée n'a plus rien
+   en mémoire : seule la prévision gardée peut répondre. */
+await pgLotB.evaluate(async () => {
+  const P = await import("/src/previsions.js");
+  await P.charger({ lat: 45.5, lon: 5 });
+  const c = JSON.parse(localStorage.getItem("mameteo.previsions.v1"));
+  c.h = "2000-01-01T00";
+  localStorage.setItem("mameteo.previsions.v1", JSON.stringify(c));
+});
+modeLieux = "panne";
+await pgLotB.reload(); await pgLotB.waitForTimeout(400);
+const gardeeDit = await pgLotB.evaluate(async () => {
+  const P = await import("/src/previsions.js");
+  return (await P.charger({ lat: 45.5, lon: 5 }))?.hourly?.temperature_2m?.[0] ?? null;
+});
+ok("hors connexion, la dernière prévision gardée pour le lieu reste servie", gardeeDit === 100, String(gardeeDit));
+
+/* Constat 1.10 : un premier chargement manqué, puis le retour dans
+   l'application, relit la prévision. */
+await pgLotB.evaluate(() => localStorage.clear());
+await pgLotB.reload(); await pgLotB.waitForTimeout(400);
+const relanceDit = await pgLotB.evaluate(async () => {
+  const P = await import("/src/previsions.js");
+  await P.charger({ lat: 45.5, lon: 5 });
+  let appels = 0;
+  P.surRetourAuPremierPlan(() => { appels++; });
+  document.dispatchEvent(new Event("visibilitychange"));
+  return appels;
+});
+ok("après un premier chargement manqué, le retour dans l'application relit la prévision", relanceDit === 1, String(relanceDit));
+
+/* Constat 1.2 : la commune A est en mémoire, sa relecture est lente ; la
+   commune B est demandée ensuite et répond vite. La prévision de A est oubliée
+   dès la demande de B, et sa réponse tardive n'écrase pas celle de B. */
+modeLieux = "ok";
+await pgLotB.evaluate(async () => {
+  const P = await import("/src/previsions.js");
+  await P.charger({ lat: 45.5, lon: 5 });
+  localStorage.clear();
+});
+modeLieux = "lent";
+const melangeDit = await pgLotB.evaluate(async () => {
+  const P = await import("/src/previsions.js");
+  const pA = P.charger({ lat: 45.5, lon: 5 });
+  const pB = P.charger({ lat: 46.5, lon: 5 });
+  const oubliee = P.chargeCourante() === null;
+  await pB; await pA;
+  return { oubliee, finale: P.chargeCourante()?.hourly?.temperature_2m?.[0] ?? null };
+});
+ok("une commune demandée oublie aussitôt la prévision de la précédente", melangeDit.oubliee, JSON.stringify(melangeDit));
+ok("une réponse lente de la commune précédente n'écrase pas la prévision de la suivante",
+  melangeDit.finale === 200, JSON.stringify(melangeDit));
+
+/* Constat 1.2, suite : l'air, l'ensemble et les scénarios. A répond lentement,
+   B en erreur ; la réponse tardive de A ne doit pas reparaître sous B. */
+const sourcesDit = await pgLotB.evaluate(async () => {
+  const Air = await import("/src/air.js"), Ens = await import("/src/ensemble.js"), Sc = await import("/src/scenarios.js");
+  localStorage.clear();
+  const jours = ["2026-08-17", "2026-08-18", "2026-08-19"];
+  const daily = { time: jours };
+  for (const m of ["icon", "ecmwf"]) for (let k = 1; k <= 5; k++) daily[`temperature_2m_max_member0${k}_${Sc.MODELES[m].suffixe}`] = jours.map(() => 20 + k);
+  const lent = () => new Promise(r => setTimeout(() => r({ ok: true, json: async () => ({ daily }) }), 1500));
+  const panne = async () => ({ ok: false, status: 500 });
+  const pAir = Air.charger({ lat: 45.5, lon: 5 }), pEns = Ens.charger({ lat: 45.5, lon: 5 });
+  const pSc = Sc.charger({ lat: 45.5, lon: 5 }, lent);
+  await Promise.all([Air.charger({ lat: 46.5, lon: 5 }), Ens.charger({ lat: 46.5, lon: 5 }), Sc.charger({ lat: 46.5, lon: 5 }, panne)]);
+  await Promise.all([pAir, pEns, pSc]);
+  return { air: Air.chargeCourante() === null, ensemble: Ens.chargeCourante() === null, scenarios: Sc.chargee() === null };
+});
+ok("l'air, l'ensemble et les scénarios d'une commune précédente ne reparaissent pas sous la suivante",
+  sourcesDit.air && sourcesDit.ensemble && sourcesDit.scenarios, JSON.stringify(sourcesDit));
+
+/* Constats 1.4 et 1.5, sur les fonctions seules. */
+const lotBPur = await pgLotB.evaluate(async () => {
+  const Eau = await import("/src/eau.js"), C = await import("/src/comparaison.js");
+  const repond = statut => async u => (u.includes("vigieau") && statut === 200
+    ? { ok: true, json: async () => [] } : { ok: false, status: 500, json: async () => ({}) });
+  const enPanne = Eau.tuileEau(await Eau.chargerEau({ lat: 44.11, lon: 3.11 }, "2026-08-18", repond(500)));
+  const sansZone = Eau.tuileEau(await Eau.chargerEau({ lat: 44.22, lon: 3.22 }, "2026-08-18", repond(200)));
+  const d = C.datesDe("7p", "2027-01-03");
+  return { panne: enPanne?.valeur, vide: sansZone?.valeur,
+    meme: C.memesDates(d, 2027, 2027).join(" ") === d.join(" "),
+    autre: `${C.memesDates(d, 2025, 2027)[0]} ${C.memesDates(d, 2025, 2027)[6]}` };
+});
+ok("une panne de VigiEau ne se lit pas comme une absence de restriction",
+  lotBPur.panne === "—" && lotBPur.vide === "Aucune", JSON.stringify(lotBPur));
+ok("une période qui chevauche le 1er janvier garde ses deux années dans une autre année",
+  lotBPur.meme && lotBPur.autre === "2024-12-27 2025-01-02", JSON.stringify(lotBPur));
+await ctxLotB.close();
+
+/* Constats 3.1 à 3.5, l'agent de service. Le texte d'abord : une installation
+   incomplète échoue, les fichiers se demandent sans le cache du navigateur, le
+   ciel des étoiles et les icônes sont dans la copie. */
+const coqueTexte = await (await fetch(`${RACINE_HTTP}sw.js`)).text();
+ok("une installation incomplète ne remplace pas la version en place",
+  !/catch\(\(\) => self\.skipWaiting\(\)\)/.test(coqueTexte) && /new Request\(u, \{ cache: "reload" \}\)/.test(coqueTexte));
+ok("la copie hors ligne garde le ciel des étoiles et les icônes",
+  ["./donnees/ciel.json", "./icones/icone-180.png", "./icones/icone-maskable-512.png"].every(f => coqueTexte.includes(`"${f}"`)));
+
+/* Puis le comportement : l'application installée se recharge hors connexion,
+   un fichier absent n'est pas remplacé par la page, et la recherche de
+   version, faite en ligne, n'a rien laissé dans la copie. */
+const ctxCoque = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+const pgCoque = await ctxCoque.newPage();
+await ouvrirPage(pgCoque);
+await pgCoque.evaluate(() => navigator.serviceWorker.ready);
+await pgCoque.reload();
+await pgCoque.waitForTimeout(4800);
+await ctxCoque.setOffline(true);
+await pgCoque.reload();
+await pgCoque.waitForTimeout(800);
+const coqueDit = await pgCoque.evaluate(async () => ({
+  controle: !!navigator.serviceWorker.controller,
+  ecran: !!document.getElementById("ecran"),
+  absent: await fetch("./src/absent.js").then(r => `${r.status} ${(r.headers.get("content-type") || "").split(";")[0]}`, () => "échec"),
+  parametres: (await Promise.all((await caches.keys()).map(async k => (await (await caches.open(k)).keys())
+    .filter(r => new URL(r.url).search).length))).reduce((a, n) => a + n, 0),
+}));
+ok("hors connexion, l'application se recharge et seule une navigation reçoit la page en secours",
+  coqueDit.controle && coqueDit.ecran && coqueDit.absent === "échec", JSON.stringify(coqueDit));
+ok("une adresse à paramètres n'entre pas dans la copie hors ligne", coqueDit.parametres === 0, JSON.stringify(coqueDit));
+await ctxCoque.close();
+
 marquerSection("\n--- Suivi de la position ---"); console.log("\n--- Suivi de la position ---");
 
 /* L'application s'ouvre en mode position sur un relevé ancien, pris ailleurs.

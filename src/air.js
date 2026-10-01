@@ -143,6 +143,9 @@ export async function charger({ lat, lon }) {
       + `&timezone=Europe%2FParis&hourly=${colonnes.join(",")}&forecast_days=${JOURS}`);
     if (r.ok) d = reduire(recaler(await r.json()).hourly);
   } catch { d = null; }
+  /* Une réponse arrivée après un changement de commune n'écrase pas la
+     charge de la suivante : audit du 1er octobre 2026, constat 1.2. */
+  if (cleChargee !== cle) return null;
   charge = d;
   if (d) {
     try { localStorage.setItem(CACHE, JSON.stringify({ cle, t: Date.now(), d })); }

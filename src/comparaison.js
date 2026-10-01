@@ -30,14 +30,21 @@ export function semaineDe(jour) {
   });
 }
 
-/* Les mêmes dates dans une autre année. Un 29 février sans équivalent devient
-   le 28. */
-export function memesDates(dates, annee) {
+/* Les mêmes dates dans une autre année. La période se déplace d'un nombre
+   d'années, l'écart entre l'année visée et l'année courante, que cette
+   dernière soit donnée ou prise à la dernière date. Une période qui
+   chevauche le 1er janvier garde ainsi ses deux années : réécrire l'année de
+   chaque date la retournait, du 27 décembre au 2 janvier de la même année,
+   et la comparaison échouait de janvier à mars. Audit du 1er octobre 2026,
+   constat 1.5. Un 29 février sans équivalent devient le 28. */
+export function memesDates(dates, annee, courante = Number(dates[dates.length - 1].slice(0, 4))) {
+  const ecart = annee - courante;
   return dates.map(t => {
-    const [, m, j] = t.split("-").map(Number);
-    const bissextile = (annee % 4 === 0 && annee % 100 !== 0) || annee % 400 === 0;
+    const [a, m, j] = t.split("-").map(Number);
+    const an = a + ecart;
+    const bissextile = (an % 4 === 0 && an % 100 !== 0) || an % 400 === 0;
     const jj = m === 2 && j === 29 && !bissextile ? 28 : j;
-    return `${annee}-${String(m).padStart(2, "0")}-${String(jj).padStart(2, "0")}`;
+    return `${an}-${String(m).padStart(2, "0")}-${String(jj).padStart(2, "0")}`;
   });
 }
 
@@ -113,11 +120,12 @@ export const seuilPluie = n => Math.round(10 * Math.sqrt(n / 7));
 
 const lu = new Map();
 
-/* L'autre année, lue une fois par lieu et par année pendant la séance. */
-export async function lireAnnee(lat, lon, dates, annee, fetcheur = fetch) {
-  const cle = `${lat.toFixed(3)},${lon.toFixed(3)}|${dates[0]}|${dates.length}|${annee}`;
+/* L'autre année, lue une fois par lieu et par année pendant la séance.
+   `courante` est l'année du jour où la période se compte. */
+export async function lireAnnee(lat, lon, dates, annee, courante, fetcheur = fetch) {
+  const cle = `${lat.toFixed(3)},${lon.toFixed(3)}|${dates[0]}|${dates.length}|${annee}|${courante}`;
   if (lu.has(cle)) return lu.get(cle);
-  const d = memesDates(dates, annee);
+  const d = memesDates(dates, annee, courante);
   const r = await fetcheur(adressePeriode(lat, lon, d[0], d[d.length - 1]));
   if (!r.ok) throw new Error(`archive ${r.status}`);
   const j = journeesDe((await r.json()).daily);

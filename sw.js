@@ -2,7 +2,8 @@
    réponse d'API : une prévision périmée servie sans le dire vaut moins qu'un
    message d'indisponibilité. */
 
-const VERSION = "ma-meteo-v121";
+const VERSION = "ma-meteo-v122";
+const DELAI_RESEAU = 3000;
 const COQUE = [
   "./",
   "./index.html",
@@ -61,16 +62,26 @@ const COQUE = [
   "./src/pluieproche.js",
   "./src/climat.js",
   "./icones/icone.svg",
+  "./icones/icone-180.png",
   "./icones/icone-192.png",
   "./icones/icone-512.png",
+  "./icones/icone-maskable-512.png",
+  /* Le ciel des étoiles se lit à la demande, mais doit rester lisible hors
+     connexion même si l'écran n'a jamais été ouvert en ligne. */
+  "./donnees/ciel.json",
 ];
 
+/* Un téléchargement incomplet fait échouer l'installation : l'agent précédent
+   reste en place avec sa copie entière. L'échec avalé activait une version à
+   la copie partielle, qui effaçait l'ancienne. Les fichiers se demandent sans
+   le cache du navigateur, que GitHub garde dix minutes : sans quoi la copie
+   d'une version neuve pouvait se remplir de fichiers anciens. Audit du
+   1er octobre 2026, constats 3.1 et 3.6. */
 self.addEventListener("install", ev => {
   ev.waitUntil(
     caches.open(VERSION)
-      .then(c => c.addAll(COQUE))
-      .then(() => self.skipWaiting())
-      .catch(() => self.skipWaiting()),
+      .then(c => c.addAll(COQUE.map(u => new Request(u, { cache: "reload" }))))
+      .then(() => self.skipWaiting()),
   );
 });
 
@@ -95,15 +106,35 @@ self.addEventListener("fetch", ev => {
      version publiée restait invisible jusqu'à dix minutes, relevé le
      23 septembre 2026. Le serveur répond d'un « inchangé » quand rien n'a
      bougé, ce qui ne coûte presque rien. */
-  ev.respondWith(
-    fetch(ev.request, { cache: "no-cache" })
-      .then(r => {
-        if (r.ok) {
-          const copie = r.clone();
-          caches.open(VERSION).then(c => c.put(ev.request, copie)).catch(() => {});
-        }
-        return r;
-      })
-      .catch(() => caches.match(ev.request).then(r => r || caches.match("./index.html"))),
-  );
+  /* Audit du 1er octobre 2026, constats 3.2 à 3.4. Le réseau a trois
+     secondes pour répondre ; au-delà, ou en cas d'échec, la copie est servie,
+     sans quoi un réseau à une barre retenait le lancement jusqu'à l'abandon du
+     système. Seule une navigation reçoit la page en secours : un module ou un
+     fichier de données qui la recevait échouait sur une erreur
+     incompréhensible. Une adresse à paramètres, comme la recherche de
+     version, n'entre pas dans la copie, qui grossissait à chaque retour au
+     premier plan. */
+  const navigation = ev.request.mode === "navigate";
+  const reseau = fetch(ev.request, { cache: "no-cache" })
+    .then(r => {
+      if (r.ok && !r.redirected && !u.search) {
+        const copie = r.clone();
+        const ecrit = caches.open(VERSION).then(c => c.put(ev.request, copie)).catch(() => {});
+        try { ev.waitUntil(ecrit); } catch { /* l'évènement est déjà clos */ }
+      }
+      return r;
+    });
+  reseau.catch(() => {});
+  ev.respondWith((async () => {
+    try {
+      return await Promise.race([reseau, new Promise((_, non) => setTimeout(() => non(new Error("délai")), DELAI_RESEAU))]);
+    } catch { /* réseau lent ou absent */ }
+    const copie = await caches.match(ev.request, { ignoreSearch: navigation });
+    if (copie) return copie;
+    if (navigation) {
+      const page = await caches.match("./index.html");
+      if (page) return page;
+    }
+    return reseau;
+  })());
 });

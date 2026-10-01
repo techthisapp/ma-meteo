@@ -101,6 +101,11 @@ async function lireModeles(lat, lon, fetcheur) {
 export async function charger({ lat, lon }, fetcheur = fetch) {
   if (lat === null || lat === undefined) { charge = null; cleChargee = null; return null; }
   const cle = `${lat},${lon}|${MODELES.icon.id}+${MODELES.ecmwf.id}`;
+  /* Les scénarios de la commune précédente sont oubliés dès la demande, et une
+     réponse arrivée après un changement de commune est ignorée : audit du
+     1er octobre 2026, constat 1.2. La confiance d'un lieu se lisait sinon sous
+     le nom d'un autre. */
+  if (cleChargee !== cle) { charge = null; cleChargee = cle; }
   try {
     const c = JSON.parse(localStorage.getItem(CACHE) || "null");
     if (c && c.cle === cle && Date.now() - c.t < GARDE) {
@@ -108,9 +113,9 @@ export async function charger({ lat, lon }, fetcheur = fetch) {
     }
   } catch { /* cache indisponible */ }
   const { icon, ecmwf } = await lireModeles(lat, lon, fetcheur).catch(() => ({ icon: null, ecmwf: null }));
-  if (!icon && !ecmwf) return cleChargee === cle ? charge : null;
+  if (cleChargee !== cle) return null;
+  if (!icon && !ecmwf) return charge;
   charge = { icon, ecmwf, h: cleHeure() };
-  cleChargee = cle;
   try { localStorage.setItem(CACHE, JSON.stringify({ cle, t: Date.now(), d: charge })); } catch { /* plein */ }
   return charge;
 }
