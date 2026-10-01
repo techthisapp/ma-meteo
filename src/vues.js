@@ -284,7 +284,10 @@ export function vueSemaine() {
     const accord = sc ? Scenarios.accordDe(sc.etendue) : ens ? Ensemble.accordDe(ens.etendue).nom : null;
 
     const corps = `<span class="j"><b>${esc(nom)}</b><em>${esc(date)}</em></span>`
-      + `<span class="c">${icoTemps(icoCiel(code, true), "")}`
+      /* Le nom du ciel et les mots minimum et maximum, en texte lu par les
+         lecteurs d'écran : le dessin est masqué et les bornes ne se
+         nommaient pas. Audit du 1er octobre 2026, constat 4.4. */
+      + `<span class="c">${icoTemps(icoCiel(code, true), "")}<span class="titre-lu">${esc(tempsDe(code)[1])}</span>`
       /* Les rafales fortes sur la ligne, jalon 12, lot 5, comme dans la bande :
          seulement à 50 km/h et plus, là où les heures les donnent, la charge
          quotidienne n'en portant pas. Et seulement quand la pluie n'occupe
@@ -294,7 +297,7 @@ export function vueSemaine() {
          dit. */
       + (eau ? `<em>${esc(eau)}</em>`
         : h?.raf >= 50 ? `<em class="sem-raf">raf. ${Math.round(h.raf)}</em>` : "") + `</span>`
-      + `<span class="b"><b class="sem-min">${Math.round(tn)}°</b>`
+      + `<span class="b"><span class="titre-lu">minimum</span><b class="sem-min">${Math.round(tn)}°</b>`
       + `<span class="sem-pc"><i class="sem-piste"><s class="sem-plage${accord ? ` sem-${accord}` : ""}" `
       + `style="left:${gauche.toFixed(1)}%;`
       + `width:${large.toFixed(1)}%;`
@@ -304,7 +307,7 @@ export function vueSemaine() {
          moyenne » passait sur deux lignes. Le volet garde la phrase complète. */
       + (accord ? `<em class="sem-conf">${esc({ bonne: "fiable", moyenne: "à confirmer", faible: "incertain" }[accord])}</em>` : "")
       + `</span>`
-      + `<b class="sem-max">${Math.round(tx)}°</b></span>`;
+      + `<span class="titre-lu">maximum</span><b class="sem-max">${Math.round(tx)}°</b></span>`;
 
     /* Une journée sans heures complètes ne s'ouvre pas, et ne porte alors pas
        de chevron : une cible qui ne mène à rien vaut moins qu'aucune cible. */
@@ -3837,8 +3840,8 @@ export function vueRessenti(ctx, rendre, majEtat) {
       + `</div>`
 
       + `<p class="note">La correction déplace le conseil d'habillement, non les `
-      + `degrés écrits : ceux-ci viennent de la source, et le ruban, la table des `
-      + `moments et la semaine doivent s'accorder au degré. Elle reste sur cet `
+      + `degrés écrits : ceux-ci viennent de la source, et « Heure par heure », la table des `
+      + `moments et « À venir » doivent s'accorder au degré. Elle reste sur cet `
       + `appareil et n'entre dans aucune requête.</p>`,
 
     brancher(bloc) {

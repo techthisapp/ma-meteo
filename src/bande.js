@@ -14,7 +14,7 @@
    Les colonnes ont une largeur fixe, ce qui permet de placer le trait des
    températures dès l'écriture, sans mesurer la page après coup. */
 
-import { icoCiel, icoTemps, ico } from "./icones.js";
+import { icoCiel, icoTemps, ico, tempsDe } from "./icones.js";
 import { esc } from "./horloge.js";
 import * as Astres from "./astres.js";
 import { plagesDe, SEUIL_LAME } from "./previsions.js";
@@ -130,7 +130,7 @@ export function bandeHoraire(s, g, maintenant = new Date()) {
       const pluie = pluvieuse(s, c.k) && c.k + 1 < n && pluvieuse(s, c.k + 1);
       x += LARGEUR_SOLEIL;
       const lib = c.soleil.type === "lever" ? "Lever" : "Coucher";
-      haut.push(`<div class="bh bh-soleil" role="listitem" `
+      haut.push(`<div class="bh bh-soleil" role="img" `
         + `aria-label="${lib} du Soleil à ${hm(c.soleil.date)}">`
         + `<span class="bh-h">${hm(c.soleil.date)}</span>`
         + ico(c.soleil.type === "lever" ? "lever" : "coucher", "bh-ic")
@@ -146,11 +146,15 @@ export function bandeHoraire(s, g, maintenant = new Date()) {
     const h = k === 0 ? "Maint." : heureDite(s.heure[k]);
     const t = Math.round(s.t[k]);
     const v = Math.round(s.v[k]), r = Math.round(s.raf[k]);
-    const label = `${k === 0 ? "Maintenant" : heureDite(s.heure[k])}, ${t} degrés`
+    /* Le ciel n'est qu'un dessin masqué aux lecteurs d'écran : il entre dans
+       le libellé. Audit du 1er octobre 2026, constat 4.3. */
+    const label = `${k === 0 ? "Maintenant" : heureDite(s.heure[k])}, ${tempsDe(s.code[k])[1].toLowerCase()}, ${t} degrés`
       + (risque ? `, risque de pluie ${pb} %` : "")
       + `, vent ${v} km/h, rafales ${r} km/h`;
+    /* Sans rôle de liste : posé sur un bouton, il remplaçait le rôle de bouton,
+       et VoiceOver n'annonçait plus les heures comme des commandes. */
     haut.push(`<button type="button" class="bh bh-heure${k === 0 ? " bh-maint" : ""}" `
-      + `role="listitem" data-detail="t" data-heure="${k}" aria-label="${esc(label)}">`
+      + `data-detail="t" data-heure="${k}" aria-label="${esc(label)}">`
       + `<span class="bh-h">${h}</span>`
       /* Le symbole de temps en deux tons, comme la table de la semaine : la
          bande décrit le ciel heure par heure. `icoCiel` rend son nom, jour ou
@@ -166,7 +170,7 @@ export function bandeHoraire(s, g, maintenant = new Date()) {
   const trait = `<svg class="bh-courbe" width="${x}" height="18" viewBox="0 0 ${x} 18" aria-hidden="true">`
     + `<polyline points="${points.map(([px, py]) => `${px.toFixed(1)},${py.toFixed(1)}`).join(" ")}" `
     + `fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>`;
-  const html = `<div class="bande-ligne" role="list">${haut.join("")}</div>`
+  const html = `<div class="bande-ligne">${haut.join("")}</div>`
     + trait + `<div class="bande-ligne">${bas.join("")}</div>`;
 
   const phrase = phraseBande(s, n);

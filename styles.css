@@ -54,7 +54,7 @@
   --surface-2:#E9EBF0;           /* tertiarySystemFill */
   --etiquette:#16202B;           /* label */
   --etiquette-2:#55636F;         /* secondaryLabel */
-  --etiquette-3:#8B97A2;         /* tertiaryLabel */
+  --etiquette-3:#646F7A;         /* tertiaryLabel, assombri : 4,6 sur le fond, audit du 1er octobre 2026 */
   --filet:#D3D8DF;               /* separator */
   --filet-clair:#E6E9EE;         /* opaqueSeparator adouci */
 
@@ -113,6 +113,9 @@
   --ic-nuage:#7B8A99;
   --ic-soleil:#D79A28;
   --ic-pluie:#3B82C4;
+  /* Le bleu de la pluie écrit en texte : 3,7 de contraste sur le fond clair,
+     il passe à 5,0. Les icônes gardent le bleu d'origine. */
+  --pluie-texte:#2C6BA6;
   --pluie-fond:#E4EFF9;          /* fond doux du jeton de parapluie */
   --ic-neige:#6FAEDA;
   --ic-orage:#CE7A1E;
@@ -140,7 +143,7 @@
     --surface-2:#232B34;
     --etiquette:#E6EBF0;
     --etiquette-2:#A2AEB9;
-    --etiquette-3:#75828E;
+    --etiquette-3:#8794A0;
     --filet:#333D48;
     --filet-clair:#242D36;
 
@@ -165,6 +168,7 @@
     --ic-nuage:#93A3B2;
     --ic-soleil:#E7B754;
     --ic-pluie:#6BA8DC;
+    --pluie-texte:#6BA8DC;
     --pluie-fond:#1D2B3A;
     --ic-neige:#8FC4E6;
     --ic-orage:#E29845;
@@ -244,8 +248,8 @@ button:disabled,button[aria-disabled="true"],input:disabled{
 
 /* Couleur d'information. Une valeur ne la prend qu'au delà d'un seuil : le
    chiffre porte l'information, la couleur ne fait que la doubler. */
-.v-froid{color:var(--ic-pluie)}
-.v-eau{color:var(--ic-pluie)}
+.v-froid{color:var(--pluie-texte)}
+.v-eau{color:var(--pluie-texte)}
 .v-attention{color:var(--attention)}
 .v-chaud{color:var(--ic-orage)}
 .v-brulant{color:var(--erreur)}
@@ -337,7 +341,7 @@ button:disabled,button[aria-disabled="true"],input:disabled{
   display:inline-flex;align-items:center;gap:var(--espace-xs);
   height:32px;flex:0 0 auto;margin-right:var(--espace-xs);
   padding:0 var(--espace-sm);border-radius:var(--rayon-plein);
-  background:var(--pluie-fond);color:var(--ic-pluie);
+  background:var(--pluie-fond);color:var(--pluie-texte);
   font-size:var(--texte-legende);font-weight:var(--graisse-semibold);
   white-space:nowrap;
 }
@@ -962,7 +966,7 @@ button.rangee:active{background:var(--surface-2)}
 .sem .c svg{width:24px;height:24px;display:block;margin:0 auto}
 .sem .c em{
   display:block;margin-top:2px;font-style:normal;
-  font-size:var(--texte-legende2);color:var(--ic-pluie);white-space:nowrap;
+  font-size:var(--texte-legende2);color:var(--pluie-texte);white-space:nowrap;
 }
 
 /* La borne basse à gauche de la piste, la haute à droite : la barre se lit
@@ -1024,7 +1028,7 @@ button.rangee:active{background:var(--surface-2)}
   font-size:var(--texte-appel);font-weight:var(--graisse-semibold);
   font-variant-numeric:tabular-nums;
 }
-.md em{font-style:normal;font-size:var(--texte-legende2);color:var(--ic-pluie)}
+.md em{font-style:normal;font-size:var(--texte-legende2);color:var(--pluie-texte)}
 .md u{
   text-decoration:none;font-size:var(--texte-legende2);color:var(--attention);
   white-space:nowrap;
@@ -2066,7 +2070,7 @@ button.rangee:active{background:var(--surface-2)}
 .bh .bd-ic,.bh .bh-ic{width:26px;height:26px}
 .bh-soleil .bh-ic{color:#e6a23c}
 .bh-lib{font-size:var(--texte-legende);color:var(--etiquette-2)}
-.bh-pb{min-height:14px;font-size:var(--texte-legende);font-weight:var(--graisse-semibold);color:var(--ic-pluie)}
+.bh-pb{min-height:14px;font-size:var(--texte-legende);font-weight:var(--graisse-semibold);color:var(--pluie-texte)}
 .bh-t{font-size:var(--texte-entete);font-weight:var(--graisse-semibold)}
 .bh-courbe{display:block;color:var(--etiquette-3)}
 .bv{position:relative;display:flex;flex-direction:column;align-items:center;padding:0 0 8px;
@@ -2369,3 +2373,22 @@ button.rangee:active{background:var(--surface-2)}
 .ca-t{display:inline-block;width:0;height:0;margin-left:4px;border-left:4px solid transparent;border-right:4px solid transparent}
 .ca-t-haut{border-bottom:6px solid #d97a1e}
 .ca-t-bas{border-top:6px solid var(--accent)}
+
+/* ---------- Zones de toucher ----------
+
+   Plusieurs commandes faisaient moins de 44 points de haut : le jeton du
+   parapluie, les boutons et le choix d'affichage de la voûte étoilée, le
+   bouton de lecture et les moments de la carte, les puces de la comparaison.
+   Leur dessin ne change pas ; une zone invisible, centrée, porte la cible à
+   44 points au moins. Audit du 1er octobre 2026, constat 4.7. Les boutons
+   Fermer et Sources de la voûte sont déjà placés en absolu, ce qui suffit à
+   porter leur zone. */
+.nav-jeton,.ci-choix button,.ca-jouer,.cmp-puce,.ca-moments button,
+.ci-bouton:not(.ci-fermer):not(.ci-sources){position:relative}
+.nav-jeton::after,.ci-bouton::after,.ci-choix button::after,.ca-jouer::after,
+.cmp-puce::after,.ca-moments button::after{
+  content:"";position:absolute;left:50%;top:50%;
+  width:max(100%, var(--touche));height:max(100%, var(--touche));
+  transform:translate(-50%,-50%);
+}
+.rg-h{min-height:var(--touche)}

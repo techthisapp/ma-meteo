@@ -1412,6 +1412,88 @@ ok("le ressenti n'est pas écrit deux fois sur l'accueil",
   ((await txt("#ecran")).toLowerCase().match(/ressenti/g) || []).length <= 1);
 ok("la vigilance ouvre son détail depuis l'accueil",
   await pg.locator('#ecran .vg-c[data-feuille="vigilance"]').count() === 1);
+/* Audit du 1er octobre 2026, lot D, l'accessibilité. Constats 4.1 à 4.3 : la
+   température et le ciel se lisent avec leur valeur, la vigilance nomme ses
+   phénomènes, les heures de la bande restent des boutons et disent leur ciel. */
+const a11yDit = await pg.evaluate(() => {
+  const deg = document.querySelector("#ecran .bd-deg"), ciel = document.querySelector("#ecran .bd-ciel");
+  const vg = document.querySelector("#ecran .vg-c");
+  const noms = [...(vg?.querySelectorAll(".vg-a b") || [])].map(x => x.textContent);
+  const heures = [...document.querySelectorAll("#bande .bh-heure")];
+  return {
+    deg: `${deg?.getAttribute("aria-label")} | ${parseInt(deg?.textContent, 10)}`,
+    ciel: `${ciel?.getAttribute("aria-label")} | ${ciel?.textContent}`,
+    phenomenes: noms.length > 0 && noms.every(x => vg.getAttribute("aria-label").includes(x)),
+    roles: heures.length > 0 && heures.every(h => !h.hasAttribute("role"))
+      && !document.querySelector('#bande [role="list"], #bande [role="listitem"]'),
+    cielHeure: heures.length > 0 && heures.every(h => !/degrés/.test(h.getAttribute("aria-label").split(", ")[1] || "degrés")),
+  };
+});
+ok("la température et le ciel de l'accueil se lisent avec leur valeur",
+  a11yDit.deg.startsWith(`${a11yDit.deg.split(" | ")[1]} degrés, `)
+  && a11yDit.ciel.split(" | ")[0].startsWith(`${a11yDit.ciel.split(" | ")[1]}, `), JSON.stringify(a11yDit));
+ok("la vigilance nomme ses phénomènes aux lecteurs d'écran", a11yDit.phenomenes, JSON.stringify(a11yDit));
+ok("les heures de la bande restent des boutons et disent leur ciel",
+  a11yDit.roles && a11yDit.cielHeure, JSON.stringify(a11yDit));
+
+/* Constat 4.4, sur la fonction seule : la colonne du ciel porte le nom du
+   ciel en texte lu. */
+const tableLu = await pg.evaluate(async () => {
+  const E = await import("/src/ecritures.js"), I = await import("/src/icones.js");
+  const un = v => [v];
+  const html = E.liste({ n: 1, t: un(20), res: un(20), ros: un(10), hum: un(50), mm: un(0), pb: un(0), code: un(3),
+    nua: un(90), pres: un(1015), v: un(5), raf: un(10), dir: un(0), uv: un(1), clair: un(1), jour: un("2026-08-18"), heure: un(12) });
+  return html.includes(`<span class="titre-lu">${I.tempsDe(3)[1]}</span>`);
+});
+ok("la colonne du ciel se lit dans le tableau des heures", tableLu === true);
+
+/* Constat 4.5 : le texte tertiaire et le bleu de la pluie écrit en texte
+   atteignent 4,5 de contraste sur le fond et les cartes, dans les deux
+   thèmes. */
+const contrasteDe = () => pg.evaluate(() => {
+  const v = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const lum = h => { const c = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255)
+    .map(x => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+  const r = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  return Math.min(...["--etiquette-3", "--pluie-texte"].flatMap(t => ["--fond", "--surface"].map(f => r(v(t), v(f)))));
+});
+const contrastes = { clair: await contrasteDe() };
+await pg.emulateMedia({ colorScheme: "dark" });
+contrastes.sombre = await contrasteDe();
+await pg.emulateMedia({ colorScheme: "light" });
+ok("le texte tertiaire et le bleu de la pluie atteignent 4,5 de contraste dans les deux thèmes",
+  contrastes.clair >= 4.5 && contrastes.sombre >= 4.5, JSON.stringify(contrastes));
+
+/* Constat 4.7 : chaque petite commande offre au doigt 44 points au moins,
+   mesurés sur des éléments posés pour l'occasion. */
+const touches = await pg.evaluate(() => {
+  const cas = [["button", "nav-jeton"], ["button", "ca-jouer"], ["button", "cmp-puce"], ["button", "ci-bouton"],
+    ["div.ci-choix>button", ""], ["div.ca-moments>button", ""]];
+  const hors = document.createElement("div");
+  document.body.append(hors);
+  const out = {};
+  for (const [quoi, cls] of cas) {
+    const [parent, enfant] = quoi.includes(">") ? quoi.split(">") : [null, quoi];
+    let racine = hors;
+    if (parent) { const p = document.createElement("div"); p.className = parent.split(".")[1]; p.style.position = "static"; hors.append(p); racine = p; }
+    const e = document.createElement(enfant); if (cls) e.className = cls; e.textContent = "x"; racine.append(e);
+    const z = getComputedStyle(e, "::after");
+    out[cls || parent] = Math.min(parseFloat(z.width) || 0, parseFloat(z.height) || 0);
+  }
+  const sel = document.createElement("select"); sel.className = "rg-h"; hors.append(sel);
+  out["rg-h"] = sel.getBoundingClientRect().height;
+  hors.remove();
+  return out;
+});
+ok("les petites commandes offrent 44 points au doigt", Object.values(touches).every(x => x >= 44), JSON.stringify(touches));
+
+/* Constat 4.11 : la page et le manifeste ne décrivent plus la table de la
+   semaine. */
+const descriptions = await pg.evaluate(async () => [
+  document.querySelector('meta[name="description"]')?.content || "",
+  (await (await fetch("/manifest.webmanifest")).json()).description || ""]);
+ok("la page et le manifeste se décrivent avec les noms d'écrans actuels",
+  descriptions.every(d => d && !/semaine/.test(d)), descriptions.join(" | "));
 ok("l'accueil ne porte plus de tuiles", await pg.locator(".tu").count() === 0);
 ok("une valeur ne prend une couleur qu'au delà de son seuil", await pg.evaluate(() => {
   const v = [...document.querySelectorAll(".bd-m")].map(e => ({
@@ -3827,6 +3909,12 @@ await onglet("semaine");
    sept annoncées. La table commençait à aujourd'hui, faute d'avoir demandé les
    journées d'avant. */
 ok("neuf lignes", await pg.locator(".sem-r").count() === 9, String(await pg.locator(".sem-r").count()));
+/* Audit du 1er octobre 2026, constat 4.4 : chaque journée dit son ciel et
+   nomme ses bornes aux lecteurs d'écran. */
+const semaineLu = await pg.evaluate(() => [...document.querySelectorAll(".sem-r")].every(r =>
+  (r.querySelector(".c .titre-lu")?.textContent || "").length > 2
+  && [...r.querySelectorAll(".b .titre-lu")].map(x => x.textContent).join(",") === "minimum,maximum"));
+ok("chaque journée d'À venir dit son ciel et nomme ses bornes", semaineLu === true);
 const jNoms = (await pg.locator(".sem .j b").allInnerTexts()).map(x => x.trim());
 ok("les trois journées qui se nomment portent leur nom, les autres leur date",
   jNoms[1] === "Hier" && jNoms[2] === "Auj." && jNoms[3] === "Demain"

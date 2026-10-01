@@ -473,12 +473,43 @@ case "$N" in
   145) # Un lien venu d'un service entre de nouveau quel que soit son protocole.
      perl -0pi -e 's/return x\.protocol === "https:" \? x\.href : null;/return x.href;/' src/eau.js
      ATTENDU="un lien venu d.un service n.entre dans la page qu.en https" ;;
+  146) # La température de l'accueil se lit de nouveau sans sa valeur.
+     perl -0pi -e 's/aria-label="\$\{Math\.round\(t\)\} degrés, voir heure par heure"/aria-label="Température, voir les vingt-quatre heures"/' src/app.js
+     ATTENDU="la température et le ciel de l.accueil se lisent avec leur valeur" ;;
+  147) # La vigilance ne nomme plus ses phénomènes.
+     perl -0pi -e 's/\.\.\.\(enCours \? v\.alertes : v\.annonces\)\n      \.map\(a => `\$\{a\.nom\}/...[]\n      .map(a => `\${a.nom}/' src/app.js
+     ATTENDU="la vigilance nomme ses phénomènes aux lecteurs d.écran" ;;
+  148) # Les heures de la bande reprennent le rôle d'élément de liste.
+     perl -0pi -e 's/\+ `data-detail="t" data-heure=/+ `role="listitem" data-detail="t" data-heure=/' src/bande.js
+     ATTENDU="les heures de la bande restent des boutons et disent leur ciel" ;;
+  149) # Les heures de la bande ne disent plus leur ciel.
+     perl -0pi -e 's/, \$\{tempsDe\(s\.code\[k\]\)\[1\]\.toLowerCase\(\)\}, \$\{t\} degrés/, \${t} degrés/' src/bande.js
+     ATTENDU="les heures de la bande restent des boutons et disent leur ciel" ;;
+  150) # La colonne du ciel perd son texte lu.
+     perl -0pi -e 's/\n    \+ `<span class="titre-lu">\$\{esc\(tempsDe\(s\.code\)\[1\]\)\}<\/span>`\],/],/' src/ecritures.js
+     ATTENDU="la colonne du ciel se lit dans le tableau des heures" ;;
+  151) # Les journées d'À venir ne nomment plus leurs bornes.
+     perl -0pi -e 's/<span class="titre-lu">minimum<\/span>//' src/vues.js
+     ATTENDU="chaque journée d.À venir dit son ciel et nomme ses bornes" ;;
+  152) # Le texte tertiaire reprend son gris clair.
+     perl -0pi -e 's/--etiquette-3:#646F7A;/--etiquette-3:#8B97A2;/' styles.css
+     ATTENDU="le texte tertiaire et le bleu de la pluie atteignent 4,5 de contraste dans les deux thèmes" ;;
+  153) # Le bleu de la pluie écrit en texte reprend le bleu des icônes.
+     perl -0pi -e 's/--pluie-texte:#2C6BA6;/--pluie-texte:#3B82C4;/' styles.css
+     ATTENDU="le texte tertiaire et le bleu de la pluie atteignent 4,5 de contraste dans les deux thèmes" ;;
+  154) # Les puces de la comparaison perdent leur zone de toucher.
+     perl -0pi -e 's/\n\.cmp-puce::after,\.ca-moments button::after\{/\n.ca-moments button::after{/' styles.css
+     ATTENDU="les petites commandes offrent 44 points au doigt" ;;
+  155) # Le manifeste décrit de nouveau la table de la semaine.
+     perl -0pi -e 's/"description": "Prévision heure par heure et à seize jours/"description": "Prévision horaire, table de la semaine/' manifest.webmanifest
+     ATTENDU="la page et le manifeste se décrivent avec les noms d.écrans actuels" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
 if diff -q "$OLD/src/bande.js" src/bande.js >/dev/null \
   && diff -q "$OLD/src/app.js" src/app.js >/dev/null \
   && diff -q "$OLD/src/horloge.js" src/horloge.js >/dev/null \
+  && diff -q "$OLD/manifest.webmanifest" manifest.webmanifest >/dev/null \
   && diff -q "$OLD/src/reglages.js" src/reglages.js >/dev/null \
   && diff -q "$OLD/src/air.js" src/air.js >/dev/null \
   && diff -q "$OLD/src/ensemble.js" src/ensemble.js >/dev/null \

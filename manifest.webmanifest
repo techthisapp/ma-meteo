@@ -1,7 +1,7 @@
 {
   "name": "Ma météo",
   "short_name": "Ma météo",
-  "description": "Prévision horaire, table de la semaine, vigilance Météo-France et pluie mesurée au poste.",
+  "description": "Prévision heure par heure et à seize jours, pluie dans l'heure, vigilance Météo-France, ciel et carte.",
   "lang": "fr",
   "dir": "ltr",
   "start_url": "./",

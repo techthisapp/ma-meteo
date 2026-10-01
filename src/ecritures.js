@@ -7,7 +7,7 @@
 
 import { nombreFr, heureTxt, jourCourt, esc } from "./horloge.js";
 import { graviteCiel, CARD_ABR, iCard } from "./previsions.js";
-import { icoCiel, icoTemps } from "./icones.js";
+import { icoCiel, icoTemps, tempsDe } from "./icones.js";
 
 /* ---------- La liste ----------
 
@@ -16,7 +16,11 @@ import { icoCiel, icoTemps } from "./icones.js";
    défile latéralement, l'heure restant visible. */
 
 const COLONNES = [
-  ["Ciel", s => `<span class="ic">${icoTemps(icoCiel(s.code, s.clair), "ic")}</span>`],
+  /* Le dessin est masqué aux lecteurs d'écran : le nom du ciel l'accompagne
+     en texte lu, sans quoi la colonne se lisait vide. Audit du 1er octobre
+     2026, constat 4.4. */
+  ["Ciel", s => `<span class="ic">${icoTemps(icoCiel(s.code, s.clair), "ic")}</span>`
+    + `<span class="titre-lu">${esc(tempsDe(s.code)[1])}</span>`],
   /* Les températures s'arrondissent au degré. `nombreFr` garde une décimale
      sous dix : la colonne mêlait « 9,4° » et « 10° », deux formats pour une
      même grandeur à deux lignes d'écart. */

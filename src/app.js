@@ -281,7 +281,11 @@ function panneauVigilance() {
      il a seulement changé de ligne. */
   return `<div class="section vg vg-${esc(n.nom)}">`
     + `<button type="button" class="carte vg-c" data-feuille="vigilance" `
-    + `aria-label="${esc(fort)}, ${esc(n.conduite)}, voir le détail">`
+    /* Le libellé remplace le contenu du bouton : il porte donc aussi les
+       phénomènes et leur période, sans quoi VoiceOver ne disait ni lesquels ni
+       quand. Audit du 1er octobre 2026, constat 4.2. */
+    + `aria-label="${esc([fort, n.conduite, ...(enCours ? v.alertes : v.annonces)
+      .map(a => `${a.nom}, ${Vig.NIVEAUX[a.niveau].nom}, ${enCours ? quand(a) : "demain"}`), "voir le détail"].join(", "))}">`
     + `<span class="vg-tete">${ico("alerte", "vg-ic")}`
     + `<span class="vg-txt"><b>${esc(fort)}</b>`
     + `<em>${esc(suite)}, ${esc(v.nom || `Département ${v.dep}`)}</em>`
@@ -512,11 +516,13 @@ function ecranAccueil() {
       + `<i>${esc(jour.charAt(0).toUpperCase() + jour.slice(1))}</i>`
       + `<div class="pt-temps">`
       + `<button type="button" class="bd-deg" data-detail="t" `
-      + `aria-label="Température, voir les vingt-quatre heures">`
+      /* Le libellé porte le texte visible, la température : VoiceOver la lisait
+         « Température » sans le chiffre. Audit du 1er octobre 2026, 4.1. */
+      + `aria-label="${Math.round(t)} degrés, voir heure par heure">`
       + `${Math.round(t)}<sup>°</sup></button>`
       + `<div class="bd-etat">`
       + `<button type="button" class="bd-ciel" data-detail="nua" `
-      + `aria-label="Ciel, voir les vingt-quatre heures">${esc(lib)}</button>`
+      + `aria-label="${esc(lib)}, voir heure par heure">${esc(lib)}</button>`
       /* Les bornes restent du texte : elles mènent au même endroit que le grand
          chiffre, juste au-dessus. Deux cibles pour une destination, c'est une de
          trop, et chacune coûte 44 points de hauteur. */
@@ -692,7 +698,7 @@ function ecranAccueil() {
           + tuiles.map(([n, v, e, c, voie, sym, teinte, feuille]) =>
             `<button type="button" class="bd-m tuile" `
             + (feuille ? `data-feuille="${feuille}" aria-label="${esc(n)}, ${esc(v)}, ${esc(e)}, ${TUILE_VERS[feuille]}">`
-              : `data-detail="${esc(voie)}" aria-label="${esc(n)}, ${esc(v)}, ${esc(e)}, voir les vingt-quatre heures">`)
+              : `data-detail="${esc(voie)}" aria-label="${esc(n)}, ${esc(v)}, ${esc(e)}, voir heure par heure">`)
             + `<span class="tu-pa pa-${teinte}">${ico(sym, "")}</span>`
             + `<span class="tu-t"><i>${esc(n)}</i><b${c ? ` class="${c}"` : ""}>${valeurUnite(v)}</b>`
             + `<em>${esc(e)}</em></span>${chevronM}</button>`).join("")
