@@ -14,7 +14,7 @@ Ce fichier ne garde que ce qui touche au dépôt et à son hébergement.
 |---|---|
 | Dépôt | `techthisapp/ma-meteo`, public |
 | Adresse | `https://techthisapp.github.io/ma-meteo/` |
-| GitHub Pages | Branche `main`, dossier racine ; `.nojekyll` évite la réécriture par Jekyll |
+| GitHub Pages | Source « GitHub Actions » depuis la version 139 : la tâche `publier` de `.github/workflows/controles.yml` déploie la seule application après une suite verte. Jusque-là, branche `main`, dossier racine, avec `.nojekyll` |
 | Identifiants | Ceux du poste, rangés dans le trousseau du Mac par GitHub CLI ; aucun jeton dans le dépôt |
 
 ## Cohabitation avec « Mon jardin »

@@ -44,10 +44,15 @@ export default async T => {
   return n;
 }`;
 
+  /* La fonction se pose dans la page par une évaluation de Playwright, qui
+     échappe à la politique de sécurité de la page ; un `eval` dans la page y
+     est refusé depuis la version 139. */
+  const poserEncre = p => p.evaluate(`window.__encreVent = ${encreVent}`);
+  await poserEncre(pgVent);
   ok("la couche allumée couvre sa toile de traînées",
     await pgVent.evaluate(async e => {
       await new Promise(r => setTimeout(r, 900));
-      const n = await (0, eval)(e)();
+      const n = await window.__encreVent();
       return n > 200 ? "" : `${n} points d'encre`;
     }, encreVent) === "");
 
@@ -120,7 +125,7 @@ export default async T => {
      désignent plus le même endroit, elles seraient un souvenir de l'ancienne
      vue. */
   const cadrageDit = await pgVent.evaluate(async e => {
-      const lu = (0, eval)(e);
+      const lu = window.__encreVent;
       const dodo = m => new Promise(r => setTimeout(r, m));
       const avant = await lu();
       document.getElementById("caPlus").click();
@@ -170,7 +175,7 @@ export default async T => {
     await pgVent.evaluate(async e => {
       const dodo = m => new Promise(r => setTimeout(r, m));
       await dodo(400);
-      const encre = await (0, eval)(e)();
+      const encre = await window.__encreVent();
       const temp = document.getElementById("caTemp").getAttribute("aria-checked");
       const vent = document.getElementById("caVent").getAttribute("aria-checked");
       if (temp !== "true" || vent !== "true") return `température ${temp}, vent ${vent}`;
@@ -210,7 +215,7 @@ export default async T => {
       const V = await import("/src/vent.js");
       const dodo = m => new Promise(r => setTimeout(r, m));
       document.getElementById("caVent").click(); await dodo(500);
-      const encre = await (0, eval)(e)();
+      const encre = await window.__encreVent();
       if (V.anime()) return "la boucle tourne encore";
       return encre === 0 ? "" : `${encre} points d'encre restants`;
     }, encreVent);
@@ -234,13 +239,13 @@ export default async T => {
      toucher au document, et l'erreur volontaire 181 laissait une encre qui
      s'effaçait après le repos. Relue trop tôt, la toile passait. */
   await pgVentFige.waitForTimeout(1200);
-  const figeLu = () => pgVentFige.evaluate(async e => {
+  const figeLu = async () => { await poserEncre(pgVentFige); return pgVentFige.evaluate(async e => {
     const V = await import("/src/vent.js");
-    const lu = (0, eval)(e);
+    const lu = window.__encreVent;
     const encre = await lu();
     if (V.anime()) return "la boucle tourne sous mouvement réduit";
     return encre > 100 ? "" : `${encre} points d'encre`;
-  }, encreVent);
+  }, encreVent); };
   const ventFigeDit = await figeLu();
   /* La carte rouverte trouve la grille déjà lue : elle arrive avant le cadrage
      d'ouverture, et le vent posé alors ne doit pas rester vide. À la première

@@ -62,6 +62,7 @@ const ctx = {};
    priver l'écran de son temps qu'il fait. Le contexte la porte aussi, la
    feuille du détail lisant le même bulletin que le panneau. */
 let vigilance = null;
+let vigilanceMuette = false;
 let pluieProche = null;
 let deplacement = null;
 
@@ -392,6 +393,9 @@ function panneauPluieProche() {
     + (venue ? `<p class="pp-venue">${esc(venue)}</p>` : "")
     + `<div class="pp-g" role="img" aria-label="${esc(resumeGraphe(pas))}">${barres}</div>`
     + `<p class="pp-axe"><span>maintenant</span><span>${esc(finPlage)}</span></p>`
+    /* Le repli vient d'un modèle et non du radar : il le dit. Audit, constat
+       2.6, le service du radar pouvant aussi se taire. */
+    + (l.source === "repli" ? `<p class="pp-venue pp-repli">Estimation d'un modèle, au quart d'heure.</p>` : "")
     + `</div></div>`;
 }
 
@@ -754,8 +758,15 @@ function ecranAccueil() {
 
     corps += `<div class="section" data-bloc="portes">${portesHTML}</div>`;
 
+    const lecture = Vig.etatLecture();
     corps += `<p class="pied">Source : Open-Meteo, modèle AROME de Météo-France. `
       + `Mise à jour toutes les heures.</p>`
+      /* La vigilance que le service ne rend plus, audit, constat 2.6 : une ligne
+         discrète, près de la source, décision de Jérôme. */
+      + (lecture.muette && Reglages.departementDu(g) ? `<p class="pied pied-vig">Vigilance Météo-France non lue`
+        + (lecture.depuis ? ` depuis le ${esc(lecture.depuis.toLocaleDateString("fr-FR", { day: "numeric", month: "long" }))} `
+          + `à ${esc(heureJour(lecture.depuis))}` : "")
+        + ` : le service ne répond pas.</p>` : "")
       + `</div>`;
   }
 
@@ -1300,7 +1311,12 @@ async function lireVigilance() {
   const change = JSON.stringify(v) !== JSON.stringify(vigilance);
   vigilance = v;
   ctx.vigilance = v;
-  if (change) rafraichir();
+  /* Un service devenu muet, ou revenu, se dit en pied de page : le rendu se
+     refait aussi quand seul cet état change. */
+  const muette = Vig.etatLecture().muette;
+  const bascule = muette !== vigilanceMuette;
+  vigilanceMuette = muette;
+  if (change || bascule) rafraichir();
 }
 
 async function charger() {

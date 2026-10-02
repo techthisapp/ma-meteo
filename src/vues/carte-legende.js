@@ -58,7 +58,9 @@ export function brancherLegende(E) {
         return `<span>${dit} <a href="https://open-meteo.com" target="_blank" `
           + `rel="noopener noreferrer">Open-Meteo</a></span>` + propre;
       })()
-      + (E.vigiAllume ? `<span>Vigilance Météo-France</span>` : "")
+      /* Une vigilance que le service ne rend pas se dit indisponible : la
+         France paraissait entière au vert. Audit, constat 2.6. */
+      + (E.vigiAllume ? `<span>Vigilance Météo-France${E.vigiMuette ? " indisponible" : ""}</span>` : "")
       + (E.previAllume || E.plagesAllume || E.neigeAllume ? `<span>${[E.previAllume && "Prévisions", E.plagesAllume && "mer",
         E.neigeAllume && "neige"].filter(Boolean).join(", ").replace(/^./, c => c.toUpperCase())} Open-Meteo</span>` : "")
       + (E.neigeAllume ? `<span>Stations OpenSkiMap, © contributeurs OpenStreetMap</span>` : "")

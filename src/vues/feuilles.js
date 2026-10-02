@@ -6,6 +6,7 @@ import * as P from "../previsions.js";
 import { ico, icoCiel } from "../icones.js";
 import { liste, moments } from "../ecritures.js";
 import * as Reglages from "../reglages.js";
+import * as Vig from "../vigilance.js";
 import * as Parapluie from "../parapluie.js";
 import * as Reponse from "../reponse.js";
 import * as Activites from "../activites.js";
@@ -550,7 +551,13 @@ export function vueReglages(ctx, rendre, majEtat) {
      1er octobre 2026, constat 2.1. */
   const sources = [
     ["Prévision, air, pollens, mer, neige", "Open-Meteo, avec AROME de Météo-France sur les deux premiers jours et les analyses Copernicus pour l'air"],
-    ["Vigilance, pluie dans l'heure", "Météo-France"],
+    /* Un service muet le dit ici aussi, audit, constat 2.6. */
+    ["Vigilance, pluie dans l'heure", (() => {
+      const l = Vig.etatLecture();
+      if (!l.muette) return "Météo-France";
+      return `Météo-France ; vigilance non lue${l.depuis ? ` depuis le ${l.depuis.toLocaleDateString("fr-FR",
+        { day: "numeric", month: "long" })} à ${heureTxt(l.depuis.getHours())}` : ""}, le service ne répond pas`;
+    })()],
     ["Communes", "interfaces adresse et découpage administratif de data.gouv.fr"],
     ["Indice officiel de l'air", "Atmo France"],
     ["Eau", "VigiEau et Hub'eau"],

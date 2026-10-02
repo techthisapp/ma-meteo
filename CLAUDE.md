@@ -52,12 +52,20 @@ indisponibles pour construire les listes.
    vérifie, imports dynamiques compris, et un oubli casse l'application hors
    connexion. Les listes des plages et des stations se chargent à la demande
    depuis la version 128 et restent dans la coque.
-3. Ne publier qu'une suite complète entièrement verte.
+3. Ne pousser qu'une suite complète entièrement verte sur le Mac.
 4. Le message de commit, en français, décrit la demande, le choix, les défauts
    trouvés en route et le bilan des contrôles.
-5. Pousser sur `main` ; GitHub Pages sert la nouvelle version en une à deux
-   minutes. Vérifier la version servie :
+5. Pousser sur `main`. Depuis la version 139, la publication passe par GitHub
+   Actions, `.github/workflows/controles.yml` : la suite complète tourne sur
+   les machines de GitHub, et la tâche `publier` ne déploie que si elle est
+   verte. Seule l'application est publiée, `index.html`, `styles.css`, le
+   manifeste, `sw.js`, `src/`, `donnees/` et `icones/` ; les notes, les
+   contrôles et les outils ne sont plus servis. Compter quatre à six minutes.
+   La tâche vérifie elle-même la version servie et l'absence de `CLAUDE.md` ;
+   à la main : `gh run list --workflow controles.yml`, puis
    `curl -s "https://techthisapp.github.io/ma-meteo/sw.js?x=$(date +%s)" | grep -o 'ma-meteo-v[0-9]*'`.
+   Un fichier nouveau hors de ces dossiers doit être ajouté à la copie de la
+   tâche `publier`.
 6. Mettre à jour `docs/feuille-de-route.md` et `docs/reprise.md`.
 
 Aucun jeton ni secret dans le dépôt : Git emploie les identifiants du poste.
@@ -82,14 +90,14 @@ installe Playwright 1.63.0, puis `npx playwright install chromium`.
 
 | Commande | Effet |
 |---|---|
-| `bash essais/passe.sh 8137` | La suite complète, sur une copie du dépôt dans `/tmp/passe-<port>` ; trois minutes, 1049 contrôles à la version 138 |
+| `bash essais/passe.sh 8137` | La suite complète, sur une copie du dépôt dans `/tmp/passe-<port>` ; trois minutes, 1053 contrôles à la version 139 |
 | `SECTIONS="carte,vent" bash essais/passe.sh 8137` | Les seules sections dont le titre ou le nom de fichier contient l'un des motifs |
 | `JUSQUA="La bande horaire" bash essais/passe.sh 8137` | La suite jusqu'à la fin d'une section |
 | `PARALLELE=1 CHRONO=1 bash essais/passe.sh 8137` | Une section à la fois, avec le temps de chacune ; trois passent côte à côte par défaut |
 | `bash essais/epreuve-bande.sh <n>` | Une erreur volontaire : le script introduit l'erreur numéro n dans une copie, ne passe que la section qui porte le contrôle attendu, et vérifie qu'il échoue. Verdicts possibles : vue, non vue, non appliquée, ou épreuve interrompue |
 
 Les erreurs volontaires sont numérotées dans `essais/epreuve-bande.sh` ; la
-dernière porte le numéro 208. Tout contrôle nouveau a son erreur volontaire, et
+dernière porte le numéro 214. Tout contrôle nouveau a son erreur volontaire, et
 une erreur volontaire éprouvée pendant que son contrôle échoue déjà sur le bon
 code doit être repassée.
 
@@ -171,7 +179,7 @@ Les consignes détaillées du projet sont dans `docs/consignes/`.
 
 ## État au 2 octobre 2026
 
-Version 138, publiée depuis Claude Code. Jalons livrés : 1 à 4, 7 à 18, dont 14, la comparaison ; 15, les
+Version 139, publiée depuis Claude Code. Jalons livrés : 1 à 4, 7 à 18, dont 14, la comparaison ; 15, les
 plages ; 16, la neige ; 17, la semaine au plus loin ; 18, les couches de la
 carte et l'eau. Jalons restants : 6, la justesse des prévisions publiée, vers
 la fin octobre ; 5, la 3D, écartée pour le moment.
@@ -187,5 +195,6 @@ Points connus à reprendre :
    s'en sert hors de la métropole.
 
 Intégration continue, depuis le 2 octobre 2026 : `.github/workflows/controles.yml`
-passe la suite complète sur les machines de GitHub à chaque envoi sur `main`.
+passe la suite complète sur les machines de GitHub à chaque envoi sur `main`,
+puis publie l'application si elle est verte, depuis la version 139.
 Son résultat se lit par `gh run list --workflow controles.yml`.

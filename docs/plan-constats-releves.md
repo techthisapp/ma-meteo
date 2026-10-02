@@ -62,3 +62,4 @@ Décisions de Jérôme du 2 octobre 2026 : oui aux six propositions.
 
 1. Lot H1 fait, version 137 : voir le suivi de `docs/audit-2026-10-01.md`.
 2. Lot H2 fait, version 138 : voir le suivi de `docs/audit-2026-10-01.md`.
+3. Lot H3 fait, version 139 : voir le suivi de `docs/audit-2026-10-01.md`.

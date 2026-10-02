@@ -196,19 +196,39 @@ function plages(items) {
 /* Les bulletins lus se gardent aussi sur l'appareil, jusqu'à la même échéance
    qu'en mémoire : audit du 1er octobre 2026, constat 5.5. */
 const CACHE = "mameteo.vigilance.v1";
+
+/* Un service muet se distingue d'un bulletin sans rien à signaler, audit du
+   1er octobre 2026, constat 2.6. Le jeton public partagé peut être révoqué :
+   le panneau disparaissait alors sans un mot, comme un jour calme. La dernière
+   lecture réussie se garde sur l'appareil ; l'accueil, les réglages et la carte
+   disent le silence, décision de Jérôme du 2 octobre 2026. Le panneau, lui,
+   ne paraît toujours qu'avec une vigilance à signaler. */
+const CACHE_LUE = "mameteo.vigilance.lue.v1";
+let muette = false;
+export let paysMuet = false;
+export function etatLecture() {
+  let t = null;
+  try { t = Number(localStorage.getItem(CACHE_LUE)) || null; } catch { /* cache indisponible */ }
+  return { muette, depuis: t ? new Date(t) : null };
+}
+
 async function charger(dep, echeance) {
   const cle = `${dep}|${echeance || "J0"}`;
   const garde = gardes.get(cle) || lireGardee(CACHE, cle, 2 * 86400 * 1000);
   if (garde && Date.now() < garde.exp) { gardes.set(cle, garde); return garde.d; }
 
-  let d = null;
+  let d = null, repondu = false;
   try {
     const r = await chercher(`${SERVICE}?domain=${encodeURIComponent(dep)}`
       + (echeance ? `&echeance=${echeance}` : "") + `&token=${JETON}`);
-    if (r.ok) d = await r.json();
+    if (r.ok) { d = await r.json(); repondu = true; }
   } catch { d = null; }
   if (!d || !Array.isArray(d.timelaps)) d = null;
   const t = Date.now();
+  if (!echeance) {
+    muette = !repondu;
+    if (repondu) { try { localStorage.setItem(CACHE_LUE, String(t)); } catch { /* plein */ } }
+  }
   gardes.set(cle, { t, d, exp: jusqua(d, t) });
   if (d) ecrireGardee(CACHE, cle, gardes.get(cle), 2 * 86400 * 1000);
   return d;
@@ -331,9 +351,10 @@ export async function pays(fetcheur = chercher) {
   const t = Date.now();
   if (paysGarde && t < paysGarde.exp) return paysGarde.d;
   let d = null;
+  paysMuet = true;
   try {
     const r = await fetcheur(`${NATIONAL}?domain=FRA&depth=1&token=${JETON}`);
-    if (r.ok) d = lirePays(await r.json());
+    if (r.ok) { d = lirePays(await r.json()); paysMuet = false; }
   } catch { d = null; }
   paysGarde = { d, exp: jusqua(d ? { update_time: d.maj / 1000 } : null, t) };
   return d;

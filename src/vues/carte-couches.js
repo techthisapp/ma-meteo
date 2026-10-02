@@ -244,7 +244,9 @@ export function brancherCouches(E) {
   const lireVigi = async () => {
     try {
       const d = await Vig.pays();
-      if (!cv.isConnected || !d) return;
+      if (!cv.isConnected) return;
+      if (E.vigiMuette !== Vig.paysMuet) { E.vigiMuette = Vig.paysMuet; E.mention(); }
+      if (!d) return;
       const t = new Map();
       for (const [code, niveau] of d.niveaux) if (niveau >= 2) t.set(code, niveau);
       vigiNiveaux = t;

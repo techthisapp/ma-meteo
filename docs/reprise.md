@@ -15,14 +15,14 @@ décisions est dans `docs/feuille-de-route.md`. L'ancien document de reprise,
 | Dépôt | `techthisapp/ma-meteo`, public, branche `main` |
 | Dossier de travail | `~/Documents/Claude/Projects/ma-meteo`, sur le Mac de Jérôme |
 | Outils | Node.js 24, GitHub CLI connecté au compte `techthisapp`, Playwright 1.63.0 par `npm ci` |
-| Contrôles | `bash essais/passe.sh 8137`, trois minutes ; aussi sur GitHub à chaque envoi sur `main` |
+| Contrôles | `bash essais/passe.sh 8137`, trois minutes ; aussi sur GitHub à chaque envoi sur `main`, qui publie l'application si la suite est verte |
 
 Ne jamais lire, modifier ni pousser `techthisapp/mon-jardin`, une autre
 application.
 
 ## État au 2 octobre 2026
 
-Version 138. Le projet est passé de claude.ai à Claude Code le 1er octobre
+Version 139. Le projet est passé de claude.ai à Claude Code le 1er octobre
 2026, à la version 118. Un audit complet de la version 120 a été mené le même
 jour, `docs/audit-2026-10-01.md`, avec le suivi de chaque lot en fin de
 document.
@@ -48,8 +48,9 @@ relevés seront réunis. Le jalon 5, la 3D, est écarté pour le moment.
    n'étant pas visé. La requête de la neige, le vent des plages et le
    `LISEZ-MOI.md` sont repris en version 136.
 2. Les constats de l'audit restés au stade « relevé » : plan et décisions de
-   Jérôme dans `docs/plan-constats-releves.md`. Lots H1 et H2 faits en
-   versions 137 et 138 ; reste H3, sécurité et publication.
+   Jérôme dans `docs/plan-constats-releves.md`. Lots H1, H2 et H3 faits en
+   versions 137 à 139 ; reste le rendu par section, seconde partie du
+   constat 4.6.
 
 ## Ce que Jérôme doit faire
 

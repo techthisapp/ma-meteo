@@ -498,7 +498,10 @@ export default async T => {
      La mesure porte sur l'image composée, voiles compris, non sur la seule toile :
      la capture repasse par le navigateur, qui sait décoder un PNG. */
   const cliche = (await pgCouvert.locator(".ci").screenshot()).toString("base64");
-  const lisible = await pgCouvert.evaluate(async b64 => {
+  /* Le cliché se décode dans une page vierge : la politique de sécurité de
+     l'application refuse les images en `data:`, depuis la version 139. */
+  const pgCliche = await ctxCouvert.newPage();
+  const lisible = await pgCliche.evaluate(async b64 => {
     const img = new Image();
     img.src = "data:image/png;base64," + b64;
     await img.decode();
@@ -534,7 +537,7 @@ export default async T => {
      deux voiles se rejoignent au plus faible. La mesure prend les rangs de
      rembourrage, au-dessus et en dessous du texte. */
   const clicheRep = (await pgCouvert.locator(".pt-rep").screenshot()).toString("base64");
-  const lisibleRep = await pgCouvert.evaluate(async b64 => {
+  const lisibleRep = await pgCliche.evaluate(async b64 => {
     const img = new Image();
     img.src = "data:image/png;base64," + b64;
     await img.decode();

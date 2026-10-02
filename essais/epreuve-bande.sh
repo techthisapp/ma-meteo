@@ -664,6 +664,24 @@ case "$N" in
   208) # Les dessins reçoivent des espaces insécables.
      perl -0pi -e 's/const EXCLUS = "svg, script, style, textarea, input, code";/const EXCLUS = "script, style, textarea, input, code";/' src/typo.js
      ATTENDU="les espaces insécables tiennent les nombres à leur unité et les signes doubles à leur mot, hors des dessins" ;;
+  209) # La politique oublie une source de la carte.
+     perl -0pi -e 's/ https:\/\/view\.eumetsat\.int https:\/\/maps\.effis/ https:\/\/maps.effis/' index.html
+     ATTENDU="aucun écran ne déclenche de refus de la politique de sécurité" ;;
+  210) # La politique oublie un service appelé par le code.
+     perl -0pi -e 's/ https:\/\/router\.project-osrm\.org//' index.html
+     ATTENDU="la politique de sécurité autorise toute source que le code appelle, et seulement le site pour les scripts" ;;
+  211) # La politique permet les scripts en ligne.
+     perl -0pi -e "s/script-src 'self';/script-src 'self' 'unsafe-inline';/" index.html
+     ATTENDU="la politique de sécurité autorise toute source que le code appelle, et seulement le site pour les scripts" ;;
+  212) # Un service muet passe de nouveau pour un jour calme.
+     perl -0pi -e 's/    muette = !repondu;/    muette = false;/' src/vigilance.js
+     ATTENDU="un service de Météo-France muet se dit à l.accueil, dans les réglages et sur la carte, et la pluie dit son repli" ;;
+  213) # La carte ne dit plus la vigilance indisponible.
+     perl -0pi -e 's/      if \(E\.vigiMuette !== Vig\.paysMuet\) \{ E\.vigiMuette = Vig\.paysMuet; E\.mention\(\); \}\n//' src/vues/carte-couches.js
+     ATTENDU="un service de Météo-France muet se dit à l.accueil, dans les réglages et sur la carte, et la pluie dit son repli" ;;
+  214) # La pluie dans l'heure ne dit plus son repli.
+     perl -0pi -e 's/    \+ \(l\.source === "repli" \?/    + (false ?/' src/app.js
+     ATTENDU="un service de Météo-France muet se dit à l.accueil, dans les réglages et sur la carte, et la pluie dit son repli" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

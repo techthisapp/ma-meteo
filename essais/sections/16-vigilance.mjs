@@ -5,7 +5,7 @@ export const titre = "Vigilance";
 export const avecPage = true;
 
 export default async T => {
-  const { pg, etat, ok, txt, onglet } = T;
+  const { pg, etat, ok, txt, onglet, nav, brancherRoutes, ouvrirPage, reposer } = T;
   await onglet("accueil");
   await pg.waitForTimeout(500);
 
@@ -157,4 +157,50 @@ export default async T => {
 
   ok("la feuille courte prend l'accroche intermédiaire",
     await pg.locator("#feuille.moyenne").count() === 1);
+
+  /* Audit du 1er octobre 2026, constat 2.6 : le jeton public de Météo-France
+     révoqué. Le service répond 401 à tout. Le panneau reste absent, comme un
+     jour calme, mais le pied de l'accueil, les réglages et la légende de la
+     carte disent la vigilance non lue ; la pluie dans l'heure passe au repli
+     d'un modèle et le dit. */
+  const { FAIN, amorce } = await import("../faux-services.mjs");
+  const ctxMuet = await nav.newContext({
+    viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+    locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+  });
+  await ctxMuet.addInitScript(amorce(FAIN));
+  await brancherRoutes(ctxMuet);
+  await ctxMuet.route(/webservice\.meteofrance\.com/, r => r.fulfill({ status: 401, contentType: "application/json",
+    headers: { "Access-Control-Allow-Origin": "*" }, body: '{"code":"401","message":"Invalid token"}' }));
+  etat.profilRepli = "debut";
+  const pgMuet = await ctxMuet.newPage();
+  await ouvrirPage(pgMuet);
+  await reposer(pgMuet, 2500);
+  const muetDit = await pgMuet.evaluate(() => ({
+    panneau: document.querySelectorAll("#ecran .vg").length,
+    pied: document.querySelector(".pied-vig")?.textContent || "",
+    repli: document.querySelector(".pp-repli")?.textContent || "",
+  }));
+  await pgMuet.locator("#btnReglages").click();
+  await pgMuet.waitForTimeout(500);
+  const sourcesDit = await pgMuet.evaluate(() => [...document.querySelectorAll("#feuille-corps .rangee")]
+    .find(r => /^Vigilance/.test(r.querySelector(".rangee-txt")?.textContent || ""))?.querySelector(".rangee-val")?.textContent || "");
+  await pgMuet.locator("#feuille-fermer").click();
+  await pgMuet.waitForTimeout(400);
+  await pgMuet.locator('[data-onglet="carte"]').click();
+  await reposer(pgMuet, 1500);
+  await pgMuet.locator("#caCouches").click();
+  await pgMuet.waitForTimeout(200);
+  if (await pgMuet.locator("#caVigi").getAttribute("aria-checked") !== "true") await pgMuet.locator("#caVigi").click();
+  await reposer(pgMuet, 1500);
+  const legendeDit = await pgMuet.evaluate(() => document.getElementById("caCredit")?.textContent || "");
+  await ctxMuet.close();
+  etat.profilRepli = "sec";
+  ok("un service de Météo-France muet se dit à l'accueil, dans les réglages et sur la carte, et la pluie dit son repli",
+    muetDit.panneau === 0 && /Vigilance Météo-France non lue.*le service ne répond pas/.test(muetDit.pied)
+    && /non lue/.test(sourcesDit) && /Vigilance Météo-France indisponible/.test(legendeDit)
+    && /Estimation d'un modèle/.test(muetDit.repli),
+    JSON.stringify({ ...muetDit, sourcesDit, legendeDit }));
+  ok("un service qui répond ne fait rien dire de tel",
+    await pg.locator(".pied-vig").count() === 0);
 };

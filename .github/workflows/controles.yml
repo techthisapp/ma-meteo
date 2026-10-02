@@ -3,6 +3,11 @@
 # le Mac de Jérôme. Les contrôles servent leurs propres données et refusent
 # toute requête vers le vrai réseau : ils ne dépendent d'aucun service tiers.
 # Audit du 1er octobre 2026, constat 6.3.
+#
+# La publication suit, depuis le 2 octobre 2026, audit, constat 2.7 : un envoi
+# sur main n'est publié qu'après une suite verte, et GitHub Pages ne sert que
+# l'application, sans les notes, les contrôles ni les outils. Décision de
+# Jérôme du 2 octobre 2026.
 name: Contrôles
 
 on:
@@ -37,3 +42,50 @@ jobs:
           name: couture
           path: /tmp/couture.*
           if-no-files-found: ignore
+
+  publier:
+    needs: controles
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploiement.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: L'application seule
+        run: |
+          mkdir -p _site
+          cp -r index.html styles.css manifest.webmanifest sw.js src donnees icones _site/
+          # Le relais des noms des écrans ne sert qu'aux contrôles.
+          rm -f _site/src/vues.js
+      - name: Tout fichier de la coque est publié
+        run: |
+          manque=0
+          for f in $(grep -o '"\./[^"]*"' sw.js | tr -d '"' | sed 's#^\./##' | grep -v '^$'); do
+            [ -e "_site/$f" ] || { echo "absent de la publication : $f"; manque=1; }
+          done
+          exit $manque
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deploiement
+        uses: actions/deploy-pages@v4
+      - name: La version servie est la bonne, et les notes ne le sont plus
+        run: |
+          attendue=$(grep -o 'ma-meteo-v[0-9]*' sw.js | head -1)
+          for k in $(seq 1 20); do
+            servie=$(curl -s "https://techthisapp.github.io/ma-meteo/sw.js?x=$(date +%s)" | grep -o 'ma-meteo-v[0-9]*' | head -1)
+            [ "$servie" = "$attendue" ] && break
+            sleep 15
+          done
+          echo "attendue $attendue, servie $servie"
+          [ "$servie" = "$attendue" ] || exit 1
+          code=$(curl -s -o /dev/null -w '%{http_code}' "https://techthisapp.github.io/ma-meteo/CLAUDE.md?x=$(date +%s)")
+          echo "CLAUDE.md : $code"
+          [ "$code" = "404" ]
