@@ -569,12 +569,25 @@ case "$N" in
   177) # Une heure des données se lit de nouveau comme une heure de l'appareil.
      perl -0pi -e 's/  let x = mur - 3600 \* 1000;\n  for \(let k = 0; k < 3; k\+\+\) \{/  let x = mur - 3600 * 1000;\n  return Date.parse(`\${t}:00`);\n  for (let k = 0; k < 3; k++) {/' src/horloge.js
      ATTENDU="une heure des données se lit comme un instant de Paris, en été comme en hiver" ;;
+  178) # L'application importe de nouveau la carte dès le lancement.
+     perl -0pi -e 's/(import \{ vueTemps \} from "\.\/vues\/heures\.js";)/$1\nimport { vueCarte as CARTE_STATIQUE } from ".\/vues\/carte.js";/' src/app.js
+     ATTENDU="l.accueil s.affiche sans les fichiers de la carte et du ciel" ;;
+  179) # Un onglet qui n'a pas pu se charger ne le dit plus.
+     perl -0pi -e 's/const manque = differesManques\.has\(nom\);/const manque = false;/' src/app.js
+     ATTENDU="un onglet qui n.a pas pu se charger le dit, et s.ouvre après le rechargement proposé" ;;
+  180) # Le message d'un onglet manqué ne propose plus de recharger.
+     perl -0pi -e 's/\n        \+ `<button type="button" class="bouton-plein" data-action="recharger">Recharger l.application<\/button><\/div>`/\n        + `<\/div>`/' src/app.js
+     ATTENDU="un onglet qui n.a pas pu se charger le dit, et s.ouvre après le rechargement proposé" ;;
+  181) # Le vent n'est plus reposé une fois la vue cadrée.
+     perl -0pi -e 's/        if \(mesures\) poserVent\(\);\n//' src/vues/carte.js
+     ATTENDU="le mouvement réduit fige les particules sans les effacer" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
 if diff -q "$OLD/src/bande.js" src/bande.js >/dev/null \
   && diff -q "$OLD/src/app.js" src/app.js >/dev/null \
   && diff -q "$OLD/src/horloge.js" src/horloge.js >/dev/null \
+  && diff -q "$OLD/src/vues/carte.js" src/vues/carte.js >/dev/null \
   && diff -q "$OLD/src/vigilance.js" src/vigilance.js >/dev/null \
   && diff -q "$OLD/src/nappe.js" src/nappe.js >/dev/null \
   && diff -q "$OLD/src/carte.js" src/carte.js >/dev/null \

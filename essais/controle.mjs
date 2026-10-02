@@ -5829,6 +5829,42 @@ ok("l'accueil s'affiche sans les listes des plages et des stations",
   listesDit.temperature && listesDit.tuiles > 0, JSON.stringify(listesDit));
 await ctxListes.close();
 
+/* Plan du découpage de vues.js, étape 4, version 134 : la carte et le ciel se
+   chargent à la première ouverture de leur onglet. Leurs fichiers refusés,
+   l'accueil s'affiche quand même ; l'onglet de la carte dit qu'il n'a pas pu
+   se charger et propose de recharger l'application, qui ouvre ensuite la
+   carte une fois les fichiers rendus. Un nouvel import dans la même page ne
+   relit rien : le navigateur garde l'échec en mémoire. */
+const ctxDiffere = await nav.newContext({
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+  locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+});
+await ctxDiffere.addInitScript(amorce(FAIN));
+await brancherRoutes(ctxDiffere);
+const refuserDifferes = r => r.abort();
+await ctxDiffere.route(/\/src\/(vues\/carte|vues\/etoiles|carte|geographie)\.js/, refuserDifferes);
+const pgDiffere = await ctxDiffere.newPage();
+await ouvrirPage(pgDiffere);
+await pgDiffere.waitForTimeout(600);
+/* Chaque étape ne se tente que si son élément existe : sous une erreur
+   volontaire, l'onglet ou le bouton peut manquer, et le contrôle doit rendre
+   son verdict au lieu d'attendre. */
+const differeDit = { accueil: await pgDiffere.evaluate(() => !!document.querySelector("#ecran .bd-deg")) };
+ok("l'accueil s'affiche sans les fichiers de la carte et du ciel", differeDit.accueil, JSON.stringify(differeDit));
+const ongletCarte = pgDiffere.locator('[data-onglet="carte"]');
+if (await ongletCarte.count()) { await ongletCarte.click(); await pgDiffere.waitForTimeout(800); }
+differeDit.manque = await pgDiffere.evaluate(() => !!document.querySelector('#ecran [data-differe-manque] [data-action="recharger"]'));
+await ctxDiffere.unroute(/\/src\/(vues\/carte|vues\/etoiles|carte|geographie)\.js/, refuserDifferes);
+if (differeDit.manque) {
+  await Promise.all([pgDiffere.waitForEvent("load"), pgDiffere.locator('#ecran [data-action="recharger"]').click()]);
+  await pgDiffere.waitForTimeout(600);
+  if (await ongletCarte.count()) { await ongletCarte.click(); await pgDiffere.waitForTimeout(1200); }
+}
+differeDit.carte = await pgDiffere.evaluate(() => !!document.getElementById("caToile"));
+ok("un onglet qui n'a pas pu se charger le dit, et s'ouvre après le rechargement proposé",
+  differeDit.manque && differeDit.carte, JSON.stringify(differeDit));
+await ctxDiffere.close();
+
 /* Audit du 1er octobre 2026, constat 1.3. Une prévision qui ne répond pas
    rend la main en moins de vingt-cinq secondes, deux essais de dix au plus ;
    le faux service retient sa réponse trente secondes. Puis un refus du quota
@@ -11793,14 +11829,14 @@ const pgVentFige = await ctxVentFige.newPage();
 await ouvrirPage(pgVentFige);
 await pgVentFige.locator('[data-onglet="carte"]').click();
 await pgVentFige.waitForTimeout(1200);
-ok("le mouvement réduit fige les particules sans les effacer",
-  await pgVentFige.evaluate(async e => {
-    const V = await import("/src/vent.js");
-    const lu = (0, eval)(e);
-    const encre = await lu();
-    if (V.anime()) return "la boucle tourne sous mouvement réduit";
-    return encre > 100 ? "" : `${encre} points d'encre`;
-  }, encreVent) === "");
+const ventFigeDit = await pgVentFige.evaluate(async e => {
+  const V = await import("/src/vent.js");
+  const lu = (0, eval)(e);
+  const encre = await lu();
+  if (V.anime()) return "la boucle tourne sous mouvement réduit";
+  return encre > 100 ? "" : `${encre} points d'encre`;
+}, encreVent);
+ok("le mouvement réduit fige les particules sans les effacer", ventFigeDit === "", ventFigeDit);
 await ctxVentFige.close();
 
 /* ---------- La pluie dans l'heure ---------- */

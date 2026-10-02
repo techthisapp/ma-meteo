@@ -29,7 +29,7 @@
    direction à six degrés près mais sous-estime la vitesse d'un tiers. La mesure
    sur les images reste donc la seule source. */
 
-import { mx, my } from "./carte.js";
+import { mx, my } from "./projection.js";
 import { duCardinal } from "./previsions.js";
 import { TAILLE, SCHEMA, OPTIONS, adresse } from "./radar.js";
 

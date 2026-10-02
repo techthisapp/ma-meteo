@@ -22,7 +22,7 @@ application.
 
 ## État au 2 octobre 2026
 
-Version 133. Le projet est passé de claude.ai à Claude Code le 1er octobre
+Version 134. Le projet est passé de claude.ai à Claude Code le 1er octobre
 2026, à la version 118. Un audit complet de la version 120 a été mené le même
 jour, `docs/audit-2026-10-01.md`, avec le suivi de chaque lot en fin de
 document.
@@ -35,7 +35,7 @@ document.
 | D, accessibilité | fait, version 124 |
 | E, performances | fait pour l'essentiel, versions 125 à 128 ; reste le chargement différé de la carte et du ciel |
 | F, délais réseau, département, fuseau | fait, versions 129 à 131 ; l'outre-mer n'est pas visé, décision de Jérôme |
-| G, maintenance | intégration continue, code mort, anciens scripts d'épreuve, documents et découpage de `src/vues.js` faits ; restent le chargement différé de la carte et des étoiles, la suite des contrôles et l'outil de captures |
+| G, maintenance | intégration continue, code mort, anciens scripts d'épreuve, documents, découpage de `src/vues.js` et chargement différé de la carte et du ciel faits ; restent la suite des contrôles et l'outil de captures |
 
 Jalons de la feuille de route : 1 à 4 et 7 à 18 livrés. Reste le jalon 6, la
 justesse des prévisions publiée, vers la fin octobre, quand soixante jours de
@@ -43,9 +43,8 @@ relevés seront réunis. Le jalon 5, la 3D, est écarté pour le moment.
 
 ## Points ouverts
 
-1. Le chargement différé de la carte et des étoiles, étape 4 de
-   `docs/plan-decoupage-vues.md`, environ 90 kilooctets compressés de moins au
-   lancement.
+1. Facultatif : la carte découpée couche par couche, étape 5 de
+   `docs/plan-decoupage-vues.md`.
 2. La suite des contrôles en un seul fichier de 12 000 lignes, aux pauses
    fixes, audit constats 6.5 et 6.6.
 3. L'outil de captures `essais/vue-ecran.mjs` garde sa propre copie partielle

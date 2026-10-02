@@ -1,6 +1,8 @@
 /* Les écrans et les feuilles. Depuis le 2 octobre 2026, chaque écran vit
-   dans son fichier sous src/vues/ ; ce module ne fait que relayer les noms
-   que l'application et les contrôles importent. docs/plan-decoupage-vues.md. */
+   dans son fichier sous src/vues/ ; ce module ne fait que relayer leurs noms
+   aux contrôles. L'application importe chaque écran depuis son fichier, et la
+   carte et le ciel à la demande, depuis la version 134 : ce relais n'entre ni
+   dans son chargement ni dans la coque hors ligne. docs/plan-decoupage-vues.md. */
 
 export { vueTemps } from "./vues/heures.js";
 export { basculerSemaine, semaineEstEtendue, etendreQuotidien, vueSemaine, grapheSemaine, phraseConfiance } from "./vues/avenir.js";

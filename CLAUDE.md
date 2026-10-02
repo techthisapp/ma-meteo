@@ -16,7 +16,7 @@ Ce fichier se lit au début de chaque session. Le détail des décisions vit dan
 |---|---|
 | `index.html`, `styles.css`, `manifest.webmanifest` | La page unique, sa feuille de style, le manifeste d'installation |
 | `src/*.js` | Les modules ES, sans compilation ni bibliothèque. `app.js` orchestre, `carte.js` dessine la carte |
-| `src/vues/*.js` | Un fichier par écran ou groupe de feuilles, depuis la version 133 ; `src/vues.js` ne fait que relayer leurs noms à `app.js` et aux contrôles. Tout fichier nouveau entre dans la coque de `sw.js` |
+| `src/vues/*.js` | Un fichier par écran ou groupe de feuilles, depuis la version 133. `app.js` les importe directement, la carte et le ciel à la première ouverture de leur onglet depuis la version 134 ; `src/vues.js` ne relaie plus les noms qu'aux contrôles et n'est pas dans la coque. Tout fichier nouveau de l'application entre dans la coque de `sw.js` |
 | `sw.js` | L'agent de service et la coque hors ligne : la liste de tous les fichiers à garder |
 | `src/version.js` | Le numéro de version affiché |
 | `donnees/` | Les données embarquées, contours et référentiels |
@@ -82,13 +82,13 @@ installe Playwright 1.63.0, puis `npx playwright install chromium`.
 
 | Commande | Effet |
 |---|---|
-| `bash essais/passe.sh 8137` | La suite complète, sur une copie du dépôt dans `/tmp/passe-<port>` ; une douzaine de minutes, 1033 contrôles à la version 133 |
+| `bash essais/passe.sh 8137` | La suite complète, sur une copie du dépôt dans `/tmp/passe-<port>` ; une douzaine de minutes, 1035 contrôles à la version 134 |
 | `JUSQUA="La bande horaire" bash essais/passe.sh 8137` | La suite jusqu'à la fin d'une section, ici quatre minutes et environ 145 contrôles |
 | `bash essais/epreuve-bande.sh <n>` | Une erreur volontaire : le script introduit l'erreur numéro n dans une copie et vérifie que le contrôle attendu échoue. Verdicts possibles : vue, non vue, ou épreuve interrompue |
 | `JUSQUA_EPREUVE="<section>" bash essais/epreuve-bande.sh <n>` | Idem quand le contrôle visé est au-delà de la bande horaire |
 
 Les erreurs volontaires sont numérotées dans `essais/epreuve-bande.sh` ; la
-dernière porte le numéro 177. Tout contrôle nouveau a son erreur volontaire, et
+dernière porte le numéro 181. Tout contrôle nouveau a son erreur volontaire, et
 une erreur volontaire éprouvée pendant que son contrôle échoue déjà sur le bon
 code doit être repassée.
 
@@ -153,7 +153,7 @@ Les consignes détaillées du projet sont dans `docs/consignes/`.
 
 ## État au 2 octobre 2026
 
-Version 133, publiée depuis Claude Code. Jalons livrés : 1 à 4, 7 à 18, dont 14, la comparaison ; 15, les
+Version 134, publiée depuis Claude Code. Jalons livrés : 1 à 4, 7 à 18, dont 14, la comparaison ; 15, les
 plages ; 16, la neige ; 17, la semaine au plus loin ; 18, les couches de la
 carte et l'eau. Jalons restants : 6, la justesse des prévisions publiée, vers
 la fin octobre ; 5, la 3D, écartée pour le moment.

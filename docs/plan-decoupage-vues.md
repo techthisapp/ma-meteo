@@ -96,3 +96,12 @@ servant aussi.
 
 Les étapes 1 à 3 tiennent en une demi-journée de travail et de passes ;
 l'étape 4, une demi-journée de plus avec ses contrôles et leurs épreuves.
+
+## Suivi
+
+1. Étapes 1 à 3 publiées ensemble en version 133, le 2 octobre 2026.
+2. Étape 4 publiée en version 134, le 2 octobre 2026. Deux écarts au plan :
+   la projection de la carte a dû sortir dans `src/projection.js`, faute de
+   quoi la pluie dans l'heure aurait gardé le contour de la France au
+   lancement ; et un import manqué ne se retente pas dans la même page, le
+   navigateur gardant l'échec en mémoire, d'où un bouton de rechargement.

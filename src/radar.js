@@ -28,7 +28,7 @@
    Le schéma de couleur est celui du service, et il n'y en a qu'un : les neuf
    codes documentés rendent tous la même image, à l'octet près. */
 
-import { ZMIN, mx, my, echelle } from "./carte.js";
+import { ZMIN, mx, my, echelle } from "./projection.js";
 import { chercher } from "./horloge.js";
 
 export const INDEX = "https://api.rainviewer.com/public/weather-maps.json";

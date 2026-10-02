@@ -18,9 +18,16 @@ import * as Ruban from "./ruban.js";
 import * as Feu from "./feu.js";
 import * as Relief from "./relief.js";
 import * as Temps from "./temps.js";
-import { vueTemps, vueSemaine, vueVigilance, vueCiel, vueCarte, vueCommunes, vueReglages,
-  vueAjout, vueParapluie, vueRessenti, vueActivites, vueBeauTemps, vueAir,
-  vueClimat, vueNeige, vuePlage, vueEau, bandeauAccueil, basculerSemaine, semaineEstEtendue } from "./vues.js";
+/* Les écrans viennent chacun de son fichier. La carte et le ciel n'en font pas
+   partie : ils se chargent à la première ouverture de leur onglet, plus bas. */
+import { vueTemps } from "./vues/heures.js";
+import { vueSemaine, basculerSemaine, semaineEstEtendue } from "./vues/avenir.js";
+import { vueVigilance } from "./vues/vigilance.js";
+import { bandeauAccueil } from "./vues/astres.js";
+import { vueCommunes, vueAjout } from "./vues/lieux.js";
+import { vueReglages, vueParapluie, vueRessenti, vueActivites, vueBeauTemps, vueAir } from "./vues/feuilles.js";
+import { vueClimat } from "./vues/climat.js";
+import { vueNeige, vuePlage, vueEau } from "./vues/loisirs.js";
 import { moments } from "./ecritures.js";
 import * as Vig from "./vigilance.js";
 import * as Astres from "./astres.js";
@@ -737,12 +744,48 @@ function ecranAccueil() {
 
 /* ---------- Écrans branchés sur les vues ---------- */
 
-const VUES_ONGLET = { temps: vueTemps, semaine: vueSemaine, ciel: vueCiel, carte: vueCarte };
+const VUES_ONGLET = { temps: vueTemps, semaine: vueSemaine };
+
+/* La carte et le ciel se chargent à la première ouverture de leur onglet : la
+   carte, ses couches, le contour de la France et la voûte étoilée, environ
+   quatre-vingt-dix kilooctets compressés, quittent le chemin du lancement. Ils
+   restent dans la coque hors ligne. Le temps de l'import, l'écran montre le
+   chargement ; un import manqué le dit et propose de recharger l'application.
+   Le navigateur garde en mémoire l'échec d'un module, dépendances comprises :
+   un nouvel import dans la même page échouerait sans rien relire, constaté
+   le 2 octobre 2026. docs/plan-decoupage-vues.md, étape 4, version 134. */
+const DIFFERES = {
+  ciel: { titre: "Le ciel", charger: () => import("./vues/etoiles.js").then(m => m.vueCiel) },
+  carte: { titre: "La carte", charger: () => import("./vues/carte.js").then(m => m.vueCarte) },
+};
+const differesEnCours = new Set();
+const differesManques = new Set();
+function chargerDiffere(nom) {
+  if (differesEnCours.has(nom) || differesManques.has(nom)) return;
+  differesEnCours.add(nom);
+  DIFFERES[nom].charger()
+    .then(v => { VUES_ONGLET[nom] = v; }, () => { differesManques.add(nom); })
+    .finally(() => { differesEnCours.delete(nom); if (onglet === nom && !detail) rendre(); });
+}
+function ecranDiffere(nom) {
+  const manque = differesManques.has(nom);
+  chargerDiffere(nom);
+  return {
+    titre: DIFFERES[nom].titre,
+    corps: manque
+      ? `<div class="etat-vide" data-differe-manque><h2>Écran indisponible</h2>`
+        + `<p>Cet écran n'a pas pu se charger.</p>`
+        + `<button type="button" class="bouton-plein" data-action="recharger">Recharger l'application</button></div>`
+      : `<div class="etat-vide" data-differe><div class="tourne" role="progressbar" aria-label="Chargement"></div>`
+        + `<p>Ouverture de l'écran.</p></div>`,
+  };
+}
 
 /* Un écran peut demander une relecture de la prévision, non seulement un rendu :
    la carte bascule de commune depuis un repère, comme la liste des lieux le fait
    depuis une rangée. Les feuilles avaient déjà cette voie, les écrans non. */
 function ecranVue(nom) {
+  if (!VUES_ONGLET[nom]) return ecranDiffere(nom);
   const f = VUES_ONGLET[nom](ctx, o => {
     if (o?.recharger) { charger(); return; }
     rendre();

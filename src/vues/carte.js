@@ -424,6 +424,12 @@ export function vueCarte(ctx, rendre, majEtat) {
         }
         Carte.dessiner(cv, vue, COUCHES);
         placer();
+        /* Le vent posé avant ce cadrage, quand les mesures arrivent vite, ne
+           trouvait aucune échelle et ne traçait rien ; sous mouvement réduit,
+           il ne se redessinait plus. Il se repose donc une fois la vue
+           cadrée. Défaut révélé le 2 octobre 2026 par le chargement différé de
+           la carte, qui a changé l'ordre des arrivées. */
+        if (mesures) poserVent();
       });
 
       const pas = d => {

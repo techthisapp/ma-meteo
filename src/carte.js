@@ -19,28 +19,10 @@
 
 import { contours, anneauxDe, codesDepartements } from "./geographie.js";
 
-/* Les bornes de zoom. Cinq montre le pays entier sur un téléphone, dix montre
-   une commune et ses alentours. Au delà, le pas de la grille des contours, cent
-   cinquante mètres, se verrait. */
-export const ZMIN = 5;
-export const ZMAX = 10;
-export const ZDEFAUT = 8;
-
-const TUILE = 256;
-
-/* La projection de Mercator, en coordonnées de monde entre zéro et un. C'est
-   celle de toutes les tuiles matricielles, et la couche de pluie, elle, viendra
-   bien en tuiles : les deux doivent se superposer sans transformation. */
-export const mx = lon => (lon + 180) / 360;
-export const my = lat => {
-  const s = Math.sin(Math.max(-85, Math.min(85, lat)) * Math.PI / 180);
-  return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI);
-};
-export const lonDe = x => x * 360 - 180;
-export const latDe = y => 90 - (360 * Math.atan(Math.exp((y - 0.5) * 2 * Math.PI))) / Math.PI;
-
-// L'échelle, en pixels par tour de monde.
-export const echelle = z => TUILE * Math.pow(2, z);
+/* La projection vit dans src/projection.js, que la pluie dans l'heure charge
+   dès le lancement ; elle est réexportée ici pour les modules de la carte. */
+import { ZMIN, ZMAX, ZDEFAUT, TUILE, mx, my, lonDe, latDe, echelle } from "./projection.js";
+export { ZMIN, ZMAX, ZDEFAUT, mx, my, lonDe, latDe, echelle };
 
 /* La place d'un point sur l'écran, en pixels depuis le coin haut gauche. La vue
    porte son centre et son zoom ; la toile porte sa largeur et sa hauteur. */
