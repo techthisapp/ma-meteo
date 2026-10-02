@@ -338,5 +338,3 @@ export async function pays(fetcheur = chercher) {
   paysGarde = { d, exp: jusqua(d ? { update_time: d.maj / 1000 } : null, t) };
   return d;
 }
-
-export function oublierPays() { paysGarde = null; }

@@ -8,10 +8,9 @@
    marquée comme telle et jamais gardée. Le résultat se garde trente jours par
    commune. */
 
-import { distanceKm } from "./postes.js";
 import { dureesMinutes } from "./trajets.js";
 import { cardinal } from "./previsions.js";
-import { recaler, elaguer, lireGardee, ecrireGardee, chercher } from "./horloge.js";
+import { recaler, elaguer, lireGardee, ecrireGardee, chercher, distanceKm } from "./horloge.js";
 
 export const RAYON_KM = 100;
 export const MINUTES_MAX = 60;

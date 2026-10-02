@@ -192,4 +192,3 @@ export async function chargerTendance(g, fetcheur = chercher) {
 
 export const tendancePour = g => (Number.isFinite(g?.lat) && cleTendance === cleDe(g) ? tendance : null);
 export const tendanceEnEchec = g => Number.isFinite(g?.lat) && echecTendance === cleDe(g);
-export const poserTendance = (g, t) => { tendance = t; cleTendance = g ? cleDe(g) : null; echecTendance = null; };

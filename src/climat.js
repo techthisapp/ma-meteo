@@ -108,12 +108,6 @@ export function rangDate(iso) {
   return JOURS_MOIS[m - 1] + j - 1 + (m > 2 && bissextile(a) ? 1 : 0);
 }
 
-/* Le rang d'une date dans une année non bissextile, celui qui sert à ranger les
-   blocs : le 29 février se range avec le 28. */
-export function rangCommun(mois, jour) {
-  return JOURS_MOIS[mois - 1] + Math.min(jour, mois === 2 ? 28 : 31) - 1;
-}
-
 export const rangBloc = r => Math.min(Math.floor(r / BLOC), Math.ceil(365 / BLOC) - 1);
 
 export function adresseLongue(lat, lon, finAnnee) {

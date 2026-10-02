@@ -136,7 +136,6 @@ export function poser(champs) {
 
 export const suivies = () => etat.suivies.map(l => ({ ...l }));
 export const cleCourante = () => (etat.auto ? CLE_POSITION : cleLieu(etat));
-export const estSuivie = l => etat.suivies.some(x => cleLieu(x) === cleLieu(l));
 
 /* Poser une commune la rend courante et l'ajoute à la liste si elle en manque.
    Choisir une commune vaut donc suivi : personne ne cherche une commune pour

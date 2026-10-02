@@ -34,11 +34,6 @@ const COQUE = [
   "./src/vigieau.js",
   "./src/eau.js",
   "./src/villes.js",
-  /* Importés par la neige, jalon 16 : la distance des postes, et le réseau
-     qu'elle emploie. Absents de la coque, ils faisaient casser l'application
-     hors connexion, ce que la garde de la coque a relevé. */
-  "./src/postes.js",
-  "./src/reseau.js",
   "./src/justesse.js",
   "./src/parapluie.js",
   "./src/reponse.js",

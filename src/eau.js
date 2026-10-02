@@ -15,8 +15,7 @@
    demi-mégaoctet, ne se gardent pas ; le résultat se garde une journée. */
 
 import { rangDe, NOMS } from "./vigieau.js";
-import { distanceKm } from "./postes.js";
-import { recaler, elaguer, lireGardee, ecrireGardee, chercherEn } from "./horloge.js";
+import { recaler, elaguer, lireGardee, ecrireGardee, chercherEn, distanceKm } from "./horloge.js";
 
 const VIGIEAU = "https://api.vigieau.gouv.fr/api/zones";
 const HUBEAU = "https://hubeau.eaufrance.fr/api/v1/niveaux_nappes";
@@ -374,7 +373,6 @@ export async function lireSol(g, aujourdhui, fetcheur = chercherEn(40000)) {
 let etat = null;
 const cleDeLieu = g => `${g.lat.toFixed(3)},${g.lon.toFixed(3)}`;
 export const etatEau = g => (etat && Number.isFinite(g?.lat) && etat.cle === cleDeLieu(g) ? etat : null);
-export const poserEau = e => { etat = e; };
 
 /* La restriction et la nappe d'abord ; la rivière, plus lente, ensuite, sans
    retarder la tuile : `surRiviere` redessine quand elle arrive. */

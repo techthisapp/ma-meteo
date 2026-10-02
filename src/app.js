@@ -41,16 +41,11 @@ import * as Radar from "./radar.js";
 
 const $ = id => document.getElementById(id);
 
-/* Deux modules restent écrits et contrôlés sans être branchés : `vigilance.js`
-   et `postes.js`. Ils lisent les jeux archivés de Météo-France sur data.gouv.fr,
-   dont l'alimentation s'est interrompue. Sondé le 19 août 2026, le dernier
-   bulletin de vigilance datait du 5 août et les relevés de pluie du 22 juin.
-
-   Une application météorologique ne peut pas servir une vigilance de quatorze
-   jours ni comparer une prévision du jour à une mesure de juin. La vigilance
-   renvoie donc vers Météo-France, seule source à jour, et la comparaison entre
-   mesure et modèle est retirée. Les deux modules se rebranchent en trois lignes
-   si la synchronisation reprend. */
+/* La comparaison entre mesure et modèle lisait les jeux archivés de
+   Météo-France sur data.gouv.fr, dont l'alimentation s'est interrompue en
+   juin 2026. Ses modules, `postes.js`, `reseau.js` et `reserve.js`, ont été
+   retirés le 2 octobre 2026, audit du 1er octobre, constat 6.10 ; ils restent
+   dans l'historique, au commit 62c0076, si la synchronisation reprend. */
 
 const ctx = {};
 

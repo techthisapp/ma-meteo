@@ -4066,7 +4066,6 @@ export function vueReglages(ctx, rendre, majEtat) {
     },
   };
 }
-/* ---------- Mesure contre modèle ---------- */
 
 /* ---------- Le climat de la commune ----------
 

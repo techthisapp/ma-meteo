@@ -11,8 +11,7 @@
    prend le relais, 55 kilomètres valant environ une heure de route, et le
    résultat le dit. */
 
-import { distanceKm } from "./postes.js";
-import { recaler, elaguer, lireGardee, ecrireGardee, chercher } from "./horloge.js";
+import { recaler, elaguer, lireGardee, ecrireGardee, chercher, distanceKm } from "./horloge.js";
 
 export const RAYON_KM = 100;
 export const MINUTES_MAX = 60;

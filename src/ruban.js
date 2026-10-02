@@ -95,12 +95,10 @@ let ancre = true;
 export const ouvrir = c => { voieOuverte = voieOuverte === c ? null : c; };
 // Ouverture franche, sans bascule : l'accueil désigne une voie, il ne la ferme pas.
 export const poserVoie = c => { voieOuverte = c; };
-export const voieCourante = () => voieOuverte;
 export const serieCourante = () => serie;
 export const heureCourante = () => heureLue;
 export const poserHeure = k => { heureLue = k; };
 export const decalageCourant = () => decalage;
-export const ancree = () => ancre;
 export const auMaintenant = () => { ancre = true; };
 export const glisser = h => {
   if (!serie) return;

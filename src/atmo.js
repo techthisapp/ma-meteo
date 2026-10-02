@@ -172,7 +172,6 @@ export const adresseTuile = (t, jour = jourDe()) =>
   + `&bbox=${bornes(t)}&width=${TAILLE}&height=${TAILLE}&time=${jour}`;
 
 const tuiles = new Map();
-export function oublierTuiles() { tuiles.clear(); }
 
 export function tuile(t, jour, surPret) {
   const cle = adresseTuile(t, jour);

@@ -66,6 +66,14 @@ export const jourLong = t =>
 
 export const heureTxt = h => `${deux(h)} h`;
 
+// Distance à vol d'oiseau entre deux points, en kilomètres.
+export const distanceKm = (la, lo, lb, ob) => {
+  const r = Math.PI / 180;
+  return 6371 * Math.acos(Math.min(1,
+    Math.sin(la * r) * Math.sin(lb * r)
+    + Math.cos(la * r) * Math.cos(lb * r) * Math.cos((ob - lo) * r)));
+};
+
 /* Une requête bornée dans le temps, lecture du corps comprise : le minuteur
    n'est pas levé à l'arrivée des en-têtes, et l'arrêt d'une requête déjà lue
    ne fait rien. Presque aucun appel n'avait de délai, et un réseau à une
