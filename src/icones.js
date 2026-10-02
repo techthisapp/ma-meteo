@@ -120,6 +120,8 @@ const D = {
   couches: '<path d="M12 3.4 3 8l9 4.6L21 8z" stroke-linejoin="round"/>'
     + '<path d="M3 12.4 12 17l9-4.6"/><path d="M3 16.6 12 21.2l9-4.6"/>',
   /* Le cercle barré : aucune nappe. */
+  loupe: '<circle cx="10.6" cy="10.6" r="6.2"/><path d="M15.2 15.2 20.4 20.4"/>',
+  fermer: '<path d="M6 6l12 12M18 6 6 18"/>',
   info: '<circle cx="12" cy="12" r="8.4"/><path d="M12 11v5.6M12 7.8v.1"/>',
   interdit: '<circle cx="12" cy="12" r="8.4"/><path d="M6 18 18 6"/>',
 };

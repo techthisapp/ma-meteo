@@ -25,6 +25,7 @@ import { brancherCouches } from "./carte-couches.js";
 import { brancherChronologie } from "./carte-chronologie.js";
 import { brancherEtiquettes } from "./carte-etiquettes.js";
 import { brancherLegende } from "./carte-legende.js";
+import { brancherPoint } from "./carte-point.js";
 
 /* ---------- La carte ---------- */
 
@@ -111,6 +112,7 @@ export function vueCarte(ctx, rendre, majEtat) {
         const pris = boutons.filter(b => !b.hidden).map(b => ({
           x: parseFloat(b.style.getPropertyValue("--rx")), y: parseFloat(b.style.getPropertyValue("--ry")), w: 30, h: 30 }));
         E.placerEtiquettes(pris, l, h);
+        E.poserBulle?.();
         const e = Carte.echelleBarre(vue, cv.clientWidth);
         barre.style.setProperty("--eb", `${Math.round(e.px)}px`);
         barre.querySelector("span").textContent = `${e.km} km`;
@@ -159,7 +161,8 @@ export function vueCarte(ctx, rendre, majEtat) {
       });
       Fond.charger().then(() => { if (cv.isConnected) E.revoir(); });
 
-      const main = Carte.poser(cv, vue, placer, E.COUCHES);
+      brancherPoint(E, rendre);
+      const main = Carte.poser(cv, vue, placer, E.COUCHES, { surAppui: (x, y) => E.ouvrirPoint(x, y) });
       /* Chaque nouveau tracé refait aussi le résumé lu : une grille arrivée
          donne la valeur au lieu courant. */
       E.revoir = () => { main.redessiner(); E.resumer?.(); };
@@ -246,6 +249,7 @@ export function vueCarte(ctx, rendre, majEtat) {
         e.stopPropagation();
         montrer(panneau.hidden);
       });
+      E.fermerPanneau = () => montrer(false);
       panneau.addEventListener("click", e => e.stopPropagation());
       /* Un appui sur la carte referme le panneau : il couvre le coin de la vue,
          et le refermer par son propre bouton demanderait de viser deux fois. */

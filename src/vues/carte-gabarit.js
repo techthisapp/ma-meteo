@@ -77,7 +77,22 @@ export const gabaritCarte = g => `<div class="ca-cadre">`
   + ico("couches", "") + `</button>`
   + `<button type="button" class="ca-o" id="caIci" aria-label="Revenir sur le lieu courant">`
   + ico("cible", "") + `</button>`
+  /* La recherche d'une commune, jalon 19, lot 4. */
+  + `<button type="button" class="ca-o" id="caChercher" aria-expanded="false" `
+  + `aria-controls="caRecherche" aria-label="Chercher une commune sur la carte">`
+  + ico("loupe", "") + `</button>`
   + `</div>`
+  + `<div class="ca-recherche" id="caRecherche" hidden>`
+  + `<input type="search" id="caRechercheChamp" placeholder="Chercher une commune" `
+  + `aria-label="Chercher une commune" autocomplete="off" enterkeyhint="search">`
+  + `<ul class="ca-r-liste" id="caRechercheListe"></ul></div>`
+  /* La bulle d'un point touché, jalon 19, lot 4, et la marque du point. */
+  + `<span class="ca-bulle-pt" id="caBullePt" hidden aria-hidden="true"></span>`
+  + `<div class="ca-bulle" id="caBulle" role="dialog" aria-labelledby="caBulleNom" tabindex="-1" hidden>`
+  + `<div class="cb-tete"><b id="caBulleNom"></b>`
+  + `<button type="button" class="cb-fermer" id="caBulleFermer" aria-label="Fermer">` + ico("fermer", "") + `</button></div>`
+  + `<div class="cb-corps" id="caBulleCorps" aria-live="polite"></div>`
+  + `<button type="button" class="cb-voir" id="caBulleVoir">Voir la prévision</button></div>`
   /* Le panneau en deux rangées qui défilent de côté, la nappe puis ce qui se
      pose par-dessus, depuis la version 140. En grille, chaque couche nouvelle
      ajoutait une rangée ; en défilement, le panneau garde sa hauteur quel que

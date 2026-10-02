@@ -833,6 +833,9 @@ function ecranDiffere(nom) {
 function ecranVue(nom) {
   if (!VUES_ONGLET[nom]) return ecranDiffere(nom);
   const f = VUES_ONGLET[nom](ctx, o => {
+    /* La carte ouvre un lieu en consultation : la prévision se relit et
+       l'accueil s'ouvre sur elle. */
+    if (o?.accueil) { poserOnglet("accueil"); charger(); return; }
     if (o?.recharger) { charger(); return; }
     rendre();
   }, majEtat);
@@ -951,6 +954,16 @@ function rendre() {
      le nom dit où l'appareil se trouve, la cible dit qu'il suivra. */
   const g = Reglages.lire();
   const enPos = Reglages.enPosition();
+  /* Le bandeau de consultation, jalon 19, lot 4 : le lieu touché sur la carte
+     se lit sans changer la commune suivie. */
+  const consulte = Reglages.consultation();
+  $("navConsult").hidden = !consulte;
+  document.documentElement.classList.toggle("en-consultation", !!consulte);
+  if (consulte) {
+    $("navConsultTxt").innerHTML = `Vous consultez <b>${esc(g.commune || "ce lieu")}</b>`;
+    $("navRevenir").textContent = consulte.auto ? "Revenir à ma position"
+      : consulte.commune ? `Revenir à ${consulte.commune}` : "Revenir";
+  }
   $("navLieuNom").textContent = enPos
     ? (g.commune || "Ma position") : (g.commune || "Ma météo");
   $("navPos").hidden = !enPos;
@@ -1473,6 +1486,9 @@ async function nommerPosition() {
 /* ---------- Amorçage ---------- */
 
 $("btnReglages").addEventListener("click", () => ouvrirFeuille("reglages"));
+/* Les deux boutons du bandeau de consultation. */
+$("navSuivre").addEventListener("click", () => { sentir(10); Reglages.suivreConsulte(); charger(); });
+$("navRevenir").addEventListener("click", () => { sentir(10); Reglages.revenir(); charger(); });
 $("navLieu").addEventListener("click", () => ouvrirFeuille("communes"));
 $("navJeton").addEventListener("click", () => { sentir(8); ouvrirFeuille("parapluie"); });
 $("feuille-fermer").addEventListener("click", () => history.back());

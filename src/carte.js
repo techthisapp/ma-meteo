@@ -401,11 +401,15 @@ export function vueSur(b, l, h, marge = 0.06) {
    Le tracé est appelé au plus une fois par image : un doigt qui glisse produit
    des dizaines d'évènements par seconde, et redessiner à chacun ferait le même
    travail plusieurs fois pour la même image. */
-export function poser(cv, vue, surVue, nappes) {
+export function poser(cv, vue, surVue, nappes, { surAppui } = {}) {
   const points = new Map();
   let depart = null;
   let attendu = null;
   let dernierAppui = 0;
+  /* Le toucher bref, jalon 19, lot 4 : un doigt posé et levé sans glisser
+     ouvre la bulle du point. Il attend trois cents millisecondes, le temps
+     qu'un second appui en fasse un double appui, qui zoome. */
+  let toucher = null, minuteurToucher = null;
 
   const redessiner = () => {
     if (attendu !== null) return;
@@ -444,6 +448,9 @@ export function poser(cv, vue, surVue, nappes) {
     cv.setPointerCapture(ev.pointerId);
     points.set(ev.pointerId, { x: ev.offsetX, y: ev.offsetY });
     poserDepart();
+    clearTimeout(minuteurToucher);
+    toucher = points.size === 1 && !(Date.now() - dernierAppui < 300)
+      ? { x: ev.offsetX, y: ev.offsetY, t: Date.now(), bouge: 0 } : null;
     /* Le double appui : deux appuis brefs au même endroit, à moins de trois
        cents millisecondes l'un de l'autre. */
     const t = Date.now();
@@ -464,6 +471,8 @@ export function poser(cv, vue, surVue, nappes) {
   cv.addEventListener("pointermove", ev => {
     if (!points.has(ev.pointerId)) return;
     points.set(ev.pointerId, { x: ev.offsetX, y: ev.offsetY });
+    if (toucher) toucher.bouge = Math.max(toucher.bouge, Math.hypot(ev.offsetX - toucher.x, ev.offsetY - toucher.y));
+    if (points.size > 1) toucher = null;
     if (!depart) return;
     const l = cv.clientWidth, h = cv.clientHeight;
     const m = milieu();
@@ -481,6 +490,11 @@ export function poser(cv, vue, surVue, nappes) {
   const relacher = ev => {
     points.delete(ev.pointerId);
     if (points.size) poserDepart(); else depart = null;
+    const t = toucher;
+    toucher = null;
+    if (t && ev.type === "pointerup" && !points.size && t.bouge < 8 && Date.now() - t.t < 500 && surAppui) {
+      minuteurToucher = setTimeout(() => surAppui(t.x, t.y), 300);
+    }
   };
   cv.addEventListener("pointerup", relacher);
   cv.addEventListener("pointercancel", relacher);

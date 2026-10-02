@@ -352,7 +352,8 @@ export default async T => {
     await pgCarte.evaluate(async () => {
       const dodo = m => new Promise(r => setTimeout(r, m));
       const c = document.getElementById("caCredit"), b = document.getElementById("caSources");
-      if (document.querySelectorAll(".ca-outils .ca-o").length !== 2) return "des commandes en trop";
+      /* Trois commandes : les couches, le retour au lieu, la recherche. */
+      if (document.querySelectorAll(".ca-outils .ca-o").length !== 3 || document.getElementById("caPlus")) return "des commandes en trop";
       if (!b) return "pas de bouton des sources";
       if (!c.hidden || c.getBoundingClientRect().height > 0) return "les sources sont affichées à l'arrivée";
       b.click(); await dodo(150);

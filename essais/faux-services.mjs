@@ -684,6 +684,16 @@ export const brancherFauxServices = async (c, etat) => {
       return;
     }
     if (u.includes("sunshine_duration")) { servirBeauTemps(u, route); return; }
+    /* Le temps d'un point touché sur la carte, jalon 19, lot 4 : une seule
+       latitude, et les rafales parmi les valeurs du moment. Une averse de
+       0,6 mm, 21,4°, un vent de sud-ouest à 18 km/h et des rafales à 42. */
+    if (u.includes("current=") && u.includes("wind_gusts_10m") && !new URL(u).searchParams.get("latitude").includes(",")) {
+      etat.appelsPoint.push(u);
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ current: {
+        temperature_2m: 21.4, weather_code: 61, precipitation: 0.6, wind_speed_10m: 18, wind_gusts_10m: 42,
+        wind_direction_10m: 225, is_day: 1 } }) });
+      return;
+    }
     /* La grille des nappes de la carte se reconnaît à ses colonnes : la
        direction du vent n'est demandée nulle part ailleurs. */
     if (u.includes("current=") && u.includes("wind_direction_10m")) {
@@ -812,6 +822,10 @@ export const brancherFauxServices = async (c, etat) => {
           ] };
     r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(corps) });
   });
+  /* Le nom de la commune d'une plage, quand la liste embarquée ne le porte
+     pas : une consultation loin de Fain, jalon 19, lot 4, en demande. */
+  await c.route(/geo\.api\.gouv\.fr\/communes/, r => r.fulfill({ status: 200, contentType: "application/json",
+    body: JSON.stringify([{ nom: "Commune de la plage" }]) }));
   await c.route(/api-adresse\.data\.gouv\.fr/, r => {
     const q = new URL(r.request().url()).searchParams.get("q") || "";
     const vide = { features: [] };
@@ -1042,6 +1056,7 @@ export const nouvelEtat = () => ({
   appelsArchive: [],
   appelsVigieau: [],
   appelsVilles: [],
+  appelsPoint: [],
   appelsHubeau: [],
   appelsLieux: [],
   archiveMuette: false,

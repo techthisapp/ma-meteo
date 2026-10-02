@@ -145,9 +145,37 @@ export function poserLieu(l) {
   if (!c) return lire();
   const reste = etat.suivies.filter(x => cleLieu(x) !== c);
   const liste = [nu(l), ...reste].slice(0, MAX_SUIVIES);
-  etat = { ...etat, ...nu(l), poste: null, suivies: liste, auto: false };
+  etat = { ...etat, ...nu(l), poste: null, suivies: liste, auto: false, retour: null };
   ecrire();
   return lire();
+}
+
+/* ---------- Consultation d'un lieu ----------
+
+   Jalon 19, lot 4, décision de Jérôme du 2 octobre 2026 : un point touché sur
+   la carte s'ouvre en consultation, sans changer la commune suivie. Le lieu
+   consulté devient le lieu courant, que tout l'écran lit, sans entrer dans la
+   liste des lieux ; le lieu d'avant est gardé dans `retour`, que « Revenir »
+   rétablit et que « Suivre ce lieu » oublie après avoir ajouté le lieu à la
+   liste. Choisir une commune ou sa position met fin à la consultation. */
+const CHAMPS_LIEU = ["commune", "codePostal", "departement", "lat", "lon", "poste", "auto"];
+export const consultation = () => (etat.retour ? { ...etat.retour } : null);
+export function consulter(l) {
+  if (!l || !Number.isFinite(l.lat) || !Number.isFinite(l.lon)) return lire();
+  const retour = etat.retour || Object.fromEntries(CHAMPS_LIEU.map(k => [k, etat[k] ?? null]));
+  etat = { ...etat, ...nu(l), poste: null, auto: false, retour };
+  ecrire();
+  return lire();
+}
+export function revenir() {
+  if (!etat.retour) return lire();
+  etat = { ...etat, ...etat.retour, retour: null };
+  ecrire();
+  return lire();
+}
+export function suivreConsulte() {
+  if (!etat.retour) return lire();
+  return poserLieu(nu(etat));
 }
 
 /* ---------- Ma position ----------
@@ -190,7 +218,7 @@ export function poserPosition(p) {
     : (proche ? etat.position?.departement ?? null : null);
   const lat = envoi(releve.lat), lon = envoi(releve.lon);
   const pos = { commune, codePostal, departement, lat, lon, t: Date.now() };
-  etat = { ...etat, auto: true, position: pos, releve, commune, codePostal, departement, lat, lon, poste: null };
+  etat = { ...etat, auto: true, position: pos, releve, commune, codePostal, departement, lat, lon, poste: null, retour: null };
   ecrire();
   return lire();
 }

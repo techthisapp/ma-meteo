@@ -721,6 +721,21 @@ case "$N" in
   227) # L'étiquette perd le nom de sa ville.
      perl -0pi -e 's/<small>\$\{esc\(v\[0\]\)\}<\/small>//' src/vues/carte-etiquettes.js
      ATTENDU="sur le pays entier, les grandes villes portent leur prévision et leur nom, sans chevauchement" ;;
+  228) # Le double appui ouvre aussi une bulle.
+     perl -0pi -e 's/    toucher = points\.size === 1 && !\(Date\.now\(\) - dernierAppui < 300\)\n/    toucher = points.size === 1\n/' src/carte.js
+     ATTENDU="un glissement ou un double appui n.ouvre pas de bulle, le double appui zoome" ;;
+  229) # La consultation fait entrer le lieu dans la liste.
+     perl -0pi -e 's/  etat = \{ \.\.\.etat, \.\.\.nu\(l\), poste: null, auto: false, retour \};/  poserLieu(l); etat = { ...etat, retour };/' src/reglages.js
+     ATTENDU="« Voir la prévision » ouvre le lieu en consultation sans le suivre, et « Revenir » rétablit la commune" ;;
+  230) # « Revenir » ne rétablit pas le lieu d'avant.
+     perl -0pi -e 's/  etat = \{ \.\.\.etat, \.\.\.etat\.retour, retour: null \};/  etat = { ...etat, retour: null };/' src/reglages.js
+     ATTENDU="« Voir la prévision » ouvre le lieu en consultation sans le suivre, et « Revenir » rétablit la commune" ;;
+  231) # Le point touché part à pleine précision.
+     perl -0pi -e 's/latitude: String\(envoi\(lat\)\), longitude: String\(envoi\(lon\)\),/latitude: String(lat), longitude: String(lon),/' src/point.js
+     ATTENDU="le point touché n.est envoyé qu.au centième de degré" ;;
+  232) # La recherche ne centre plus la carte.
+     perl -0pi -e 's/    Object\.assign\(vue, Carte\.borner\(\{ lat: c\.lat, lon: c\.lon, z: ZOOM_RECHERCHE \}\)\);\n//' src/vues/carte-point.js
+     ATTENDU="la recherche centre la carte sur la commune trouvée et ouvre sa bulle" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
