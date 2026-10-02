@@ -105,3 +105,10 @@ l'étape 4, une demi-journée de plus avec ses contrôles et leurs épreuves.
    quoi la pluie dans l'heure aurait gardé le contour de la France au
    lancement ; et un import manqué ne se retente pas dans la même page, le
    navigateur gardant l'échec en mémoire, d'où un bouton de rechargement.
+3. Étape 5 publiée en version 135, le 2 octobre 2026, avec les chantiers de
+   `docs/plan-chantiers-facultatifs.md`. La carte est découpée par groupe plutôt
+   que couche par couche : les couches partagent trop d'état pour vivre seules,
+   la pluie servant par exemple de repère de temps à la foudre et aux nuages.
+   Six fichiers : `carte.js` pour le cadre, les repères et l'assemblage,
+   `carte-gabarit.js`, `carte-couches.js`, `carte-chronologie.js`,
+   `carte-etiquettes.js` et `carte-legende.js`, qui partagent un objet d'état.

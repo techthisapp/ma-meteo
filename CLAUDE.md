@@ -16,13 +16,13 @@ Ce fichier se lit au début de chaque session. Le détail des décisions vit dan
 |---|---|
 | `index.html`, `styles.css`, `manifest.webmanifest` | La page unique, sa feuille de style, le manifeste d'installation |
 | `src/*.js` | Les modules ES, sans compilation ni bibliothèque. `app.js` orchestre, `carte.js` dessine la carte |
-| `src/vues/*.js` | Un fichier par écran ou groupe de feuilles, depuis la version 133. `app.js` les importe directement, la carte et le ciel à la première ouverture de leur onglet depuis la version 134 ; `src/vues.js` ne relaie plus les noms qu'aux contrôles et n'est pas dans la coque. Tout fichier nouveau de l'application entre dans la coque de `sw.js` |
+| `src/vues/*.js` | Un fichier par écran ou groupe de feuilles, depuis la version 133. `app.js` les importe directement, la carte et le ciel à la première ouverture de leur onglet depuis la version 134 ; `src/vues.js` ne relaie plus les noms qu'aux contrôles et n'est pas dans la coque. La carte se compose depuis la version 135 de `carte.js` et de cinq modules `carte-*.js` qui partagent un objet d'état, décrit en tête de `carte.js`. Tout fichier nouveau de l'application entre dans la coque de `sw.js` |
 | `sw.js` | L'agent de service et la coque hors ligne : la liste de tous les fichiers à garder |
 | `src/version.js` | Le numéro de version affiché |
 | `donnees/` | Les données embarquées, contours et référentiels |
 | `src/stations.js`, `src/plages.js` | Les listes embarquées des stations de ski et des plages, produites par `outils/` |
 | `outils/` | Les scripts de construction des listes embarquées |
-| `essais/` | La suite de contrôles et ses scripts |
+| `essais/` | La suite de contrôles : `controle.mjs` la lance, `banc.mjs` prépare chaque section, `faux-services.mjs` répond à la place des vraies sources, `sections/` porte une section par fichier ; `vue-ecran.mjs` fait les captures avec les mêmes faux services |
 | `docs/` | La feuille de route, l'état de reprise, les consignes du projet |
 
 Les sources de données, toutes interrogées depuis le navigateur :
@@ -82,10 +82,11 @@ installe Playwright 1.63.0, puis `npx playwright install chromium`.
 
 | Commande | Effet |
 |---|---|
-| `bash essais/passe.sh 8137` | La suite complète, sur une copie du dépôt dans `/tmp/passe-<port>` ; une douzaine de minutes, 1035 contrôles à la version 134 |
-| `JUSQUA="La bande horaire" bash essais/passe.sh 8137` | La suite jusqu'à la fin d'une section, ici quatre minutes et environ 145 contrôles |
-| `bash essais/epreuve-bande.sh <n>` | Une erreur volontaire : le script introduit l'erreur numéro n dans une copie et vérifie que le contrôle attendu échoue. Verdicts possibles : vue, non vue, ou épreuve interrompue |
-| `JUSQUA_EPREUVE="<section>" bash essais/epreuve-bande.sh <n>` | Idem quand le contrôle visé est au-delà de la bande horaire |
+| `bash essais/passe.sh 8137` | La suite complète, sur une copie du dépôt dans `/tmp/passe-<port>` ; trois minutes, 1035 contrôles à la version 135 |
+| `SECTIONS="carte,vent" bash essais/passe.sh 8137` | Les seules sections dont le titre ou le nom de fichier contient l'un des motifs |
+| `JUSQUA="La bande horaire" bash essais/passe.sh 8137` | La suite jusqu'à la fin d'une section |
+| `PARALLELE=1 CHRONO=1 bash essais/passe.sh 8137` | Une section à la fois, avec le temps de chacune ; trois passent côte à côte par défaut |
+| `bash essais/epreuve-bande.sh <n>` | Une erreur volontaire : le script introduit l'erreur numéro n dans une copie, ne passe que la section qui porte le contrôle attendu, et vérifie qu'il échoue. Verdicts possibles : vue, non vue, non appliquée, ou épreuve interrompue |
 
 Les erreurs volontaires sont numérotées dans `essais/epreuve-bande.sh` ; la
 dernière porte le numéro 181. Tout contrôle nouveau a son erreur volontaire, et
@@ -102,13 +103,14 @@ restent dans la suite. Les scripts restent dans l'historique, au commit
 Règles apprises à l'usage :
 
 1. Deux suites en parallèle au plus : trois dépassent la mémoire et ferment le
-   navigateur sous elles.
+   navigateur sous elles. Une suite fait déjà passer trois sections côte à
+   côte, et deux épreuves en parallèle tiennent sans peine.
 2. Ne pas éprouver une erreur volontaire pendant une passe complète dont on juge
    le résultat : la charge décale l'instant où le ciel animé est photographié.
 3. Les contrôles servent leurs propres données : les faux services sont dans
-   `brancherRoutes` de `essais/controle.mjs`, et `nav.newContext` est enveloppé
-   pour que tout contexte réponde d'office à VigiEau et à Hub'eau, et
-   une coupure à OSRM et à Météo-France. Un filet refuse toute autre
+   `brancherFauxServices` de `essais/faux-services.mjs`, avec leur état propre
+   à chaque section, et `envelopperNavigateur` fait que tout contexte réponde
+   d'office à VigiEau et à Hub'eau, et une coupure à OSRM et à Météo-France. Un filet refuse toute autre
    requête vers le réseau réel, et le contrôle « aucune requête ne sort vers
    le vrai réseau » échoue si une seule passe le filet.
 4. La date des contrôles est figée au 18 août 2026, la commune d'essai est Fain.
@@ -122,6 +124,17 @@ Règles apprises à l'usage :
 9. La commande `timeout` manque sous macOS : `passe.sh` et `epreuve-bande.sh`
    bornent la durée de la suite par `essais/borne.sh`, qui emploie `perl`
    quand `timeout` est absent.
+10. Chaque section part d'un état neuf, que prépare `preparer` de
+   `essais/banc.mjs` : une page sur l'accueil de Fain si elle s'en sert, ses
+   faux services, ses contextes fermés à sa fin. Une section qui suppose un
+   écran déjà ouvert l'ouvre elle-même en tête. Elle ne lit rien d'une autre
+   section ; une aide partagée va dans le banc.
+11. Pour attendre qu'une page se pose, `reposer(page, plafond)` du banc plutôt
+   qu'une pause fixe : la page est au repos quand son contexte n'a plus de
+   requête en cours et que le document n'a pas bougé depuis un quart de
+   seconde. Une toile change sans toucher au document : un contrôle qui lit
+   une toile après un délai garde sa pause fixe, comme le vent figé de la
+   section du vent.
 
 ## Construction des listes embarquées
 
@@ -153,7 +166,7 @@ Les consignes détaillées du projet sont dans `docs/consignes/`.
 
 ## État au 2 octobre 2026
 
-Version 134, publiée depuis Claude Code. Jalons livrés : 1 à 4, 7 à 18, dont 14, la comparaison ; 15, les
+Version 135, publiée depuis Claude Code. Jalons livrés : 1 à 4, 7 à 18, dont 14, la comparaison ; 15, les
 plages ; 16, la neige ; 17, la semaine au plus loin ; 18, les couches de la
 carte et l'eau. Jalons restants : 6, la justesse des prévisions publiée, vers
 la fin octobre ; 5, la 3D, écartée pour le moment.

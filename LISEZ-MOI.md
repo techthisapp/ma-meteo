@@ -856,7 +856,11 @@ DESIGN-SYSTEM.md    transposition web du design system iOS
 src/
   Orchestration et écrans
     app.js          amorçage, onglets, accueil, feuilles, chargement des sources
-    vues.js         les écrans et les feuilles
+    vues/           un fichier par écran ou groupe de feuilles ; la carte et le
+                    ciel se chargent à la première ouverture de leur onglet
+    vues/carte*.js  la carte et ses cinq modules : gabarit, couches,
+                    chronologie de la pluie, étiquettes, légendes
+    vues.js         relais des noms des écrans, pour les contrôles seulement
     bande.js        la bande horaire de l'accueil
     ruban.js        le ruban de « Heure par heure », sept voies
     ecritures.js    la liste des heures, les moments par tranches de six heures
@@ -900,11 +904,14 @@ src/
     villes.js       prévisions des villes
 donnees/ciel.json   étoiles et figures, chargées à la demande
 essais/
-  controle.mjs      la suite des contrôles en navigateur
+  controle.mjs      la suite des contrôles en navigateur, qui lance les sections
+  banc.mjs          le serveur, le navigateur et la préparation de chaque section
+  faux-services.mjs les réponses servies à la place des vraies sources
+  sections/         une section de contrôles par fichier, dans l'ordre de passage
   passe.sh          une passe sur une copie du dépôt
   epreuve-bande.sh  les erreurs volontaires
   borne.sh          la durée bornée d'une passe, sous macOS comme sous Linux
-  vue-ecran.mjs     captures d'un écran, thème clair et sombre
+  vue-ecran.mjs     captures d'un écran, thème clair et sombre, sur les faux services
   meteo.json        données figées au 18 août 2026, 9 h
 outils/             construction des listes embarquées
 ```

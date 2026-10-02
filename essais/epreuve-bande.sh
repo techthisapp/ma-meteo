@@ -41,13 +41,13 @@ case "$N" in
      ATTENDU="un trait relie les températures des vingt-quatre heures" ;;
   6) # Le symbole de temps s'écrit en toutes lettres, le défaut de la première capture.
      perl -0pi -e 's/      \+ icoTemps\(icoCiel\(s\.code\[k\], s\.clair\[k\] === 1\), "bh-ic", 26\)/      + icoCiel(s.code[k], s.clair[k] === 1)/' src/bande.js
-     ATTENDU="chaque heure porte son symbole, son degré, son vent et ses rafales" ;;
+     ATTENDU="chaque heure porte son symbole, son degré et son vent" ;;
   7) # Le ciel de l'accueil reprend sa hauteur d'origine.
      perl -0pi -e 's/\.plein-accueil \.ci\{aspect-ratio:390 \/ 250\}/.plein-accueil .ci{aspect-ratio:390 \/ 306}/' styles.css
      ATTENDU="le ciel de l.accueil est plus bas que celui des autres écrans" ;;
   8) # Les tuiles passent sur une colonne quelle que soit la taille du texte.
      perl -0pi -e 's/\@container \(max-width:18rem\)\{\n  \.bd-mesures\.tuiles\{/\@container (max-width:60rem){\n  .bd-mesures.tuiles{/' styles.css
-     ATTENDU="les huit tuiles des paramètres se rangent sur deux colonnes" ;;
+     ATTENDU="les neuf tuiles des paramètres se rangent sur deux colonnes, l.eau sur toute la largeur" ;;
   9) # La bande compte de nouveau les heures à fort risque sans quantité, le
      # défaut qui la faisait contredire la suite de la page.
      perl -0pi -e 's/export const pluvieuse = \(s, k\) => \(s\.mm\[k\] \?\? 0\) >= SEUIL_LAME;/export const pluvieuse = (s, k) => (s.mm[k] ?? 0) >= SEUIL_LAME || (s.pb[k] ?? 0) >= 50;/' src/bande.js
@@ -62,7 +62,7 @@ case "$N" in
      perl -0pi -e 's/  rendre\(\);\n  window\.scrollTo\(\{ top: y, behavior: "instant" \}\);/  rendre();\n  window.scrollTo({ top: 0, behavior: "instant" });/' src/app.js
      ATTENDU="le retour ramène l.accueil à l.endroit quitté" ;;
   13) # Un onglet ne referme plus la page de détail.
-     perl -0pi -e 's/  if \(detail\) detail = null;\n  onglet = nom;/  onglet = nom;/' src/app.js
+     perl -0pi -e 's/  if \(detail\) \{ detail = null; history\.back\(\); \}\n  onglet = nom;/  onglet = nom;/' src/app.js
      ATTENDU="un onglet referme la page de détail" ;;
   14) # Une lecture reste d'une ouverture précédente.
      perl -0pi -e 's/    if \(heure === null\) Ruban\.poserHeure\(-1\);\n//' src/app.js
@@ -122,23 +122,25 @@ case "$N" in
   32) # Le département n'est plus écrit.
      perl -0pi -e 's/  \$\("navLieuDep"\)\.textContent = nomDep \|\| "";\n//' src/app.js
      ATTENDU="l.en-tête porte le département sous la commune, sans grandir" ;;
-  33) # Les cartes de l'accueil perdent leur arrondi.
+  33) # Les cartes de l'accueil perdent leur arrondi. Depuis le jalon 12, lot 6,
+     # toute carte le reçoit de la règle générale : les deux règles se retirent.
      perl -0pi -e 's/\[data-bloc\] \.carte,\.portes \.porte\{border-radius:var\(--rayon-carte\)\}//' styles.css
+     perl -0pi -e 's/(\.carte,\.groupe\{\n  background:var\(--surface\);\n)  border-radius:var\(--rayon-carte\);\n/$1/' styles.css
      ATTENDU="les cartes de l.accueil prennent l.arrondi de 24 points" ;;
   34) # L'onglet « Le temps » revient dans la barre.
      perl -0pi -e 's/(  \["accueil", "maison", "Accueil"\],\n)/$1  ["temps", "horloge", "Le temps"],\n/' src/app.js
      ATTENDU="les destinations sont les bonnes" ;;
   35) # Le niveau de confiance ne paraît plus sur la ligne.
-     perl -0pi -e 's/      \+ \(accord \? `<em class="sem-conf">/      + (false \&\& accord ? `<em class="sem-conf">/' src/vues.js
+     perl -0pi -e 's/      \+ \(accord \? `<em class="sem-conf">/      + (false \&\& accord ? `<em class="sem-conf">/' src/vues/avenir.js
      ATTENDU="chaque journée à venir porte son niveau de confiance, en un mot" ;;
   36) # La barre ne s'estompe plus.
-     perl -0pi -e 's/<s class="sem-plage\$\{accord \? ` sem-\$\{accord\}` : ""\}" `/<s class="sem-plage" `/' src/vues.js
+     perl -0pi -e 's/<s class="sem-plage\$\{accord \? ` sem-\$\{accord\}` : ""\}" `/<s class="sem-plage" `/' src/vues/avenir.js
      ATTENDU="la barre s.estompe aux journées moins sûres, et elles seules" ;;
   37) # La semaine perd son graphique.
-     perl -0pi -e 's/    corps: grapheSemaine\(jours\)\n      \+ /    corps: ""\n      + /' src/vues.js
+     perl -0pi -e 's/    corps: grapheSemaine\(jours, boutonSemaine\(plusDispo\)\) \+ /    corps: boutonSemaine(plusDispo) + /' src/vues/avenir.js
      ATTENDU="La semaine s.ouvre sur son graphique, un point par journée" ;;
   38) # Les jours passés ne sont plus atténués dans le graphique.
-     perl -0pi -e 's/  const fonds = jours\.map\(\(j, k\) => \(j\.passe \|\| j\.auj\)/  const fonds = jours.map((j, k) => (j.auj)/' src/vues.js
+     perl -0pi -e 's/  const fonds = jours\.map\(\(j, k\) => \(j\.passe \|\| j\.auj \|\| j\.tend\)/  const fonds = jours.map((j, k) => (j.auj || j.tend)/' src/vues/avenir.js
      ATTENDU="le graphique atténue les jours passés et repère aujourd.hui" ;;
   39) # Le graphique n'est plus borné en largeur.
      perl -0pi -e 's/\.sg\{display:block;width:100%;max-width:520px;margin:0 auto\}/.sg{display:block;width:100%;margin:0 auto}/' styles.css
@@ -156,7 +158,7 @@ case "$N" in
      perl -0pi -e 's/  Ruban\.glisser\(cible - Ruban\.decalageCourant\(\)\);\n//' src/app.js
      ATTENDU="une journée dépliée mène à ses heures, le ruban ouvert à son minuit" ;;
   44) # Le week-end n'est plus repéré.
-     perl -0pi -e 's/\$\{weekEnd \? " sem-we" : ""\}//' src/vues.js
+     perl -0pi -e 's/\$\{weekEnd \? " sem-we" : ""\}//' src/vues/avenir.js
      ATTENDU="le week-end de La semaine se repère d.un fond léger, et lui seul" ;;
   45) # Les cartes reprennent l'ancien arrondi.
      perl -0pi -e 's/\.carte,\.groupe\{\n  background:var\(--surface\);\n  border-radius:var\(--rayon-carte\);/.carte,.groupe{\n  background:var(--surface);\n  border-radius:var(--rayon-lg);/' styles.css
@@ -174,7 +176,7 @@ case "$N" in
      perl -0pi -e 's/(    const lSuite = \[\n)/$1      ...((x => x ? conseils(x, { aujourdhui: cejour, decalage: restant + 24 }) : [])(P.serieHoraire(restant + 24, 24, 12))),\n/' src/app.js
      ATTENDU="l.accueil ne parle que de demain, après-demain restant dans La semaine" ;;
   50) # La phrase sur le délai revient dans la carte de la justesse.
-     perl -0pi -e 's/  return tete \+ lignes\n/  return tete + `<p class="note">12 jours relevés, sur les 60 qui assiéront les chiffres.<\/p>` + lignes\n/' src/vues.js
+     perl -0pi -e 's/  return tete \+ lignes\n/  return tete + `<p class="note">12 jours relevés, sur les 60 qui assiéront les chiffres.<\/p>` + lignes\n/' src/vues/feuilles.js
      ATTENDU="les réglages disent la justesse sans phrase sur le délai" ;;
   51) # Le plafond ne se peint plus : l'ancienne nappe floutée revient seule.
      perl -0pi -e 's/  if \(d\.nappe > 0 && fer > 0\) \{/  if (false \&\& d.nappe > 0 \&\& fer > 0) {/' src/temps.js
@@ -186,13 +188,13 @@ case "$N" in
      perl -0pi -e 's/position:absolute;left:0;right:0;bottom:0;height:44%;z-index:1;/position:absolute;left:0;right:0;bottom:0;height:52%;z-index:1;/' styles.css
      ATTENDU="les voiles de lisibilité se resserrent sur le texte, en bleu-gris" ;;
   54) # La quantité de pluie ne s'écrit plus au-dessus des barres.
-     perl -0pi -e 's/      \+ `<text class="sg-mm\$\{j\.passe \? " sg-p" : ""\}" x="\$\{x\(k\)\.toFixed\(1\)\}" y="\$\{\(pied - h - 3\)\.toFixed\(1\)\}">\$\{q\}<\/text>`;/      ;/' src/vues.js
+     perl -0pi -e 's/      \+ `<text class="sg-mm\$\{j\.passe \? " sg-p" : ""\}" x="\$\{x\(k\)\.toFixed\(1\)\}" y="\$\{\(pied - h - 3\)\.toFixed\(1\)\}">\$\{q\}<\/text>`;/      ;/' src/vues/avenir.js
      ATTENDU="la pluie du graphique porte sa quantité, en millimètres" ;;
   55) # La ligne du vent disparaît.
-     perl -0pi -e 's/\+ fonds \+ pluie \+ vent \+ ligne/+ fonds + pluie + ligne/' src/vues.js
+     perl -0pi -e 's/\+ fonds \+ pluie \+ vent \+ ligne/+ fonds + pluie + ligne/' src/vues/avenir.js
      ATTENDU="le graphique trace les rafales du jour, avec la flèche de leur direction" ;;
   56) # Le graphique tasse seize jours dans la largeur de l'écran.
-     perl -0pi -e 's/  const defile = n > 10;/  const defile = n > 99;/' src/vues.js
+     perl -0pi -e 's/  const defile = n > 10;/  const defile = n > 99;/' src/vues/avenir.js
      ATTENDU="sur seize jours, le graphique défile à colonnes fixes et nomme la seconde semaine" ;;
   57) # La confiance ne réunit plus les deux modèles.
      perl -0pi -e 's/const reunis = resume\(\[\.\.\.\(icon \? vi : \[\]\), \.\.\.\(ecmwf \? ve : \[\]\)\]\);/const reunis = resume(ecmwf ? ve : vi);/' src/scenarios.js
@@ -201,26 +203,26 @@ case "$N" in
      perl -0pi -e 's/  \[4, "moyenne"\],\n  \[7, "faible"\],/  [3, "moyenne"],\n  [6, "faible"],/' src/scenarios.js
      ATTENDU="les seuils de la confiance quotidienne tombent à quatre et à sept degrés" ;;
   59) # La semaine ignore les scénarios quotidiens.
-     perl -0pi -e 's/    const sc = k >= i \? Scenarios\.jour\(d\.time\[k\]\) : null;/    const sc = null;/' src/vues.js
+     perl -0pi -e 's/    const sc = prevue \? Scenarios\.jour\(dd\.time\[k\]\) : null;/    const sc = null;/' src/vues/avenir.js
      ATTENDU="La semaine tire sa confiance des deux modèles, et le volet les compare" ;;
   60) # Les scénarios quotidiens ne demandent plus que sept jours.
      # Sa garde est dans la section « Les scénarios » : lancer avec JUSQUA_EPREUVE.
      perl -0pi -e 's/^const JOURS = 15;/const JOURS = 7;/m' src/scenarios.js
      ATTENDU="les deux modèles se demandent ensemble, sur quinze jours" ;;
   61) # La phrase ne dit plus que les modèles s'écartent.
-     perl -0pi -e 's/const accord = s\.ecart >= 2 \?/const accord = s.ecart >= 99 ?/' src/vues.js
+     perl -0pi -e 's/const accord = s\.ecart >= 2 \?/const accord = s.ecart >= 99 ?/' src/vues/avenir.js
      ATTENDU="la confiance dit quand les deux modèles s.écartent, et nomme ECMWF seul au-delà" ;;
   62) # La tendance ne voit plus les écarts de température.
      perl -0pi -e 's/const sens = ecart >= 2 \? "plus chaude" : ecart <= -2 \?/const sens = ecart >= 20 ? "plus chaude" : ecart <= -20 ?/' src/conseils.js
      ATTENDU="la semaine suivante se dit en une ligne de tendance, et seulement avec cinq jours" ;;
   63) # La tendance se colle à la charge sans écarter les dates déjà prévues.
-     perl -0pi -e 's/  const plus = tend\.filter\(t => t\.date > dernier\);/  const plus = tend;/' src/vues.js
+     perl -0pi -e 's/  const plus = tend\.filter\(t => t\.date > dernier\);/  const plus = tend;/' src/vues/avenir.js
      ATTENDU="la tendance prolonge la charge quotidienne, sans doublon, le symbole tiré de la pluie" ;;
   64) # Le bouton « Voir plus » disparaît.
-     perl -0pi -e 's/  const plusDispo = lim >= i;/  const plusDispo = false;/' src/vues.js
+     perl -0pi -e 's/  const plusDispo = lim >= i;/  const plusDispo = false;/' src/vues/avenir.js
      ATTENDU="La semaine se déplie d.un « Voir plus » commun au graphique et à la liste, jusqu.à la tendance" ;;
   65) # Une journée de tendance affiche une moyenne de pluie.
-     perl -0pi -e 's/    const eau = k >= nPrev \? \(pb >= 5/    const eau = false ? (pb >= 5/' src/vues.js
+     perl -0pi -e 's/    const eau = k >= nPrev \? \(pb >= 5/    const eau = false ? (pb >= 5/' src/vues/avenir.js
      ATTENDU="une journée de tendance dit la part de ses scénarios pluvieux, sans mot de confiance" ;;
   66) # Le plafond se cale de nouveau au point entier.
      perl -0pi -e 's/    const dx = \(\(t \* derive \* 0\.22\) % larg\) - larg;/    const dx = Math.round(((t * derive * 0.22) % larg) - larg);/' src/temps.js
@@ -230,10 +232,10 @@ case "$N" in
      ATTENDU="l.onglet des jours à venir s.appelle « À venir »" ;;
   68) # La rangée prise ne suit plus le doigt.
      # Sa garde est dans une section plus loin : lancer avec JUSQUA_EPREUVE.
-     perl -0pi -e 's/    const suivre = \(\) => \{ el\.style\.transform = [^\n]*\n/    const suivre = () => {};\n/' src/vues.js
+     perl -0pi -e 's/    const suivre = \(\) => \{ el\.style\.transform = [^\n]*\n/    const suivre = () => {};\n/' src/vues/lieux.js
      ATTENDU="la rangée prise suit le doigt" ;;
   69) # La page reprend son ancien nom.
-     perl -0pi -e 's/titre: "Heure par heure"/titre: "Le temps"/g' src/vues.js
+     perl -0pi -e 's/titre: "Heure par heure"/titre: "Le temps"/g' src/vues/heures.js
      ATTENDU="la page des heures s.appelle « Heure par heure »" ;;
   70) # Le bandeau ne colle plus.
      perl -0pi -e 's/  position:sticky;top:calc\(env\(safe-area-inset-top, 0px\) \+ var\(--nav-haut\)\);z-index:3;/  position:relative;z-index:3;/' styles.css
@@ -245,11 +247,11 @@ case "$N" in
      perl -0pi -e 's/  const decal = \(d\.getDay\(\) \+ 6\) % 7;/  const decal = d.getDay();/' src/comparaison.js
      ATTENDU="la semaine va du lundi au dimanche, un 29 février devient le 28" ;;
   73) # La pluie se juge à la moindre différence.
-     perl -0pi -e 's/  const pluie = Math\.abs\(p1 - p2\) >= 10/  const pluie = Math.abs(p1 - p2) >= 0.5/' src/comparaison.js
+     perl -0pi -e 's/  const pluie = Math\.abs\(p1 - p2\) >= seuilPluie\(cette\.length\)/  const pluie = Math.abs(p1 - p2) >= 0.5/' src/comparaison.js
      ATTENDU="le bilan de la comparaison dit l.écart de température, et la pluie au-delà de dix millimètres" ;;
   74) # La carte de la comparaison n'est plus branchée.
      # Sa garde est dans la section du climat : lancer avec JUSQUA_EPREUVE.
-     perl -0pi -e 's/      brancherComparaison\(bloc\.querySelector\("#clComparer"\), bloc, g, c, date\);\n//' src/vues.js
+     perl -0pi -e 's/      brancherComparaison\(bloc\.querySelector\("#clComparer"\), bloc, g, c, date\);\n//' src/vues/climat.js
      ATTENDU="la feuille du climat compare les 7 derniers jours aux mêmes jours de l.an dernier, dans l.archive" ;;
   75) # Une semaine sans pluie notable nomme quand même un lieu arrosé.
      perl -0pi -e 's/  const pluie = arrose\.mm < 1 \? "sec partout"/  const pluie = arrose.mm < 0 ? "sec partout"/' src/comparaison.js
@@ -266,11 +268,11 @@ case "$N" in
      ATTENDU="le passé finit hier, l.avenir commence demain, et le seuil de la pluie croît avec la durée" ;;
   79) # Le choix de la période n'est plus écouté.
      # Sa garde est dans la section du climat : lancer avec JUSQUA_EPREUVE.
-     perl -0pi -e 's/    cmp\.querySelector\("\.cmp-p-temps"\)\.addEventListener\("change", e => \{ periodeTemps = e\.target\.value; montrer\(\); \}\);\n//' src/vues.js
+     perl -0pi -e 's/    cmp\.querySelector\("\.cmp-p-temps"\)\.addEventListener\("change", e => \{ periodeTemps = e\.target\.value; montrer\(\); \}\);\n//' src/vues/climat.js
      ATTENDU="une période passée se lit dans l.archive jusqu.à hier, une période à venir dans la prévision dès demain" ;;
   80) # Les lieux du passé se lisent dans la prévision.
      # Sa garde est dans la section du climat : lancer avec JUSQUA_EPREUVE.
-     perl -0pi -e 's/Comparaison\.lireLieux\(lieux, dates, Comparaison\.estPassee\(periodeLieux\)\)/Comparaison.lireLieux(lieux, dates, false)/' src/vues.js
+     perl -0pi -e 's/Comparaison\.lireLieux\(lieux, dates, Comparaison\.estPassee\(periodeLieux\)\)/Comparaison.lireLieux(lieux, dates, false)/' src/vues/climat.js
      ATTENDU="la feuille du climat compare les 7 derniers jours entre lieux suivis, en une requête à l.archive" ;;
   81) # Une station a son pied au-dessus de son sommet.
      perl -0pi -e 's/\["Megève", "FR", 45\.8544, 6\.6575, 820, 2371,/["Megève", "FR", 45.8544, 6.6575, 2371, 820,/' src/stations.js
@@ -328,7 +330,7 @@ case "$N" in
      ATTENDU="les restrictions d.eau se rangent de la vigilance à la crise" ;;
   99) # La couche des restrictions d'eau n'est plus tracée.
      # Sa garde est dans la section des nappes de la carte : lancer avec JUSQUA_EPREUVE.
-     perl -0pi -e 's/const COUCHES = \[coucheEau, coucheVigiFond,/const COUCHES = [coucheVigiFond,/' src/vues.js
+     perl -0pi -e 's/const COUCHES = \[coucheEau, coucheVigiFond,/const COUCHES = [coucheVigiFond,/' src/vues/carte-couches.js
      ATTENDU="la nappe des restrictions d.eau teinte les départements en restriction, et eux seuls" ;;
   100) # Une nappe au plus haut se dit très basse.
      perl -0pi -e 's/\[0\.9, "haute"\], \[1\.01, "très haute"\]\]/[0.9, "haute"], [1.01, "très basse"]]/' src/eau.js
@@ -352,7 +354,7 @@ case "$N" in
      perl -0pi -e 's/  const campagne = l\.filter\(o => o\.date_observation === date\);/  const campagne = l;/' src/eau.js
      ATTENDU="l.étiage se résume par la dernière campagne, chaque point à sa dernière observation" ;;
   107) # La température de l'eau ne se dit plus.
-     perl -0pi -e 's/    \+ \(t \? `<p class="pl-lieu">Eau de la rivière/    + (false \&\& t ? `<p class="pl-lieu">Eau de la rivière/' src/vues.js
+     perl -0pi -e 's/    \+ \(t \? `<p class="pl-lieu">Eau de la rivière/    + (false \&\& t ? `<p class="pl-lieu">Eau de la rivière/' src/vues/loisirs.js
      ATTENDU="la feuille de l.eau dit l.étiage de la dernière campagne et la température récente de la rivière" ;;
   108) # Le plafond nuageux se pose en tuiles étroites qui ne se raccordent pas.
      # Sa vérification est dans la section du suivi de la position : lancer avec JUSQUA_EPREUVE.
@@ -362,11 +364,11 @@ case "$N" in
      perl -0pi -e 's/  if \(sol\.pluie3 >= 5\) return/  if (sol.pluie3 >= 50) return/' src/eau.js
      ATTENDU="l.humidité du sol se classe, et le conseil d.arrosage suit la pluie attendue, la sécheresse et la restriction" ;;
   110) # Le conseil d'arrosage ne se dit plus dans la feuille.
-     perl -0pi -e 's/    \+ `<p class="pl-lieu">\$\{esc\(Eau\.conseilArrosage\(s, r\)\)\}<\/p>`;/    + "";/' src/vues.js
+     perl -0pi -e 's/    \+ `<p class="pl-lieu">\$\{esc\(Eau\.conseilArrosage\(s, r\)\)\}<\/p>`;/    + "";/' src/vues/loisirs.js
      ATTENDU="la feuille de l.eau dit l.humidité du sol, la semaine écoulée, la pluie attendue et le conseil d.arrosage" ;;
   111) # Les étiquettes des prévisions ne s'effacent plus quand elles se chevauchent.
      # Sa vérification est dans la section des nappes de la carte : lancer avec JUSQUA_EPREUVE.
-     perl -0pi -e 's/          el\.hidden = dehors \|\| serre;/          el.hidden = dehors;/' src/vues.js
+     perl -0pi -e 's/      el\.hidden = dehors \|\| serre;/      el.hidden = dehors;/' src/vues/carte-etiquettes.js
      ATTENDU="les prévisions des villes se posent sur la carte sans se chevaucher, au moment en cours" ;;
   112) # L'après-midi prend 15 h au lieu du maximum.
      perl -0pi -e 's/  const valeur = moment === "apres" \? Math\.max\(\.\.\.temps\) : h\.temperature_2m\[kr\];/  const valeur = h.temperature_2m[kr];/' src/villes.js
@@ -376,15 +378,15 @@ case "$N" in
      ATTENDU="les plages de la carte s.espacent de soixante kilomètres, les grands domaines de vingt-cinq, les plus grands d.abord" ;;
   114) # Les domaines sans neige portent une étiquette à 0 cm.
      # Sa vérification est dans la section des nappes de la carte : lancer avec JUSQUA_EPREUVE.
-     perl -0pi -e 's/neigeLue\.filter\(s => s\.sol > 0\)\.map/neigeLue.map/' src/vues.js
+     perl -0pi -e 's/neigeLue\.filter\(s => s\.sol > 0\)\.map/neigeLue.map/' src/vues/carte-etiquettes.js
      ATTENDU="la mer et la neige se posent sur la carte avant les prévisions, sans chevauchement, sources citées" ;;
   115) # Les prévisions passent avant la mer et la neige.
      # Sa vérification est dans la section des nappes de la carte : lancer avec JUSQUA_EPREUVE.
-     perl -0pi -e 's/zonePrev\.innerHTML = neiges \+ mers \+ previs;/zonePrev.innerHTML = previs + neiges + mers;/' src/vues.js
+     perl -0pi -e 's/zonePrev\.innerHTML = neiges \+ mers \+ rivs \+ previs;/zonePrev.innerHTML = previs + neiges + mers + rivs;/' src/vues/carte-etiquettes.js
      ATTENDU="la mer et la neige se posent sur la carte avant les prévisions, sans chevauchement, sources citées" ;;
   116) # Les cours d'eau se lisent sur la France entière.
      # Sa vérification est dans la section des nappes de la carte : lancer avec JUSQUA_EPREUVE.
-     perl -0pi -e 's/const ZOOM_RIVIERES = 7\.5;/const ZOOM_RIVIERES = 0;/' src/vues.js
+     perl -0pi -e 's/const ZOOM_RIVIERES = 7\.5;/const ZOOM_RIVIERES = 0;/' src/vues/carte-etiquettes.js
      ATTENDU="les cours d.eau ne se lisent qu.en zoomant, et chaque station dit sa hauteur et sa tendance" ;;
   117) # L'écart d'une station se lit à l'envers.
      perl -0pi -e 's/    ecart: e\.recent\.resultat_obs - e\.ancien\.resultat_obs \}\)\);/    ecart: e.ancien.resultat_obs - e.recent.resultat_obs }));/' src/eau.js
@@ -396,7 +398,7 @@ case "$N" in
      perl -0pi -e 's/  if \(!dejaOuverte\) \{/  if (\$("feuille").hidden) {/' src/app.js
      ATTENDU="une feuille refermée avant sa première image reste fermée, et rouverte pendant sa fermeture reste ouverte" ;;
   120) # La carte des réglages reprend l'ancien nom de la page.
-     perl -0pi -e 's/<h3>Écriture de la page « Heure par heure »<\/h3>/<h3>Écriture de l\x27écran Le temps<\/h3>/' src/vues.js
+     perl -0pi -e 's/<h3>Écriture de la page « Heure par heure »<\/h3>/<h3>Écriture de l\x27écran Le temps<\/h3>/' src/vues/feuilles.js
      ATTENDU="les réglages nomment l.écriture de la page « Heure par heure »" ;;
   121) # Toute tuile qui ouvre une feuille annonce de nouveau l'air qu'on respire.
      perl -0pi -e 's/\$\{esc\(e\)\}, \$\{TUILE_VERS\[feuille\]\}">/\$\{esc(e)\}, voir l\x27air qu\x27on respire">/' src/app.js
@@ -459,7 +461,7 @@ case "$N" in
      perl -0pi -e 's/const lat = Math\.round\(latBrute \* 1000\) \/ 1000, lon = Math\.round\(lonBrute \* 1000\) \/ 1000;/const lat = latBrute, lon = lonBrute;/' src/reglages.js
      ATTENDU="les services ne reçoivent que la position arrondie" ;;
   141) # Les réglages prétendent de nouveau qu'aucune donnée n'est envoyée.
-     perl -0pi -e 's/Aucun compte, aucune base de données\. Pour lire/Aucun compte, aucune base de données, aucune donnée envoyée. Pour lire/' src/vues.js
+     perl -0pi -e 's/Aucun compte, aucune base de données\. Pour lire/Aucun compte, aucune base de données, aucune donnée envoyée. Pour lire/' src/vues/feuilles.js
      ATTENDU="les réglages disent quels services reçoivent le lieu affiché" ;;
   142) # Les caches par lieu ne sont plus plafonnés.
      perl -0pi -e 's/\.sort\(\(a, b\) => b\[1\]\.t - a\[1\]\.t\)\.slice\(0, ENTREES_MAX\);/.sort((a, b) => b[1].t - a[1].t);/' src/horloge.js
@@ -468,7 +470,7 @@ case "$N" in
      perl -0pi -e 's/maintenant - e\.t < garde\)/true)/' src/horloge.js
      ATTENDU="les caches par lieu oublient les entrées périmées et n.en gardent que vingt" ;;
   144) # Le bouton d'effacement n'efface plus rien.
-     perl -0pi -e 's/if \(k\.startsWith\("mameteo\."\)\) localStorage\.removeItem\(k\);/if (false) { }/' src/vues.js
+     perl -0pi -e 's/if \(k\.startsWith\("mameteo\."\)\) localStorage\.removeItem\(k\);/if (false) { }/' src/vues/feuilles.js
      ATTENDU="le bouton d.effacement retire les données de l.application, et elles seules" ;;
   145) # Un lien venu d'un service entre de nouveau quel que soit son protocole.
      perl -0pi -e 's/return x\.protocol === "https:" \? x\.href : null;/return x.href;/' src/eau.js
@@ -489,7 +491,7 @@ case "$N" in
      perl -0pi -e 's/\n    \+ `<span class="titre-lu">\$\{esc\(tempsDe\(s\.code\)\[1\]\)\}<\/span>`\],/],/' src/ecritures.js
      ATTENDU="la colonne du ciel se lit dans le tableau des heures" ;;
   151) # Les journées d'À venir ne nomment plus leurs bornes.
-     perl -0pi -e 's/<span class="titre-lu">minimum<\/span>//' src/vues.js
+     perl -0pi -e 's/<span class="titre-lu">minimum<\/span>//' src/vues/avenir.js
      ATTENDU="chaque journée d.À venir dit son ciel et nomme ses bornes" ;;
   152) # Le texte tertiaire reprend son gris clair.
      perl -0pi -e 's/--etiquette-3:#646F7A;/--etiquette-3:#8B97A2;/' styles.css
@@ -507,7 +509,7 @@ case "$N" in
      perl -0pi -e 's/if \(mien !== generation \|\| !d\) return;\n  rafraichir\(\);/if (mien !== generation || !d) return;\n  rendre();\n  if (vueCourante) rendreFeuille();/' src/app.js
      ATTENDU="les sources secondaires passent par le rendu regroupé" ;;
   157) # L'écouteur précédent de la carte n'est plus retiré.
-     perl -0pi -e 's/  if \(avant\) window\.removeEventListener\("resize", avant\);\n//' src/vues.js
+     perl -0pi -e 's/  if \(avant\) window\.removeEventListener\("resize", avant\);\n//' src/vues/communs.js
      ATTENDU="la carte redessinée ne multiplie pas ses écouteurs" ;;
   158) # La carte reprend la densité entière de l'écran.
      perl -0pi -e 's/const dpr = Math\.min\(2, window\.devicePixelRatio \|\| 1\);/const dpr = window.devicePixelRatio || 1;/' src/carte.js
@@ -540,10 +542,10 @@ case "$N" in
      perl -0pi -e 's/  if \(gardee\?\.e\?\.restriction\) \{ etat = gardee\.e; return etat; \}\n//' src/eau.js
      ATTENDU="l.état de l.eau se garde une heure une fois ses lectures arrivées" ;;
   168) # La liste des plages se charge de nouveau au lancement.
-     perl -0pi -e 's/(import \{ recaler, elaguer, lireGardee, ecrireGardee \} from "\.\/horloge\.js";)/$1\nimport { PLAGES as LISTE_STATIQUE } from ".\/plages.js";/' src/plage.js
+     perl -0pi -e 's/(import \{ recaler, elaguer, lireGardee, ecrireGardee, chercher, distanceKm \} from "\.\/horloge\.js";)/$1\nimport { PLAGES as LISTE_STATIQUE } from ".\/plages.js";/' src/plage.js
      ATTENDU="l.accueil s.affiche sans les listes des plages et des stations" ;;
   169) # La liste des stations se charge de nouveau au lancement.
-     perl -0pi -e 's/(import \{ recaler, elaguer, lireGardee, ecrireGardee \} from "\.\/horloge\.js";)/$1\nimport { STATIONS as LISTE_STATIQUE } from ".\/stations.js";/' src/neige.js
+     perl -0pi -e 's/(import \{ recaler, elaguer, lireGardee, ecrireGardee, chercher, distanceKm \} from "\.\/horloge\.js";)/$1\nimport { STATIONS as LISTE_STATIQUE } from ".\/stations.js";/' src/neige.js
      ATTENDU="l.accueil s.affiche sans les listes des plages et des stations" ;;
   170) # Une requête n'a de nouveau aucun délai.
      perl -0pi -e 's/  setTimeout\(\(\) => arret\.abort\(\), delai\);\n//' src/horloge.js
@@ -579,50 +581,28 @@ case "$N" in
      perl -0pi -e 's/\n        \+ `<button type="button" class="bouton-plein" data-action="recharger">Recharger l.application<\/button><\/div>`/\n        + `<\/div>`/' src/app.js
      ATTENDU="un onglet qui n.a pas pu se charger le dit, et s.ouvre après le rechargement proposé" ;;
   181) # Le vent n'est plus reposé une fois la vue cadrée.
-     perl -0pi -e 's/        if \(mesures\) poserVent\(\);\n//' src/vues/carte.js
+     perl -0pi -e 's/        if \(E\.mesures\) E\.poserVent\(\);\n//' src/vues/carte.js
      ATTENDU="le mouvement réduit fige les particules sans les effacer" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
-if diff -q "$OLD/src/bande.js" src/bande.js >/dev/null \
-  && diff -q "$OLD/src/app.js" src/app.js >/dev/null \
-  && diff -q "$OLD/src/horloge.js" src/horloge.js >/dev/null \
-  && diff -q "$OLD/src/vues/carte.js" src/vues/carte.js >/dev/null \
-  && diff -q "$OLD/src/vigilance.js" src/vigilance.js >/dev/null \
-  && diff -q "$OLD/src/nappe.js" src/nappe.js >/dev/null \
-  && diff -q "$OLD/src/carte.js" src/carte.js >/dev/null \
-  && diff -q "$OLD/manifest.webmanifest" manifest.webmanifest >/dev/null \
-  && diff -q "$OLD/src/reglages.js" src/reglages.js >/dev/null \
-  && diff -q "$OLD/src/air.js" src/air.js >/dev/null \
-  && diff -q "$OLD/src/ensemble.js" src/ensemble.js >/dev/null \
-  && diff -q "$OLD/styles.css" styles.css >/dev/null \
-  && diff -q "$OLD/src/ecritures.js" src/ecritures.js >/dev/null \
-  && diff -q "$OLD/src/ruban.js" src/ruban.js >/dev/null \
-  && diff -q "$OLD/src/version.js" src/version.js >/dev/null \
-  && diff -q "$OLD/sw.js" sw.js >/dev/null \
-  && diff -q "$OLD/src/conseils.js" src/conseils.js >/dev/null \
-  && diff -q "$OLD/src/fleche.js" src/fleche.js >/dev/null \
-  && diff -q "$OLD/src/vues.js" src/vues.js >/dev/null \
-  && diff -q "$OLD/src/justesse.js" src/justesse.js >/dev/null \
-  && diff -q "$OLD/src/temps.js" src/temps.js >/dev/null \
-  && diff -q "$OLD/src/previsions.js" src/previsions.js >/dev/null \
-  && diff -q "$OLD/src/scenarios.js" src/scenarios.js >/dev/null \
-  && diff -q "$OLD/src/ruban.js" src/ruban.js >/dev/null \
-  && diff -q "$OLD/src/comparaison.js" src/comparaison.js >/dev/null \
-  && diff -q "$OLD/src/neige.js" src/neige.js >/dev/null \
-  && diff -q "$OLD/src/stations.js" src/stations.js >/dev/null \
-  && diff -q "$OLD/src/plages.js" src/plages.js >/dev/null \
-  && diff -q "$OLD/src/plage.js" src/plage.js >/dev/null \
-  && diff -q "$OLD/src/trajets.js" src/trajets.js >/dev/null \
-  && diff -q "$OLD/src/vigieau.js" src/vigieau.js >/dev/null \
-  && diff -q "$OLD/src/eau.js" src/eau.js >/dev/null \
-  && diff -q "$OLD/src/temps.js" src/temps.js >/dev/null \
-  && diff -q "$OLD/src/villes.js" src/villes.js >/dev/null; then
+# Une erreur qui ne modifie rien ne prouve rien : la copie est comparée au
+# dépôt, application, feuille de style, agent de service et manifeste compris.
+if diff -rq "$OLD/src" src >/dev/null && diff -q "$OLD/styles.css" styles.css >/dev/null \
+  && diff -q "$OLD/sw.js" sw.js >/dev/null && diff -q "$OLD/index.html" index.html >/dev/null \
+  && diff -q "$OLD/manifest.webmanifest" manifest.webmanifest >/dev/null; then
   echo "FAUTE $N NON APPLIQUÉE"; exit 3
 fi
 
+# Depuis le 2 octobre 2026, chaque section part d'un état neuf : l'épreuve ne
+# passe que la section qui porte le contrôle attendu. Faute de la trouver, le
+# nom du contrôle étant composé, elle passe la suite jusqu'à JUSQUA.
+SECTION=$(grep -l -- "$ATTENDU" essais/sections/*.mjs 2>/dev/null | head -1)
+SECTION=$(basename "${SECTION:-}" .mjs)
+if [ -n "$SECTION" ]; then JUSQUA=""; fi
 SORTIE=$(CHROMIUM="${CHROMIUM:-}" \
-  PORT_ESSAIS=$PORT_ESSAIS JUSQUA="$JUSQUA" borne 900 node essais/controle.mjs 2>&1)
+  PORT_ESSAIS=$PORT_ESSAIS SECTIONS="$SECTION" JUSQUA="$JUSQUA" \
+  borne 900 node essais/controle.mjs 2>&1)
 echo "$SORTIE" > "/tmp/epreuve-bande-$N.log"
 if echo "$SORTIE" | grep -q "ÉCHEC  $ATTENDU"; then
   echo "FAUTE $N vue par : $ATTENDU"

@@ -15,14 +15,14 @@ décisions est dans `docs/feuille-de-route.md`. L'ancien document de reprise,
 | Dépôt | `techthisapp/ma-meteo`, public, branche `main` |
 | Dossier de travail | `~/Documents/Claude/Projects/ma-meteo`, sur le Mac de Jérôme |
 | Outils | Node.js 24, GitHub CLI connecté au compte `techthisapp`, Playwright 1.63.0 par `npm ci` |
-| Contrôles | `bash essais/passe.sh 8137`, une douzaine de minutes ; aussi sur GitHub à chaque envoi sur `main` |
+| Contrôles | `bash essais/passe.sh 8137`, trois minutes ; aussi sur GitHub à chaque envoi sur `main` |
 
 Ne jamais lire, modifier ni pousser `techthisapp/mon-jardin`, une autre
 application.
 
 ## État au 2 octobre 2026
 
-Version 134. Le projet est passé de claude.ai à Claude Code le 1er octobre
+Version 135. Le projet est passé de claude.ai à Claude Code le 1er octobre
 2026, à la version 118. Un audit complet de la version 120 a été mené le même
 jour, `docs/audit-2026-10-01.md`, avec le suivi de chaque lot en fin de
 document.
@@ -33,9 +33,9 @@ document.
 | B, hors connexion et changement de commune | fait, version 122 |
 | C, confidentialité | fait, version 123 |
 | D, accessibilité | fait, version 124 |
-| E, performances | fait pour l'essentiel, versions 125 à 128 ; reste le chargement différé de la carte et du ciel |
+| E, performances | fait, versions 125 à 128 et 134 |
 | F, délais réseau, département, fuseau | fait, versions 129 à 131 ; l'outre-mer n'est pas visé, décision de Jérôme |
-| G, maintenance | intégration continue, code mort, anciens scripts d'épreuve, documents, découpage de `src/vues.js` et chargement différé de la carte et du ciel faits ; restent la suite des contrôles et l'outil de captures |
+| G, maintenance | fait, versions 132 à 135 : intégration continue, code mort, anciens scripts d'épreuve, documents, découpage de `src/vues.js` puis de la carte, chargement différé, suite des contrôles en sections indépendantes, outil de captures sur les faux services |
 
 Jalons de la feuille de route : 1 à 4 et 7 à 18 livrés. Reste le jalon 6, la
 justesse des prévisions publiée, vers la fin octobre, quand soixante jours de
@@ -43,15 +43,12 @@ relevés seront réunis. Le jalon 5, la 3D, est écarté pour le moment.
 
 ## Points ouverts
 
-1. Facultatif : la carte découpée couche par couche, étape 5 de
-   `docs/plan-decoupage-vues.md`.
-2. La suite des contrôles en un seul fichier de 12 000 lignes, aux pauses
-   fixes, audit constats 6.5 et 6.6.
-3. L'outil de captures `essais/vue-ecran.mjs` garde sa propre copie partielle
-   des faux services, audit constat 6.12.
-4. Les points connus de `CLAUDE.md` : la requête OSRM propre à la neige, le
+1. Les points connus de `CLAUDE.md` : la requête OSRM propre à la neige, le
    vent des plages sans rapport au rivage, les sections anciennes du
    `LISEZ-MOI.md`.
+2. Les constats de l'audit restés au stade « relevé », hors des lots : voir le
+   tableau de `docs/audit-2026-10-01.md`, par exemple la règle du seuil de
+   pluie écrite à plusieurs endroits, constat 6.8.
 
 ## Ce que Jérôme doit faire
 

@@ -23,8 +23,10 @@ cp -r donnees essais icones src index.html manifest.webmanifest package.json \
   styles.css sw.js "$COPIE/"
 ln -s "$OLD/node_modules" "$COPIE/node_modules"
 cd "$COPIE"
-# JUSQUA et CHRONO se transmettent au besoin : la première borne la passe à une
-# section, la seconde dit le temps de chacune.
+# SECTIONS, JUSQUA, PARALLELE et CHRONO se transmettent au besoin : les deux
+# premières choisissent les sections, la troisième dit combien passent côte à
+# côte, la dernière dit le temps de chacune. Voir l'en-tête de essais/controle.mjs.
 CHROMIUM="${CHROMIUM:-}" \
-  PORT_ESSAIS=$PORT_ESSAIS JUSQUA="${JUSQUA:-}" CHRONO="${CHRONO:-}" \
+  PORT_ESSAIS=$PORT_ESSAIS SECTIONS="${SECTIONS:-}" JUSQUA="${JUSQUA:-}" \
+  PARALLELE="${PARALLELE:-}" CHRONO="${CHRONO:-}" \
   borne 900 node essais/controle.mjs

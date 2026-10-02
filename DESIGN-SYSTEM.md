@@ -555,8 +555,9 @@ largeur d'un iPhone.
 
 ## Contrôles automatiques
 
-`node essais/controle.mjs` exécute cent vingt-cinq contrôles en navigateur, dont
-dix-sept portent sur le design system :
+La suite des contrôles, `bash essais/passe.sh 8137`, en comptait cent vingt-cinq
+quand ce document a été écrit, dont dix-sept sur le design system ; ceux-ci
+sont dans `essais/sections/24-design-system.mjs` et dans les sections voisines :
 
 1. toute cible interactive tient 44 pt ;
 2. le fond du corps vient du token ;

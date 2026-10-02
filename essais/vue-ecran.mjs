@@ -1,16 +1,21 @@
+/* L'outil de captures d'écran. Depuis le 2 octobre 2026, il sert les mêmes
+   faux services que les contrôles, essais/faux-services.mjs, avec le même
+   filet du réseau : une capture ne touche plus le vrai réseau. Seules restent
+   ici les charges posées pour l'image, le radar en nappe continue, la
+   vigilance de plusieurs départements, la pluie dans l'heure et la pluie de
+   l'après-midi à la demande, la grille de l'air et les noms des points. */
 import { chromium } from "playwright";
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
-import zlib from "node:zlib";
 import { fileURLToPath } from "node:url";
+import { METEO, amorceA, enPng, nouvelEtat, brancherFauxServices, envelopperNavigateur } from "./faux-services.mjs";
 
 const ICI = path.dirname(fileURLToPath(import.meta.url));
 const RACINE = path.resolve(ICI, "..");
 const SORTIE = path.join(ICI, "captures");
 fs.mkdirSync(SORTIE, { recursive: true });
 
-const METEO = JSON.parse(fs.readFileSync(path.join(ICI, "meteo.json"), "utf8"));
 const MIME = { ".html":"text/html", ".js":"text/javascript", ".css":"text/css",
                ".json":"application/json", ".svg":"image/svg+xml",
                ".webmanifest":"application/manifest+json", ".png":"image/png" };
@@ -31,6 +36,7 @@ const nav = await chromium.launch({
   executablePath: process.env.CHROMIUM || undefined,
   args: ["--no-sandbox", "--disable-dev-shm-usage"],
 });
+const sortantes = envelopperNavigateur(nav);
 
 const FIGE = new Date(process.env.QUAND || "2026-08-18T09:00:00+02:00").getTime();
 const REGLAGES = { commune: "Fain-lès-Moutiers", codePostal: "21500",
@@ -48,29 +54,6 @@ const REGLAGES = { commune: "Fain-lès-Moutiers", codePostal: "21500",
   ...(process.env.CIEL ? { ciel: process.env.CIEL } : {}),
   ...(process.env.VENT ? { ventcarte: true } : {}) };
 
-/* Deux journées par point, comme la source les rend pour plusieurs couples de
-   coordonnées : le soleil monte vers le nord, la pluie tombe à l'ouest. */
-const journeesDe = (lat, lon) => {
-  const u = Math.max(0, Math.min(1, (lat - 46.6) / 1.8));
-  const journee = j => {
-    const p = j === 0 ? u : 1 - u;
-    return {
-      soleil: 2.5 + 7 * p + 0.4 * (lon - 4.3),
-      tmax: 27 - 5 * p,
-      pluie: lon < 3.9 ? 6 : 0,
-    };
-  };
-  const d = [journee(0), journee(1)];
-  return { daily: {
-    time: ["2026-08-18", "2026-08-19"],
-    weather_code: d.map(x => (x.pluie ? 61 : x.soleil > 7 ? 0 : 3)),
-    temperature_2m_max: d.map(x => Math.round(x.tmax * 10) / 10),
-    precipitation_sum: d.map(x => x.pluie),
-    sunshine_duration: d.map(x => Math.round(Math.max(0, x.soleil) * 3600)),
-    daylight_duration: [48600, 48600],
-  } };
-};
-
 /* Une tuile de pluie fabriquée. La nappe est une somme d'ondes prises en
    coordonnées de monde : elle se raccorde donc d'une tuile à l'autre, et
    l'image la déplace vers l'est comme une masse pluvieuse se déplace. */
@@ -79,7 +62,8 @@ const PALETTE = [
   [0.71, [0, 175, 150], 215], [0.79, [225, 200, 70], 235],
   [0.86, [228, 120, 55], 242], [0.92, [214, 62, 60], 248],
 ];
-/* Le PNG. Une fonction rend la couleur de chaque point. */
+/* Le PNG. Une fonction rend la couleur de chaque point ; l'enveloppe est celle
+   des faux services. */
 function png(n, teinteDe) {
   const brut = Buffer.alloc(n * (n * 4 + 1));
   for (let y = 0; y < n; y++) {
@@ -90,20 +74,7 @@ function png(n, teinteDe) {
       brut[p] = r; brut[p + 1] = g; brut[p + 2] = b; brut[p + 3] = a;
     }
   }
-  const bloc = (type, data) => {
-    const l = Buffer.alloc(4); l.writeUInt32BE(data.length, 0);
-    const tt = Buffer.from(type, "ascii");
-    const cc = Buffer.alloc(4); cc.writeUInt32BE(zlib.crc32(Buffer.concat([tt, data])) >>> 0, 0);
-    return Buffer.concat([l, tt, data, cc]);
-  };
-  const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(n, 0); ihdr.writeUInt32BE(n, 4);
-  ihdr[8] = 8; ihdr[9] = 6;
-  return Buffer.concat([
-    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
-    bloc("IHDR", ihdr), bloc("IDAT", zlib.deflateSync(brut)),
-    bloc("IEND", Buffer.alloc(0)),
-  ]);
+  return enPng(brut, n);
 }
 
 /* La tuile de refus du service : un aplat gris uni. Elle n'a pas à porter le
@@ -139,69 +110,35 @@ for (const theme of ["light", "dark"]) {
     locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
     colorScheme: theme,
   });
-  await ctx.addInitScript(`{
-    const ecart = ${FIGE} - Date.now();
-    const D = Date;
-    globalThis.Date = class extends D {
-      constructor(...a){ super(...(a.length ? a : [D.now() + ecart])); }
-      static now(){ return D.now() + ecart; }
-    };
-    Object.setPrototypeOf(globalThis.Date, D);
-    localStorage.setItem("mameteo.reglages.v1", ${JSON.stringify(JSON.stringify(REGLAGES))});
-  }`);
-  await ctx.route(/api\.open-meteo\.com/, route => {
-    const u = route.request().url();
-    const d = JSON.parse(JSON.stringify(METEO));
-    /* De la pluie posée l'après-midi du 18 août, pour les vues qui montrent le
-       rappel de parapluie. La charge d'essai est sèche ce jour-là. */
-    if (process.env.PLUIE) {
+  await ctx.addInitScript(amorceA(REGLAGES, FIGE));
+  /* Les faux services des contrôles, l'air au profil de l'ambroisie, puis les
+     charges propres aux captures, posées après pour passer devant. */
+  await brancherFauxServices(ctx, Object.assign(nouvelEtat(), { profilAir: "ambroisie" }));
+  /* De la pluie posée l'après-midi du 18 août, pour les vues qui montrent le
+     rappel de parapluie. La charge d'essai est sèche ce jour-là. Seule la
+     prévision horaire est retouchée ; les autres demandes au même hôte vont aux
+     faux services. */
+  if (process.env.PLUIE) {
+    await ctx.route(/api\.open-meteo\.com/, route => {
+      const u = route.request().url();
+      if (new URL(u).host !== "api.open-meteo.com" || !u.includes("hourly=")
+        || /minutely_15|snow_depth|soil_moisture|start_date=|current=|latitude=48\.857%2C/.test(u)) {
+        route.fallback(); return;
+      }
+      const d = JSON.parse(JSON.stringify(METEO));
       for (let k = 0; k < d.hourly.time.length; k++) {
         if (!/^2026-08-18T1[45]/.test(d.hourly.time[k])) continue;
         d.hourly.precipitation[k] = 1.2;
         d.hourly.precipitation_probability[k] = 80;
         d.hourly.wind_gusts_10m[k] = process.env.PLUIE === "vent" ? 55 : 30;
       }
-    }
-    if (u.includes("sunshine_duration")) {
-      const q = new URL(u).searchParams;
-      const lats = decodeURIComponent(q.get("latitude")).split(",").map(Number);
-      const lons = decodeURIComponent(q.get("longitude")).split(",").map(Number);
       route.fulfill({ status: 200, contentType: "application/json",
-        body: JSON.stringify(lats.map((la, k) => journeesDe(la, lons[k]))) });
-      return;
-    }
-    /* La grille des nappes de la carte, reconnue à sa colonne de direction du
-       vent. La température descend du sud au nord et monte vers l'est. */
-    if (u.includes("current=") && u.includes("wind_direction_10m")) {
-      const q = new URL(u).searchParams;
-      const lats = decodeURIComponent(q.get("latitude")).split(",").map(Number);
-      const lons = decodeURIComponent(q.get("longitude")).split(",").map(Number);
-      route.fulfill({ status: 200, contentType: "application/json",
-        body: JSON.stringify(lats.map((la, k) => ({
-          latitude: la, longitude: lons[k],
-          current: {
-            time: "2026-08-18T09:00", interval: 900,
-            temperature_2m: Math.round((32 - (la - 41) * 1.6 + lons[k] * 0.25) * 10) / 10,
-            wind_speed_10m: Math.round((6 + (la - 41) * 2.2) * 10) / 10,
-            wind_direction_10m: Math.round((200 + lons[k] * 4) % 360),
-          },
-          daily: {
-            time: ["2026-08-17", "2026-08-18"],
-            uv_index_max: [1, Math.round((8 - (la - 41) * 0.42) * 100) / 100],
-          } }))) });
-      return;
-    }
-    if (u.includes("current=")) {
-      route.fulfill({ status: 200, contentType: "application/json", body: "[]" }); return;
-    }
-    if (u.includes("hourly=")) {
-      route.fulfill({ status: 200, contentType: "application/json",
-        body: JSON.stringify({ hourly: d.hourly }) }); return;
-    }
-    delete d.hourly;
-    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) });
-  });
-  await ctx.route(/data\.gouv\.fr|webservice\.meteofrance\.com/, r => r.abort());
+        body: JSON.stringify({ hourly: d.hourly }) });
+    });
+  }
+  /* La vigilance du département reste muette sur les captures, comme avant le
+     2 octobre 2026 : son bandeau masquerait le haut des écrans. */
+  await ctx.route(/webservice\.meteofrance\.com/, r => r.abort());
   /* La vigilance de tout le pays, pour la couche de la carte. Quelques
      départements en jaune, en orange et un en rouge, de quoi voir les trois
      teintes. La route vient après la coupure du service. */
@@ -257,41 +194,20 @@ for (const theme of ["light", "dark"]) {
       headers: { "Access-Control-Allow-Origin": "*" },
       body: tuilePluie(im, taille, z, tx, ty) });
   });
-  /* L'air : quatre-vingt-seize heures à partir de minuit du 18 août. L'indice
-     monte l'après-midi, les graminées sont en saison, l'ambroisie au pic à
-     quinze heures. La route vient après celle de la prévision, dont
-     l'expression happerait ce domaine. */
+  /* La grille de l'air sur la carte : l'indice monte vers le nord-est. La
+     feuille de l'air, qui demande des heures sur un seul point, va aux faux
+     services. */
   await ctx.route(/air-quality-api\.open-meteo\.com/, r => {
-    /* La grille de la carte demande l'instant sur tous les points ; la feuille
-       demande des heures sur un seul. L'indice monte vers le nord-est. */
     const u = new URL(r.request().url());
-    if (u.searchParams.get("current")) {
-      const las = u.searchParams.get("latitude").split(",").map(Number);
-      const los = u.searchParams.get("longitude").split(",").map(Number);
-      r.fulfill({ status: 200, contentType: "application/json",
-        body: JSON.stringify(las.map((la, k) => ({
-          latitude: la, longitude: los[k],
-          current: { time: "2026-08-18T09:00", interval: 3600,
-            european_aqi: Math.round(10 + (la - 41) * 2.6 + los[k] * 1.1) },
-        }))) });
-      return;
-    }
-    const h = { time: [], european_aqi: [] };
-    const fixes = { pm2_5: 5.1, pm10: 8.2, ozone: 57, nitrogen_dioxide: 3.3,
-      alder_pollen: 0, birch_pollen: 0, grass_pollen: 12, mugwort_pollen: 0.4,
-      olive_pollen: 0, ragweed_pollen: 0.5 };
-    for (const c of Object.keys(fixes)) h[c] = [];
-    for (let j = 18; j < 22; j++) {
-      for (let x = 0; x < 24; x++) {
-        h.time.push(`2026-08-${j}T${String(x).padStart(2, "0")}:00`);
-        h.european_aqi.push(x >= 12 && x <= 17 ? 26 : 14);
-        for (const c of Object.keys(fixes)) {
-          h[c].push(c === "ragweed_pollen" && x === 15 ? 71 : fixes[c]);
-        }
-      }
-    }
+    if (!u.searchParams.get("current")) { r.fallback(); return; }
+    const las = u.searchParams.get("latitude").split(",").map(Number);
+    const los = u.searchParams.get("longitude").split(",").map(Number);
     r.fulfill({ status: 200, contentType: "application/json",
-      body: JSON.stringify({ hourly: h }) });
+      body: JSON.stringify(las.map((la, k) => ({
+        latitude: la, longitude: los[k],
+        current: { time: "2026-08-18T09:00", interval: 3600,
+          european_aqi: Math.round(10 + (la - 41) * 2.6 + los[k] * 1.1) },
+      }))) });
   });
   /* L'interface adresse nomme les points de la grille. La route vient après
      celle qui coupe data.gouv.fr, Playwright essayant la dernière posée en
@@ -305,34 +221,6 @@ for (const theme of ["light", "dark"]) {
       geometry: { coordinates: [u.searchParams.get("lon"), lat] },
       properties: { city: nom, postcode: "21140", type: "municipality" },
     }] }) });
-  });
-  /* Les scénarios, bâtis sur la charge d'essai : quarante membres écartés d'une
-     demi-largeur qui s'ouvre avec l'échéance. La route vient après celle de la
-     prévision, dont l'expression happerait ce domaine, Playwright essayant la
-     dernière posée en premier. */
-  await ctx.route(/ensemble-api\.open-meteo\.com/, r => {
-    const h = METEO.hourly;
-    const i0 = h.time.findIndex(t => t >= new Date(FIGE).toISOString().slice(0, 10));
-    const out = { time: h.time.slice(Math.max(0, i0)) };
-    const demi = L => Math.min(6, 0.5 + Math.max(0, L) / 20);
-    const col = (nom, base, ech) => {
-      const d0 = Math.max(0, i0);
-      out[nom] = out.time.map((t, k) => base[d0 + k]);
-      for (let m = 1; m < 40; m++) {
-        const f = (m % 2 ? -1 : 1) * Math.ceil(m / 2) / 20;
-        out[`${nom}_member${String(m).padStart(2, "0")}`] = out.time.map((t, k) => {
-          const L = (Date.parse(`${t}:00`) - FIGE) / 3600000;
-          return Math.round(Math.max(nom === "precipitation" ? 0 : -60,
-            base[d0 + k] + f * demi(L) * ech) * 10) / 10;
-        });
-      }
-    };
-    col("temperature_2m", h.temperature_2m, 1);
-    col("precipitation", h.precipitation, 0.2);
-    col("wind_speed_10m", h.wind_speed_10m, 2);
-    col("wind_gusts_10m", h.wind_gusts_10m, 3);
-    r.fulfill({ status: 200, contentType: "application/json",
-      body: JSON.stringify({ hourly: out }) });
   });
 
   const pg = await ctx.newPage();
@@ -449,4 +337,5 @@ for (const theme of ["light", "dark"]) {
 
 await nav.close();
 serveur.close();
+if (sortantes.length) console.log(`requêtes refusées vers le réseau réel : ${[...new Set(sortantes)].join(" ")}`);
 console.log("captures faites");
