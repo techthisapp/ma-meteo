@@ -17,6 +17,7 @@ import * as Point from "../point.js";
 import * as NappeCarte from "../nappe.js";
 import { cardinal } from "../previsions.js";
 import * as Carte from "../carte.js";
+import * as Fond from "../fond.js";
 import { NAPPES_CARTE } from "./carte-gabarit.js";
 
 /* Le zoom auquel la recherche ouvre une commune : ses alentours proches. */
@@ -77,7 +78,10 @@ export function brancherPoint(E, rendre) {
     if (moi !== jeton || !cv.isConnected) return;
     const lieu = connu || d.lieu;
     ouvert.lieu = lieu;
-    nomEl.textContent = lieu?.commune || "Ce point de la carte";
+    /* Hors de toute commune, en mer le plus souvent, le point se nomme par la
+       ville la plus proche. */
+    const proche = lieu?.commune ? null : Fond.villeProche(lat, lon);
+    nomEl.textContent = lieu?.commune || (proche ? `Près de ${proche.nom}` : "Ce point de la carte");
     const t = d.temps;
     let html = "";
     if (t && t.t !== null) {

@@ -25,6 +25,16 @@ export default async T => {
     donnees.relief && donnees.rivieres > 2000 && donnees.villes.length === 0 && donnees.riv.length === 0
     && donnees.saone > 150, JSON.stringify(donnees));
 
+  /* Un point hors de toute commune se nomme par la ville proche : au large
+     d'Arcachon, Arcachon ou La Teste-de-Buch ; au milieu de l'Atlantique,
+     rien. */
+  const proche = await pg.evaluate(async () => {
+    const F = await import("/src/fond.js");
+    return { large: F.villeProche(44.66, -1.3)?.nom || null, ocean: F.villeProche(45.5, -8) };
+  });
+  ok("un point hors de toute commune se nomme par la ville proche, et rien au large",
+    /Arcachon|La Teste|Gujan|Lège/.test(proche.large || "") && proche.ocean === null, JSON.stringify(proche));
+
   /* Les fichiers du fond sont dans la coque : sans eux, la carte hors
      connexion perdrait son fond. */
   const sw = await (await fetch(`${RACINE_HTTP}sw.js`)).text();

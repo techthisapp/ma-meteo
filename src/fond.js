@@ -297,6 +297,24 @@ export function peindreNoms(ctx, vue, l, h, style, pris = [], taire = new Set())
 let derniers = { poses: [], pris: [] };
 export const derniersNoms = () => derniers;
 
+/* La ville du fond la plus proche d'un point, à quarante kilomètres au plus :
+   la bulle d'un point touché en mer, ou hors de toute commune, se nomme
+   « Près de » elle. Les plus peuplées passent devant à distance égale, par
+   un poids qui croît avec la population. */
+export function villeProche(lat, lon, rayonKm = 40) {
+  if (!villes) return null;
+  const wx = mx(lon), wy = my(lat);
+  const kmParMonde = 40075 * Math.cos(lat * Math.PI / 180);
+  let mieux = null;
+  for (const v of villes) {
+    const d = Math.hypot(v.wx - wx, v.wy - wy) * kmParMonde;
+    if (d > rayonKm) continue;
+    const score = d / Math.log10(v.pop);
+    if (!mieux || score < mieux.score) mieux = { nom: v.nom, km: d, score };
+  }
+  return mieux && { nom: mieux.nom, km: Math.round(mieux.km) };
+}
+
 /* Les données décodées, pour les prévisions des villes, la bulle d'un point
    et les contrôles. */
 export const villesChargees = () => villes;

@@ -736,6 +736,9 @@ case "$N" in
   232) # La recherche ne centre plus la carte.
      perl -0pi -e 's/    Object\.assign\(vue, Carte\.borner\(\{ lat: c\.lat, lon: c\.lon, z: ZOOM_RECHERCHE \}\)\);\n//' src/vues/carte-point.js
      ATTENDU="la recherche centre la carte sur la commune trouvée et ouvre sa bulle" ;;
+  233) # La ville proche ignore la distance.
+     perl -0pi -e 's/    if \(d > rayonKm\) continue;\n//' src/fond.js
+     ATTENDU="un point hors de toute commune se nomme par la ville proche, et rien au large" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
