@@ -685,12 +685,12 @@ case "$N" in
   215) # Les sources s'affichent de nouveau en permanence.
      perl -0pi -e 's/<p class="ca-credit" id="caCredit" hidden>/<p class="ca-credit" id="caCredit">/' src/vues/carte-gabarit.js
      ATTENDU="la carte n.a plus de boutons de zoom, et ses sources s.ouvrent derrière un bouton" ;;
-  216) # Le panneau revient en grille de plusieurs rangées.
-     perl -0pi -e 's/  display:flex;gap:2px;overflow-x:auto;/  display:flex;flex-wrap:wrap;gap:2px;overflow-x:auto;/' styles.css
-     ATTENDU="chaque section du panneau tient sur une rangée qui défile, sans nom coupé" ;;
-  217) # Le panneau redevient opaque.
-     perl -0pi -e 's/  background:color-mix\(in srgb, var\(--surface\) 72%, transparent\);/  background:var(--surface);/' styles.css
-     ATTENDU="le panneau laisse libre la colonne des commandes et son fond est translucide" ;;
+  216) # Le panneau revient en rangées à faire défiler de côté.
+     perl -0pi -e 's/  display:grid;grid-template-columns:repeat\(auto-fill,minmax\(84px,1fr\)\);gap:2px;/  display:flex;gap:2px;overflow-x:auto;/; s/\.ca-ch\{\n  min-width:0;/.ca-ch{\n  flex:0 0 84px;/' styles.css
+     ATTENDU="toutes les tuiles du panneau se voient d.un coup, sans nom coupé" ;;
+  217) # Le panneau redevient presque opaque.
+     perl -0pi -e 's/  background:color-mix\(in srgb, var\(--surface\) 50%, transparent\);/  background:color-mix(in srgb, var(--surface) 72%, transparent);/' styles.css
+     ATTENDU="le panneau laisse libre la colonne des commandes et son fond est à moitié transparent" ;;
   218) # La légende reprend trois lignes.
      perl -0pi -e 's/  max-width:none;display:grid;grid-template-columns:auto 116px;/  max-width:none;display:block;grid-template-columns:auto 116px;/' styles.css
      ATTENDU="la légende de la nappe est basse, son titre sur la ligne de la rampe" ;;

@@ -1249,49 +1249,43 @@ button.rangee:active{background:var(--surface-2)}
 .ca-o:active{background:var(--surface-2)}
 .ca-o[aria-expanded="true"]{background:var(--accent);color:#fff}
 
-/* Le panneau des couches, version 140, demande de Jérôme du 2 octobre 2026 :
-   plus transparent, des tuiles de même largeur, la place de la colonne des
-   commandes laissée libre. Il occupe la largeur du cadre à gauche des
-   commandes. Chaque section tient sur une rangée qui défile de côté : en
-   grille, la neige, les plages et les nappes à venir ajoutaient une rangée
-   chacune, et le panneau couvrait la carte. Le fond laisse voir la carte à
-   travers un flou, assez opaque pour que les noms se lisent sur la pluie. */
+/* Le panneau des couches, version 140, demandes de Jérôme du 2 octobre 2026 :
+   plus transparent, des tuiles qui ne coupent pas leur nom, la place de la
+   colonne des commandes laissée libre, et toutes les tuiles visibles d'un
+   coup. Une première forme en rangées à faire défiler de côté a été écartée
+   à l'usage : Jérôme préfère un panneau plus haut où tout se voit. Le fond
+   laisse paraître la carte à moitié, sous un léger flou qui garde les noms
+   lisibles sur une averse. Un panneau plus haut que le cadre défile en
+   hauteur. */
 .ca-panneau{
   position:absolute;
   left:calc(var(--marge) + var(--gauche));
   right:calc(var(--marge) + var(--droite) + var(--touche) + var(--espace-xs));
   top:var(--espace-base);
   max-width:520px;margin-left:auto;
-  padding:var(--espace-xs) 0;
+  max-height:calc(100% - var(--espace-base) * 2);overflow-y:auto;overscroll-behavior:contain;
+  padding:var(--espace-xs);
   display:flex;flex-direction:column;gap:2px;
   border-radius:var(--rayon-md);
-  background:color-mix(in srgb, var(--surface) 72%, transparent);
-  -webkit-backdrop-filter:blur(14px) saturate(1.4);backdrop-filter:blur(14px) saturate(1.4);
+  background:color-mix(in srgb, var(--surface) 50%, transparent);
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
   box-shadow:0 4px 16px rgba(0,0,0,.18);
 }
 .ca-p-titre{
-  padding:var(--espace-xs) var(--espace-md) 0;
+  padding:var(--espace-xs) var(--espace-sm) 0;
   font-size:var(--texte-note);color:var(--etiquette-2);
   text-transform:uppercase;letter-spacing:.04em;
 }
 .ca-p-titre + *{margin-top:0}
-/* La rangée défile au doigt et s'arrête sur une tuile entière. La dernière
-   tuile visible s'estompe vers le bord : elle dit qu'il y en a d'autres. */
+/* Les tuiles passent à la ligne, de même largeur, la plus petite qui loge
+   « Température » sans la couper. */
 .ca-grille{
-  display:flex;gap:2px;overflow-x:auto;overscroll-behavior-x:contain;
-  scroll-snap-type:x proximity;scrollbar-width:none;
-  padding:0 var(--espace-xs);
-  -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent);
-  mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent);
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:2px;
 }
-.ca-grille::-webkit-scrollbar{display:none}
-/* La tuile prend la largeur de son nom, soixante points au moins pour le
-   doigt : à largeur égale, « Température » se coupait en fin de mot, ou
-   chaque tuile prenait la largeur du nom le plus long. */
 .ca-ch{
-  flex:0 0 auto;min-width:60px;scroll-snap-align:start;
+  min-width:0;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
-  min-height:56px;padding:var(--espace-xs) 6px;
+  min-height:54px;padding:var(--espace-xs) 2px;
   border-radius:var(--rayon-sm);color:var(--etiquette);
   font-size:var(--texte-note);text-align:center;line-height:1.1;
 }

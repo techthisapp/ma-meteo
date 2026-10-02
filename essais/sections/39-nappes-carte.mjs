@@ -41,8 +41,12 @@ export default async T => {
     if (p.hidden) { document.getElementById("caCouches").click(); await dodo(200); }
     const cadre = document.querySelector(".ca-cadre").getBoundingClientRect();
     const pan = p.getBoundingClientRect();
+    const toutesVues = [...p.querySelectorAll(".ca-ch")].every(b => {
+      const r = b.getBoundingClientRect();
+      return r.left >= pan.left - 1 && r.right <= pan.right + 1 && r.top >= pan.top - 1 && r.bottom <= pan.bottom + 1;
+    }) && p.scrollHeight <= p.clientHeight + 1;
     const rangees = [...p.querySelectorAll(".ca-grille")].map(g => ({
-      defile: getComputedStyle(g).overflowX === "auto" && g.scrollWidth > g.clientWidth,
+      defile: g.scrollWidth > g.clientWidth + 1,
       tops: new Set([...g.querySelectorAll(".ca-ch")].map(b => Math.round(b.getBoundingClientRect().top))).size }));
     const outils = document.querySelector(".ca-outils").getBoundingClientRect();
     const fond = getComputedStyle(p).backgroundColor;
@@ -62,30 +66,30 @@ export default async T => {
     await dodo(200);
     return { hauteurCadre: cadre.height, hauteur: pan.height, gauche: pan.left,
       droite: pan.right, largeurEcran: window.innerWidth, tuiles: ch, rangees,
-      outilsGauche: outils.left, fond };
+      outilsGauche: outils.left, fond, toutesVues };
   });
 
-  /* Le panneau ouvert doit laisser à la carte la plus grande part du cadre :
-     c'est ce que la liste ne faisait plus, à 350 points sur 742. En tuiles, trois
-     nappes par rangée, il en prend 301 avec neuf entrées et quatre rangées, et
-     gagne 62 points par rangée ajoutée. Le seuil est posé aux deux cinquièmes,
-     ce qui laisse la place d'une rangée de plus avant d'avoir à revoir la forme. */
-  ok("le panneau ouvert laisse à la carte la plus grande part du cadre",
-    tuiles.hauteur <= tuiles.hauteurCadre * 0.42,
+  /* Le panneau ouvert devait laisser à la carte la plus grande part du cadre,
+     seuil aux deux cinquièmes. Jérôme a levé cette règle le 2 octobre 2026 :
+     un panneau plus haut où toutes les tuiles se voient vaut mieux qu'une
+     rangée à faire défiler. Il doit seulement tenir dans le cadre. */
+  ok("le panneau ouvert tient dans le cadre de la carte",
+    tuiles.hauteur > 0 && tuiles.hauteur <= tuiles.hauteurCadre - 16,
     `${Math.round(tuiles.hauteur)} sur ${Math.round(tuiles.hauteurCadre)}`);
 
-  /* Version 140, demande de Jérôme du 2 octobre 2026 : chaque section du
-     panneau tient sur une seule rangée qui défile de côté, ses tuiles ont la
-     au moins soixante points de large et aucun nom n'en déborde ni ne se
-     coupe au milieu d'un mot, le panneau laisse libre la
-     colonne des commandes et laisse voir la carte à travers son fond. */
-  ok("chaque section du panneau tient sur une rangée qui défile, sans nom coupé",
-    tuiles.rangees.length === 2 && tuiles.rangees.every(r => r.tops === 1) && tuiles.rangees[1].defile
+  /* Version 140, demandes de Jérôme du 2 octobre 2026 : toutes les tuiles se
+     voient sans rien faire défiler, aucun nom ne déborde ni ne se coupe au
+     milieu d'un mot, le panneau laisse libre la colonne des commandes et
+     laisse paraître la carte à travers un fond à moitié transparent. */
+  ok("toutes les tuiles du panneau se voient d'un coup, sans nom coupé",
+    tuiles.rangees.length === 2 && tuiles.rangees.every(r => !r.defile) && tuiles.toutesVues
     && tuiles.tuiles.every(t => t.largeur >= 60 && !t.deborde),
-    JSON.stringify({ rangees: tuiles.rangees, etroites: tuiles.tuiles.filter(t => t.largeur < 60).map(t => t.id),
+    JSON.stringify({ rangees: tuiles.rangees, toutesVues: tuiles.toutesVues,
+      etroites: tuiles.tuiles.filter(t => t.largeur < 60).map(t => t.id),
       deborde: tuiles.tuiles.filter(t => t.deborde).map(t => t.id) }));
-  ok("le panneau laisse libre la colonne des commandes et son fond est translucide",
-    tuiles.droite <= tuiles.outilsGauche && /[,/]\s*0?\.\d+\)$/.test(tuiles.fond),
+  const alpha = Number((/[,/]\s*(0?\.\d+)\)$/.exec(tuiles.fond) || [])[1]);
+  ok("le panneau laisse libre la colonne des commandes et son fond est à moitié transparent",
+    tuiles.droite <= tuiles.outilsGauche && alpha > 0 && alpha <= 0.6,
     `${Math.round(tuiles.droite)} contre ${Math.round(tuiles.outilsGauche)}, fond ${tuiles.fond}`);
 
   ok("chaque tuile porte son nom sous son icône",
