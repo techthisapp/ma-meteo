@@ -700,10 +700,13 @@ export const brancherFauxServices = async (c, etat) => {
       return;
     }
     /* Les prévisions des villes, jalon 18 : la requête se reconnaît à ses
-       trente-six villes, Paris en tête. Chaque ville a deux jours d'heures, un
-       temps qui dépend de son rang, 10° la nuit et 20° à 15 h. */
-    if (u.includes("latitude=48.857%2C45.764")) {
+       heures de temps, de température et de jour, demandées ensemble nulle
+       part ailleurs ; les villes changent avec la vue depuis la version 143.
+       Chaque ville a deux jours d'heures, un temps qui dépend de son rang,
+       10° la nuit et 20° à 15 h. */
+    if (u.includes("hourly=weather_code%2Ctemperature_2m%2Cis_day")) {
       const lats = new URL(u).searchParams.get("latitude").split(",");
+      etat.appelsVilles.push(u);
       const time = ["2026-08-18", "2026-08-19"].flatMap(j => Array.from({ length: 24 }, (_, h) => `${j}T${String(h).padStart(2, "0")}:00`));
       const temp = t => { const h = Number(t.slice(11, 13)); return 10 + 10 * Math.max(0, 1 - Math.abs(h - 15) / 9); };
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(lats.map((_, i) => ({
@@ -1038,6 +1041,7 @@ export const nouvelEtat = () => ({
   appelsGrille: [],
   appelsArchive: [],
   appelsVigieau: [],
+  appelsVilles: [],
   appelsHubeau: [],
   appelsLieux: [],
   archiveMuette: false,

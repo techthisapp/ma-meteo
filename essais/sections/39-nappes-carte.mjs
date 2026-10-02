@@ -271,14 +271,14 @@ export default async T => {
     let chevauche = 0;
     for (let i = 0; i < r.length; i++) for (let j = i + 1; j < r.length; j++)
       if (r[i].left < r[j].right && r[j].left < r[i].right && r[i].top < r[j].bottom && r[j].top < r[i].bottom) chevauche++;
-    return { vus: vis.length, chevauche, paris: vis.find(e => e.title === "Paris")?.textContent || "",
+    return { vus: vis.length, chevauche, paris: vis.find(e => e.title === "Paris")?.querySelector("b")?.textContent || "",
       moment: document.querySelector('#caMoments button[aria-pressed="true"]')?.dataset.moment || "",
       selecteur: !document.getElementById("caMoments").hidden,
       mention: /Prévisions Open-Meteo/.test(document.getElementById("caCredit")?.textContent || "") };
   });
   await pgNap.locator('#caMoments button[data-moment="demain"]').evaluate(b => b.click());
   await pgNap.waitForTimeout(300);
-  const previsDemain = await pgNap.evaluate(() => [...document.querySelectorAll(".ca-pv:not([hidden])")].find(e => e.title === "Paris")?.textContent || "");
+  const previsDemain = await pgNap.evaluate(() => [...document.querySelectorAll(".ca-pv:not([hidden])")].find(e => e.title === "Paris")?.querySelector("b")?.textContent || "");
   await pgNap.locator("#caPrevi").evaluate(b => b.click());
   await pgNap.waitForTimeout(300);
   const previsEteint = await pgNap.evaluate(() => ({ pv: document.querySelectorAll(".ca-pv").length, selecteur: !document.getElementById("caMoments").hidden }));

@@ -54,7 +54,8 @@ const REGLAGES = { commune: "Fain-lès-Moutiers", codePostal: "21500",
   ...(process.env.CIEL ? { ciel: process.env.CIEL } : {}),
   ...(process.env.VENT ? { ventcarte: true } : {}),
   /* Une carte nue, pour regarder le fond : ni pluie, ni vigilance, ni foudre. */
-  ...(process.env.NUE ? { pluiecarte: false, vigicarte: false, foudrecarte: false } : {}) };
+  ...(process.env.NUE ? { pluiecarte: false, vigicarte: false, foudrecarte: false } : {}),
+  ...(process.env.PREVI ? { previcarte: true } : {}) };
 
 /* Une tuile de pluie fabriquée. La nappe est une somme d'ondes prises en
    coordonnées de monde : elle se raccorde donc d'une tuile à l'autre, et

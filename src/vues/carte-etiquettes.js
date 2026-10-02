@@ -12,11 +12,15 @@ import * as Plage from "../plage.js";
 import * as Eau from "../eau.js";
 import * as Villes from "../villes.js";
 import * as Carte from "../carte.js";
+import * as Fond from "../fond.js";
 
 export function brancherEtiquettes(E) {
   const { bloc, cv, vue } = E;
   const zonePrev = bloc.querySelector("#caPrevs"), momentsEl = bloc.querySelector("#caMoments");
-  let villesLues = null, merLue = null, neigeLue = null;
+  /* Les villes qui portent une prévision, choisies dans la vue à chaque arrêt
+     de la carte, et leurs prévisions dans le même ordre. */
+  let villesChoisies = [], villesLues = null, merLue = null, neigeLue = null;
+  let previMinuteur = null, previCle = "";
   /* Les cours d'eau : à partir d'un zoom de l'ordre du département, la zone
      visible élargie d'un tiers, lue une fois la carte immobile, réutilisée
      tant qu'on y reste pendant dix minutes. */
@@ -48,6 +52,7 @@ export function brancherEtiquettes(E) {
       }
     });
     if (E.rivAllume) planRivieres();
+    if (E.previAllume) planPrevis();
     /* Les étiquettes visibles, en texte pour VoiceOver : la couche dessinée
        reste masquée aux lecteurs d'écran. Audit, constat 4.9. */
     const liste = bloc.querySelector("#caListe");
@@ -72,11 +77,15 @@ export function brancherEtiquettes(E) {
     momentsEl.hidden = !E.previAllume;
     momentsEl.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.moment === momentPrev ? "true" : "false"));
     const jour = cleHeure().slice(0, 10);
-    const previs = E.previAllume && villesLues ? Villes.VILLES.map((v, k) => {
+    /* Une étiquette porte le nom de sa ville sous le temps, depuis la
+       version 143 : les villes changent avec la vue, et une icône sans nom ne
+       disait plus de quel lieu elle parlait. */
+    const previs = E.previAllume && villesLues ? villesChoisies.map((v, k) => {
       const m = Villes.tempsMoment(villesLues[k], momentPrev, jour);
       if (!m || m.code === null || m.t === null) return "";
       const t = momentPrev === "demain" ? `${m.min}° ${m.max}°` : `${m.t}°`;
-      return `<span class="ca-pv" data-lat="${v[1]}" data-lon="${v[2]}" title="${esc(v[0])}">${icoTemps(icoCiel(m.code, m.jour), "")}<b>${t}</b></span>`;
+      return `<span class="ca-pv ca-pv-ville" data-lat="${v[1]}" data-lon="${v[2]}" data-ville="${esc(v[0])}" title="${esc(v[0])}">`
+        + `<span class="ca-pv-l">${icoTemps(icoCiel(m.code, m.jour), "")}<b>${t}</b></span><small>${esc(v[0])}</small></span>`;
     }).join("") : "";
     const neiges = E.neigeAllume && neigeLue ? neigeLue.filter(s => s.sol > 0).map(s => `<span class="ca-pv ca-pv-neige" data-lat="${s.lat}" `
       + `data-lon="${s.lon}" title="${esc(s.nom)}">${ico("neige", "")}<b>${s.sol} cm</b></span>`).join("") : "";
@@ -87,18 +96,47 @@ export function brancherEtiquettes(E) {
       + (r.ecart >= 20 ? `<span class="ca-t ca-t-haut" aria-label="en hausse"></span>` : r.ecart <= -20 ? `<span class="ca-t ca-t-bas" aria-label="en baisse"></span>` : "")
       + `</span>`).join("") : "";
     zonePrev.innerHTML = neiges + mers + rivs + previs;
-    E.placer();
+    /* La toile se redessine, et pas seulement les étiquettes : les noms du
+       fond évitent les étiquettes et taisent les villes qui en portent une. */
+    E.revoir ? E.revoir() : E.placer();
   };
   E.poserPrevis = poserPrevis;
-  const lireVilles = () => Villes.lireVilles().then(l => { if (!cv.isConnected) return; villesLues = l; poserPrevis(); })
-    .catch(() => { if (cv.isConnected) E.dire("Les prévisions ont besoin du réseau."); });
+  /* Le choix des villes de la vue : parmi les communes du fond, ou les
+     trente-six villes de départ tant que le fond n'est pas lu. Les places
+     prises sont celles des repères des lieux et des commandes ; les autres
+     étiquettes, plages et neige, s'effacent ensuite d'elles-mêmes. */
+  const choisir = () => {
+    const l = cv.clientWidth, h = cv.clientHeight;
+    const fond = Fond.villesChargees();
+    const liste = fond || Villes.VILLES.map(([nom, lat, lon]) => ({ nom, lat, lon, pop: Infinity }));
+    const ecran = v => (v.wx !== undefined
+      ? { x: (v.wx - Carte.mx(vue.lon)) * Carte.echelle(vue.z) + l / 2, y: (v.wy - Carte.my(vue.lat)) * Carte.echelle(vue.z) + h / 2 }
+      : Carte.surEcran(vue, v.lat, v.lon, l, h));
+    return Villes.choisirVilles(liste, ecran, l, h, fond ? vue.z : 0, E.prisEcran ? E.prisEcran(l, h, { etiquettes: false }) : [])
+      .map(v => [v.nom, v.lat ?? +Carte.latDe(v.wy).toFixed(3), v.lon ?? +Carte.lonDe(v.wx).toFixed(3)]);
+  };
+  const lireVilles = () => {
+    const choix = choisir();
+    const cle = choix.map(v => v[0]).join("|");
+    if (cle === previCle && villesLues) return Promise.resolve();
+    previCle = cle;
+    return Villes.lireVillesDe(choix).then(l => {
+      if (!cv.isConnected || previCle !== cle) return;
+      villesChoisies = choix; villesLues = l; poserPrevis();
+    }).catch(() => { previCle = ""; if (cv.isConnected) E.dire("Les prévisions ont besoin du réseau."); });
+  };
+  /* Le choix se refait quand la carte s'immobilise. */
+  function planPrevis() {
+    clearTimeout(previMinuteur);
+    previMinuteur = setTimeout(() => { if (cv.isConnected && E.previAllume) lireVilles(); }, 500);
+  }
   const previB = bloc.querySelector("#caPrevi");
   previB.addEventListener("click", () => {
     E.previAllume = !E.previAllume;
     Reglages.poserPrevicarte(E.previAllume);
     previB.setAttribute("aria-checked", E.previAllume ? "true" : "false");
     E.mention();
-    if (E.previAllume && !villesLues) lireVilles();
+    if (E.previAllume) lireVilles();
     poserPrevis();
   });
   momentsEl.querySelectorAll("button").forEach(b => b.addEventListener("click", () => { momentPrev = b.dataset.moment; poserPrevis(); }));

@@ -1,8 +1,15 @@
 /* Les prévisions sur la carte, jalon 18, lot 3, décidé par Jérôme le 30
-   septembre 2026 : trente-six villes réparties sur le pays, les plus
-   importantes d'abord, avec l'icône du temps et une température pour le matin,
-   l'après-midi, le soir ou le lendemain. Une seule requête pour toutes les
-   villes, gardée une heure. */
+   septembre 2026 : des villes réparties sur la carte, les plus importantes
+   d'abord, avec l'icône du temps et une température pour le matin,
+   l'après-midi, le soir ou le lendemain.
+
+   Depuis la version 143, jalon 19, lot 3, demande de Jérôme : les villes se
+   choisissent dans la vue, parmi les communes du fond embarqué, d'autant plus
+   nombreuses et petites que le zoom est fort. Chaque prévision lue se garde
+   une heure par ville : revenir sur une vue déjà vue ne redemande rien, et une
+   vue nouvelle ne demande que les villes qui manquent, cinquante au plus par
+   requête. Les trente-six villes de départ servent tant que le fond n'est pas
+   lu. */
 
 import { recaler, chercher } from "./horloge.js";
 
@@ -22,8 +29,8 @@ export const MOMENTS = [["matin", "Matin"], ["apres", "Après-midi"], ["soir", "
 const PREVISION = "https://api.open-meteo.com/v1/forecast";
 const GARDE = 3600 * 1000;
 
-export function adresseVilles() {
-  const q = new URLSearchParams({ latitude: VILLES.map(v => v[1]).join(","), longitude: VILLES.map(v => v[2]).join(","),
+export function adresseVilles(liste = VILLES) {
+  const q = new URLSearchParams({ latitude: liste.map(v => v[1]).join(","), longitude: liste.map(v => v[2]).join(","),
     hourly: "weather_code,temperature_2m,is_day", forecast_days: "2", timezone: "Europe/Paris" });
   return `${PREVISION}?${q}`;
 }
@@ -54,13 +61,55 @@ export function tempsMoment(x, moment, aujourdhui) {
     min: moment === "demain" ? Math.round(Math.min(...temps)) : null, max: moment === "demain" ? Math.round(Math.max(...temps)) : null };
 }
 
-let lu = null;
-export async function lireVilles(fetcheur = chercher) {
-  if (lu && Date.now() - lu.t < GARDE) return lu.l;
-  const r = await fetcheur(adresseVilles());
-  if (!r.ok) throw new Error(`villes ${r.status}`);
-  const d = recaler(await r.json());
-  const l = Array.isArray(d) ? d : [d];
-  lu = { t: Date.now(), l };
-  return l;
+/* La population minimale d'une ville qui porte une prévision, selon le zoom :
+   une étiquette prend plus de place qu'un nom. */
+export function popMinPrev(z) {
+  if (z < 5.6) return 50000;
+  if (z < 6.4) return 40000;
+  if (z < 7.2) return 15000;
+  if (z < 8) return 6000;
+  if (z < 9) return 3000;
+  return 2000;
+}
+export const MAX_ETIQUETTES = 30;
+const ETIQUETTE = { w: 66, h: 36 };
+
+/* Le choix des villes d'une vue : les plus peuplées d'abord, dans le cadre,
+   chacune à distance des autres et des places déjà prises. `ecran` donne la
+   place d'une ville à l'écran ; `pris` les rectangles occupés. */
+export function choisirVilles(villes, ecran, l, h, z, pris = []) {
+  const min = popMinPrev(z);
+  const pose = [];
+  const occupe = pris.map(p => ({ x0: p.x - p.w / 2, x1: p.x + p.w / 2, y0: p.y - p.h / 2, y1: p.y + p.h / 2 }));
+  for (const v of villes) {
+    if (v.pop < min) break;
+    const p = ecran(v);
+    if (p.x < ETIQUETTE.w / 2 || p.x > l - ETIQUETTE.w / 2 || p.y < ETIQUETTE.h / 2 || p.y > h - ETIQUETTE.h / 2) continue;
+    const b = { x0: p.x - ETIQUETTE.w / 2, x1: p.x + ETIQUETTE.w / 2, y0: p.y - ETIQUETTE.h / 2, y1: p.y + ETIQUETTE.h / 2 };
+    if (occupe.some(q => b.x0 < q.x1 && b.x1 > q.x0 && b.y0 < q.y1 && b.y1 > q.y0)) continue;
+    occupe.push(b);
+    pose.push(v);
+    if (pose.length >= MAX_ETIQUETTES) break;
+  }
+  return pose;
+}
+
+/* La lecture des villes d'une liste, `[nom, lat, lon]`, rendue dans l'ordre de
+   la liste. Seules les villes sans prévision gardée partent, par paquets de
+   cinquante. */
+const garde = new Map();
+const cleV = v => `${v[1]},${v[2]}`;
+export const PAQUET = 50;
+export async function lireVillesDe(liste, fetcheur = chercher) {
+  const maintenant = Date.now();
+  const manque = liste.filter(v => { const g = garde.get(cleV(v)); return !g || maintenant - g.t >= GARDE; });
+  for (let k = 0; k < manque.length; k += PAQUET) {
+    const paquet = manque.slice(k, k + PAQUET);
+    const r = await fetcheur(adresseVilles(paquet));
+    if (!r.ok) throw new Error(`villes ${r.status}`);
+    const d = recaler(await r.json());
+    const l = Array.isArray(d) ? d : [d];
+    paquet.forEach((v, i) => garde.set(cleV(v), { t: Date.now(), x: l[i] }));
+  }
+  return liste.map(v => garde.get(cleV(v))?.x ?? null);
 }

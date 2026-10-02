@@ -129,29 +129,30 @@ export function vueCarte(ctx, rendre, majEtat) {
          document, recalculés pour la vue en cours ; une ville qui porte déjà
          une étiquette de prévision ne se nomme pas une seconde fois. */
       const zonePrev = bloc.querySelector("#caPrevs");
+      E.prisEcran = (l, h, { etiquettes = true } = {}) => {
+        const out = [];
+        boutons.forEach((b, k) => {
+          const p = Carte.surEcran(vue, lieux[k].lat, lieux[k].lon, l, h);
+          const w = 26 + (b.querySelector(".ca-r-nom")?.offsetWidth || 0);
+          const gauche = b.classList.contains("ca-r-gauche");
+          out.push({ x: gauche ? p.x + 11 - w / 2 : p.x - 11 + w / 2, y: p.y, w, h: 26 });
+        });
+        /* Les commandes posées sur la carte : boutons, légendes, échelle,
+           chronologie. Un nom passé dessous ne se lirait pas. */
+        const base = cv.getBoundingClientRect();
+        bloc.querySelectorAll(".ca-outils, .ca-legende:not([hidden]), .ca-bas, .ca-temps:not([hidden]), .ca-moments:not([hidden])").forEach(el => {
+          const b = el.getBoundingClientRect();
+          if (!b.width) return;
+          out.push({ x: b.left - base.left + b.width / 2, y: b.top - base.top + b.height / 2, w: b.width + 4, h: b.height + 4 });
+        });
+        if (etiquettes) zonePrev?.querySelectorAll(".ca-pv:not([hidden])").forEach(el => {
+          const p = Carte.surEcran(vue, Number(el.dataset.lat), Number(el.dataset.lon), l, h);
+          out.push({ x: p.x, y: p.y, w: el.offsetWidth || 48, h: el.offsetHeight || 22 });
+        });
+        return out;
+      };
       Carte.reglerFond(cv, {
-        pris: (l, h) => {
-          const out = [];
-          boutons.forEach((b, k) => {
-            const p = Carte.surEcran(vue, lieux[k].lat, lieux[k].lon, l, h);
-            const w = 26 + (b.querySelector(".ca-r-nom")?.offsetWidth || 0);
-            const gauche = b.classList.contains("ca-r-gauche");
-            out.push({ x: gauche ? p.x + 11 - w / 2 : p.x - 11 + w / 2, y: p.y, w, h: 26 });
-          });
-          /* Les commandes posées sur la carte : boutons, légendes, échelle,
-             chronologie. Un nom passé dessous ne se lirait pas. */
-          const base = cv.getBoundingClientRect();
-          bloc.querySelectorAll(".ca-outils, .ca-legende:not([hidden]), .ca-bas, .ca-temps:not([hidden]), .ca-moments:not([hidden])").forEach(el => {
-            const b = el.getBoundingClientRect();
-            if (!b.width) return;
-            out.push({ x: b.left - base.left + b.width / 2, y: b.top - base.top + b.height / 2, w: b.width + 4, h: b.height + 4 });
-          });
-          zonePrev?.querySelectorAll(".ca-pv:not([hidden])").forEach(el => {
-            const p = Carte.surEcran(vue, Number(el.dataset.lat), Number(el.dataset.lon), l, h);
-            out.push({ x: p.x, y: p.y, w: el.offsetWidth || 48, h: el.offsetHeight || 22 });
-          });
-          return out;
-        },
+        pris: (l, h) => E.prisEcran(l, h),
         taire: () => new Set([...(zonePrev?.querySelectorAll(".ca-pv:not([hidden])") || [])]
           .map(el => el.dataset.ville).filter(Boolean)),
         noms: poses => { E.nomsPoses = poses; },

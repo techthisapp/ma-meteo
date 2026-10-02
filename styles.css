@@ -2391,6 +2391,12 @@ button.rangee:active{background:var(--surface-2)}
 .ca-moments button{font:inherit;font-size:12px;border:0;background:transparent;color:var(--etiquette-2);padding:5px 9px;border-radius:var(--rayon-plein);min-height:30px}
 .ca-moments button[aria-pressed="true"]{background:var(--accent);color:#fff;font-weight:var(--graisse-semibold)}
 .ca-pv i{font-style:normal;font-weight:400;color:var(--etiquette-2);margin-left:3px}
+/* L'étiquette d'une ville porte son nom sous le temps, version 143 : les
+   villes changent avec la vue et le zoom. */
+.ca-pv-ville{flex-direction:column;gap:0;padding:2px 7px 3px;border-radius:var(--rayon-md);line-height:1.1}
+.ca-pv-l{display:flex;align-items:center;gap:2px}
+.ca-pv-ville small{font-size:10px;font-weight:var(--graisse-medium);color:var(--etiquette-2);
+  max-width:84px;overflow:hidden;text-overflow:ellipsis}
 .ca-pv-neige svg,.ca-pv-mer svg{color:var(--accent)}
 /* La tendance d'un cours d'eau : un petit triangle, vers le haut quand l'eau a
    monté de deux centimètres au moins en six heures, vers le bas quand elle a

@@ -712,6 +712,15 @@ case "$N" in
   224) # Les noms n'évitent plus les repères ni les commandes.
      perl -0pi -e 's/  const occupe = pris\.map\(/  const occupe = [].map(/' src/fond.js
      ATTENDU="sur le pays entier, seules les grandes villes sont nommées, sans chevauchement" ;;
+  225) # Les petites villes portent une prévision sur le pays entier.
+     perl -0pi -e 's/  if \(z < 5\.6\) return 50000;/  if (z < 5.6) return 2000;/' src/villes.js
+     ATTENDU="sur le pays entier, les grandes villes portent leur prévision et leur nom, sans chevauchement" ;;
+  226) # Les prévisions des villes ne se gardent plus.
+     perl -0pi -e 's/return !g \|\| maintenant - g\.t >= GARDE; \}\);/return true; });/' src/villes.js
+     ATTENDU="une ville n.est demandée qu.une fois, et une requête porte cinquante villes au plus" ;;
+  227) # L'étiquette perd le nom de sa ville.
+     perl -0pi -e 's/<small>\$\{esc\(v\[0\]\)\}<\/small>//' src/vues/carte-etiquettes.js
+     ATTENDU="sur le pays entier, les grandes villes portent leur prévision et leur nom, sans chevauchement" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

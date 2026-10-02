@@ -38,7 +38,9 @@ export default async T => {
   /* Le verre est la matière de la couche navigation. La réponse du matin en est la
      seule exception, arbitrée : posée sur le ciel, elle emploie la matière que la
      barre de tête emploie déjà. L'exception est nommée ici, une exception qui
-     n'est pas écrite n'en est plus une. */
+     n'est pas écrite n'en est plus une. Depuis la version 140, les commandes
+     posées sur la carte, panneau des couches, légendes et bouton des sources,
+     sont de la couche navigation de la carte et prennent le verre. */
   ok("le verre est réservé à la couche navigation et à la réponse du matin",
     await pg.evaluate(() => {
       const flous = [...document.querySelectorAll("body *")].filter(e => {
@@ -46,7 +48,7 @@ export default async T => {
         const f = s.backdropFilter || s.webkitBackdropFilter || "none";
         return f !== "none" && f !== "";
       });
-      return flous.every(e => e.closest(".nav, .onglets") || e.matches(".pt-rep"));
+      return flous.every(e => e.closest(".nav, .onglets, .ca-panneau, .ca-legende, .ca-src") || e.matches(".pt-rep"));
     }));
 
   const horsEchelle = await pg.evaluate(() => {
