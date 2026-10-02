@@ -782,6 +782,15 @@ export default async T => {
     JSON.stringify(prochesDit));
   ok("sans réponse d'OSRM, une estimation à vol d'oiseau prend le relais, marquée comme telle",
     prochesDit.repli === "A:true B:true", prochesDit.repli);
+  /* Une seule requête de route dans l'application : la neige passe par
+     src/trajets.js, comme les plages, depuis le 2 octobre 2026. Elle gardait
+     jusque-là sa propre copie de la requête, point connu de CLAUDE.md. */
+  const osrmDit = await pg.evaluate(async () => {
+    const noms = ["neige", "plage", "trajets", "eau", "villes"];
+    const textes = await Promise.all(noms.map(n => fetch(`/src/${n}.js`).then(r => r.text())));
+    return noms.filter((n, k) => textes[k].includes("router.project-osrm.org")).join(" ");
+  });
+  ok("seul le module des trajets interroge OSRM", osrmDit === "trajets", osrmDit);
   /* Jalon 16, lot 3 : la neige d'une station, lue à deux altitudes. Le résumé
      d'un point, l'adresse de la requête, la chute notable, la phrase et la
      saison se vérifient sur des données connues. */
@@ -867,7 +876,10 @@ export default async T => {
     const { PLAGES } = await import("/src/plages.js");
     const fr = PLAGES.filter(p => p[1] === "FR");
     return { n: PLAGES.length, fr: fr.length,
-      formes: PLAGES.every(p => p.length === 8 && typeof p[0] === "string" && p[2] > 41 && p[2] < 51.6 && p[3] > -5.5 && p[3] < 10),
+      /* Neuf champs depuis le 2 octobre 2026 : le dernier est la direction de la
+         mer, un angle ou null. */
+      formes: PLAGES.every(p => p.length === 9 && typeof p[0] === "string" && p[2] > 41 && p[2] < 51.6 && p[3] > -5.5 && p[3] < 10
+        && (p[8] === null || (Number.isInteger(p[8]) && p[8] >= 0 && p[8] < 360))),
       /* Le classement officiel de la qualité de l'eau et la fiche du ministère. */
       classees: fr.filter(p => [0, 1, 2, 3, 4].includes(p[6])).length / fr.length,
       fiches: fr.filter(p => /^[0-9A-Za-z]+:[0-9AB]{2,3}$/.test(p[7] || "")).length / fr.length,
@@ -931,7 +943,7 @@ export default async T => {
     const g = R.lire();
     const mer = { eau: 22.4, vagues: 1.2, periode: 9, marees: [{ type: "basse", heure: "12 h 52", hauteur: -2.1 }, { type: "haute", heure: "19 h 06", hauteur: 1.3 }] };
     P.poserPlage({ cle: `${g.lat.toFixed(3)},${g.lon.toFixed(3)}`, proches: [1], heure: "2026-08-18T09:00", resumes: [
-      { nom: "Plage A", pays: "FR", minutes: 12, estime: false, commune: "Biarritz", departement: "64", qualite: 1, fiche: "001130:064", mer,
+      { nom: "Plage A", pays: "FR", minutes: 12, estime: false, commune: "Biarritz", departement: "64", qualite: 1, fiche: "001130:064", mer, versMer: 300,
         air: { air: 24, max: 27, vent: 10, direction: 270, uv: 6 }, creneau: { jour: "aujourd'hui", de: 13, a: 18 } },
       { nom: "Plage B", pays: "FR", minutes: 20, estime: false, commune: null, departement: "64", qualite: 4, fiche: null, mer,
         air: { air: 24, max: 27, vent: 10, direction: 270, uv: 6 } }] });
@@ -949,7 +961,7 @@ export default async T => {
     const c = [...document.querySelectorAll("#feuille-corps .pl-pl")];
     const dd = (i, t) => [...(c[i]?.querySelectorAll("dt") || [])].find(x => x.textContent === t)?.nextElementSibling?.textContent || "";
     return { cartes: c.length, marees: dd(0, "Marées"), marnage: dd(0, "Marnage"), qA: dd(0, "Qualité de l'eau"), qB: dd(1, "Qualité de l'eau"),
-      lieuB: c[1]?.querySelector(".pl-lieu")?.textContent || "", ventA: dd(0, "Vent"), bainA: dd(0, "Baignade"),
+      lieuB: c[1]?.querySelector(".pl-lieu")?.textContent || "", ventA: dd(0, "Vent"), ventB: dd(1, "Vent"), bainA: dd(0, "Baignade"),
       fiche: c[0]?.querySelector("a.pl-fiche")?.getAttribute("href") || "", ficheB: !!c[1]?.querySelector("a.pl-fiche") };
   });
   if (portePlageVue) { await pg.evaluate(() => history.back()); await pg.waitForTimeout(400); }
@@ -962,7 +974,8 @@ export default async T => {
     plageFeuille.cartes === 2 && plageFeuille.marees === "Basse mer 12 h 52, pleine mer 19 h 06" && plageFeuille.marnage === "3,4 m"
     && plageFeuille.qA === "excellente, saison 2024" && plageFeuille.qB === "insuffisante, saison 2024"
     && plageFeuille.lieuB === "Pyrénées-Atlantiques"
-    && plageFeuille.ventA === "10 km/h, de l'ouest" && plageFeuille.bainA === "conseillée de 13 h à 18 h"
+    && plageFeuille.ventA === "10 km/h, de l'ouest, venu de la mer" && plageFeuille.ventB === "10 km/h, de l'ouest"
+    && plageFeuille.bainA === "conseillée de 13 h à 18 h"
     && plageFeuille.fiche === "https://baignades.sante.gouv.fr/baignades/profil.do?idSite=001130&codeDept=064" && !plageFeuille.ficheB,
     JSON.stringify(plageFeuille));
   /* Jalon 15, lot 4 : les créneaux de baignade, sur une journée d'essai. L'air
@@ -987,6 +1000,30 @@ export default async T => {
     bainDit.c1 === "Baignade conseillée de 11 h à 14 h." && bainDit.c2 === "Pas de bon créneau de baignade aujourd'hui ni demain : vagues de 2,3 m.",
     JSON.stringify(bainDit));
   ok("le vent de la plage se dit par sa direction", bainDit.vents === "de l'ouest | du nord-est | du sud", bainDit.vents);
+  /* Le vent rapporté au rivage, quand la plage porte la direction de la mer,
+     point connu de CLAUDE.md repris le 2 octobre 2026. La mer est à l'ouest :
+     un vent d'ouest vient d'elle, un vent d'est vient de la terre et pousse
+     vers le large, un vent du nord longe le rivage. Puis les données : des
+     plages dont l'orientation est connue, et Hendaye, trop près de l'Espagne
+     pour être orientée. */
+  const rivageDit = await pg.evaluate(async () => {
+    const P = await import("/src/plage.js");
+    const L = await P.listePlages();
+    const versMer = nom => L.find(p => p[0] === nom)?.[8];
+    return { vents: [P.ventDe(250, 270), P.ventDe(90, 270), P.ventDe(0, 270), P.ventDe(0, null)].join(" | "),
+      biarritz: versMer("Grande Plage Nord (Palais)"), palavas: versMer("Carnon Palavas - la Roquille"),
+      sables: versMer("Grande Plage Horloge"), etretat: versMer("Étretat-Plage"), hendaye: L.find(p => p[0] === "Casino" && p[5] === "64")?.[8],
+      lue: P.candidates({ lat: 43.48, lon: -1.56 }, L).find(p => p.nom === "Grande Plage Nord (Palais)")?.versMer,
+      part: L.filter(p => p[1] === "FR" && Number.isFinite(p[8])).length / L.filter(p => p[1] === "FR").length };
+  });
+  const pres = (v, attendu) => Number.isFinite(v) && Math.abs(((v - attendu + 540) % 360) - 180) <= 25;
+  ok("le vent de la plage se rapporte au rivage : de mer, de terre ou le long du rivage",
+    rivageDit.vents === "de l'ouest, venu de la mer | de l'est, venu de la terre : il pousse vers le large | du nord, le long du rivage | du nord",
+    rivageDit.vents);
+  ok("la direction de la mer des plages connues est la bonne, Hendaye n'en a pas, et la plage lue la garde",
+    pres(rivageDit.biarritz, 300) && rivageDit.lue === rivageDit.biarritz && pres(rivageDit.palavas, 160) && pres(rivageDit.sables, 205) && pres(rivageDit.etretat, 320)
+    && rivageDit.hendaye === null && rivageDit.part > 0.6,
+    JSON.stringify(rivageDit));
   /* Jalon 18, lot 1 : les niveaux de VigiEau se rangent de la vigilance à la
      crise ; un département sans arrêté ne paraît pas. */
   const rangsEau = await pg.evaluate(async () => {

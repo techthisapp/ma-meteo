@@ -356,7 +356,7 @@ export function vignette(cv) {
   x.drawImage(disque(angleI, angle, eclairee), 0, 0, cote, cote);
 
   /* Contraste porté, sur la vignette seulement. La lumière cendrée est juste
-     à l'échelle du bandeau, où le disque fait deux cents points ; à la taille
+     à l'échelle du bandeau, où le disque fait près de cent points ; à la taille
      d'un mot elle noie le croissant dans un rond gris et la forme se perd. La
      courbe écrase la part cendrée vers le noir et garde le modelé de la part
      éclairée. Elle porte sur quelques centaines de pixels, non sur la carte. */

@@ -452,9 +452,10 @@ function ecranAccueil() {
        aujourd'hui », et celui du bloc. Ce dernier dit le jour une fois pour
        toutes : les tuiles se contentent de « au plus » et « de risque ».
 
-       Le ressenti ne s'affiche que s'il s'écarte de la température : « Ressenti
-       32° » à côté d'un maximum de 32° occupe un quart de la carte sans rien
-       apprendre. La probabilité de pluie prend alors sa place, plus utile.
+       Le ressenti ne s'affichait que s'il s'écartait de la température, la
+       probabilité de pluie prenant sinon sa place. Depuis les tuiles du
+       jalon 11, chaque paramètre a la sienne, et celle du ressenti paraît
+       toujours.
 
        L'indice UV s'écrit sans décimale : « 0,0 » donne une fausse impression de
        mesure fine.
@@ -471,9 +472,6 @@ function ecranAccueil() {
 
     /* Chaque mesure désigne la voie du ruban qui la déplie : un chiffre de
        l'accueil est une porte vers ses vingt-quatre heures. */
-    /* Deux degrés d'écart, non un seul : le ressenti se compare ici à un maximum
-       de journée, non à la valeur de l'heure, et un degré de différence entre
-       deux maximums ne vaut pas la place d'une tuile. */
 
     const chevronM = ico("chevron_bas", "bd-chev");
     /* Le nombre à la taille du titre, l'unité plus petite : sur une ligne de

@@ -16,11 +16,14 @@ export const RAYON_KM = 100;
 export const MINUTES_MAX = 60;
 export const KM_PAR_HEURE_ESTIMEE = 55;
 const CANDIDATES_MAX = 80;
-const CACHE = "mameteo.plage.proches.v1";
+/* La version 2, du 2 octobre 2026, porte la direction de la mer de chaque
+   plage ; une liste gardée par la version 1 n'en a pas et se relit. */
+const CACHE = "mameteo.plage.proches.v2";
+const CACHE_ANCIEN = "mameteo.plage.proches.v1";
 const GARDE = 30 * 24 * 3600 * 1000;
 
 const dePlage = p => ({ nom: p[0], pays: p[1], lat: p[2], lon: p[3], commune: p[4] ?? null, departement: p[5] ?? null,
-  qualite: p[6] ?? null, fiche: p[7] ?? null });
+  qualite: p[6] ?? null, fiche: p[7] ?? null, versMer: p[8] ?? null });
 
 /* Le classement officiel de la qualité de l'eau, et la fiche du ministère de
    la Santé, demandés par Jérôme le 30 septembre 2026. Le drapeau de baignade,
@@ -72,6 +75,7 @@ export async function proches(g, liste = PLAGES, fetcheur = chercher) {
 
 export async function prochesGardees(g, fetcheur = chercher) {
   const cle = `${g.lat.toFixed(3)},${g.lon.toFixed(3)}`;
+  try { localStorage.removeItem(CACHE_ANCIEN); } catch { /* cache indisponible */ }
   try {
     const e = JSON.parse(localStorage.getItem(CACHE) || "{}")[cle];
     if (e && Date.now() - e.t < GARDE && !e.estime) return e.l;
@@ -161,12 +165,24 @@ export function resumeAir(x, heure) {
 }
 
 /* La direction d'où vient le vent, au niveau de la plage, demandée par Jérôme
-   le 30 septembre 2026 : sans rapport à l'orientation du rivage, que la source
-   ne donne pas. */
-export function ventDe(d) {
+   le 30 septembre 2026. Depuis le 2 octobre 2026, elle se rapporte au rivage
+   quand la liste porte la direction de la mer, calculée par
+   outils/orienter-plages.mjs : un vent venu de la mer à soixante degrés près,
+   un vent venu de la terre, qui pousse vers le large ce qui flotte, ou un
+   vent le long du rivage. Sans direction de la mer, la phrase s'en tient au
+   point cardinal. */
+export function rapportRivage(d, mer) {
+  if (!Number.isFinite(d) || !Number.isFinite(mer)) return null;
+  const ecart = Math.abs(((d - mer + 540) % 360) - 180);
+  return ecart <= 60 ? "mer" : ecart >= 120 ? "terre" : "rivage";
+}
+export function ventDe(d, mer = null) {
   if (!Number.isFinite(d)) return "";
   const c = cardinal(d);
-  return /^(est|ouest)$/.test(c) ? `de l'${c}` : `du ${c}`;
+  const dit = /^(est|ouest)$/.test(c) ? `de l'${c}` : `du ${c}`;
+  const r = rapportRivage(d, mer);
+  return dit + (r === "mer" ? ", venu de la mer" : r === "terre" ? ", venu de la terre : il pousse vers le large"
+    : r === "rivage" ? ", le long du rivage" : "");
 }
 
 /* Les bons créneaux de baignade, jalon 15, lot 4. Heure par heure, de 9 h à

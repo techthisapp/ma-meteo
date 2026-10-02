@@ -22,7 +22,7 @@ application.
 
 ## État au 2 octobre 2026
 
-Version 135. Le projet est passé de claude.ai à Claude Code le 1er octobre
+Version 136. Le projet est passé de claude.ai à Claude Code le 1er octobre
 2026, à la version 118. Un audit complet de la version 120 a été mené le même
 jour, `docs/audit-2026-10-01.md`, avec le suivi de chaque lot en fin de
 document.
@@ -43,9 +43,10 @@ relevés seront réunis. Le jalon 5, la 3D, est écarté pour le moment.
 
 ## Points ouverts
 
-1. Les points connus de `CLAUDE.md` : la requête OSRM propre à la neige, le
-   vent des plages sans rapport au rivage, les sections anciennes du
-   `LISEZ-MOI.md`.
+1. Les points connus de `CLAUDE.md` : l'orientation des plages, connue pour
+   1322 plages françaises sur 1839 ; les heures à l'heure de Paris, l'outre-mer
+   n'étant pas visé. La requête de la neige, le vent des plages et le
+   `LISEZ-MOI.md` sont repris en version 136.
 2. Les constats de l'audit restés au stade « relevé », hors des lots : voir le
    tableau de `docs/audit-2026-10-01.md`, par exemple la règle du seuil de
    pluie écrite à plusieurs endroits, constat 6.8.

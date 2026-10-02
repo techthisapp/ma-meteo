@@ -2,8 +2,8 @@
    d'itinéraire OSRM : une seule requête pour toute une liste de destinations.
    Le serveur public est une démonstration à la charge limitée ; les modules
    qui l'emploient gardent ses réponses et ne l'interrogent qu'une fois par
-   commune. Écrit pour les plages, jalon 15 ; la neige, jalon 16, a sa propre
-   version, antérieure, à raccorder ici. */
+   commune. Écrit pour les plages, jalon 15 ; la neige, jalon 16, s'en sert
+   aussi depuis le 2 octobre 2026. */
 
 import { chercher } from "./horloge.js";
 

@@ -38,10 +38,12 @@ le bouton de fermeture, le voile, la touche Échap ou un glissement vers le bas.
 
 ## Changement de commune
 
-La commune vit dans la barre de tête, à la même place sur les quatre onglets. Un
-appui ouvre la liste des communes suivies, un second bascule. Aucun écran ne
-répète la commune : le grand titre nomme l'écran, ou porte le jour sur
-l'accueil.
+La commune vit dans la barre de tête, à la même place sur les quatre onglets,
+et son département s'écrit dessous en petit : il lève l'ambiguïté des
+homonymes. Un appui ouvre la liste des communes suivies, un second bascule.
+Aucun écran ne répète la commune : le grand titre nomme l'écran, ou porte le
+jour sur l'accueil. Sur une page de détail, le bouton de retour prend la place
+de la commune dans la barre de tête.
 
 En mode position, la barre de tête porte une cible devant le nom : le nom dit
 où l'appareil se trouve, la cible dit qu'il suivra.
@@ -51,13 +53,16 @@ où l'appareil se trouve, la cible dit qu'il suivra.
 Les symboles du ciel se dessinent en deux groupes : la masse prend le gris du
 ciel, l'accent prend sa couleur propre, jaune pour le soleil, bleu pour la
 pluie, orange pour l'orage. Ils sont réservés aux endroits qui décrivent le
-ciel : le bandeau, la liste « À venir », la liste des communes. Ailleurs les
-symboles restent monochromes, un symbole coloré au milieu d'un texte détournant
-le regard.
+ciel : la bande horaire, l'écran « À venir », la voie « Ciel » du ruban, la
+table des heures, la table des moments de l'accueil et les étiquettes de la
+carte. Ailleurs les symboles restent monochromes, un symbole coloré au milieu
+d'un texte détournant le regard.
 
-Le même symbole sert partout où le ciel est décrit : bandeau, table de la
-semaine, liste des communes, voie « Ciel » du ruban, table des heures et
-moments de l'accueil.
+La liste des lieux garde le même dessin en une seule couleur : chaque rangée
+porte le ciel peint de son lieu, et un symbole bicolore posé dessus ne se
+détacherait plus. Le ciel de l'accueil ne porte plus de symbole : le ciel peint
+dit déjà le temps qu'il fait, et un petit nuage dessiné devant lui le dirait
+une seconde fois.
 
 ## Couleur d'information
 
@@ -65,12 +70,18 @@ Une valeur ne prend une couleur qu'au delà d'un seuil. L'indice ultraviolet
 passe à l'ambre à trois, à l'orange à sept, au rouge à huit. Le vent se colore
 au delà de vingt-cinq kilomètres par heure de moyenne ou quarante en rafales.
 L'humidité se colore à quatre-vingt-dix pour cent, le ressenti au gel et à la
-chaleur, la probabilité de pluie à soixante pour cent. Les bornes du jour se
-colorent au gel et à la chaleur.
+chaleur, la probabilité de pluie à soixante pour cent, la lame de pluie du jour
+à cinq millimètres. La tuile de l'eau prend l'ambre en alerte, l'orange en
+alerte renforcée, le rouge en crise. Les bornes du jour restent sans couleur :
+posées sur le ciel peint, un chiffre orange sur un ciel de couchant ne se lirait
+plus.
 
-Dans le ruban, la pluie et l'indice ultraviolet portent la couleur de leur
-sujet, l'humidité une teinte froide. La température, le vent et la pression
-restent à l'encre du texte : une couleur y dirait quelque chose de faux.
+Dans le ruban, la pluie porte la couleur de son sujet, l'humidité une teinte
+froide. La température et l'indice ultraviolet suivent leur rampe, les deux
+seules échelles qui se lisent d'un coup d'œil : la courbe de température passe
+du bleu froid au rouge chaud heure par heure, les barres de l'indice vont du
+mauve pâle au magenta franc. Le vent et la pression restent à l'encre du texte :
+une couleur y dirait quelque chose de faux.
 
 Le symbole d'un conseil prend la couleur de son sujet, la même que celle du
 ciel correspondant.
@@ -80,18 +91,57 @@ double toujours.
 
 ## De l'accueil au détail
 
+Les chiffres de l'accueil mènent à leurs vingt-quatre heures. Chacun ouvre la
+page « Heure par heure » dans l'onglet où l'on se trouve, la voie du ruban
+correspondante déjà dépliée, et la page se place en haut. Le bouton de retour
+prend la place de la commune dans la barre de tête et porte le nom de l'onglet
+d'où l'on vient.
+
+| Point de départ | Destination |
+|---|---|
+| Grand chiffre, tuile Ressenti | Voie Température |
+| Libellé du ciel, tuile Ciel | Voie Ciel |
+| Tuile Pluie | Voie Pluie |
+| Tuile Vent | Voie Vent |
+| Tuile Humidité | Voie Humidité |
+| Tuile Indice UV | Voie Indice UV |
+| Tuile Pression | Voie Pression |
+| Une heure de la bande horaire | Voie Température, lue à cette heure |
+| Tuile Air | Feuille « L'air qu'on respire » |
+| Tuile L'eau | Feuille de l'eau |
+
+Un conseil mène au détail de son sujet : la pluie, l'orage et la neige à la
+voie Pluie, le gel, la chaleur et le ressenti à la voie Température, la
+pression et le désaccord entre modèles à la voie Pression, le vent à la voie
+Vent, le brouillard et l'air saturé à la voie Humidité, faute de voie de la
+visibilité, l'indice ultraviolet à sa voie, l'air et les pollens à la feuille de
+l'air. Le conseil qui mène quelque part porte un chevron.
+
+Les bornes du jour restent du texte : elles mèneraient au même endroit que le
+grand chiffre juste au-dessus, et chaque cible coûte quarante-quatre points de
+hauteur.
+
 ## Vigilance
 
 Le panneau ne paraît que s'il y a quelque chose à signaler, et il paraît alors
-en tête de l'accueil : une vigilance orange ne se lit pas après la température.
-Sans vigilance, rien du tout, pas même une rangée d'accès. Un bandeau permanent
+juste sous le ciel de l'accueil, avant tout le reste : une vigilance orange ne
+se lit pas après la bande horaire. Une vigilance annoncée pour demain suffit à
+le faire paraître, sous le titre « Vigilance orange demain », pour qu'un
+département vert aujourd'hui et orange demain ne passe pas inaperçu. Une
+annonce ne compte que si elle aggrave ce qui est déjà en vigueur. Sans
+vigilance ni annonce, rien du tout, pas même une rangée d'accès. Un bandeau permanent
 qui dit « rien à signaler » finit par ne plus se lire, et le jour où il dit
 autre chose, personne ne le voit.
 
 Le panneau donne le niveau maximal en toutes lettres, la conduite à tenir, le
-département nommé, la borne de validité, puis chaque phénomène signalé avec son
-niveau et sa fenêtre. Le plus grave passe devant, et à gravité égale le plus
-proche. L'appui ouvre le détail, qui reprend les phénomènes et renvoie sur la
+département nommé, puis sur une ligne à part l'heure où finit le phénomène qui
+va le plus loin et le bulletin en main, « jusqu'à 20 h, bulletin de 06 h ». La
+fin de validité du bulletin n'y figure pas : « jusqu'à demain 00 h » au-dessus
+d'une ligne qui dit « jusqu'à demain 12 h » se contredisait. Viennent ensuite
+chaque phénomène signalé avec son niveau et sa fenêtre, puis, sous une liste en
+vigueur, la phrase de ce qui s'aggrave demain. Le plus grave passe devant, et à
+gravité égale le plus proche. L'appui ouvre le détail, qui reprend les
+phénomènes, ceux annoncés pour demain, et renvoie sur la
 page du département de Météo-France. Les conséquences possibles et les conseils
 de comportement restent chez Météo-France, qui fait foi : les recopier ici les
 figerait.
@@ -99,8 +149,11 @@ figerait.
 Il porte son titre lui-même, sans titre de section au-dessus. Une carte qui dit
 déjà « Vigilance jaune » n'avait pas à être annoncée par une ligne qui disait la
 même chose, et ces trente points en tête d'écran suffisaient à repousser les
-mesures du jour sous la barre d'onglets. Le panneau tient dans cent cinquante
-points, deux phénomènes compris, et un contrôle garde cette enveloppe.
+mesures du jour sous la barre d'onglets. L'enveloppe de cent cinquante points a
+cédé quand la tête a pris sa ligne d'horloge : le panneau mesure cent soixante
+et un points avec deux phénomènes. Un contrôle vérifie désormais la
+conséquence, la bande horaire entière au-dessus de la barre d'onglets, avec un
+plafond de cent quatre-vingts points pour le panneau.
 
 Le niveau tient la ligne forte, la conduite ouvre la ligne effacée. Le rouge
 fait exception : sa conduite officielle est « Vigilance absolue », et les deux
@@ -127,9 +180,14 @@ bibliothèques, et il n'ouvre que des données publiques.
 Si le service se tait, rien ne s'affiche. Une vigilance qu'on ne sait pas lire
 ne se remplace pas par un message d'erreur sur l'écran d'accueil.
 
-Le bulletin est gardé un quart d'heure. La vigilance est révisée deux fois par
-jour en temps ordinaire, davantage quand la situation bouge : relire plus
-souvent n'apprendrait rien et pèserait sur la source.
+Le bulletin est gardé jusqu'à la prochaine publication, 06 h ou 16 h, ou
+jusqu'à sa fin de validité si elle vient plus tôt. Un quart d'heure fixe ne
+savait rien de ce rythme : il relisait quarante fois une journée qui ne bougeait
+pas, et servait encore le bulletin de la veille un quart d'heure après la
+publication du matin. Un bulletin dont la révision précède la dernière
+publication n'est gardé que cinq minutes, le temps que la source publie avec
+quelques minutes de retard. Le quart d'heure ne reste que pour un service muet.
+Les bulletins lus se gardent aussi sur l'appareil, jusqu'à la même échéance.
 
 La page du détail se trouve par le nom du département, non par son numéro. La
 table des cent et une entrées est explicite et chacune a été vérifiée contre le
@@ -141,31 +199,38 @@ renvoi se fait sur la carte de France, qui vaut toujours.
 Une règle ne parle que si elle a quelque chose à dire. « Aucune lame annoncée
 d'ici demain 16 h » occupait la première ligne tous les jours de beau temps :
 une phrase qu'on lit cent fois pour n'y rien apprendre finit par cacher celles
-qui comptent. Le silence est l'état par défaut, et la section disparaît quand il
-n'y a rien.
+qui comptent. Le silence est l'état par défaut : sans rien à dire, la carte des
+conseils disparaît du bloc du jour, et le bloc du lendemain disparaît en
+entier.
 
 La page se lit en échelle de temps, du plus proche au plus lointain, et chaque
 bloc répond à une question distincte : « Aujourd'hui » pour ce qu'il fait et ce
 qui reste de la journée, « Les 24 prochaines heures » pour la table des moments,
-« Demain et après-demain » pour ce qui mérite d'être su au-delà.
+« Demain » pour ce qui mérite d'être su de la journée suivante. Après-demain se
+lit dans l'écran « À venir » seulement, décision de Jérôme du 27 septembre 2026.
 
-Le même moteur de règles tourne sur trois fenêtres, et c'est la fenêtre qui
-décide du bloc : de maintenant à minuit, puis demain, puis après-demain. Un fait
+Le même moteur de règles tourne sur deux fenêtres, et c'est la fenêtre qui
+décide du bloc : de maintenant à minuit, puis demain. Un fait
 appartient au premier bloc dont la fenêtre le contient, et les suivants ne le
 redisent pas. Les deux blocs de phrases et la table ne se répètent pas non plus,
 leurs registres différant : la table montre tout, les phrases ne retiennent que
 ce qui sort de l'ordinaire.
 
-Le nom d'une journée est absolu, non relatif au début de la fenêtre : aujourd'hui
-sans mot, demain, après-demain. Sans cela une règle tournant sur après-demain
-appellerait ce jour « demain ».
+Le nom d'une journée est absolu, compté depuis aujourd'hui et non depuis le
+début de la fenêtre : aujourd'hui sans mot, demain, après-demain. Sans cela une
+règle tournant sur la fenêtre de demain, qui commence à minuit, écrirait ses
+heures sans nom de jour, comme pour aujourd'hui.
 
 Le bloc du jour s'arrête à minuit, sans exception. Le soir tard il est souvent
 muet, et c'est le bloc suivant qui porte la nuit : étendre le premier après une
 certaine heure ferait changer un fait de bloc selon le moment où l'on regarde,
 et la règle cesserait de tenir en une phrase.
 
-Quatorze règles, trois lignes par bloc au plus, ordonnées par gravité.
+Dix-neuf règles, trois lignes par bloc au plus, ordonnées par gravité. Deux
+lignes s'y ajoutent dans le bloc du jour, hors du moteur : une chute de neige
+notable quand une station est à une heure de route, et une restriction d'eau
+au niveau alerte ou au-delà. Elles reprennent leur rang de gravité, et le bloc
+garde ses trois lignes au plus.
 
 Une règle ne compare que des grandeurs comparables. Le renversement de
 température prenait les deux moitiés de la fenêtre glissante de vingt-quatre
@@ -191,17 +256,22 @@ liste « À venir » : les deux écrans s'accordent au degré.
 | Pression | Variation sur la fenêtre, dégradation ou amélioration | 6 hPa |
 | Bascule du ciel | Le premier passage qui tienne trois heures | 60 % de couverture |
 | Lever ou coucher du Soleil | L'heure, s'il tombe dans les trois heures | 3 heures |
+| Désaccord entre modèles | Les deux valeurs extrêmes et l'heure de l'écart le plus large | 4 degrés |
+| Scénarios partagés | L'étendue des scénarios sur le maximum de la journée | 5 degrés |
+| Écart à la veille | L'écart avec la même heure la veille, sur la fenêtre du jour seulement | 5 degrés |
+| Indice ultraviolet | Le maximum et son heure | 7 |
+| Air | Le pire niveau de la plage et son indice | 40, niveau dégradé |
+| Pollens | Le pollen suivi le plus fort, à son pic | pic propre à chaque pollen |
 
 Les alertes journalières ont disparu comme mécanisme distinct. Elles portaient
 leurs propres seuils sur des moyennes de journée et annonçaient jusqu'à quatre
 jours : « 32° mercredi » annoncé un dimanche est de l'almanach, non un fait
-marquant, et l'écran « À venir » est là pour cela. Le troisième bloc fait tourner le même
-moteur sur demain puis sur après-demain, une journée à la fois, et garde la
+marquant, et l'écran « À venir » est là pour cela. Le troisième bloc fait
+tourner le même moteur sur la journée de demain, de minuit à minuit, et garde la
 précision horaire.
 
-Le titre du troisième bloc nomme les journées qu'il porte, et elles seules :
-« Demain », « Après-demain », ou les deux. Il ne promet pas une journée qui n'a
-rien à dire.
+Le titre du troisième bloc est « Demain », et le bloc disparaît quand demain
+n'a rien à dire.
 
 Deux règles ne nomment pas le même chiffre à la suite. La chaleur et le
 renversement de température se décidaient chacune de son côté et écrivaient
@@ -216,8 +286,10 @@ haut de l'écran ne dit que la journée en cours. Il s'appelait « la journée q
 vient », ce qui promettait une journée civile alors qu'il traverse minuit par
 construction.
 
-C'est le seul bloc systématique de la page : il montre tout, les deux autres ne
-retiennent que ce qui sort de l'ordinaire. La source vient après, en clôture.
+Avec la bande horaire et les tuiles du bloc du jour, c'est la partie
+systématique de la page : elle montre tout. Les conseils du jour et ceux de
+demain ne retiennent que ce qui sort de l'ordinaire. Les portes et la source
+viennent après, en clôture.
 
 Les moments se lisent en tableau, les colonnes portant les tranches et les
 lignes les mesures. Cinq blocs empilés portant chacun ses propres libellés
@@ -255,34 +327,40 @@ maintenant : après « cette nuit », « matin » ne peut désigner que le lende
 L'après-midi s'abrège pour lui seul : à cinquante points de large il passait à
 la ligne et décalait toute la ligne d'entête.
 
-La page « Heure par heure » garde deux écritures, le ruban et la table. Son sélecteur se
-tient sur la ligne du titre, à droite et compact : posé sous le titre, il
-coûtait une bande de soixante points avant le premier chiffre. Le ruban et la
-table commencent maintenant en haut de la page.
+La page « Heure par heure » garde deux écritures, le ruban et la liste. Son
+sélecteur se tient sur la ligne du titre, à droite et compact : posé sous le
+titre, il coûtait une bande de soixante points avant le premier chiffre. Le
+ruban et la liste commencent maintenant en haut de la page.
 
-Ce qui mérite d'être retenu se lit sur l'accueil, sous « À retenir », et nulle
-part ailleurs. En tête de la page « Heure par heure », les mêmes phrases se redisaient un
-écran plus loin, à l'endroit où l'on vient justement chercher le détail.
+Ce qui mérite d'être retenu se lit sur l'accueil, dans les conseils du jour et
+dans ceux de demain, et nulle part ailleurs. En tête de la page « Heure par
+heure », les mêmes phrases se redisaient un écran plus loin, à l'endroit où l'on
+vient justement chercher le détail.
 
 Les chiffres de l'accueil mènent à leurs vingt-quatre heures. Le grand chiffre
-et les quatre mesures ouvrent la page « Heure par heure » en ruban, sur la voie
-correspondante déjà dépliée, et la page se place dessus. Le libellé du ciel mène
-à la voie Ciel.
+et les tuiles des paramètres ouvrent la page « Heure par heure » en ruban, sur
+la voie correspondante déjà dépliée, et la page se place dessus. Le libellé du
+ciel mène à la voie Ciel. Les tuiles de l'air et de l'eau ouvrent leur feuille.
 
 | Chiffre | Voie ouverte |
 |---|---|
-| Grand chiffre, ressenti | Température |
-| Pluie | Pluie |
-| Vent | Vent |
-| Humidité | Humidité |
-| Indice UV | Indice UV |
-| Libellé du ciel | Ciel |
+| Grand chiffre, tuile Ressenti | Température |
+| Tuile Pluie | Pluie |
+| Tuile Vent | Vent |
+| Tuile Ciel, libellé du ciel | Ciel |
+| Tuile Humidité | Humidité |
+| Tuile Indice UV | Indice UV |
+| Tuile Pression | Pression |
+| Tuile Air | Feuille de l'air |
+| Tuile L'eau, quand elle paraît | Feuille de l'eau |
 
 ## À venir, journée par journée
 
-Les heures portent maintenant sur les sept jours, comme la charge quotidienne :
-chaque rangée se résume de ses heures, et un appui l'ouvre sur ses quatre
-moments. Le surcoût est de deux kilooctets compressés par requête, une fois par
+Les heures portent maintenant sur sept jours. La charge quotidienne va plus
+loin, jusqu'à seize jours depuis le 28 septembre 2026 : sur les sept jours
+d'heures, chaque rangée se résume de ses heures, et un appui l'ouvre sur ses
+quatre moments ; au-delà, la rangée se lit par les seuls chiffres de la charge
+quotidienne. Le surcoût est de deux kilooctets compressés par requête, une fois par
 heure, gardés en cache.
 
 AROME ne va pas au delà d'environ soixante-neuf heures. Sa requête reste à trois
@@ -301,12 +379,16 @@ ou le risque d'abord, la rafale ensuite au delà de quarante kilomètres par
 heure. Les seuils sont ceux de la rangée fermée : elle annonce huit pour cent de
 risque, le volet ne peut pas se taire dessus.
 
-Un seul volet reste ouvert à la fois. Sept ouverts feraient de l'écran « À venir » une
-page à défiler, ce que la rangée fermée évitait justement. Sur la journée en
+Un seul volet reste ouvert à la fois. Plusieurs volets ouverts feraient de
+l'écran « À venir » une page à défiler, ce que la rangée fermée évitait
+justement. Sur la journée en
 cours, un moment déjà passé s'efface.
 
-Une journée dont les heures ne sont pas complètes ne s'ouvre pas et ne porte
-alors pas de chevron : une cible qui ne mène à rien vaut moins qu'aucune cible.
+Une journée dont les heures ne sont pas complètes ne s'ouvre pas sur ses
+moments. Au-delà des sept jours d'heures, elle se déplie sur sa seule phrase de
+confiance quand les scénarios la couvrent, jusqu'au quinzième jour. Sans
+moments ni phrase de confiance, la rangée ne s'ouvre pas et ne porte pas de
+chevron : un chevron promettrait un détail absent.
 Un après-midi résumé de trois heures sur six dirait autre chose que ce qu'il
 montre.
 
@@ -314,9 +396,10 @@ La portée demandée à la source entre dans la clé du cache. Sans cela, une ch
 écrite par la version d'avant, qui ne demandait que deux jours d'heures, restait
 servie jusqu'à la fin de l'heure en cours : le nouveau code tournait sur
 l'ancienne donnée et l'écran « À venir » ne s'ouvrait que sur ses deux premières
-journées. La clé porte donc les deux horizons, celui des heures et celui
-d'AROME, et le jour où ils changent la charge gardée cesse d'être servie
-d'elle-même, sans compteur à penser à incrémenter.
+journées. La clé porte donc les portées, celle des heures, celle d'AROME et celle des
+journées écoulées, ainsi qu'une signature des colonnes demandées et de la
+portée quotidienne. Le jour où l'une d'elles change, la charge gardée cesse
+d'être servie d'elle-même, sans compteur à penser à incrémenter.
 
 La table de l'écran « À venir » est devenue une liste de boutons. Une cible de liste veut
 son `aria-expanded`, son clavier et son focus, ce qu'une cellule de table ne
@@ -360,10 +443,11 @@ que « max 7,3 ».
 **Une bande au-dessus du tracé porte une seconde grandeur en symboles** : la
 direction du vent en flèches, le ciel en dessins, la tendance de la pression en
 flèches. Elle ne paraît que si la voie est assez haute pour la porter, soixante
-points, ce qui vaut toujours pour le vent et seulement une fois dépliées pour les
-voies courtes. Les valeurs chiffrées occupent une seconde bande, sous elle :
-écrites au même niveau, les flèches du vent et les chiffres du vent se
-recouvraient. Sur la courbe, elles la coupaient.
+points, ce qui vaut toujours pour le vent et, pour la pression, seulement une
+fois dépliée. La voie du ciel fait exception : sa bande est permanente. Les
+valeurs chiffrées occupent une seconde bande, sous elle : écrites au même
+niveau, les flèches du vent et les chiffres du vent se recouvraient. Sur la
+courbe, elles la coupaient.
 
 **La couleur n'est une donnée que sur deux voies**, la température et l'indice
 ultraviolet, dont l'échelle se lit d'un coup d'œil. Ailleurs elle ferait du
@@ -384,13 +468,15 @@ se redit pas.
 lavés à la couleur, ils viraient au bleu sur la pluie et au jaune sur l'indice
 ultraviolet, et une nuit couleur de soleil ne se lit plus. Le lavis couvre les
 sept voies : présent sur quatre d'entre elles et absent des trois autres, il se
-lisait comme un rectangle posé au hasard. Sur la voie du ciel il se réduit à un
-bandeau de cinq points, où il ne s'ajoute pas à la densité.
+lisait comme un rectangle posé au hasard. Sur la voie du ciel repliée il se réduit à
+un bandeau de cinq points, où il ne s'ajoute pas à la densité ; dépliée, la
+voie lave la nuit sur toute sa hauteur, comme les autres.
 
 **La hauteur dépliée est propre à la voie.** Le facteur commun de deux et demi
 vaut pour une courbe, qui gagne du relief, il ne donne rien à une bande de
-densité, qui reste plate qu'elle fasse quarante ou cent dix points. Le ciel
-déplié tient donc dans les quatre-vingt-six points communs, non dans cent dix.
+densité, qui reste plate qu'elle fasse quarante et un ou cent trois points. Le
+ciel déplié tient donc dans les quatre-vingt-six points communs ; agrandi de
+deux fois et demie, il en aurait fait cent trois.
 
 **Une voie peut changer d'encodage en s'ouvrant**, quand le repli en trahit la
 forme. Le ciel se dit en densité replié, faute de place, et en aire sous ses
@@ -412,18 +498,19 @@ sur la largeur.
 
 ## Lecture au doigt
 
-La lecture d'une courbe et le défilement de la page partagent la même surface.
-Le geste n'est pas tranché à l'appui, il l'est au premier déplacement franc, et
-une fois tranché il ne se remet pas en cause : la lecture accepte un déplacement
-oblique jusqu'à quarante degrés de l'horizontale, ce qu'un doigt fait
-naturellement en suivant une courbe. Au delà, la page défile et la lecture se
-retire. Le défilement vertical reste mené par le navigateur, par
-`touch-action: pan-y`.
+La lecture d'une courbe, le glissement du ruban et le défilement de la page
+partagent la même surface. Un appui a trois issues, tranchées une fois pour
+toutes. Le premier déplacement franc, huit pixels, décide d'abord : jusqu'à
+quarante degrés de l'horizontale le ruban glisse, au delà la page défile et
+l'appui est oublié. Sans déplacement, un quart de seconde d'appui maintenu
+ouvre la lecture, qui suit ensuite le doigt où qu'il aille. Un appui bref ne
+fait rien : la lecture et le glissement se disputaient le même geste. Le
+défilement vertical reste mené par le navigateur, par `touch-action: pan-y`.
 
 ## Taille des chiffres
 
-Les valeurs des quatre mesures sont à l'échelle du titre 2, les bornes de la
-semaine et les valeurs des rangées à celle du corps de texte. Un chiffre est ce
+Les valeurs des tuiles de l'accueil sont à l'échelle du titre 3, les bornes de
+l'écran « À venir » et les valeurs des rangées à celle du corps de texte. Un chiffre est ce
 qu'on vient lire, il n'a pas à être plus petit que son étiquette.
 
 ## Valeurs composées
@@ -444,30 +531,34 @@ bandeau qui dit « 9° », et une même colonne de la liste mêlait « 9,4° » 
 il garde sa décimale dans le ruban et la liste, la précision croissant avec la
 profondeur de l'écran.
 
-Les quatre mesures portent sur la journée civile entière, non sur l'heure en
-cours. À dix heures du soir, « indice UV 0 » et « vent 11 km/h » ne disaient rien
-d'une journée montée à sept d'indice et à quatre-vingts de rafale. Chacune est le
-maximum du jour, et chacune écrit sur quoi elle porte, « au plus », « élevé »,
-« de risque aujourd'hui » : un chiffre de journée présenté comme un relevé
-d'instant se lirait de travers. Le titre au-dessus dit déjà la même chose des
+Les tuiles du ressenti, de la pluie, du vent, de l'humidité et de l'indice UV
+portent sur la journée civile entière, et l'heure en cours n'y compte que pour
+une heure parmi vingt-quatre. À dix heures du soir, « indice UV 0 » et « vent
+11 km/h » ne disaient rien d'une journée montée à sept d'indice et à
+quatre-vingts de rafale. Chacune de ces tuiles est le maximum du jour, et
+chacune écrit sur quoi elle porte, « au plus chaud », « au plus », « élevé »,
+« de risque », « aujourd'hui » : un chiffre de journée présenté comme un relevé
+d'instant se lirait de travers. La tuile du ciel donne le maximum de nuages sur
+ce qui reste de la journée, celle de la pression la valeur de l'heure en cours
+et sa tendance sur six heures. Le titre au-dessus dit déjà la même chose des
 températures, « 18° à 32° aujourd'hui ».
 
 La pluie se dit en millimètres quand il en tombe, en risque sinon, comme dans la
 liste « À venir ».
 
-Le ressenti ne paraît que s'il s'écarte d'au moins deux degrés du maximum du
-jour. Sinon la pluie prend sa place : « Ressenti 32° » à côté d'un maximum de 32°
-occupait un quart de la carte sans rien apprendre. Deux degrés et non un seul,
-la comparaison portant ici sur deux maximums de journée.
+Le ressenti ne paraissait que s'il s'écartait d'au moins deux degrés du maximum
+du jour, la pluie prenant sinon sa place. Depuis les tuiles du jalon 11, chaque
+paramètre suivi a la sienne : la tuile du ressenti, « au plus chaud », paraît
+toujours, à côté de celle de la pluie.
 
 Une plage horaire ne porte le mot « demain » qu'une fois : « demain de 03 h à
 06 h », non « de demain 03 h à demain 06 h ».
 
 ## Le ciel de l'accueil
 
-Le même panneau que les écrans du soleil et de la lune, avec le temps qu'il
-fait peint par-dessus. Le titre est posé dedans : le jour, la température, le
-libellé du ciel et les bornes de la journée.
+Le même panneau que les écrans Soleil et Lune de la destination « Le ciel »,
+avec le temps qu'il fait peint par-dessus. Le titre est posé dedans : le jour,
+la température, le libellé du ciel et les bornes de la journée.
 
 La toile du temps se pose devant celle de l'astre, non derrière : un nuage passe
 devant le Soleil. Le symbole de temps disparaît de la ligne d'état, un petit
@@ -543,14 +634,16 @@ des nuages avant le reste du ciel.
 
 Les motifs sont dessinés une fois par teinte et gardés, six jeux au plus. Chaque
 image ne fait que composer des images prêtes, à trente par seconde, et la boucle
-s'arrête dès que la toile quitte le document ou que l'onglet passe en
-arrière-plan.
+s'arrête dès que la toile quitte le document, sort de l'écran au défilement ou
+que l'onglet passe en arrière-plan.
 
 ## Le soleil
 
-Même panneau que l'accueil. Le ciel occupe toute la largeur et monte sous la
-barre de tête, qui devient blanche par-dessus et reprend son verre au
-défilement.
+Premier des trois écrans de la destination « Le ciel », avec la Lune et les
+Étoiles ; un sélecteur en tête de contenu les départage, et le dernier choisi
+se garde d'une visite à l'autre. Même panneau que l'accueil. Le ciel occupe
+toute la largeur et monte sous la barre de tête, qui devient blanche par-dessus
+et reprend son verre au défilement.
 
 La couleur du ciel vient de la hauteur du Soleil, du bleu de midi à l'ambre du
 couchant puis au bleu de nuit. Elle ne suit pas le thème de l'appareil : un ciel
@@ -591,7 +684,7 @@ lumière la garde et donne le rougeoiement.
 | Couche | Mouvement |
 |---|---|
 | Matière | Bruit fractal creusé en filaments, posé deux fois à des échelles et des sens de rotation opposés, avec une dérive lente |
-| Cœur | Battement de trois secondes |
+| Protubérances | Quatre jets, chacun sur sa période, de quatre à neuf secondes |
 | Limbe | Assombrissement du bord qui fait la sphère, débordement chaud qui la fait brûler dans le ciel |
 | Protubérances | Quatre jets, chacun sur sa période, de quatre à neuf secondes |
 | Couronne | Vingt-quatre rayons fins, deux copies tournant en sens contraires |
@@ -602,8 +695,9 @@ l'horizon, comme le Soleil réel que l'atmosphère rougit.
 Le coût tient sur un téléphone. Les motifs coûteux sont dessinés une seule fois
 hors écran et gardés par pas de teinte, treize jeux au plus ; chaque image ne
 fait plus que composer des images déjà prêtes, à trente par seconde. La boucle
-s'arrête dès que la toile quitte le document ou que l'écran passe en
-arrière-plan, et ne démarre pas du tout sous mouvement réduit, où une seule
+s'arrête dès que la toile quitte le document, sort de l'écran au défilement ou
+que l'écran passe en arrière-plan, et ne démarre pas du tout sous mouvement
+réduit, où une seule
 image est rendue.
 
 ### Trajectoire
@@ -665,12 +759,15 @@ n'y figure pas : le ciel la dit déjà, en toutes lettres et en image.
 Les quatre prochaines phases portent leur date et leur délai. « 20 août » ne dit
 pas si c'est dans deux jours ou dans trois semaines.
 
-Quatre choses lui sont propres.
+Quatre choses lui sont propres, la première étant depuis reprise par l'écran
+du Soleil.
 
 **La forme du disque est montrée à côté de son nom.** Dans le bandeau, la Lune
 est à sa place réelle : sous l'horizon, basse derrière le sol ou pâlie par le
 plein jour, elle ne se voit pas. Une vignette de vingt-deux points, posée devant
-le nom de la phase, la montre toujours.
+le nom de la phase, la montre toujours. L'écran du Soleil porte la même
+vignette devant son état, le disque seul sans couronne ni jets, peint par
+`src/feu.js` : les deux sous-lignes commencent ainsi au même endroit.
 
 Elle ne s'anime pas et ne passe pas par la boucle : c'est une image, non une
 scène. Le disque vient de la même réserve que celui du bandeau, à la même
@@ -679,8 +776,8 @@ phase : la vignette ne coûte aucun calcul de plus.
 Deux réglages lui sont propres. Un cerne léger la borne, sans quoi une Lune
 nouvelle, qui n'est qu'une lueur cendrée, ne se distinguerait pas du fond. Et un
 contraste est porté sur ses quelques centaines de pixels : la lumière cendrée
-est juste à l'échelle du bandeau, où le disque fait deux cents points, mais à la
-taille d'un mot elle noie le croissant dans un rond gris. La courbe écrase la
+est juste à l'échelle du bandeau, où le disque fait près de cent points, mais à
+la taille d'un mot elle noie le croissant dans un rond gris. La courbe écrase la
 part cendrée vers le noir et garde le modelé de la part éclairée.
 
 **Le ciel est celui du Soleil, pas celui de la Lune.** Sa couleur vient de la
@@ -753,36 +850,45 @@ Ajouter ne vit plus au bas de la liste. C'est une action : elle se range dans la
 tête de feuille, à droite du titre, et pousse une feuille à elle où le champ
 tient la page et reçoit le clavier.
 
-## Communes suivies
+## Les lieux suivis
 
-Dix communes au plus. Le titre de l'écran ouvre la liste, un appui sur une
-rangée bascule : deux gestes séparent deux communes.
+Dix lieux au plus. Le nom du lieu, dans la barre de tête, ouvre la feuille
+« Mes lieux », un appui sur une rangée bascule : deux gestes séparent deux
+lieux.
 
 Chaque rangée porte le symbole du ciel, la température du moment et les bornes
 du jour. Les aperçus tiennent en une seule requête, Open-Meteo acceptant
 plusieurs couples de coordonnées et rendant un tableau dans le même ordre. Ils
-sont gardés un quart d'heure, et le dernier connu reste servi hors ligne, avec
-mention de son âge.
+sont gardés un quart d'heure, et le dernier connu reste servi hors ligne ; passé
+ce quart d'heure, un message dit qu'il s'agit de la dernière lecture connue.
 
 Le retrait se découvre en glissant la rangée vers la gauche, par le menu
 contextuel, ou par le clavier : le bouton se tient sous la rangée et reste dans
-l'ordre de tabulation, le focus découvrant la rangée. Retirer la commune
-courante fait passer à la suivante de la liste.
+l'ordre de tabulation, le focus découvrant la rangée. Retirer le lieu courant
+fait passer au premier lieu restant de la liste.
 
 ## Ma position
 
 La première rangée de la liste ne nomme pas un lieu mais l'appareil. La choisir
 relève la position, la nomme par l'interface adresse, et la prévision suit. Elle
-est épinglée en tête, ne compte pas dans les dix communes et ne se retire pas.
+est épinglée en tête, ne compte pas dans les dix lieux et ne se retire pas.
 
-Le relevé se refait au chargement et au retour au premier plan, mais seulement
-si l'autorisation de position est déjà accordée : sans geste de l'utilisateur,
-une première demande au chargement serait rejetée par le navigateur. Sans
-autorisation, le dernier relevé connu reste servi et la rangée attend un appui.
+Le relevé se refait au retour au premier plan, et au chargement quand le
+dernier date de plus de dix minutes, mais seulement si l'autorisation de
+position est déjà accordée : sans geste de l'utilisateur, une première demande
+au chargement serait rejetée par le navigateur. Sans autorisation, le dernier
+relevé connu reste servi et la rangée attend un appui.
 
-La prévision n'est relue que si l'appareil a bougé de plus de cinq cents mètres.
-En deçà, elle serait identique et la requête serait perdue. Deux lectures
-peuvent alors se chevaucher : seule la plus récente écrit l'écran.
+Depuis la version 123, les services ne reçoivent que la position arrondie au
+centième de degré, un kilomètre environ, la maille des modèles de prévision. Le
+service d'adresses reçoit un point au millième, une centaine de mètres, assez
+pour nommer la commune. Le relevé précis, au dix-millième, reste sur l'appareil
+et ne sert qu'à mesurer un déplacement.
+
+La prévision n'est relue que si l'appareil a bougé de plus de cinq cents mètres
+d'un relevé précis à l'autre. En deçà, elle serait identique et la requête
+serait perdue. Deux lectures peuvent alors se chevaucher : seule la plus récente
+écrit l'écran.
 
 Le dernier relevé est gardé, avec sa commune et son horodatage, pour que la
 liste s'ouvre sur une température plutôt que sur un vide et que l'application
@@ -807,14 +913,23 @@ position en bord de mer restait anonyme, et la vigilance sans département.
 
 | Source | Adresse | Compte |
 |---|---|---|
-| Prévision | `api.open-meteo.com`, sept jours d'heures et de jours, AROME de Météo-France forcé sur les trois premiers | Aucun |
-| Commune, par le nom ou par les coordonnées | `api-adresse.data.gouv.fr` | Aucun |
-| Soleil et Lune | calcul sur l'appareil, `src/astres.js` | Aucune requête |
-| Aperçu des communes suivies | `api.open-meteo.com`, un seul appel pour toute la liste | Aucun |
-| Vigilance en vigueur | `webservice.meteofrance.com`, le service qui alimente le site et l'application de Météo-France | Aucun |
+| Prévision | `api.open-meteo.com`, sept jours d'heures et seize jours de journées, AROME de Météo-France forcé sur les trois premiers jours | Aucun |
+| Ensembles, archive, mer, air et pollens | `ensemble-api`, `archive-api`, `marine-api` et `air-quality-api.open-meteo.com` | Aucun |
+| Commune, par le nom ou par les coordonnées | `api-adresse.data.gouv.fr`, et `geo.api.gouv.fr` pour la commune d'une plage | Aucun |
+| Soleil, Lune et étoiles | calcul sur l'appareil, `src/astres.js` et `src/ciel.js`, catalogue embarqué `donnees/ciel.json` | Aucune requête |
+| Stations de ski et plages | listes embarquées `src/stations.js` et `src/plages.js`, tirées d'OpenSkiMap et de l'Agence européenne de l'environnement | Aucune requête |
+| Aperçu des lieux suivis | `api.open-meteo.com`, un seul appel pour toute la liste | Aucun |
+| Vigilance en vigueur et pluie dans l'heure | `webservice.meteofrance.com`, le service qui alimente le site et l'application de Météo-France ; repli de la pluie dans l'heure sur `api.open-meteo.com` | Aucun |
+| Indice officiel de l'air | `data.atmo-france.org` | Aucun |
+| Restrictions d'eau | `api.vigieau.gouv.fr` | Aucun |
+| Nappes, rivières, étiage, température de l'eau | `hubeau.eaufrance.fr` | Aucun |
+| Durées de route | `router.project-osrm.org`, serveur public de démonstration | Aucun |
+| Couches de la carte | `api.rainviewer.com`, `view.eumetsat.int`, `maps.effis.emergency.copernicus.eu` | Aucun |
 
-Les deux sources distantes répondent en origine croisée, ce qui a été vérifié
-depuis un navigateur le 19 août 2026.
+Toutes les sources distantes sont lues depuis le navigateur et doivent répondre
+en origine croisée, l'application n'ayant aucun serveur pour relayer une
+requête. La prévision et le service d'adresses ont été vérifiés ainsi le
+19 août 2026, depuis un navigateur.
 
 ### Deux sources écartées
 
@@ -844,6 +959,12 @@ La vigilance a depuis rejoint le service en direct de Météo-France. Les module
 de la comparaison entre mesure et modèle, `postes.js`, `reseau.js` et
 `reserve.js`, ont été retirés le 2 octobre 2026 ; ils restent dans
 l'historique du dépôt, au commit 62c0076, si la synchronisation reprend.
+
+D'autres sources ont été écartées depuis. Vigicrues refuse les requêtes des
+autres applications. Géorisques était injoignable depuis le poste de
+développement de claude.ai, à revérifier. La météo des forêts et les bulletins
+d'avalanche de Météo-France demandent une clé, à revérifier. Overpass et ohsome
+étaient indisponibles pour construire les listes embarquées.
 
 ## Organisation
 
@@ -895,7 +1016,9 @@ src/
     ciel.js         la voûte étoilée, données chargées à la demande
     temps.js, feu.js, relief.js le ciel peint de l'accueil, le Soleil, la Lune
   Carte
-    carte.js        fond et projection
+    carte.js        le fond dessiné, contours et tracé
+    projection.js   la projection et les bornes de zoom, chargées dès le
+                    lancement pour la pluie dans l'heure et son sens d'arrivée
     geographie.js   contours embarqués, produit par outils/contours.mjs
     nappe.js        grilles de température, d'indice UV, de vent et d'air
     vent.js         particules du vent
@@ -934,11 +1057,14 @@ bas de page, sous `essais/captures`. Les variables `ECRAN` et `QUAND` portent la
 destination et l'instant à figer, `OUVRIRVOIE` la voie du ruban à déplier et
 `OUVRIR` le rang de la journée à ouvrir dans « À venir ».
 
-Le lanceur sert le dossier, fige l'horloge au 18 août 2026 à 9 h, détourne les
-trois appels Open-Meteo vers `meteo.json`, sert une vigilance orange de
-convention, et coupe les sources data.gouv pour éprouver le repli. Parmi les
-contrôles, l'absence de répétition entre
-les alertes et les conseils, les sept voies du ruban, l'agrandissement d'une
+Le banc, `essais/banc.mjs`, sert le dossier et prépare pour chaque section un
+contexte neuf. Les faux services de `essais/faux-services.mjs` y figent
+l'horloge au 18 août 2026 à 9 h, détournent les trois appels Open-Meteo vers
+`meteo.json` et servent une vigilance orange de convention. Un filet refuse
+toute requête vers un autre hôte que le serveur d'essai, et un contrôle échoue
+si une seule requête passe ce filet. Parmi les contrôles, l'absence de
+répétition entre les alertes et les conseils, les sept voies du ruban,
+l'agrandissement d'une
 voie, les treize colonnes de la liste, les vingt-quatre lignes de la fenêtre, la
 nature du renvoi de vigilance, et dix-sept contrôles de conformité au design
 system : cibles de 44 pt, fond issu du token, absence de rayon en valeur brute,
@@ -957,9 +1083,12 @@ sur quatre moments, les quatre noms de tranche, un seul volet ouvert à la fois,
 la fermeture au second appui, la borne qui compte et rien de superflu dans
 chaque volet, la rafale signalée, le moment passé effacé, et sur une charge
 écourtée en milieu de journée, la journée incomplète qui ne s'ouvre pas ni ne
-porte de chevron. Deux autres gardent le contrat avec la source : les heures
-demandées sur sept jours, AROME sur trois. Deux derniers reprennent le défaut tel qu'il s'est produit : une charge gardée sous l'ancienne forme ne doit pas être servie, et l'écran « À venir » doit s'ouvrir sur ses sept journées après elle. Sept contrôles portent
-sur la vignette de la Lune et sur la lecture de son écran : la vignette est
+porte de chevron. Deux autres vérifient le contrat avec la source : les heures
+demandées sur sept jours, AROME sur trois. Deux derniers reprennent le défaut
+tel qu'il s'est produit : une charge gardée sous l'ancienne forme ne doit pas
+être servie, et l'écran « À venir » doit s'ouvrir sur ses sept journées après
+elle. Sept contrôles portent sur la vignette de la Lune et sur la lecture de
+son écran : la vignette est
 devant le nom de la phase, elle porte des pixels opaques, sa part sombre est
 franche, elle dit la même phase que le ciel, elle garde sa pleine matière sous
 le texte pâli, la part éclairée n'est écrite que dans le ciel, et chaque phase à
@@ -978,7 +1107,7 @@ réordonnancement des deux façons, au clavier puis par appui long.
 Ce qui est à savoir est éprouvé sur un contexte de temps calme : aucune règle ne
 parle, la section entière disparaît, et le reste de l'accueil tient. Un contrôle
 mesure que la portée annoncée par le titre couvre bien l'heure la plus lointaine
-citée dans les lignes. Les trois ont été éprouvés en rétablissant la faute.
+citée dans les lignes. Les trois ont été éprouvés par une erreur volontaire.
 
 La vigilance est éprouvée sur deux contextes. Le premier sert un bulletin orange
 sur les orages, jaune sur le vent en deux plages contiguës, et vert ailleurs : le
@@ -1008,7 +1137,7 @@ de l'inclinaison du limbe, et la présence des deux courbes de trajectoire.
 
 Le ciel de l'accueil ajoute la toile du temps : elle couvre le panneau, elle se
 peint après l'astre et au-dessus de lui, elle porte des pixels et elle bouge.
-Sept contrôles gardent la cohérence entre écrans, chaque paire lue sur deux
+Sept contrôles vérifient la cohérence entre écrans, chaque paire lue sur deux
 rendus : les bornes du bandeau sont celles de la rangée Auj. de « À venir », la
 tuile de pluie dit ce que dit cette rangée, la pluie de demain porte les mêmes
 millimètres sur l'accueil et sur « À venir », le sous-titre de « Heure par heure » porte le
@@ -1017,21 +1146,21 @@ aussi, et le gel s'annonce au degré rond avec le mot accordé. Les trois dernie
 tournent sur une charge décalée de sept degrés et six dixièmes, la charge
 d'essai ne portant presque pas de décimales là où la vraie source en est pleine.
 
-Quatre contrôles gardent la découpe en blocs : l'accueil se lit en trois blocs
+Quatre contrôles vérifient la découpe en blocs : l'accueil se lit en trois blocs
 de temps dans l'ordre, chaque bloc s'en tient à sa fenêtre, le titre du dernier
 nomme les journées qu'il porte, et aucun bloc ne dépasse trois lignes.
 
-Six contrôles gardent les faits marquants et les mesures du jour : les quatre
+Six contrôles vérifient les faits marquants et les mesures du jour : les quatre
 mesures portent le maximum de la journée et non le relevé de l'heure, chacune dit
 sa portée, rien ne se dit au-delà d'après-demain, après-demain se dit encore, le
 titre couvre la journée la plus lointaine, et un même maximum n'est pas annoncé
 deux fois.
 
-Trois contrôles gardent le renversement de température : rien ne se dit quand
+Trois contrôles vérifient le renversement de température : rien ne se dit quand
 demain vaut aujourd'hui, la phrase paraît quand l'écart est réel, et le maximum
 qu'elle nomme est celui que porte la liste « À venir ».
 
-Huit contrôles gardent le ciel à deux astres : le Soleil seul quand la Lune est
+Huit contrôles vérifient le ciel à deux astres : le Soleil seul quand la Lune est
 couchée, les deux ensemble quand ils sont levés, la Lune seule la nuit, la même
 place pour le Soleil sur l'accueil et sur son écran, l'écart gardé entre les
 deux disques, la part sombre de la Lune effacée de jour et entière la nuit. La
@@ -1047,7 +1176,7 @@ porte pas, le fait que l'astre disparaît sous une couche fermée, et qu'il n'y 
 masse isolée. Un contexte entièrement couvert mesure la position du bord de la
 couche colonne par colonne et refuse toute cassure au raccord.
 
-Seize contrôles gardent la grammaire du tracé : l'échelle dans la gouttière,
+Seize contrôles vérifient la grammaire du tracé : l'échelle dans la gouttière,
 deux chiffres qui ne se superposent pas, les seuils nommés dans le tracé, les
 flèches de direction du vent, la rampe sur la température en largeur et en
 hauteur, la couleur des barres ultraviolettes, la nuit sur les sept voies et à
@@ -1067,13 +1196,13 @@ doivent porter leur taille en attributs et tenir dans leur bande : en feuille de
 style seule, WebKit déploie un SVG imbriqué sur la hauteur de son parent et le
 symbole déborde de la carte.
 
-Un contexte sec et dégagé garde deux défauts que la donnée courante ne montre
+Un contexte sec et dégagé éprouve deux défauts que la donnée courante ne montre
 pas : une voie sans tracé doit se réduire à sa ligne de titre, sans la réserve
 de hauteur d'une touche qu'elle n'est pas, et un ciel dégagé ne doit pas écrire
 sa file de zéros.
 
-Deux familles de contrôles gardent la mise en page. La première mesure, sur les
-cinq écrans, qu'aucun bloc ne sort de la fenêtre. La seconde rejoue les cinq
+Deux familles de contrôles vérifient la mise en page. La première mesure, sur les
+six écrans, qu'aucun bloc ne sort de la fenêtre. La seconde rejoue les six
 écrans avec le corps de texte porté à vingt-deux points, ce que fait le réglage
 d'accessibilité du système, et vérifie qu'aucune valeur ne sort de sa rangée ni
 ne vient toucher le bord de sa carte.
@@ -1111,11 +1240,13 @@ présente environ deux par lunaison sous nos latitudes. L'écran l'écrit.
 ## Règles reprises du module d'origine
 
 Fenêtre de vingt-quatre heures glissantes depuis l'heure en cours, non la journée
-civile. La clé du jour se compose en heure locale par une fonction unique. Un
+civile. La clé du jour se compose par une fonction unique, `cleJour` de
+`src/horloge.js`, à l'heure de Paris depuis la version 131. Un
 trou dans la charge ne vaut pas zéro : les grandeurs continues reprennent la
 valeur connue la plus proche, la lame de pluie garde zéro. Le retour au premier
-plan relit la charge quand l'heure a changé. Aujourd'hui et demain se résument
-des heures, les jours suivants de la charge quotidienne.
+plan relit la charge quand l'heure a changé. Une journée se résume des heures
+tant qu'elles la couvrent entière, sur les sept jours de la série horaire, et
+de la charge quotidienne au-delà.
 
 Seuil de mention unique : un dixième de millimètre de lame, cinq pour cent de
 risque. Seuils de décision nommés comme tels : gel à un degré, rafale à quarante
@@ -1145,8 +1276,9 @@ sondage depuis un navigateur, contre les sources réelles.
 1. **En-têtes d'origine croisée.** Ouverts sur `object.files.data.gouv.fr`,
    trois essais sur trois. Les premiers échecs venaient d'une limitation de
    débit, non d'un refus : une rafale de requêtes se solde par des échecs que le
-   navigateur rapporte comme un refus. D'où `reseau.js`, qui reprend avec attente
-   croissante.
+   navigateur rapporte comme un refus. D'où `reseau.js`, qui reprenait avec
+   attente croissante ; le module est retiré le 2 octobre 2026 avec la
+   comparaison entre mesure et modèle, et reste au commit 62c0076.
 2. **Schéma de `CDP_CARTE_EXTERNE.json`.** Confirmé.
    `product.periods[].timelaps.domain_ids[]`, échéances J et J1, 122 domaines
    dont « FRA » et des codes de zone à quatre chiffres, `phenomenon_id` en
@@ -1163,10 +1295,18 @@ modèle. Voir « Deux sources écartées ».
 
 ## Reste à faire
 
-1. **Choisir le dépôt de publication.** « Ma météo » demande un dépôt distinct de
-   `techthisapp/mon-jardin`, qui sert déjà une application par GitHub Pages. Les
-   deux coexistent sans se voir : chemins différents, agents de service
-   différents, et les clés de stockage local sont préfixées `mameteo.` et non
-   `monjardin.`.
-2. **Surveiller la reprise des jeux data.gouv.** Si l'alimentation repart, les
-   deux modules et les deux vues sont prêts.
+État au 2 octobre 2026.
+
+1. **La justesse des prévisions publiée.** Jalon 6 de la feuille de route,
+   vers la fin octobre 2026, quand soixante jours de relevés seront réunis. Le
+   jalon 5, la 3D, est écarté pour le moment.
+2. **L'orientation des plages restantes.** 1322 plages françaises sur 1839
+   portent la direction de la mer, calculée sur les contours embarqués ; les
+   criques, les presqu'îles, les fonds de baie et les abords des frontières
+   n'en ont pas, et leur vent se dit par son seul point cardinal.
+3. **Les constats de l'audit restés au stade du relevé.** Voir le tableau de
+   `docs/audit-2026-10-01.md`, par exemple la règle du seuil de pluie écrite à
+   plusieurs endroits, constat 6.8.
+4. **Surveiller la reprise des jeux data.gouv.** Si l'alimentation repart, les
+   modules de la comparaison entre mesure et modèle se reprennent au commit
+   62c0076 ; ils sont retirés de l'application depuis le 2 octobre 2026.

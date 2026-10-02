@@ -12,6 +12,7 @@ plages surveillées, non chaque bout de sable nommé sur une carte.
 Usage : python3 outils/construire-plages.py
 """
 
+import subprocess
 import json
 import re
 import urllib.parse
@@ -194,6 +195,8 @@ def main():
     for x in retenus:
         compte[x[1]] = compte.get(x[1], 0) + 1
     print(len(retenus), "plages :", compte)
+    # L'orientation du rivage se calcule ensuite, sur les contours embarqués.
+    subprocess.run(["node", "outils/orienter-plages.mjs"], check=True)
 
 
 if __name__ == "__main__":

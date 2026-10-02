@@ -107,10 +107,10 @@ export function vuePlage(ctx, rendre) {
       + (m.eau !== null ? `<dt>Eau</dt><dd>${fr(m.eau)}°</dd>` : "")
       + (m.vagues !== null ? `<dt>Vagues</dt><dd>${m.vagues < 0.3 ? "mer calme" : `${fr(m.vagues)} m${m.periode ? `, toutes les ${m.periode} s` : ""}`}</dd>` : "")
       /* Le vent et sa direction au niveau de la plage, avec la flèche qui montre
-         où il va ; sans rapport au rivage, dont l'orientation manque. */
+         où il va, et son rapport au rivage quand la plage a son orientation. */
       + (a ? `<dt>Vent</dt><dd>${Number.isFinite(a.direction) ? `<svg class="pl-fl" viewBox="0 0 14 14" aria-hidden="true">`
           + `<g transform="rotate(${angleFleche(a.direction)} 7 7)">${TRACE_FLECHE}</g></svg>` : ""}`
-        + `${a.vent} km/h${Number.isFinite(a.direction) ? `, ${Plage.ventDe(a.direction)}` : ""}</dd>`
+        + `${a.vent} km/h${Number.isFinite(a.direction) ? `, ${Plage.ventDe(a.direction, p.versMer)}` : ""}</dd>`
         + `<dt>Air, au plus chaud</dt><dd>${a.max}°</dd>`
         + `<dt>Indice UV</dt><dd>${a.uv}</dd>` : "")
       + (suite ? `<dt>Marées</dt><dd>${esc(suite)}</dd>` : "")

@@ -82,14 +82,14 @@ installe Playwright 1.63.0, puis `npx playwright install chromium`.
 
 | Commande | Effet |
 |---|---|
-| `bash essais/passe.sh 8137` | La suite complète, sur une copie du dépôt dans `/tmp/passe-<port>` ; trois minutes, 1035 contrôles à la version 135 |
+| `bash essais/passe.sh 8137` | La suite complète, sur une copie du dépôt dans `/tmp/passe-<port>` ; trois minutes, 1038 contrôles à la version 136 |
 | `SECTIONS="carte,vent" bash essais/passe.sh 8137` | Les seules sections dont le titre ou le nom de fichier contient l'un des motifs |
 | `JUSQUA="La bande horaire" bash essais/passe.sh 8137` | La suite jusqu'à la fin d'une section |
 | `PARALLELE=1 CHRONO=1 bash essais/passe.sh 8137` | Une section à la fois, avec le temps de chacune ; trois passent côte à côte par défaut |
 | `bash essais/epreuve-bande.sh <n>` | Une erreur volontaire : le script introduit l'erreur numéro n dans une copie, ne passe que la section qui porte le contrôle attendu, et vérifie qu'il échoue. Verdicts possibles : vue, non vue, non appliquée, ou épreuve interrompue |
 
 Les erreurs volontaires sont numérotées dans `essais/epreuve-bande.sh` ; la
-dernière porte le numéro 181. Tout contrôle nouveau a son erreur volontaire, et
+dernière porte le numéro 185. Tout contrôle nouveau a son erreur volontaire, et
 une erreur volontaire éprouvée pendant que son contrôle échoue déjà sur le bon
 code doit être repassée.
 
@@ -141,7 +141,7 @@ Règles apprises à l'usage :
 | Liste | Commande | Remarque |
 |---|---|---|
 | Stations de ski | `curl -o /tmp/ski_areas.geojson https://tiles.openskimap.org/geojson/ski_areas.geojson` puis `python3 outils/construire-stations.py /tmp/ski_areas.geojson` | À refaire chaque saison ; les stations se rangent sous leur domaine d'après les emprises |
-| Plages | `python3 outils/construire-plages.py` | Plusieurs minutes quand le service d'adresses répond ; il l'abandonne après vingt échecs |
+| Plages | `python3 outils/construire-plages.py` | Plusieurs minutes quand le service d'adresses répond ; il l'abandonne après vingt échecs. Il lance ensuite `node outils/orienter-plages.mjs`, qui ajoute à chaque plage française la direction de la mer, calculée sur les contours embarqués, sans réseau |
 
 ## Écriture
 
@@ -166,20 +166,18 @@ Les consignes détaillées du projet sont dans `docs/consignes/`.
 
 ## État au 2 octobre 2026
 
-Version 135, publiée depuis Claude Code. Jalons livrés : 1 à 4, 7 à 18, dont 14, la comparaison ; 15, les
+Version 136, publiée depuis Claude Code. Jalons livrés : 1 à 4, 7 à 18, dont 14, la comparaison ; 15, les
 plages ; 16, la neige ; 17, la semaine au plus loin ; 18, les couches de la
 carte et l'eau. Jalons restants : 6, la justesse des prévisions publiée, vers
 la fin octobre ; 5, la 3D, écartée pour le moment.
 
 Points connus à reprendre :
 
-1. Le module de la neige garde sa propre requête à OSRM ; la raccorder à
-   `src/trajets.js`.
-2. Le vent des plages se dit sans rapport au rivage : l'orientation des plages
-   manque à la source.
-3. Les sections de `LISEZ-MOI.md` qui suivent le tableau des écrans gardent le
-   récit de leur époque ; le tableau, lui, est à jour au 1er octobre 2026.
-4. Les heures affichées sont celles de Paris. L'outre-mer n'est pas visé,
+1. L'orientation des plages vient de contours simplifiés : 1322 plages
+   françaises sur 1839 en ont une, les autres, criques, presqu'îles, fonds de
+   baie et abords des frontières, gardent le vent dit par son seul point
+   cardinal. Une côte plus fine la donnerait à davantage de plages.
+2. Les heures affichées sont celles de Paris. L'outre-mer n'est pas visé,
    décision de Jérôme du 2 octobre 2026 : rien à faire tant que personne ne
    s'en sert hors de la métropole.
 

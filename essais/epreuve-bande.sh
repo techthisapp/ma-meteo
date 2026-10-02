@@ -583,6 +583,18 @@ case "$N" in
   181) # Le vent n'est plus reposé une fois la vue cadrée.
      perl -0pi -e 's/        if \(E\.mesures\) E\.poserVent\(\);\n//' src/vues/carte.js
      ATTENDU="le mouvement réduit fige les particules sans les effacer" ;;
+  182) # La neige reprend sa propre requête de route.
+     perl -0pi -e 's/(const CANDIDATES_MAX = 80;\n)/$1const OSRM = "https:\/\/router.project-osrm.org\/table\/v1\/driving\/";\n/' src/neige.js
+     ATTENDU="seul le module des trajets interroge OSRM" ;;
+  183) # Le vent de mer et le vent de terre s'échangent.
+     perl -0pi -e 's/return ecart <= 60 \? "mer" : ecart >= 120 \? "terre" : "rivage";/return ecart <= 60 ? "terre" : ecart >= 120 ? "mer" : "rivage";/' src/plage.js
+     ATTENDU="le vent de la plage se rapporte au rivage : de mer, de terre ou le long du rivage" ;;
+  184) # La feuille ne lit plus la direction de la mer de la liste.
+     perl -0pi -e 's/fiche: p\[7\] \?\? null, versMer: p\[8\] \?\? null \}\);/fiche: p[7] ?? null });/' src/plage.js
+     ATTENDU="la direction de la mer des plages connues est la bonne, Hendaye n.en a pas, et la plage lue la garde" ;;
+  185) # Biarritz se lit tournée vers la terre.
+     perl -0pi -e 's/("Grande Plage Nord \(Palais\)", "FR", 43\.4877, -1\.558, null, "64", 1, "001127:064", )305\]/${1}125]/' src/plages.js
+     ATTENDU="la direction de la mer des plages connues est la bonne, Hendaye n.en a pas, et la plage lue la garde" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

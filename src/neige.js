@@ -9,9 +9,12 @@
    commune, et le résultat se garde trente jours, puisqu'une route ne change
    pas d'un jour à l'autre. S'il ne répond pas, une estimation à vol d'oiseau
    prend le relais, 55 kilomètres valant environ une heure de route, et le
-   résultat le dit. */
+   résultat le dit. La requête est celle des plages, `src/trajets.js`, depuis
+   le 2 octobre 2026 ; la neige avait sa propre copie, antérieure. */
 
 import { recaler, elaguer, lireGardee, ecrireGardee, chercher, distanceKm } from "./horloge.js";
+import { dureesMinutes } from "./trajets.js";
+export { adresseOsrm } from "./trajets.js";
 
 export const RAYON_KM = 100;
 export const MINUTES_MAX = 60;
@@ -20,7 +23,6 @@ export const KM_PAR_HEURE_ESTIMEE = 55;
    d'oiseau pouvaient écarter des stations à moins d'une heure par la route. Le
    serveur public d'OSRM accepte cent points par requête. */
 const CANDIDATES_MAX = 80;
-const OSRM = "https://router.project-osrm.org/table/v1/driving/";
 const CACHE = "mameteo.neige.proches.v1";
 
 /* La liste des stations se charge à la première demande, non au lancement.
@@ -47,12 +49,6 @@ export function candidates(g, liste = STATIONS) {
     .slice(0, CANDIDATES_MAX);
 }
 
-export function adresseOsrm(g, cands) {
-  const pts = [[g.lon, g.lat], ...cands.map(s => [s.lon, s.lat])]
-    .map(([lo, la]) => `${lo.toFixed(5)},${la.toFixed(5)}`).join(";");
-  return `${OSRM}${pts}?sources=0&annotations=duration`;
-}
-
 /* Les stations à une heure au plus, avec leur durée en minutes, les plus
    proches d'abord. Sans réponse d'OSRM, l'estimation à vol d'oiseau, marquée
    comme telle. */
@@ -60,12 +56,8 @@ export async function proches(g, liste = STATIONS, fetcheur = chercher) {
   const cands = candidates(g, liste);
   if (!cands.length) return [];
   try {
-    const r = await fetcheur(adresseOsrm(g, cands));
-    if (!r.ok) throw new Error(`osrm ${r.status}`);
-    const d = await r.json();
-    const durees = d?.durations?.[0];
-    if (d.code !== "Ok" || !Array.isArray(durees)) throw new Error("osrm sans durées");
-    return cands.map((s, k) => ({ ...s, minutes: durees[k + 1] == null ? null : Math.round(durees[k + 1] / 60), estime: false }))
+    const m = await dureesMinutes(g, cands, fetcheur);
+    return cands.map((s, k) => ({ ...s, minutes: m[k], estime: false }))
       .filter(s => s.minutes !== null && s.minutes <= MINUTES_MAX)
       .sort((a, b) => a.minutes - b.minutes);
   } catch {
