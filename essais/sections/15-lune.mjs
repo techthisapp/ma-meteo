@@ -90,8 +90,8 @@ export default async T => {
      corps ne la redit pas : c'était la place perdue de la durée au-dessus de
      l'horizon. */
   ok("la part éclairée n'est écrite que dans le ciel", await pg.evaluate(() => {
-    const ciel = /\d+ %/.test(document.querySelector(".plein-titre").innerText);
-    const corps = /\d+ %/.test(document.querySelector("#ecran .ecran-corps").innerText);
+    const ciel = /\d+\s%/.test(document.querySelector(".plein-titre").innerText);
+    const corps = /\d+\s%/.test(document.querySelector("#ecran .ecran-corps").innerText);
     return ciel && !corps;
   }));
   ok("aucune heure n'est écrite deux fois dans le corps de la lune", await pg.evaluate(() => {

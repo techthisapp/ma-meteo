@@ -47,6 +47,31 @@ export const nav = await chromium.launch({
 /* Le filet du réseau, posé sur tout contexte : la liste des requêtes refusées
    se juge à la fin de la passe. */
 export const sortantes = envelopperNavigateur(nav);
+
+/* Les espaces insécables de l'application, posées depuis le 2 octobre 2026,
+   audit, constat 4.12, se lisent comme des espaces ordinaires : les contrôles
+   comparent des mots, et la typographie a son propre contrôle. Toute chaîne
+   que Playwright rapporte de la page est normalisée ; `evaluateBrut` garde la
+   lecture exacte pour ce contrôle-là. */
+const sansInsecables = t => t.replace(/[\u00A0\u202F]/g, " ");
+const normer = v => (typeof v === "string" ? sansInsecables(v)
+  : Array.isArray(v) ? v.map(normer)
+    : v && Object.getPrototypeOf(v) === Object.prototype
+      ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, normer(x)])) : v);
+{
+  const c0 = await nav.newContext();
+  const p0 = await c0.newPage();
+  const page = Object.getPrototypeOf(p0), locator = Object.getPrototypeOf(p0.locator("body"));
+  page.evaluateBrut = page.evaluate;
+  for (const [proto, noms] of [[page, ["evaluate", "textContent", "innerText", "getAttribute"]],
+    [locator, ["evaluate", "evaluateAll", "innerText", "textContent", "allInnerTexts", "allTextContents", "getAttribute"]]]) {
+    for (const nom of noms) {
+      const brut = proto[nom];
+      proto[nom] = async function (...a) { return normer(await brut.apply(this, a)); };
+    }
+  }
+  await c0.close();
+}
 /* Les requêtes en cours de chaque contexte, pour savoir quand une page est au
    repos. */
 const enCours = new WeakMap();
@@ -130,6 +155,8 @@ export const reposer = async (p, plafond) => {
    le demande, le contexte principal et sa page ouverte sur l'accueil. Le
    contexte principal se tient à Grenoble : Ma position doit y mener. Tout
    contexte ouvert par la section se ferme à sa fin. */
+export const espaces = t => (typeof t === "string" ? t.replace(/[\u00A0\u202F]/g, " ") : t);
+
 export const preparer = async (titre, avecPage) => {
   const lignes = [];
   const dire = (...a) => lignes.push(a.join(" "));
@@ -188,11 +215,14 @@ export const preparer = async (titre, avecPage) => {
   /* La phrase entière d'un conseil. Depuis le jalon 11 le conseil s'affiche en
      deux lignes, titre et précision ; sa phrase reste dans `data-phrase`, et
      c'est elle que les contrôles comparent. */
+  /* Les espaces insécables de l'application, posées depuis le 2 octobre 2026,
+     audit, constat 4.12, se lisent comme des espaces ordinaires : les contrôles
+     comparent des mots, et la typographie a son propre contrôle. */
   const phrasesConseils = (page, q = "#ecran .cj-l") => page.evaluate(sel =>
-    [...document.querySelectorAll(sel)].map(l => l.dataset.phrase || l.textContent), q);
-  const txt = async s => (await pg.locator(s).count()) ? (await pg.locator(s).first().innerText()) : "";
+    [...document.querySelectorAll(sel)].map(l => (l.dataset.phrase || l.textContent).replace(/[\u00A0\u202F]/g, " ")), q);
+  const txt = async s => (await pg.locator(s).count()) ? espaces(await pg.locator(s).first().innerText()) : "";
   const txtDe = async (p, s) => (await p.locator(s).count())
-    ? (await p.locator(s).first().innerText()) : "";
+    ? espaces(await p.locator(s).first().innerText()) : "";
   const onglet = async cle => {
     if (cle === "temps") { await ouvrirLeTemps(pg); return; }
     await pg.locator(`[data-onglet="${cle}"]`).click();

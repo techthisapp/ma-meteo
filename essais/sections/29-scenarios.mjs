@@ -183,7 +183,7 @@ export default async T => {
     /L'ombre porte les 40 scénarios de la source, écartés de \d+ degrés? au plus large vers/
       .test(phraseSc), phraseSc);
   ok("l'écart nommé est celui de la fenêtre", await pgSc.evaluate(() => {
-    const t = document.querySelector('.mg-v[data-cle="t"] .mg-l').textContent;
+    const t = document.querySelector('.mg-v[data-cle="t"] .mg-l').textContent.replace(/[\u00A0\u202F]/g, " ");
     const m = t.match(/écartés de (\d+) degrés? au plus large vers ([^.]+)\./);
     if (!m) return "phrase absente";
     // Fenêtre de 05 h à demain 05 h : l'écart le plus large tombe à sa fin.

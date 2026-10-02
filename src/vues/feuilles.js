@@ -431,7 +431,7 @@ export function vueBeauTemps(ctx, rendre, majEtat) {
       P.journees(lieux).then(({ liste, age }) => {
         dLieux = liste;
         peindreLieux();
-        if (age === null) majEtat("Source indisponible : les lieux ne sont pas comparés.");
+        if (age === null) majEtat("Source indisponible : les lieux ne sont pas comparés.", { erreur: true });
       });
 
       for (const b of bloc.querySelectorAll("[data-jour]")) {
@@ -450,7 +450,7 @@ export function vueBeauTemps(ctx, rendre, majEtat) {
         bLarge.removeAttribute("aria-busy");
         if (age === null) {
           bLarge.disabled = false;
-          majEtat("Source indisponible : la grille n'a pas pu être lue.");
+          majEtat("Source indisponible : la grille n'a pas pu être lue.", { erreur: true });
           return;
         }
         dGrille = liste;
@@ -684,7 +684,7 @@ export function vueReglages(ctx, rendre, majEtat) {
           const apres = Reglages.alertes(Parapluie.ALERTES_DEFAUT);
           if (apres[i] !== Number(m.value)) {
             for (const x of menus) x.value = String(apres[Number(x.dataset.alerte)]);
-            majEtat("La seconde alerte vient après la première.");
+            majEtat("La seconde alerte vient après la première.", { erreur: true });
           } else {
             rendre({ dessous: true });
           }

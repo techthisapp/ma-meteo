@@ -40,7 +40,7 @@ export default async T => {
   // Les heures situent la tranche, sous son nom, dans la même colonne.
   ok("chaque moment porte ses heures", await pg.evaluate(() => {
     const e = [...document.querySelectorAll("#ecran .mt-t")];
-    return e.length >= 3 && e.every(x => /\d\d-\d\d h/.test(x.textContent));
+    return e.length >= 3 && e.every(x => /\d\d-\d\d\s?h/.test(x.textContent));
   }));
 
   /* Le libellé s'écrit une fois. C'était le défaut du bloc par moment : quatre

@@ -52,8 +52,13 @@ export const NAPPES_CARTE = [
 /* Le document de la carte : les deux toiles, les repères, les outils, le
    panneau des couches, les légendes et la chronologie. */
 export const gabaritCarte = g => `<div class="ca-cadre">`
-  + `<canvas class="ca" id="caToile" role="img" `
+  /* La toile prend le focus : les flèches la déplacent, plus et moins la
+     zooment. Le résumé et la liste des étiquettes disent en texte ce qu'elle
+     montre, audit du 1er octobre 2026, constat 4.9. */
+  + `<canvas class="ca" id="caToile" role="img" tabindex="0" aria-describedby="caResume" `
   + `aria-label="Carte de ${esc(g.commune || "la position")} et de ses alentours"></canvas>`
+  + `<p class="titre-lu" id="caResume" aria-live="polite"></p>`
+  + `<ul class="titre-lu" id="caListe" aria-label="Étiquettes de la carte"></ul>`
   + `<canvas class="ca-vent" id="caToileVent" aria-hidden="true"></canvas>`
   + `<div class="ca-reperes" id="caReperes"></div>`
   /* Les prévisions des villes, jalon 18 : une couche d'étiquettes posée sous

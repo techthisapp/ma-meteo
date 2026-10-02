@@ -423,8 +423,18 @@ export function vueEtoiles() {
         fe.setAttribute("role", "dialog");
         fe.setAttribute("aria-modal", "true");
         fe.setAttribute("aria-label", "Le ciel en plein écran");
-        fe.innerHTML = `<canvas class="ci-toile-pe" id="ciToilePE"></canvas>`
+        /* Le ciel se lit aussi sans le voir et sans le doigt, audit du
+           1er octobre 2026, constat 4.9 : la toile porte la visée en libellé,
+           des boutons tournent le regard, et la liste des constellations du
+           champ ouvre leur fiche. Les boutons ne paraissent qu'au clavier,
+           décision de Jérôme du 2 octobre 2026 ; VoiceOver les atteint. */
+        fe.innerHTML = `<canvas class="ci-toile-pe" id="ciToilePE" role="img" aria-label="${viseeDe(vue.az, vue.haut)}"></canvas>`
           + `<p class="ci-visee" id="ciVisee" aria-live="polite">${viseeDe(vue.az, vue.haut)}</p>`
+          + `<div class="ci-dirs" id="ciDirs" role="group" aria-label="Tourner le regard">`
+          + [["N", "Nord"], ["E", "Est"], ["S", "Sud"], ["O", "Ouest"], ["+", "Plus haut"], ["-", "Plus bas"]]
+            .map(([c, n]) => `<button type="button" class="ci-bouton" data-dir="${c}">${n}</button>`).join("")
+          + `</div>`
+          + `<ul class="titre-lu" id="ciObjets" aria-label="Constellations dans le champ"></ul>`
           + (jour ? `<p class="ci-jour" id="ciJour">Il fait jour : la lumière du Soleil efface ces étoiles.</p>` : "")
           + `<button type="button" class="ci-bouton ci-fermer" id="ciFermer">Fermer</button>`
           + `<button type="button" class="ci-bouton ci-sources" id="ciSources">Sources</button>`
@@ -445,12 +455,46 @@ export function vueEtoiles() {
         document.body.appendChild(fe);
         const pe = fe.querySelector("#ciToilePE");
         const visee = fe.querySelector("#ciVisee");
+        const objets = fe.querySelector("#ciObjets");
         let demande = false;
+        /* La liste des constellations dont le nom tombe dans le champ, refaite à
+           chaque image dessinée ; chacune ouvre sa fiche. */
+        const majObjets = () => {
+          const r = pe.getBoundingClientRect();
+          const unite = Math.min(r.width, r.height) / 2 || 1;
+          const noms = Ciel.nomsVus(vue.instant || new Date(), g.lat, g.lon, vue.az, vue.haut, vue.champ,
+            [r.width / 2 / unite, r.height / 2 / unite]);
+          objets.innerHTML = noms.map(n => `<li><button type="button" data-sigle="${esc(n.sigle)}">${esc(n.nom)}</button></li>`).join("");
+          pe.setAttribute("aria-label", `${viseeDe(vue.az, vue.haut)}${noms.length ? `, ${noms.length} constellations` : ""}`);
+        };
         const redessiner = () => {
           if (demande || !pe.isConnected) return;
           demande = true;
-          requestAnimationFrame(() => { demande = false; if (pe.isConnected) peindreCiel(pe, vue, g); });
+          requestAnimationFrame(() => { demande = false; if (pe.isConnected) { peindreCiel(pe, vue, g); majObjets(); } });
         };
+        const tourner = (daz, dhaut) => {
+          vue.az = ((vue.az + daz) % 360 + 360) % 360;
+          vue.haut = Math.max(5, Math.min(85, vue.haut + dhaut));
+          visee.textContent = viseeDe(vue.az, vue.haut);
+          redessiner();
+        };
+        for (const b of fe.querySelectorAll("[data-dir]")) {
+          b.addEventListener("click", () => {
+            const d = b.dataset.dir;
+            if (d === "+") tourner(0, 15);
+            else if (d === "-") tourner(0, -15);
+            else tourner({ N: 0, E: 90, S: 180, O: 270 }[d] - vue.az, 0);
+          });
+        }
+        /* Les flèches du clavier tournent le regard, sauf sur le curseur de
+           l'heure, qui a les siennes. */
+        fe.addEventListener("keydown", ev => {
+          if (ev.target.id === "ciCurseur") return;
+          const d = { ArrowLeft: [-15, 0], ArrowRight: [15, 0], ArrowUp: [0, 10], ArrowDown: [0, -10] }[ev.key];
+          if (!d) return;
+          ev.preventDefault();
+          tourner(d[0], d[1]);
+        });
         let depart = null;
         pe.addEventListener("pointerdown", ev => {
           depart = { x: ev.clientX, y: ev.clientY, az: vue.az, haut: vue.haut };
@@ -522,6 +566,10 @@ export function vueEtoiles() {
           const noms = Ciel.nomsVus(date, g.lat, g.lon, vue.az, vue.haut, vue.champ, bords);
           montrer(Ciel.designee(ux, uy, figures, noms));
         };
+        objets.addEventListener("click", ev => {
+          const b = ev.target.closest("[data-sigle]");
+          if (b) montrer(b.dataset.sigle);
+        });
         pe.addEventListener("pointerup", lacher);
         pe.addEventListener("pointercancel", lacher);
         for (const b of fe.querySelectorAll("[data-affichage]")) {

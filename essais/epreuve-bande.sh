@@ -625,6 +625,45 @@ case "$N" in
   195) # Une estimation à vol d'oiseau se garde trente jours.
      perl -0pi -e 's/ && Date\.now\(\) - e\.t < GARDE_PROCHES && !e\.estime\) return e\.l;/ \&\& Date.now() - e.t < GARDE_PROCHES) return e.l;/' src/trajets.js
      ATTENDU="une estimation à vol d.oiseau ne se garde pas, une durée de route se garde" ;;
+  196) # La barre d'onglets ignore de nouveau les marges latérales.
+     perl -0pi -e 's/  padding:0 var\(--droite\) var\(--bas\) var\(--gauche\);/  padding:0 0 var(--bas) 0;/' styles.css
+     ATTENDU="en paysage, rien ne passe sous les marges latérales de l.encoche" ;;
+  197) # Le bouton de fermeture du ciel plein écran ignore la marge de droite.
+     perl -0pi -e 's/\.ci-fermer\{position:absolute;top:calc\(env\(safe-area-inset-top,0px\) \+ 12px\);right:calc\(16px \+ var\(--droite\)\)\}/.ci-fermer{position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);right:16px}/' styles.css
+     ATTENDU="en paysage, rien ne passe sous les marges latérales de l.encoche" ;;
+  198) # Une erreur s'efface de nouveau au bout de quatre secondes.
+     perl -0pi -e 's/  if \(erreur\) \{\n    gesteEtat = \(\) => majEtat\(""\);/  if (false) {\n    gesteEtat = () => majEtat("");/' src/app.js
+     ATTENDU="un message d.état s.annonce à chaque fois, dans la feuille, et une erreur reste jusqu.au geste suivant" ;;
+  199) # L'annonce n'est plus vidée avant d'être réécrite.
+     perl -0pi -e 's/  r\.textContent = "";\n  requestAnimationFrame\(\(\) => \{ r\.textContent = t; \}\);/  r.textContent = t;/' src/app.js
+     ATTENDU="un message d.état s.annonce à chaque fois, dans la feuille, et une erreur reste jusqu.au geste suivant" ;;
+  200) # La feuille refaite perd de nouveau le focus.
+     perl -0pi -e 's/  garderFocus\(corps, \(\) => \{ corps\.innerHTML = f\.corps; \}\);/  corps.innerHTML = f.corps;/' src/app.js
+     ATTENDU="au clavier, la feuille prend le focus, le garde aux rendus et le rend à son bouton" ;;
+  201) # La feuille fermée ne rend plus le focus à son bouton.
+     perl -0pi -e 's/  \(retourFocus \|\| \$\("ecran"\)\)\.focus\(\{ preventScroll: true \}\);\n//' src/app.js
+     ATTENDU="au clavier, la feuille prend le focus, le garde aux rendus et le rend à son bouton" ;;
+  202) # La page sous la feuille n'est plus inerte.
+     perl -0pi -e 's/    for \(const id of \["ecran", "nav", "onglets"\]\) \$\(id\)\.inert = true;\n//' src/app.js
+     ATTENDU="au clavier, la feuille prend le focus, le garde aux rendus et le rend à son bouton" ;;
+  203) # Le résumé de la carte ne suit plus les couches.
+     perl -0pi -e 's/      \+ `<span>Contours IGN et Natural Earth<\/span>`;\n    E\.resumer\(\);/      + `<span>Contours IGN et Natural Earth<\/span>`;/' src/vues/carte-legende.js
+     ATTENDU="la carte se lit par un résumé qui suit les couches, ses étiquettes en liste, et se déplace au clavier" ;;
+  204) # Les flèches ne déplacent plus la carte.
+     perl -0pi -e 's/        const d = \{ ArrowLeft: \[-1, 0\], ArrowRight: \[1, 0\], ArrowUp: \[0, -1\], ArrowDown: \[0, 1\] \}\[ev\.key\];/        const d = null;/' src/vues/carte.js
+     ATTENDU="la carte se lit par un résumé qui suit les couches, ses étiquettes en liste, et se déplace au clavier" ;;
+  205) # Le bouton Nord ne tourne plus le regard.
+     perl -0pi -e 's/            else tourner\(\{ N: 0, E: 90, S: 180, O: 270 \}\[d\] - vue\.az, 0\);/            else tourner(0, 0);/' src/vues/etoiles.js
+     ATTENDU="le ciel plein écran se lit et se tourne sans le doigt, les boutons paraissant au clavier" ;;
+  206) # Les boutons d'orientation se montrent en permanence.
+     perl -0pi -e 's/\.ci-dirs\{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset\(50%\)\}/.ci-dirs{position:absolute}/' styles.css
+     ATTENDU="le ciel plein écran se lit et se tourne sans le doigt, les boutons paraissant au clavier" ;;
+  207) # Les espaces insécables ne s'appliquent plus.
+     perl -0pi -e 's/\nsurveiller\(\);\n/\n/' src/app.js
+     ATTENDU="les espaces insécables tiennent les nombres à leur unité et les signes doubles à leur mot, hors des dessins" ;;
+  208) # Les dessins reçoivent des espaces insécables.
+     perl -0pi -e 's/const EXCLUS = "svg, script, style, textarea, input, code";/const EXCLUS = "script, style, textarea, input, code";/' src/typo.js
+     ATTENDU="les espaces insécables tiennent les nombres à leur unité et les signes doubles à leur mot, hors des dessins" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

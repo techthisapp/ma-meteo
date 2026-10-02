@@ -48,6 +48,15 @@ export function brancherEtiquettes(E) {
       }
     });
     if (E.rivAllume) planRivieres();
+    /* Les étiquettes visibles, en texte pour VoiceOver : la couche dessinée
+       reste masquée aux lecteurs d'écran. Audit, constat 4.9. */
+    const liste = bloc.querySelector("#caListe");
+    if (liste) {
+      const lues = [...zonePrev.querySelectorAll(".ca-pv:not([hidden])")]
+        .map(el => `${el.getAttribute("title") || ""} ${el.textContent}`.trim());
+      const html = lues.map(x => `<li>${esc(x)}</li>`).join("");
+      if (liste.innerHTML !== html) liste.innerHTML = html;
+    }
   };
 
   /* Les prévisions des villes : l'interrupteur, le choix du moment, et les

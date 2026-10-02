@@ -10,6 +10,7 @@
    pour les actions temporaires. */
 
 import { nombreFr, esc, heureJour, enumerer, cleHeure } from "./horloge.js";
+import { surveiller } from "./typo.js";
 import * as P from "./previsions.js";
 import * as Reglages from "./reglages.js";
 import { ico, icoTemps, icoCiel, tempsDe } from "./icones.js";
@@ -112,14 +113,46 @@ function sentir(motif) {
 
 /* ---------- Message d'état ---------- */
 
+/* Deux choses séparées depuis le 2 octobre 2026, audit, constat 4.10. La bulle
+   visible, `#etat`, que les lecteurs d'écran ignorent ; et l'annonce, dans deux
+   régions jamais masquées, `#annonce` pour un message ordinaire et `#alerte`
+   pour une erreur. Une région masquée au moment du changement n'était pas
+   annoncée par VoiceOver, et un message répété ne l'était qu'une fois : la
+   région est vidée puis réécrite à l'image suivante. Quand une feuille est
+   ouverte, les régions passent dans la feuille, que `aria-modal` isole du
+   reste de la page.
+
+   Un message ordinaire reste quatre secondes ; une erreur reste jusqu'au geste
+   suivant ou au message suivant, décision de Jérôme du 2 octobre 2026. */
 let minuteurEtat = null;
-function majEtat(t) {
+let gesteEtat = null;
+function majEtat(t, { erreur = false } = {}) {
   const z = $("etat");
   clearTimeout(minuteurEtat);
+  if (gesteEtat) { document.removeEventListener("pointerdown", gesteEtat, true); document.removeEventListener("keydown", gesteEtat, true); gesteEtat = null; }
   if (!t) { z.hidden = true; return; }
   z.textContent = t;
   z.hidden = false;
-  minuteurEtat = setTimeout(() => { z.hidden = true; }, 4200);
+  annoncer(t, erreur);
+  if (erreur) {
+    gesteEtat = () => majEtat("");
+    /* Le geste qui a fait naître l'erreur ne doit pas l'effacer aussitôt. */
+    setTimeout(() => {
+      if (!gesteEtat) return;
+      document.addEventListener("pointerdown", gesteEtat, true);
+      document.addEventListener("keydown", gesteEtat, true);
+    }, 0);
+  } else {
+    minuteurEtat = setTimeout(() => { z.hidden = true; }, 4000);
+  }
+}
+function annoncer(t, erreur) {
+  const r = $(erreur ? "alerte" : "annonce");
+  const f = $("feuille");
+  const hote = f && !f.hidden ? f : document.body;
+  for (const id of ["annonce", "alerte"]) if ($(id).parentNode !== hote) hote.append($(id));
+  r.textContent = "";
+  requestAnimationFrame(() => { r.textContent = t; });
 }
 
 /* Les maximums de la journée en cours et du lendemain, pris à la même source
@@ -844,6 +877,27 @@ function poserJeton() {
 
 /* ---------- Rendu de l'écran courant ---------- */
 
+/* Le focus survit aux rendus, audit du 1er octobre 2026, constat 4.6. Chaque
+   rendu remplace tout le contenu de l'écran ou de la feuille : l'élément qui
+   avait le focus disparaissait, et VoiceOver retombait au début de la page.
+   L'élément se reconnaît à son identifiant, sinon à ses attributs `data-*` ;
+   son pendant dans le nouveau contenu reprend le focus, sans défilement. */
+function cleFocus(el) {
+  if (!el || el === document.body) return null;
+  if (el.id) return `#${CSS.escape(el.id)}`;
+  const donnees = [...el.attributes].filter(a => a.name.startsWith("data-"))
+    .map(a => `[${a.name}="${CSS.escape(a.value)}"]`).join("");
+  return donnees ? `${el.tagName.toLowerCase()}${donnees}` : null;
+}
+function garderFocus(racine, remplacer) {
+  const a = document.activeElement;
+  const cle = a && racine.contains(a) && a !== racine ? cleFocus(a) : null;
+  remplacer();
+  if (!cle) return;
+  const b = racine.querySelector(cle);
+  if (b && document.activeElement !== b) b.focus({ preventScroll: true });
+}
+
 function rendre() {
   const ecran = $("ecran");
   const situe = Reglages.situe();
@@ -900,8 +954,10 @@ function rendre() {
   ecran.classList.toggle("ecran-carte", f.carte === true);
   ecran.classList.toggle("ecran-large", f.large === true);
   ecran.classList.toggle("ecran-detail", f.retour === true);
-  ecran.innerHTML = (f.pleinCadre || f.carte ? "" : titreEcran(f.titre, f.sous, f.cote))
-    + f.corps;
+  garderFocus(ecran, () => {
+    ecran.innerHTML = (f.pleinCadre || f.carte ? "" : titreEcran(f.titre, f.sous, f.cote))
+      + f.corps;
+  });
   /* Le retour d'une page de détail prend, dans la barre de tête, la place du
      nom de la commune, comme dans les pages d'iOS. Posé au-dessus du titre, il
      descendait le ruban d'une ligne sous la ligne de flottaison. */
@@ -1028,7 +1084,7 @@ async function situerParPosition(bouton) {
     sentir(10);
     charger();
   } catch (e) {
-    majEtat(e.message);
+    majEtat(e.message, { erreur: true });
   } finally {
     if (bouton) { bouton.disabled = false; bouton.removeAttribute("aria-busy"); }
   }
@@ -1104,7 +1160,7 @@ function rendreFeuille() {
   const action = $("feuille-action");
   action.innerHTML = f.action || "";
   const corps = $("feuille-corps");
-  corps.innerHTML = f.corps;
+  garderFocus(corps, () => { corps.innerHTML = f.corps; });
   if (typeof f.brancher === "function") f.brancher(corps);
   for (const b of [...corps.querySelectorAll("[data-feuille]"),
     ...action.querySelectorAll("[data-feuille]")]) {
@@ -1112,6 +1168,7 @@ function rendreFeuille() {
   }
 }
 
+let ouvreur = null, cleOuvreur = null;
 function ouvrirFeuille(vue, enRetour) {
   if (!FEUILLES[vue]) return;
   /* La feuille est ouverte tant qu'une vue est courante. L'attribut hidden ne
@@ -1128,6 +1185,12 @@ function ouvrirFeuille(vue, enRetour) {
   $("feuille-corps").scrollTop = 0;
 
   if (!dejaOuverte) {
+    /* Le bouton qui ouvre la feuille reprend le focus à sa fermeture, et le
+       reste de la page devient inerte tant qu'elle est ouverte : la tabulation
+       en sortait. Audit, constat 4.6. */
+    ouvreur = document.activeElement !== document.body ? document.activeElement : null;
+    cleOuvreur = cleFocus(ouvreur);
+    for (const id of ["ecran", "nav", "onglets"]) $(id).inert = true;
     $("voile").hidden = false;
     $("feuille").hidden = false;
     document.body.classList.add("fige");
@@ -1157,6 +1220,10 @@ function fermerFeuille() {
   }, 260);
   pile = [];
   vueCourante = null;
+  for (const id of ["ecran", "nav", "onglets"]) $(id).inert = false;
+  const retourFocus = ouvreur?.isConnected ? ouvreur : (cleOuvreur && document.querySelector(cleOuvreur));
+  (retourFocus || $("ecran")).focus({ preventScroll: true });
+  ouvreur = null; cleOuvreur = null;
 }
 
 function retour() {
@@ -1549,6 +1616,9 @@ async function chercherVersion() {
 setTimeout(chercherVersion, 4000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) chercherVersion(); });
 
+/* Les espaces insécables s'appliquent à tout texte de la page, audit,
+   constat 4.12. */
+surveiller();
 charger();
 
 /* La prévision du dernier relevé paraît tout de suite ; le relevé suivant part

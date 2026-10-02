@@ -94,6 +94,11 @@
 
   --haut:env(safe-area-inset-top);
   --bas:env(safe-area-inset-bottom);
+  /* Les marges latérales de l'encoche, nulles en portrait : en paysage, la
+     barre d'onglets, le ruban, la carte et le ciel plein écran passaient
+     dessous. Audit du 1er octobre 2026, constat 4.8. */
+  --gauche:env(safe-area-inset-left,0px);
+  --droite:env(safe-area-inset-right,0px);
 
   /* Hauteur réelle de la barre d'onglets, mesurée à l'exécution. */
   --onglets-mesure:calc(var(--onglets-haut) + var(--bas));
@@ -362,7 +367,7 @@ button:disabled,button[aria-disabled="true"],input:disabled{
 .onglets{
   position:fixed;left:0;right:0;bottom:0;z-index:20;
   display:flex;align-items:stretch;
-  padding-bottom:var(--bas);
+  padding:0 var(--droite) var(--bas) var(--gauche);
   background:var(--verre-fond);
   backdrop-filter:var(--verre-flou);
   -webkit-backdrop-filter:var(--verre-flou);
@@ -388,8 +393,8 @@ button:disabled,button[aria-disabled="true"],input:disabled{
 
 main{
   max-width:var(--large-max);margin:0 auto;
-  padding:calc(var(--haut) + var(--nav-haut)) var(--marge)
-          calc(var(--onglets-mesure) + var(--espace-2xl));
+  padding:calc(var(--haut) + var(--nav-haut)) calc(var(--marge) + var(--droite))
+          calc(var(--onglets-mesure) + var(--espace-2xl)) calc(var(--marge) + var(--gauche));
   display:flex;flex-direction:column;gap:var(--espace-xl);
 }
 main:focus{outline:none}
@@ -1230,7 +1235,7 @@ button.rangee:active{background:var(--surface-2)}
 /* Les commandes, en colonne à droite. Le pincement suffit au doigt ; les deux
    boutons servent au clavier et à qui tient son téléphone d'une main. */
 .ca-outils{
-  position:absolute;right:var(--marge);top:var(--espace-base);
+  position:absolute;right:calc(var(--marge) + var(--droite));top:var(--espace-base);
   display:flex;flex-direction:column;gap:var(--espace-xs);
 }
 .ca-o{
@@ -1250,7 +1255,7 @@ button.rangee:active{background:var(--surface-2)}
    largeur est celle de trois mots comme « Température » ; le panneau grandit
    par rangée et non par colonne. */
 .ca-panneau{
-  position:absolute;right:calc(var(--marge) + var(--touche) + var(--espace-xs));
+  position:absolute;right:calc(var(--marge) + var(--droite) + var(--touche) + var(--espace-xs));
   top:var(--espace-base);
   width:258px;padding:var(--espace-sm);
   display:flex;flex-direction:column;gap:2px;
@@ -1323,7 +1328,7 @@ button.rangee:active{background:var(--surface-2)}
 /* L'échelle, la mention des sources et la chronologie, au pied de la carte. Une
    carte sans échelle ne dit pas si l'averse est à dix kilomètres ou à cent. */
 .ca-pied{
-  position:absolute;left:var(--marge);right:var(--marge);bottom:var(--espace-base);
+  position:absolute;left:calc(var(--marge) + var(--gauche));right:calc(var(--marge) + var(--droite));bottom:var(--espace-base);
   display:flex;flex-direction:column;gap:var(--espace-sm);
 }
 .ca-bas{
@@ -1407,7 +1412,7 @@ button.rangee:active{background:var(--surface-2)}
 /* Un mot quand la pluie manque : réseau coupé, ou service sans image. Il se
    pose en tête de carte, là où rien d'autre ne se lit. */
 .ca-mot{
-  position:absolute;left:var(--marge);top:var(--espace-base);
+  position:absolute;left:calc(var(--marge) + var(--gauche));top:var(--espace-base);
   max-width:60%;padding:var(--espace-xs) var(--espace-sm);
   border-radius:var(--rayon-sm);background:var(--surface);
   box-shadow:0 1px 4px rgba(0,0,0,.22);
@@ -1950,22 +1955,22 @@ button.rangee:active{background:var(--surface-2)}
 .ci-plein-ecran{position:fixed;inset:0;z-index:1000;background:#0b1220}
 .ci-toile-pe{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
 .ci-visee{
-  position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);left:16px;margin:0;
+  position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);left:calc(16px + var(--gauche));margin:0;
   padding:5px 12px;border-radius:var(--rayon-plein);
   background:rgba(255,255,255,.12);color:#e6ecf5;font-size:13px;
 }
 .ci-jour{
-  position:absolute;top:calc(env(safe-area-inset-top,0px) + 52px);left:16px;right:16px;
+  position:absolute;top:calc(env(safe-area-inset-top,0px) + 52px);left:calc(16px + var(--gauche));right:calc(16px + var(--droite));
   margin:0;color:rgba(230,236,245,.7);font-size:12px;
 }
 .ci-bouton{
   padding:6px 14px;border-radius:var(--rayon-plein);
   background:rgba(255,255,255,.14);color:#e6ecf5;font-size:13px;
 }
-.ci-fermer{position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);right:16px}
-.ci-sources{position:absolute;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);right:16px}
+.ci-fermer{position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);right:calc(16px + var(--droite))}
+.ci-sources{position:absolute;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);right:calc(16px + var(--droite))}
 .ci-fenetre{
-  position:absolute;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);
+  position:absolute;left:calc(12px + var(--gauche));right:calc(12px + var(--droite));bottom:calc(env(safe-area-inset-bottom,0px) + 12px);
   padding:16px;border-radius:var(--rayon-md);background:rgba(20,28,46,.96);
   color:#dbe3ef;font-size:13px;line-height:1.4;
 }
@@ -1973,8 +1978,18 @@ button.rangee:active{background:var(--surface-2)}
 .ci-fenetre[hidden]{display:none}
 /* Le choix des étoiles affichées, en bas à gauche du plein écran, le bouton des
    sources tenant la droite. */
+/* Les boutons qui tournent le regard ne paraissent qu'au clavier : masqués à
+   l'œil, VoiceOver les atteint, et le focus clavier les fait paraître sous la
+   visée. Décision de Jérôme du 2 octobre 2026, audit, constat 4.9. */
+.ci-dirs{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.ci-dirs:focus-within{
+  width:auto;height:auto;overflow:visible;clip-path:none;
+  left:calc(16px + var(--gauche));right:calc(16px + var(--droite));
+  top:calc(env(safe-area-inset-top,0px) + 96px);
+  display:flex;flex-wrap:wrap;gap:var(--espace-xs);
+}
 .ci-choix{
-  position:absolute;left:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);
+  position:absolute;left:calc(16px + var(--gauche));bottom:calc(env(safe-area-inset-bottom,0px) + 16px);
   display:flex;gap:2px;padding:2px;border-radius:var(--rayon-plein);
   background:rgba(255,255,255,.1);
 }
@@ -1992,7 +2007,7 @@ button.rangee:active{background:var(--surface-2)}
 /* La fiche d'une constellation, en bas du plein écran, au-dessus du choix de
    l'affichage. */
 .ci-fiche{
-  position:absolute;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 62px);
+  position:absolute;left:calc(12px + var(--gauche));right:calc(12px + var(--droite));bottom:calc(env(safe-area-inset-bottom,0px) + 62px);
   padding:14px 16px;border-radius:var(--rayon-md);background:rgba(20,28,46,.96);
   color:#dbe3ef;font-size:13px;line-height:1.35;
 }
@@ -2007,7 +2022,7 @@ button.rangee:active{background:var(--surface-2)}
    évite ci-temps, déjà pris par la chronologie de l'écran du temps : la règle
    aurait déplacé cette chronologie. */
 .ci-curseur{
-  position:absolute;left:16px;right:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 62px);
+  position:absolute;left:calc(16px + var(--gauche));right:calc(16px + var(--droite));bottom:calc(env(safe-area-inset-bottom,0px) + 62px);
   display:flex;align-items:center;gap:10px;
 }
 .ci-curseur input[type="range"]{flex:1;accent-color:#9ec2f0}

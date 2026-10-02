@@ -1,11 +1,12 @@
 /* Ma position. Section de la suite des contrôles, sortie de essais/controle.mjs
    le 2 octobre 2026 ; elle part d'un état neuf préparé par essais/banc.mjs. */
+import { FAIN, amorce } from "../faux-services.mjs";
 
 export const titre = "Ma position";
 export const avecPage = true;
 
 export default async T => {
-  const { pg, ok, appelsTous, txt, reposer } = T;
+  const { pg, ok, appelsTous, txt, reposer, nav, brancherRoutes, ouvrirPage } = T;
   // L'état de départ : la feuille des lieux ouverte.
   await pg.locator("#navLieu").click();
   await pg.waitForTimeout(900);
@@ -75,4 +76,53 @@ export default async T => {
   ok("Ma position ne porte plus la coche",
     await pg.locator('.co-pos .co-l[aria-current="true"]').count() === 0);
   await pg.locator("#feuille-fermer").click(); await pg.waitForTimeout(420);
+
+  /* Audit du 1er octobre 2026, constat 4.10 : les messages d'état. Une seconde
+     heure d'alerte posée avant la première est refusée par une erreur, dans la
+     feuille des réglages. L'annonce passe par une région jamais masquée, placée
+     dans la feuille ouverte ; la même erreur répétée s'annonce de nouveau ;
+     l'erreur reste affichée au-delà de quatre secondes et s'efface au geste
+     suivant. */
+  const ctxEtat = await nav.newContext({
+    viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+    locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+  });
+  await ctxEtat.addInitScript(amorce(FAIN));
+  await brancherRoutes(ctxEtat);
+  const pgEtat = await ctxEtat.newPage();
+  await ouvrirPage(pgEtat);
+  await reposer(pgEtat, 1500);
+  await pgEtat.evaluate(() => {
+    window.__annonces = [];
+    /* Chaque état des régions se note, le vide compris : une annonce répétée
+       doit repasser par le vide pour être dite de nouveau. */
+    new MutationObserver(() => {
+      for (const id of ["annonce", "alerte"]) {
+        const t = document.getElementById(id)?.textContent ?? "";
+        const dernier = window.__annonces.filter(a => a.startsWith(`${id}:`)).pop();
+        if (dernier !== `${id}:${t}`) window.__annonces.push(`${id}:${t}`);
+      }
+    }).observe(document.body, { subtree: true, childList: true, characterData: true });
+  });
+  await pgEtat.locator("#btnReglages").click();
+  await pgEtat.waitForTimeout(700);
+  const seconde = pgEtat.locator('.rg-h[data-alerte="1"]');
+  const plusTot = await seconde.evaluate(s => s.options[0].value);
+  for (let n = 0; n < 2; n++) {
+    await seconde.selectOption(plusTot);
+    await pgEtat.waitForTimeout(500);
+  }
+  await pgEtat.waitForTimeout(4500);
+  const etatDit = await pgEtat.evaluate(() => ({
+    cachee: document.getElementById("annonce").hidden || document.getElementById("alerte").hidden,
+    dansFeuille: !!document.querySelector("#feuille #alerte") && !!document.querySelector("#feuille #annonce"),
+    bulle: !document.getElementById("etat").hidden ? document.getElementById("etat").textContent : "",
+    alertes: window.__annonces.filter(a => a === "alerte:La seconde alerte vient après la première.").length,
+  }));
+  await pgEtat.mouse.click(200, 120);
+  await pgEtat.waitForTimeout(300);
+  const apresGeste = await pgEtat.evaluate(() => document.getElementById("etat").hidden);
+  await ctxEtat.close();
+  ok("un message d'état s'annonce à chaque fois, dans la feuille, et une erreur reste jusqu'au geste suivant",
+    !etatDit.cachee && etatDit.dansFeuille && etatDit.bulle !== "" && etatDit.alertes >= 2 && apresGeste, JSON.stringify({ ...etatDit, apresGeste }));
 };

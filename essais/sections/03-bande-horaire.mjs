@@ -1244,7 +1244,7 @@ export default async T => {
     return c && !/Lecture du sol/.test(c.textContent); }, null, { timeout: 15000 }).catch(() => {});
   const solFeuille = await pg.evaluate(() => {
     const c = [...document.querySelectorAll("#feuille-corps .carte")].find(x => /Le sol et l'arrosage/.test(x.textContent));
-    const dd = t => [...(c?.querySelectorAll("dt") || [])].find(x => x.textContent === t)?.nextElementSibling?.textContent || "";
+    const dd = t => [...(c?.querySelectorAll("dt") || [])].find(x => x.textContent.replace(/[\u00A0\u202F]/g, " ") === t)?.nextElementSibling?.textContent || "";
     return { humidite: dd("Humidité du sol, 9 à 27 cm"), semaine: dd("Sept derniers jours"), attendue: dd("Pluie attendue d'ici après-demain"),
       conseil: c?.querySelector(".pl-lieu")?.textContent || "" };
   });

@@ -64,7 +64,7 @@ export function vueCarte(ctx, rendre, majEtat) {
       const mot = bloc.querySelector("#caMot");
 
       const E = {
-        bloc, cv, vue,
+        bloc, cv, vue, g,
         choisie: Reglages.nappe(),
         pluieAllume: Reglages.pluiecarte(), hote: "", images: [], rang: 0,
         mesures: null, mesuresAir: null,
@@ -124,7 +124,9 @@ export function vueCarte(ctx, rendre, majEtat) {
       const departEtiquettes = brancherEtiquettes(E);
 
       const main = Carte.poser(cv, vue, placer, E.COUCHES);
-      E.revoir = () => { main.redessiner(); };
+      /* Chaque nouveau tracé refait aussi le résumé lu : une grille arrivée
+         donne la valeur au lieu courant. */
+      E.revoir = () => { main.redessiner(); E.resumer?.(); };
 
       /* Le premier tracé attend que la toile ait sa taille. Le cadrage
          d'ouverture aussi : il fait tenir la France dans le cadre, et la
@@ -147,6 +149,19 @@ export function vueCarte(ctx, rendre, majEtat) {
         Object.assign(vue, Carte.borner({ ...vue, z: vue.z + d }));
         E.revoir();
       };
+      /* Les flèches déplacent la vue d'un quart de cadre, plus et moins la
+         zooment, quand la toile a le focus. Audit, constat 4.9. */
+      cv.addEventListener("keydown", ev => {
+        if (ev.key === "+" || ev.key === "=") { pas(1); ev.preventDefault(); return; }
+        if (ev.key === "-") { pas(-1); ev.preventDefault(); return; }
+        const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[ev.key];
+        if (!d) return;
+        ev.preventDefault();
+        const l = cv.clientWidth, h = cv.clientHeight;
+        const c = Carte.depuisEcran(vue, l / 2 + d[0] * l / 4, h / 2 + d[1] * h / 4, l, h);
+        Object.assign(vue, Carte.borner({ lat: c.lat, lon: c.lon, z: vue.z }));
+        E.revoir();
+      });
       bloc.querySelector("#caPlus").addEventListener("click", () => pas(1));
       bloc.querySelector("#caMoins").addEventListener("click", () => pas(-1));
       bloc.querySelector("#caIci").addEventListener("click", () => {

@@ -5,11 +5,36 @@
 import { esc } from "../horloge.js";
 import { ECHELLES } from "../ruban.js";
 import * as Vent from "../vent.js";
+import * as NappeCarte from "../nappe.js";
 import { NAPPES_CARTE } from "./carte-gabarit.js";
 
 export function brancherLegende(E) {
   const { bloc, cv } = E;
   const credit = bloc.querySelector("#caCredit");
+
+  /* Le résumé lu de la carte : la nappe choisie et sa valeur au lieu courant,
+     puis les couches allumées par-dessus. Il se refait avec la mention, à
+     chaque interrupteur, et à l'arrivée des grilles. Audit, constat 4.9. */
+  const resume = bloc.querySelector("#caResume");
+  E.resumer = () => {
+    if (!resume) return;
+    const n = NAPPES_CARTE.find(x => x.cle === E.choisie);
+    let nappe = "Aucune nappe.";
+    if (n) {
+      const grille = n.champ ? (n.source === "air" ? E.mesuresAir : E.mesures) : null;
+      const v = grille && E.g ? NappeCarte.valeurA(grille[n.champ], E.g.lat, E.g.lon) : null;
+      nappe = `Nappe ${n.nom.toLowerCase()}, ${n.porte}`
+        + (Number.isFinite(v) ? `, ${Math.round(v)}${n.unite === "°" ? " degrés" : ""} au lieu courant.` : ".");
+    }
+    const dessus = [E.pluieAllume && "pluie", E.ventAllume && "vent", E.vigiAllume && "vigilance",
+      E.foudreAllume && "foudre", E.nuagesAllume && "nuages", E.feuxAllume && "feux",
+      E.previAllume && "prévisions des villes", E.plagesAllume && "plages", E.neigeAllume && "neige",
+      E.rivAllume && "cours d'eau"].filter(Boolean);
+    const dit = `${nappe} ${dessus.length ? `Par-dessus : ${dessus.join(", ")}.` : "Aucune couche par-dessus."}`;
+    /* Un même texte n'est pas réécrit : la région se refait à chaque tuile
+       posée, et VoiceOver redirait la même phrase. */
+    if (resume.textContent !== dit) resume.textContent = dit;
+  };
 
   /* La mention des sources. Deux lignes plutôt qu'une : sur trois cent
      quatre-vingt-dix points, les deux mentions bout à bout débordent la
@@ -51,6 +76,7 @@ export function brancherLegende(E) {
           + `rel="noopener noreferrer">Copernicus</a></span>`
         : "")
       + `<span>Contours IGN et Natural Earth</span>`;
+    E.resumer();
   };
 
   /* La légende. Une rampe de couleur sans échelle ne se lit pas : deux
