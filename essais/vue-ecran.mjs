@@ -305,7 +305,7 @@ for (const theme of ["light", "dark"]) {
   }
   if (process.env.DEZOOM) {
     for (let k = 0; k < Number(process.env.DEZOOM); k++) {
-      await pg.locator("#caMoins").click();
+      await pg.locator("#caToile").press("-");
       await pg.waitForTimeout(120);
     }
     await pg.waitForTimeout(400);

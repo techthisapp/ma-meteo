@@ -128,7 +128,7 @@ export default async T => {
     return Math.round(Math.hypot(c[0][0] - c[1][0], c[0][1] - c[1][1]));
   });
   const ecartAvant = await ecartReperes();
-  await pgCarte.locator("#caPlus").click();
+  await pgCarte.locator("#caToile").press("+");
   await pgCarte.waitForTimeout(300);
   const ecartApres = await ecartReperes();
   ok("un cran de zoom double l'écartement des lieux",
@@ -136,13 +136,13 @@ export default async T => {
     `${ecartAvant} puis ${ecartApres}`);
   /* Un repère hors du cadre est caché plutôt que collé au bord : une pastille au
      bord dirait un lieu qui n'est pas là. */
-  for (let k = 0; k < 2; k++) { await pgCarte.locator("#caPlus").click(); await pgCarte.waitForTimeout(150); }
+  for (let k = 0; k < 2; k++) { await pgCarte.locator("#caToile").press("+"); await pgCarte.waitForTimeout(150); }
   await pgCarte.waitForTimeout(300);
   ok("un repère hors du cadre est caché",
     await pgCarte.locator(".ca-r:not([hidden])").count() === 1
     && await pgCarte.locator(".ca-r-ici:not([hidden])").count() === 1,
     `${await pgCarte.locator(".ca-r:not([hidden])").count()} repères visibles`);
-  for (let k = 0; k < 2; k++) { await pgCarte.locator("#caMoins").click(); await pgCarte.waitForTimeout(150); }
+  for (let k = 0; k < 2; k++) { await pgCarte.locator("#caToile").press("-"); await pgCarte.waitForTimeout(150); }
   await pgCarte.waitForTimeout(300);
   ok("l'échelle écrite reste une longueur ronde",
     /^(1|2|5|10|20|50|100|200|500) km$/.test((await txtDe(pgCarte, ".ca-echelle span")).trim()),
@@ -236,7 +236,7 @@ export default async T => {
       // Un appui sur l'onglet déjà actif ramène le cadrage sur la France.
       onglet.click(); await dodo(700);
       const france = lu();
-      for (let k = 0; k < 3; k++) document.getElementById("caPlus").click();
+      for (let k = 0; k < 3; k++) document.getElementById("caToile").dispatchEvent(new KeyboardEvent("keydown", { key: "+", bubbles: true }));
       await dodo(500);
       if (lu() === france) return "le zoom n'a pas changé l'échelle";
       onglet.click(); await dodo(700);
@@ -343,6 +343,25 @@ export default async T => {
       if (!d) return "rien lu";
       const codes = [...d.niveaux.keys()].sort();
       return codes.join(",") === "29,2A" ? "" : `codes retenus : ${codes.join(",")}`;
+    }) === "");
+
+  /* Version 140, demande de Jérôme du 2 octobre 2026 : plus de boutons de
+     zoom, et les sources derrière un bouton, fermées à l'arrivée, ouvertes au
+     premier appui, refermées par un appui sur la carte. */
+  ok("la carte n'a plus de boutons de zoom, et ses sources s'ouvrent derrière un bouton",
+    await pgCarte.evaluate(async () => {
+      const dodo = m => new Promise(r => setTimeout(r, m));
+      const c = document.getElementById("caCredit"), b = document.getElementById("caSources");
+      if (document.querySelectorAll(".ca-outils .ca-o").length !== 2) return "des commandes en trop";
+      if (!b) return "pas de bouton des sources";
+      if (!c.hidden || c.getBoundingClientRect().height > 0) return "les sources sont affichées à l'arrivée";
+      b.click(); await dodo(150);
+      const ouvert = !c.hidden && c.getBoundingClientRect().height > 0 && b.getAttribute("aria-expanded") === "true"
+        && /Contours IGN/.test(c.textContent);
+      document.getElementById("caToile").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+      await dodo(150);
+      if (!ouvert) return "l'appui n'ouvre pas les sources";
+      return c.hidden ? "" : "un appui sur la carte ne referme pas les sources";
     }) === "");
 
   ok("la mention de Météo-France paraît avec la couche de vigilance",

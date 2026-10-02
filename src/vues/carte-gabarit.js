@@ -67,20 +67,21 @@ export const gabaritCarte = g => `<div class="ca-cadre">`
   + `<div class="ca-moments" id="caMoments" role="group" aria-label="Moment des prévisions" hidden>`
   + Villes.MOMENTS.map(([m, n]) => `<button type="button" data-moment="${m}" aria-pressed="false">${n}</button>`).join("")
   + `</div>`
+  /* Deux commandes seulement depuis la version 140 : le zoom se fait au
+     pincement, et les touches plus et moins le font au clavier sur la toile.
+     Les deux boutons de zoom prenaient la place du panneau, demande de Jérôme
+     du 2 octobre 2026. */
   + `<div class="ca-outils">`
   + `<button type="button" class="ca-o" id="caCouches" aria-expanded="false" `
   + `aria-controls="caPanneau" aria-label="Couches de la carte">`
   + ico("couches", "") + `</button>`
-  + `<button type="button" class="ca-o" id="caPlus" aria-label="Zoomer">`
-  + ico("plus", "") + `</button>`
-  + `<button type="button" class="ca-o" id="caMoins" aria-label="Dézoomer">`
-  + ico("moins", "") + `</button>`
   + `<button type="button" class="ca-o" id="caIci" aria-label="Revenir sur le lieu courant">`
   + ico("cible", "") + `</button>`
   + `</div>`
-  /* Le panneau en tuiles, trois par rangée, l'icône au-dessus du nom : neuf
-     entrées tiennent dans un tiers du cadre, là où sept en prenaient la
-     moitié en liste. Chaque tuile garde son nom, voir `styles.css`. */
+  /* Le panneau en deux rangées qui défilent de côté, la nappe puis ce qui se
+     pose par-dessus, depuis la version 140. En grille, chaque couche nouvelle
+     ajoutait une rangée ; en défilement, le panneau garde sa hauteur quel que
+     soit le nombre des couches. Chaque tuile garde son nom sous son icône. */
   + `<div class="ca-panneau" id="caPanneau" hidden>`
   + `<p class="ca-p-titre" id="caPnTitre">Nappe</p>`
   + `<div class="ca-grille" role="radiogroup" aria-labelledby="caPnTitre">`
@@ -143,10 +144,17 @@ export const gabaritCarte = g => `<div class="ca-cadre">`
   + `<span class="ca-lv-r"><i class="ca-rampe-foudre"></i>Foudre, 30 min</span>`
   + `</div>`
   + `</div>`
+  /* Les sources ne s'affichent plus en permanence, version 140, demande de
+     Jérôme : elles se lisent derrière un bouton, et en entier dans la carte
+     « Sources » des réglages. Le bouton reste sur la carte parce que les
+     licences demandent que la source soit accessible depuis ce qu'elle
+     montre. */
   + `<div class="ca-bas">`
   + `<div class="ca-echelle" id="caEchelle"><i></i><span></span></div>`
-  + `<p class="ca-credit" id="caCredit">Contours IGN et Natural Earth</p>`
+  + `<button type="button" class="ca-src" id="caSources" aria-expanded="false" `
+  + `aria-controls="caCredit" aria-label="Sources de la carte">` + ico("info", "") + `</button>`
   + `</div>`
+  + `<p class="ca-credit" id="caCredit" hidden>Contours IGN et Natural Earth</p>`
   + `<div class="ca-temps" id="caTemps" hidden>`
   + `<button type="button" class="ca-jouer" id="caJouer" `
   + `aria-label="Lire la chronologie">` + ico("lecture", "") + `</button>`

@@ -41,10 +41,19 @@ export default async T => {
     if (p.hidden) { document.getElementById("caCouches").click(); await dodo(200); }
     const cadre = document.querySelector(".ca-cadre").getBoundingClientRect();
     const pan = p.getBoundingClientRect();
+    const rangees = [...p.querySelectorAll(".ca-grille")].map(g => ({
+      defile: getComputedStyle(g).overflowX === "auto" && g.scrollWidth > g.clientWidth,
+      tops: new Set([...g.querySelectorAll(".ca-ch")].map(b => Math.round(b.getBoundingClientRect().top))).size }));
+    const outils = document.querySelector(".ca-outils").getBoundingClientRect();
+    const fond = getComputedStyle(p).backgroundColor;
     const ch = [...p.querySelectorAll(".ca-ch")].map(b => {
       const r = b.getBoundingClientRect();
       const svg = b.querySelector("svg"), sp = b.querySelector("span");
-      return { id: b.id, top: Math.round(r.top), left: Math.round(r.left),
+      return { id: b.id, top: Math.round(r.top), left: Math.round(r.left), largeur: Math.round(r.width),
+        /* Un mot coupé se voit à une ligne de plus que de mots. */
+        deborde: sp ? (sp.scrollWidth > r.width + 1
+          || Math.round(sp.getBoundingClientRect().height / parseFloat(getComputedStyle(sp).lineHeight || 14))
+            > sp.textContent.trim().split(/\s+/).length) : false,
         nom: sp ? sp.textContent.trim() : "",
         icoSous: !!(svg && sp && svg.getBoundingClientRect().bottom <= sp.getBoundingClientRect().top + 1) };
     });
@@ -52,7 +61,8 @@ export default async T => {
       new PointerEvent("pointerdown", { bubbles: true }));
     await dodo(200);
     return { hauteurCadre: cadre.height, hauteur: pan.height, gauche: pan.left,
-      droite: pan.right, largeurEcran: window.innerWidth, tuiles: ch };
+      droite: pan.right, largeurEcran: window.innerWidth, tuiles: ch, rangees,
+      outilsGauche: outils.left, fond };
   });
 
   /* Le panneau ouvert doit laisser à la carte la plus grande part du cadre :
@@ -64,15 +74,19 @@ export default async T => {
     tuiles.hauteur <= tuiles.hauteurCadre * 0.42,
     `${Math.round(tuiles.hauteur)} sur ${Math.round(tuiles.hauteurCadre)}`);
 
-  /* Cinq par rangée depuis le 1er octobre 2026 : les prévisions, les plages et la
-     neige ajoutaient des rangées, et le panneau dépassait sa part du cadre. Les
-     cinq nappes tiennent sur une rangée, les superpositions commencent dessous. */
-  ok("les tuiles vont par cinq sur une rangée",
-    (() => {
-      const t = tuiles.tuiles.slice(0, 6);
-      return t.slice(0, 5).every(x => x.top === t[0].top) && t[5].top > t[4].top
-        && t.slice(0, 5).every((x, i) => i === 0 || x.left > t[i - 1].left);
-    })(), tuiles.tuiles.slice(0, 6).map(t => `${t.id}@${t.left},${t.top}`).join(" "));
+  /* Version 140, demande de Jérôme du 2 octobre 2026 : chaque section du
+     panneau tient sur une seule rangée qui défile de côté, ses tuiles ont la
+     au moins soixante points de large et aucun nom n'en déborde ni ne se
+     coupe au milieu d'un mot, le panneau laisse libre la
+     colonne des commandes et laisse voir la carte à travers son fond. */
+  ok("chaque section du panneau tient sur une rangée qui défile, sans nom coupé",
+    tuiles.rangees.length === 2 && tuiles.rangees.every(r => r.tops === 1) && tuiles.rangees[1].defile
+    && tuiles.tuiles.every(t => t.largeur >= 60 && !t.deborde),
+    JSON.stringify({ rangees: tuiles.rangees, etroites: tuiles.tuiles.filter(t => t.largeur < 60).map(t => t.id),
+      deborde: tuiles.tuiles.filter(t => t.deborde).map(t => t.id) }));
+  ok("le panneau laisse libre la colonne des commandes et son fond est translucide",
+    tuiles.droite <= tuiles.outilsGauche && /[,/]\s*0?\.\d+\)$/.test(tuiles.fond),
+    `${Math.round(tuiles.droite)} contre ${Math.round(tuiles.outilsGauche)}, fond ${tuiles.fond}`);
 
   ok("chaque tuile porte son nom sous son icône",
     tuiles.tuiles.every(t => t.nom.length > 0 && t.icoSous),
@@ -197,6 +211,17 @@ export default async T => {
       document.getElementById("caTemp").click(); await dodo(600);
       return partie ? "" : "la légende reste sans nappe";
     }) === "");
+
+  /* Version 140 : la légende tient en deux lignes basses, le titre à côté de
+     la rampe et les graduations dessous. Elle prenait le pied de la carte. */
+  const legendeTaille = await pgNap.evaluate(() => {
+    const l = document.getElementById("caLegende").getBoundingClientRect();
+    const t = document.getElementById("caLegTitre").getBoundingClientRect();
+    const r = document.getElementById("caRampe").getBoundingClientRect();
+    return { h: Math.round(l.height), meme: Math.abs((t.top + t.bottom) / 2 - (r.top + r.bottom) / 2) < 8 };
+  });
+  ok("la légende de la nappe est basse, son titre sur la ligne de la rampe",
+    legendeTaille.h > 0 && legendeTaille.h <= 38 && legendeTaille.meme, JSON.stringify(legendeTaille));
 
   /* Jalon 18, lot 1 : la nappe des restrictions d'eau. Elle teinte la Côte-d'Or,
      en crise, et laisse le Cantal, sans arrêté, tel qu'il est sans nappe ; sa
@@ -696,7 +721,7 @@ export default async T => {
     mot: await pgNap.evaluate(() => document.getElementById("caMot")?.textContent || "") };
   await pgNap.locator("#caIci").evaluate(b => b.click());
   await pgNap.waitForTimeout(500);
-  for (let k = 0; k < 4; k++) { await pgNap.locator("#caPlus").evaluate(b => b.click()); await pgNap.waitForTimeout(300); }
+  for (let k = 0; k < 4; k++) { await pgNap.locator("#caToile").press("+"); await pgNap.waitForTimeout(300); }
   await pgNap.waitForFunction(() => document.querySelectorAll(".ca-pv-riv:not([hidden])").length === 3, null, { timeout: 8000 }).catch(() => {});
   const rivZoom = await pgNap.evaluate(() => [...document.querySelectorAll(".ca-pv-riv:not([hidden])")].map(e => `${e.textContent}`
     + (e.querySelector(".ca-t-haut") ? " haut" : e.querySelector(".ca-t-bas") ? " bas" : "")).sort().join(" | "));
@@ -823,9 +848,9 @@ export default async T => {
      déjà : au delà, la tuile s'agrandit au lieu de se redemander. La largeur
      d'une tuile du zoom six est le tour du monde divisé par soixante-quatre. */
   etat.appelsFoudre.length = 0;
-  await pgFou.locator("#caPlus").click(); await pgFou.waitForTimeout(150);
-  await pgFou.locator("#caPlus").click(); await pgFou.waitForTimeout(150);
-  await pgFou.locator("#caPlus").click(); await pgFou.waitForTimeout(600);
+  await pgFou.locator("#caToile").press("+"); await pgFou.waitForTimeout(150);
+  await pgFou.locator("#caToile").press("+"); await pgFou.waitForTimeout(150);
+  await pgFou.locator("#caToile").press("+"); await pgFou.waitForTimeout(600);
   ok("les tuiles de foudre s'arrêtent au zoom six",
     (() => {
       const u = etat.appelsFoudre.filter(x => /GetMap/i.test(x));

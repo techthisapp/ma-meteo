@@ -116,16 +116,19 @@ export function brancherLegende(E) {
       legende.setAttribute("aria-label",
         `Échelle de ${n.nom.toLowerCase()}, ${n.porte}, de ${a[0]} à ${a[a.length - 1]}`);
     }
-    /* Le vent ne porte pas de couleur : sa force se lit à la longueur des
-       traînées. La légende montre donc trois traînées et les nomme, avec
-       les mots de l'échelle du ruban. */
+    /* La force du vent se lit à la longueur des traînées et, depuis la
+       version 140, à leur couleur. La légende montre trois traînées et les
+       nomme, avec les mots de l'échelle du ruban. */
     legFeux.hidden = !E.feuxAllume;
     legFoudre.hidden = !E.foudreAllume;
     legVent.hidden = !E.ventAllume;
     if (legVent.hidden) return;
     const rep = ECHELLES.v.filter(([v]) => v === 12 || v === 30 || v === 50);
+    /* La traînée de la légende prend la couleur de sa vitesse, comme sur la
+       carte, version 140. */
     legVent.innerHTML = rep.map(([v, nom]) =>
-      `<span class="ca-lv-r"><i style="width:${Vent.longueurTrace(v).toFixed(1)}px"></i>`
+      `<span class="ca-lv-r"><i style="width:${Vent.longueurTrace(v).toFixed(1)}px;`
+      + `height:2.4px;background:${Vent.couleurVent(v)}"></i>`
       + `${esc(nom.toLowerCase())}</span>`).join("");
     legVent.setAttribute("aria-label",
       `Vent moyen : ${rep.map(([v, nom]) => `${nom.toLowerCase()} ${v} kilomètres par heure`).join(", ")}`);

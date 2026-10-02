@@ -56,6 +56,29 @@ export default async T => {
       return n > 200 ? "" : `${n} points d'encre`;
     }, encreVent) === "");
 
+  /* Version 140, demande de Jérôme du 2 octobre 2026 : la couleur des
+     traînées suit la vitesse, et les particules sont plus denses. L'encre
+     posée doit être celle d'un palier, et les paliers vont du calme à la
+     tempête par des couleurs distinctes. */
+  ok("les traînées prennent la couleur de leur vitesse, plus denses qu'avant",
+    await pgVent.evaluate(async () => {
+      const V = await import("/src/vent.js");
+      if (V.couleurVent(5) === V.couleurVent(65) || V.couleurVent(25) === V.couleurVent(85)) return "paliers confondus";
+      if (!(V.DENSITE > 1 / 200)) return `densité ${V.DENSITE}`;
+      const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+      const pal = V.PALIERS.map(([, c]) => rgb(c));
+      const cv = document.getElementById("caToileVent");
+      const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+      let pleins = 0, justes = 0;
+      for (let i = 0; i < d.length; i += 4 * 7) {
+        if (d[i + 3] < 230) continue;
+        pleins++;
+        if (pal.some(c => Math.abs(c[0] - d[i]) + Math.abs(c[1] - d[i + 1]) + Math.abs(c[2] - d[i + 2]) < 30)) justes++;
+      }
+      if (pleins < 20) return `${pleins} points pleins`;
+      return justes / pleins > 0.8 ? "" : `${justes} sur ${pleins} points à la couleur d'un palier`;
+    }) === "");
+
   /* Les traînées suivent la direction du champ. La charge d'essai souffle du
      sud-sud-ouest, donc vers le haut et la droite de l'écran. Une traînée est une
      suite de points alignés : deux points distants de trois pixels dans cette
@@ -128,7 +151,7 @@ export default async T => {
       const lu = window.__encreVent;
       const dodo = m => new Promise(r => setTimeout(r, m));
       const avant = await lu();
-      document.getElementById("caPlus").click();
+      document.getElementById("caToile").dispatchEvent(new KeyboardEvent("keydown", { key: "+", bubbles: true }));
       /* L'encre est relevée plusieurs fois de suite : le creux tombe quelque part
          dans les images qui suivent le changement de vue, et le guetter à un
          instant fixe reviendrait à jouer contre l'horloge. */

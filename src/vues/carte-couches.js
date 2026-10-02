@@ -61,7 +61,6 @@ export function brancherCouches(E) {
   const etatVent = () => ({
     vue: E.vue,
     emprise: { S: NappeCarte.S, N: NappeCarte.N, O: NappeCarte.O, E: NappeCarte.E },
-    couleur: getComputedStyle(cv).getPropertyValue("--ca-vent").trim() || "#7c8b9c",
     champ: !E.mesures ? null : (la, lo) => {
       const vitesse = NappeCarte.valeurA(E.mesures.vent, la, lo);
       const direction = NappeCarte.valeurA(E.mesures.dir, la, lo);

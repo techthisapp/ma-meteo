@@ -1232,8 +1232,9 @@ button.rangee:active{background:var(--surface-2)}
   transform:translate(11px,-11px);
 }
 
-/* Les commandes, en colonne à droite. Le pincement suffit au doigt ; les deux
-   boutons servent au clavier et à qui tient son téléphone d'une main. */
+/* Les commandes, en colonne à droite : les couches et le retour au lieu
+   courant. Le zoom se fait au pincement depuis la version 140, et au clavier
+   par les touches plus et moins sur la toile. */
 .ca-outils{
   position:absolute;right:calc(var(--marge) + var(--droite));top:var(--espace-base);
   display:flex;flex-direction:column;gap:var(--espace-xs);
@@ -1248,37 +1249,53 @@ button.rangee:active{background:var(--surface-2)}
 .ca-o:active{background:var(--surface-2)}
 .ca-o[aria-expanded="true"]{background:var(--accent);color:#fff}
 
-/* Le panneau des couches, ancré sous son bouton. Des tuiles, trois par rangée,
-   l'icône au-dessus du nom : en liste, sept entrées prenaient la moitié du
-   cadre, et la foudre, les nuages puis les pollens en ajoutaient. Le nom reste :
-   une goutte et un thermomètre alignés ne disent pas ce qu'ils allument. La
-   largeur est celle de trois mots comme « Température » ; le panneau grandit
-   par rangée et non par colonne. */
+/* Le panneau des couches, version 140, demande de Jérôme du 2 octobre 2026 :
+   plus transparent, des tuiles de même largeur, la place de la colonne des
+   commandes laissée libre. Il occupe la largeur du cadre à gauche des
+   commandes. Chaque section tient sur une rangée qui défile de côté : en
+   grille, la neige, les plages et les nappes à venir ajoutaient une rangée
+   chacune, et le panneau couvrait la carte. Le fond laisse voir la carte à
+   travers un flou, assez opaque pour que les noms se lisent sur la pluie. */
 .ca-panneau{
-  position:absolute;right:calc(var(--marge) + var(--droite) + var(--touche) + var(--espace-xs));
+  position:absolute;
+  left:calc(var(--marge) + var(--gauche));
+  right:calc(var(--marge) + var(--droite) + var(--touche) + var(--espace-xs));
   top:var(--espace-base);
-  width:258px;padding:var(--espace-sm);
+  max-width:520px;margin-left:auto;
+  padding:var(--espace-xs) 0;
   display:flex;flex-direction:column;gap:2px;
-  border-radius:var(--rayon-md);background:var(--surface);
-  box-shadow:0 4px 16px rgba(0,0,0,.26);
+  border-radius:var(--rayon-md);
+  background:color-mix(in srgb, var(--surface) 72%, transparent);
+  -webkit-backdrop-filter:blur(14px) saturate(1.4);backdrop-filter:blur(14px) saturate(1.4);
+  box-shadow:0 4px 16px rgba(0,0,0,.18);
 }
 .ca-p-titre{
-  padding:var(--espace-xs) var(--espace-sm) 2px;
+  padding:var(--espace-xs) var(--espace-md) 0;
   font-size:var(--texte-note);color:var(--etiquette-2);
   text-transform:uppercase;letter-spacing:.04em;
 }
 .ca-p-titre + *{margin-top:0}
-/* Cinq interrupteurs par rangée depuis le 1er octobre 2026 : à trois, puis à
-   quatre, les prévisions, les plages et la neige ajoutaient des rangées, et le
-   panneau ouvert couvrait plus des deux cinquièmes de la carte, ce qu'un
-   contrôle interdit. */
-.ca-grille{display:grid;grid-template-columns:repeat(5,1fr);gap:var(--espace-xs)}
+/* La rangée défile au doigt et s'arrête sur une tuile entière. La dernière
+   tuile visible s'estompe vers le bord : elle dit qu'il y en a d'autres. */
+.ca-grille{
+  display:flex;gap:2px;overflow-x:auto;overscroll-behavior-x:contain;
+  scroll-snap-type:x proximity;scrollbar-width:none;
+  padding:0 var(--espace-xs);
+  -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent);
+  mask-image:linear-gradient(to right,#000 calc(100% - 22px),transparent);
+}
+.ca-grille::-webkit-scrollbar{display:none}
+/* La tuile prend la largeur de son nom, soixante points au moins pour le
+   doigt : à largeur égale, « Température » se coupait en fin de mot, ou
+   chaque tuile prenait la largeur du nom le plus long. */
 .ca-ch{
+  flex:0 0 auto;min-width:60px;scroll-snap-align:start;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
-  min-height:56px;padding:var(--espace-xs) 2px;
+  min-height:56px;padding:var(--espace-xs) 6px;
   border-radius:var(--rayon-sm);color:var(--etiquette);
   font-size:var(--texte-note);text-align:center;line-height:1.1;
 }
+.ca-ch span{max-width:5.4em}
 .ca-ch svg{width:22px;height:22px;flex:none}
 .ca-ch:active{background:var(--surface-2)}
 .ca-ch[aria-checked="true"]{background:var(--accent);color:#fff}
@@ -1291,22 +1308,31 @@ button.rangee:active{background:var(--surface-2)}
   font-size:var(--texte-note);color:var(--etiquette-2);
 }
 
-.ca-legendes{display:flex;flex-direction:column;gap:var(--espace-xs);align-items:flex-start}
+/* Les légendes, resserrées en version 140 : elles prenaient le pied de la
+   carte, demande de Jérôme. Le titre et la rampe tiennent sur une ligne, les
+   graduations dessous en petit, sur un fond translucide. */
+.ca-legendes{display:flex;flex-direction:column;gap:3px;align-items:flex-start}
 .ca-legende{
-  max-width:200px;
-  padding:var(--espace-xs) var(--espace-sm);
-  border-radius:var(--rayon-sm);background:var(--surface);
-  box-shadow:0 1px 4px rgba(0,0,0,.2);
+  max-width:240px;
+  padding:3px var(--espace-sm);
+  border-radius:var(--rayon-sm);
+  background:color-mix(in srgb, var(--surface) 78%, transparent);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  box-shadow:0 1px 3px rgba(0,0,0,.14);
 }
-#caLegende{width:60%;min-width:180px}
+#caLegende{
+  max-width:none;display:grid;grid-template-columns:auto 116px;align-items:center;column-gap:var(--espace-sm);
+}
+#caLegende[hidden]{display:none}
+#caLegende .ca-graduations{grid-column:2}
 .ca-lv{display:flex;gap:var(--espace-md);max-width:none}
 .ca-lv-r{
   display:flex;align-items:center;gap:5px;
   font-size:var(--texte-note);color:var(--etiquette-2);
 }
 .ca-lv-r i{flex:none;height:1.6px;background:var(--ca-vent);border-radius:var(--rayon-plein)}
-.ca-l-titre{display:block;font-size:var(--texte-note);color:var(--etiquette-2);margin-bottom:3px}
-.ca-rampe{display:block;height:8px;border-radius:var(--rayon-plein)}
+.ca-l-titre{display:block;font-size:var(--texte-note);font-weight:var(--graisse-medium);color:var(--etiquette-2);white-space:nowrap}
+.ca-rampe{display:block;height:6px;border-radius:var(--rayon-plein)}
 /* La rampe de la foudre est celle du service, du jaune pâle au rouge sombre :
    la légende dit la couleur telle qu'elle est peinte, sur une ligne comme
    celle du vent. */
@@ -1322,7 +1348,7 @@ button.rangee:active{background:var(--surface-2)}
 }
 .ca-graduations{
   display:flex;justify-content:space-between;
-  font-size:var(--texte-note);color:var(--etiquette-2);
+  font-size:10px;line-height:1.2;color:var(--etiquette-2);font-variant-numeric:tabular-nums;
 }
 
 /* L'échelle, la mention des sources et la chronologie, au pied de la carte. Une
@@ -1335,12 +1361,11 @@ button.rangee:active{background:var(--surface-2)}
   display:flex;align-items:flex-end;justify-content:space-between;gap:var(--espace-md);
   pointer-events:none;
 }
-.ca-credit a{pointer-events:auto;color:inherit;text-decoration:underline}
-/* L'échelle et la mention se lisent sur la carte, dont la couleur n'est pas
-   connue : une couche de pluie peut y mettre du jaune comme du bleu sombre. La
-   gaine de texte, un halo de la couleur du fond de page, rend le contraste quel
-   que soit ce qu'il y a dessous, sans le pavé opaque d'une étiquette. */
-.ca-echelle,.ca-credit{
+/* L'échelle se lit sur la carte, dont la couleur n'est pas connue : une
+   couche de pluie peut y mettre du jaune comme du bleu sombre. La gaine de
+   texte, un halo de la couleur du fond de page, rend le contraste quel que
+   soit ce qu'il y a dessous. */
+.ca-echelle{
   text-shadow:0 0 3px var(--fond),0 0 3px var(--fond),0 0 6px var(--fond);
 }
 .ca-echelle{display:flex;flex-direction:column;gap:2px;font-size:var(--texte-note)}
@@ -1350,18 +1375,32 @@ button.rangee:active{background:var(--surface-2)}
   box-shadow:0 0 0 1px var(--fond);
 }
 .ca-echelle span{color:var(--etiquette-2);font-variant-numeric:tabular-nums}
-/* La mention se lit en gris moyen et non en gris clair. Le halo de texte
-   ci-dessus ne suffit pas sur une couche colorée : halo clair et texte clair
-   se confondent, et les mentions devenaient illisibles sur une averse jaune,
-   relevé le 20 septembre 2026 sur une carte où la pluie est allumée sans nappe,
-   ce que la bascule de la pluie en superposition rend courant. Un halo plus
-   dense a été essayé et n'apporte presque rien ; c'est le texte qu'il faut
-   assombrir. Une attribution illisible ne remplit pas son office. */
+/* Le bouton des sources : un petit rond, dans une cible de quarante-quatre
+   points. */
+.ca-src{
+  pointer-events:auto;
+  width:var(--touche);height:var(--touche);margin:0 -10px -10px 0;
+  display:flex;align-items:center;justify-content:center;color:var(--etiquette-2);
+}
+.ca-src svg{
+  width:24px;height:24px;padding:1px;border-radius:50%;
+  background:color-mix(in srgb, var(--surface) 78%, transparent);
+  box-shadow:0 1px 3px rgba(0,0,0,.18);
+}
+.ca-src[aria-expanded="true"] svg{background:var(--accent);color:#fff}
+/* La bulle des sources, au-dessus du pied, à droite. */
 .ca-credit{
-  display:flex;flex-direction:column;align-items:flex-end;
+  position:absolute;right:0;bottom:calc(100% + var(--espace-xs));
+  max-width:min(300px,100%);
+  display:flex;flex-direction:column;align-items:flex-end;gap:2px;
+  padding:var(--espace-sm) var(--espace-md);
+  border-radius:var(--rayon-md);background:var(--surface);
+  box-shadow:0 4px 16px rgba(0,0,0,.22);
   font-size:var(--texte-note);color:var(--etiquette-2);text-align:right;
   line-height:1.25;
 }
+.ca-credit[hidden]{display:none}
+.ca-credit a{color:inherit;text-decoration:underline}
 
 /* La chronologie de la pluie. Elle est une commande de transport, non une
    lecture au doigt comme celle du ruban : on y choisit un instant, on ne lit

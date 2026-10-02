@@ -59,7 +59,7 @@ export default async T => {
   encoche.push(await dans("#ecran .mg-v"));
   await onglet("carte");
   await pg.waitForTimeout(400);
-  encoche.push(await dans("#caPlus"), await dans("#caEchelle"));
+  encoche.push(await dans("#caIci"), await dans("#caEchelle"));
   await ecranCiel(pg, "etoiles");
   await pg.waitForTimeout(400);
   if (await pg.locator("#ciBandeau").count()) {

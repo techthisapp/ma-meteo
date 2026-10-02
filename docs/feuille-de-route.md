@@ -855,6 +855,36 @@ Demandé par Jérôme le 28 septembre 2026 : pousser le graphique et la liste de
 4. La tendance n'est lue qu'au premier « Voir plus », puis gardée six heures : l'ouverture de l'application n'en paie pas le prix.
 5. Une journée de tendance ne porte jamais de confiance, même quand sa date tombe dans la couverture d'ECMWF : ses chiffres viennent de GFS. La passe complète a relevé ce cas sur les données d'essai.
 
+## Jalon 19. La carte enrichie
+
+Demandé par Jérôme le 2 octobre 2026 : « améliorer la carte ».
+
+**Constats de Jérôme sur le téléphone.** Les boutons du panneau sont mal placés ; les boutons de zoom sont inutiles, le pincement suffisant ; les textes, mentions des sources et légendes, prennent la place de la carte.
+
+**Mesures du 2 octobre 2026.**
+1. VigiEau publie chaque jour les zones d'alerte en vigueur en tuiles vectorielles PMTiles, `regleau.s3.gra.perf.cloud.ovh.net/pmtiles/zones_arretes_en_vigueur.pmtiles`, lisibles par plages d'octets et ouvertes aux autres sites. Chaque zone porte son niveau, son type de ressource et son nom. La France entière coûte 1,2 Mo, une vue de département 40 à 160 Ko. Le même fichier en GeoJSON pèse 418 Mo.
+2. Natural Earth ne donne qu'environ soixante-dix rivières françaises. Le service WFS de l'IGN, `data.geopf.fr`, ouvert aux autres sites, donne tous les cours d'eau nommés avec leur importance, de 1 à 6, mais à pleine précision : 5 Mo pour les environs de Fain.
+
+**Décisions de Jérôme.**
+1. Un point touché ouvre une bulle ; « Voir la prévision » ouvre le lieu en consultation sans changer la commune, avec un bouton « Suivre ce lieu ».
+2. La chronologie de la pluie se prolonge de douze heures de prévision, heure par heure.
+3. Les légendes se resserrent et les mentions des sources quittent la carte : elles sont dans les réglages, et un bouton les ouvre sur la carte.
+4. Les restrictions d'eau restent par département à l'échelle du pays et passent aux zones d'alerte à partir du zoom d'un département.
+5. Le relief et les grandes rivières embarqués, la forme des lots et l'ordre des publications sont laissés à Claude.
+6. Les neuf idées proposées sont retenues : gel de la nuit, ciel de la nuit, pollens, mer, brouillard, toutes les nappes dans le temps, carte plein écran, mémoire de la vue, limite pluie-neige ; et le vent coloré selon sa vitesse.
+
+**Lots.**
+
+| Lot | Contenu | État |
+|---|---|---|
+| 1 | Panneau translucide en deux rangées qui défilent, zoom au seul pincement, sources derrière un bouton, légendes resserrées, vent plus dense et coloré selon sa vitesse | livré, version 140 |
+| 2 | Fond : noms des villes selon le zoom, relief léger, cours d'eau tracés et nommés | à faire |
+| 3 | Prévisions des villes plus nombreuses selon le zoom | à faire |
+| 4 | Toucher un point : bulle du lieu, prévision en consultation, « Suivre ce lieu » ; recherche d'une commune sur la carte | à faire |
+| 5 | Nappes nouvelles : vent et rafales, cumul de pluie, neige et limite pluie-neige, pression, gel de la nuit, ciel de la nuit, pollens, mer, brouillard ; pluie prévue douze heures ; toutes les nappes dans le temps | à faire |
+| 6 | Restrictions d'eau par zone d'alerte | à faire |
+| 7 | Carte plein écran et mémoire de la vue | à faire |
+
 ## Hors cadre
 
 | Fonction | Ce qu'elle exigerait |
@@ -874,7 +904,7 @@ Les deux premières lignes se lèvent avec le même service dorsal minimal. Les 
 5. Bibliothèque de rendu 3D chargée à la demande, ou rendu direct sur toile sans bibliothèque.
 6. Traitement de la confiance dans l'interface : niveau écrit en toutes lettres partout, ou enveloppe graphique seule sur le ruban et mention écrite dans la semaine.
 7. Seuils du rappel de parapluie : tranchés le 28 août. La gêne vaut un demi-millimètre par heure, la lame horaire décidant seule ; la probabilité n'entre pas dans la règle, la lame attendue disant déjà ce qui tombe. Le retournement est repris de `SEUILS.rafale`, quarante kilomètres par heure. Reste ouvert à l'usage : le nombre d'heures d'alerte, deux aujourd'hui, et la fréquence à laquelle le jeton paraît, un jeton trop fréquent cessant de se lire.
-8. Forme du panneau des couches : tranché le 11 septembre 2026, des tuiles trois par rangée, commit `4675348`. Le panneau grandit par rangée de trois ; la question d'une tuile par taxon de pollen reste celle du lot 4c.
+8. Forme du panneau des couches : tranché le 11 septembre 2026, des tuiles trois par rangée, commit `4675348`, puis cinq. Repris le 2 octobre 2026, jalon 19 : une rangée qui défile par section, le panneau gardant sa hauteur quel que soit le nombre des couches.
 
 ## Journal des mises à jour
 
@@ -1037,3 +1067,5 @@ Les deux premières lignes se lèvent avec le même service dorsal minimal. Les 
 | 2 octobre 2026 | Version 137, constats relevés de l'audit, lot H1 : pluie absente hors des cumuls de la comparaison, valeurs absentes écrites « — » et non zéro, lecture de l'indice officiel retenue et bornée, seuils de pluie écrits une fois, proximité de la neige et des plages commune |
 | 2 octobre 2026 | Version 138, constats relevés de l'audit, lot H2, accessibilité : focus gardé et rendu, page inerte sous une feuille, marges de l'encoche en paysage, carte et ciel lisibles et pilotables sans le doigt, messages d'état annoncés et erreurs tenues, espaces insécables |
 | 2 octobre 2026 | Version 139, constats relevés de l'audit, lot H3 : politique de sécurité du contenu, vigilance muette dite à l'accueil, dans les réglages et sur la carte, repli de la pluie dans l'heure dit, publication par GitHub Actions de la seule application après une suite verte |
+| 2 octobre 2026 | Jalon 19 ouvert, la carte enrichie, demande de Jérôme ; sept lots, décisions et mesures dans la section du jalon |
+| 2 octobre 2026 | Version 140, jalon 19, lot 1 : panneau des couches translucide, une rangée qui défile par section, tuiles à la largeur de leur nom ; boutons de zoom retirés, le pincement et les touches plus et moins du clavier suffisant ; sources derrière un bouton ; légende de la nappe sur deux lignes basses ; vent plus dense, une particule pour 170 points au lieu de 300, et coloré selon sa vitesse en huit paliers. Cinq contrôles nouveaux, erreurs volontaires 215 à 219 vues |

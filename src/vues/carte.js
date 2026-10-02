@@ -162,8 +162,6 @@ export function vueCarte(ctx, rendre, majEtat) {
         Object.assign(vue, Carte.borner({ lat: c.lat, lon: c.lon, z: vue.z }));
         E.revoir();
       });
-      bloc.querySelector("#caPlus").addEventListener("click", () => pas(1));
-      bloc.querySelector("#caMoins").addEventListener("click", () => pas(-1));
       bloc.querySelector("#caIci").addEventListener("click", () => {
         Object.assign(vue, Carte.borner({ lat: g.lat, lon: g.lon, z: Carte.ZDEFAUT }));
         E.revoir();
@@ -216,6 +214,20 @@ export function vueCarte(ctx, rendre, majEtat) {
       /* Un appui sur la carte referme le panneau : il couvre le coin de la vue,
          et le refermer par son propre bouton demanderait de viser deux fois. */
       cv.addEventListener("pointerdown", () => montrer(false), { passive: true });
+
+      /* Les sources, derrière leur bouton : une bulle au-dessus de l'échelle,
+         refermée par un second appui ou par un appui sur la carte. */
+      const sources = bloc.querySelector("#caSources");
+      const credit = bloc.querySelector("#caCredit");
+      const montrerSources = v => {
+        credit.hidden = !v;
+        sources.setAttribute("aria-expanded", v ? "true" : "false");
+      };
+      sources.addEventListener("click", e => {
+        e.stopPropagation();
+        montrerSources(credit.hidden);
+      });
+      cv.addEventListener("pointerdown", () => montrerSources(false), { passive: true });
 
       /* Les départs, dans l'ordre d'avant le découpage : les étiquettes et les
          restrictions d'eau, puis la mention, la légende, la pluie et les autres

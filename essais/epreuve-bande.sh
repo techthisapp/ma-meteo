@@ -682,6 +682,21 @@ case "$N" in
   214) # La pluie dans l'heure ne dit plus son repli.
      perl -0pi -e 's/    \+ \(l\.source === "repli" \?/    + (false ?/' src/app.js
      ATTENDU="un service de Météo-France muet se dit à l.accueil, dans les réglages et sur la carte, et la pluie dit son repli" ;;
+  215) # Les sources s'affichent de nouveau en permanence.
+     perl -0pi -e 's/<p class="ca-credit" id="caCredit" hidden>/<p class="ca-credit" id="caCredit">/' src/vues/carte-gabarit.js
+     ATTENDU="la carte n.a plus de boutons de zoom, et ses sources s.ouvrent derrière un bouton" ;;
+  216) # Le panneau revient en grille de plusieurs rangées.
+     perl -0pi -e 's/  display:flex;gap:2px;overflow-x:auto;/  display:flex;flex-wrap:wrap;gap:2px;overflow-x:auto;/' styles.css
+     ATTENDU="chaque section du panneau tient sur une rangée qui défile, sans nom coupé" ;;
+  217) # Le panneau redevient opaque.
+     perl -0pi -e 's/  background:color-mix\(in srgb, var\(--surface\) 72%, transparent\);/  background:var(--surface);/' styles.css
+     ATTENDU="le panneau laisse libre la colonne des commandes et son fond est translucide" ;;
+  218) # La légende reprend trois lignes.
+     perl -0pi -e 's/  max-width:none;display:grid;grid-template-columns:auto 116px;/  max-width:none;display:block;grid-template-columns:auto 116px;/' styles.css
+     ATTENDU="la légende de la nappe est basse, son titre sur la ligne de la rampe" ;;
+  219) # Le vent reprend une seule couleur.
+     perl -0pi -e 's/ctx\.strokeStyle = PALIERS\[k\]\[1\];/ctx.strokeStyle = "#5b6a7c";/' src/vent.js
+     ATTENDU="les traînées prennent la couleur de leur vitesse, plus denses qu.avant" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

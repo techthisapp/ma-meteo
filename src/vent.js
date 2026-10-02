@@ -24,11 +24,29 @@ import { metresParPixel, surEcran } from "./carte.js";
 
 export const PAS = 33;
 
-/* Une particule pour trois cents points d'écran, soit environ neuf cents sur un
-   téléphone. Assez pour que le flux se lise d'un coup d'œil, assez
-   peu pour qu'aucune image ne coûte plus d'une milliseconde. */
-export const DENSITE = 1 / 300;
-export const PARTICULES_MAX = 1400;
+/* Une particule pour cent soixante-dix points d'écran, soit environ mille six
+   cents sur un téléphone, depuis la version 140 : à une pour trois cents, le
+   flux paraissait clairsemé, demande de Jérôme du 2 octobre 2026. Une image en
+   coûte environ deux millisecondes. */
+export const DENSITE = 1 / 170;
+export const PARTICULES_MAX = 2400;
+
+/* La couleur suit la vitesse depuis la version 140, demande de Jérôme : la
+   longueur des traînées disait seule la force, et un vent fort ne se repérait
+   pas d'un coup d'œil. Les paliers sont ceux du vent moyen en kilomètres par
+   heure, du gris bleu du calme au rouge puis au violet de la tempête. La
+   teinte reste moyennement saturée pour se lire sur les deux fonds et sur
+   une nappe. */
+export const PALIERS = [
+  [0, "#8797ab"], [10, "#4a8bd6"], [20, "#25a596"], [30, "#7dbb3a"],
+  [45, "#e3a21f"], [60, "#e8662a"], [80, "#cf3049"], [100, "#9b3a9a"],
+];
+export const palier = v => {
+  let k = 0;
+  while (k + 1 < PALIERS.length && v >= PALIERS[k + 1][0]) k++;
+  return k;
+};
+export const couleurVent = v => PALIERS[palier(v)][1];
 
 /* La durée de vie borne la longueur d'une trajectoire. Sans elle, les
    particules s'accumulent dans les zones où le champ converge et désertent le
@@ -120,7 +138,7 @@ const figee = () => window.matchMedia("(prefers-reduced-motion: reduce)").matche
 const cleVue = v => `${v.lat.toFixed(5)},${v.lon.toFixed(5)},${v.z.toFixed(3)}`;
 
 function peindre(cv, ctx, etat, l, h, avecMouvement) {
-  const { vue, champ, emprise, couleur } = etat;
+  const { vue, champ, emprise } = etat;
   const mpp = metresParPixel(vue);
 
   /* Un changement de cadrage efface tout : les traînées sont peintes à des
@@ -140,10 +158,10 @@ function peindre(cv, ctx, etat, l, h, avecMouvement) {
   const voulu = Math.min(PARTICULES_MAX, Math.round(l * h * DENSITE));
   if (troupeau.length !== voulu) troupeau = creer(voulu, emprise);
 
-  ctx.strokeStyle = couleur;
-  ctx.lineWidth = 1.1;
+  ctx.lineWidth = 1.2;
   ctx.lineCap = "round";
-  ctx.beginPath();
+  /* Un tracé par palier de vitesse, chacun de sa couleur. */
+  const traces = PALIERS.map(() => new Path2D());
   let tracees = 0;
   for (const p of troupeau) {
     const v = champ(p.lat, p.lon);
@@ -164,11 +182,14 @@ function peindre(cv, ctx, etat, l, h, avecMouvement) {
     if (p.neuve) { p.neuve = false; continue; }
     /* Une particule immobile se dessine quand même : un vent nul est un fait,
        et un point sans trace se lit comme une donnée manquante. */
-    ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
+    const t = traces[palier(v.vitesse)];
+    t.moveTo(a.x, a.y);
+    t.lineTo(b.x, b.y);
     tracees++;
   }
-  if (tracees) ctx.stroke();
+  if (tracees) {
+    traces.forEach((t, k) => { ctx.strokeStyle = PALIERS[k][1]; ctx.stroke(t); });
+  }
   if (tracees) adoucirBords(ctx, vue, emprise, l, h);
   return tracees;
 }
