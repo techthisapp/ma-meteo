@@ -91,6 +91,13 @@ dernière porte le numéro 177. Tout contrôle nouveau a son erreur volontaire, 
 une erreur volontaire éprouvée pendant que son contrôle échoue déjà sur le bon
 code doit être repassée.
 
+Les vingt-quatre scripts d'épreuve antérieurs, `essais/epreuve-air.sh` à
+`essais/epreuve-vent.sh`, sont retirés le 2 octobre 2026 : seize modifiaient
+`src/` sur place, et aucun ne tournait plus sur le Mac. Leurs erreurs
+volontaires ont été éprouvées en leur temps, et les contrôles qu'elles visaient
+restent dans la suite. Les scripts restent dans l'historique, au commit
+44ac131, pour qui voudrait reprendre un cas dans `epreuve-bande.sh`.
+
 Règles apprises à l'usage :
 
 1. Deux suites en parallèle au plus : trois dépassent la mémoire et ferment le
@@ -113,9 +120,7 @@ Règles apprises à l'usage :
    neuf renommé, jamais en le réécrivant en place.
 9. La commande `timeout` manque sous macOS : `passe.sh` et `epreuve-bande.sh`
    bornent la durée de la suite par `essais/borne.sh`, qui emploie `perl`
-   quand `timeout` est absent. Les autres scripts `essais/epreuve-*.sh`,
-   antérieurs, visent encore le navigateur et la commande du poste de
-   claude.ai.
+   quand `timeout` est absent.
 
 ## Construction des listes embarquées
 
