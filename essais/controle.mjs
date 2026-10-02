@@ -5093,8 +5093,11 @@ marquerSection("\n--- La coque hors ligne ---"); console.log("\n--- La coque hor
     /* Les imports dynamiques comptent aussi : les listes des plages et des
        stations se chargent à la demande depuis la version 128, et doivent
        rester dans la coque pour servir hors connexion. */
-    for (const m of lu(f).matchAll(/(?:from\s+|import\(\s*)"\.\/([^"]+\.js)"/g)) {
-      suivre(`src/${m[1]}`);
+    /* Les chemins se lisent depuis le dossier du fichier : depuis le
+       2 octobre 2026, les écrans vivent sous src/vues/ et importent
+       « ../previsions.js » comme « ./communs.js ». */
+    for (const m of lu(f).matchAll(/(?:from\s+|import\(\s*)"(\.\.?\/[^"]+\.js)"/g)) {
+      suivre(path.posix.normalize(path.posix.join(path.posix.dirname(f), m[1])));
     }
   };
   suivre("src/app.js");
@@ -5643,7 +5646,7 @@ const regroupeTexte = ["lireNeigeDe", "lirePlageDe", "lireEauDe", "lireEnsemble"
 });
 ok("les sources secondaires passent par le rendu regroupé", regroupeTexte.every(x => x.endsWith(":true")), regroupeTexte.join(" "));
 const densiteTexte = [];
-for (const f of ["carte", "vent", "vues", "temps", "feu", "relief"]) {
+for (const f of ["carte", "vent", "temps", "feu", "relief", "vues/etoiles", "vues/climat"]) {
   const t = await (await fetch(`${RACINE_HTTP}src/${f}.js`)).text();
   const usages = t.match(/[^\n]{0,30}devicePixelRatio/g) || [];
   densiteTexte.push(`${f}:${usages.length && usages.every(u => /Math\.min\(2, window\.devicePixelRatio/.test(u))}`);

@@ -1030,3 +1030,4 @@ Les deux premières lignes se lèvent avec le même service dorsal minimal. Les 
 | 2 octobre 2026 | Décision de Jérôme : l'outre-mer n'est pas visé, les heures restent affichées à l'heure de Paris |
 | 2 octobre 2026 | Lot G de l'audit, constat 6.3 : intégration continue, la suite complète sur les machines de GitHub à chaque envoi sur `main` |
 | 2 octobre 2026 | Version 132, lot G de l'audit : code mort retiré, dont les trois modules de la comparaison entre mesure et modèle ; vingt-quatre anciens scripts d'épreuve retirés ; `PUBLICATION.md`, `docs/reprise.md`, la section « Organisation » du LISEZ-MOI et la navigation du design system mis à jour. Passe complète verte, 1033 contrôles |
+| 2 octobre 2026 | Version 133, lot G de l'audit : `src/vues.js` découpé en onze fichiers par écran sous `src/vues/`, sans changement de comportement ; plan et étapes dans `docs/plan-decoupage-vues.md`. Passe complète verte, 1033 contrôles |

@@ -22,7 +22,7 @@ application.
 
 ## État au 2 octobre 2026
 
-Version 132. Le projet est passé de claude.ai à Claude Code le 1er octobre
+Version 133. Le projet est passé de claude.ai à Claude Code le 1er octobre
 2026, à la version 118. Un audit complet de la version 120 a été mené le même
 jour, `docs/audit-2026-10-01.md`, avec le suivi de chaque lot en fin de
 document.
@@ -35,7 +35,7 @@ document.
 | D, accessibilité | fait, version 124 |
 | E, performances | fait pour l'essentiel, versions 125 à 128 ; reste le chargement différé de la carte et du ciel |
 | F, délais réseau, département, fuseau | fait, versions 129 à 131 ; l'outre-mer n'est pas visé, décision de Jérôme |
-| G, maintenance | intégration continue, code mort, anciens scripts d'épreuve et documents faits ; reste le découpage de `src/vues.js` |
+| G, maintenance | intégration continue, code mort, anciens scripts d'épreuve, documents et découpage de `src/vues.js` faits ; restent le chargement différé de la carte et des étoiles, la suite des contrôles et l'outil de captures |
 
 Jalons de la feuille de route : 1 à 4 et 7 à 18 livrés. Reste le jalon 6, la
 justesse des prévisions publiée, vers la fin octobre, quand soixante jours de
@@ -43,8 +43,9 @@ relevés seront réunis. Le jalon 5, la 3D, est écarté pour le moment.
 
 ## Points ouverts
 
-1. Le découpage de `src/vues.js`, 4 600 lignes, par écran ; il ouvrirait le
-   chargement différé de la carte et du ciel.
+1. Le chargement différé de la carte et des étoiles, étape 4 de
+   `docs/plan-decoupage-vues.md`, environ 90 kilooctets compressés de moins au
+   lancement.
 2. La suite des contrôles en un seul fichier de 12 000 lignes, aux pauses
    fixes, audit constats 6.5 et 6.6.
 3. L'outil de captures `essais/vue-ecran.mjs` garde sa propre copie partielle
@@ -58,8 +59,8 @@ relevés seront réunis. Le jalon 5, la 3D, est écarté pour le moment.
 1. Révoquer les anciens jetons GitHub employés dans claude.ai, collés en clair
    les 18 et 21 août, sur `https://github.com/settings/tokens`. L'accès de
    GitHub CLI, dans la page « Applications », reste en place.
-2. Supprimer à la main, s'ils ne servent plus, les restes de l'époque
-   claude.ai : `~/Documents/Claude/Projects/ma-meteo/.git/_a_supprimer/`,
-   `~/Desktop/_to_delete/`, et les deux fichiers non suivis
-   `REPRISE-PUBLICATION.md` et `PROMPT-NOUVELLE-CONVERSATION.md` du dossier
-   de travail, qui portent des fragments de jeton.
+
+Les restes de l'époque claude.ai, verrous et archives de Git, copies de
+transfert du dépôt et deux fichiers portant des fragments de jeton, ont été
+supprimés par Jérôme le 2 octobre 2026. Le dossier « Reporting FFF » du
+`_to_delete` du Bureau n'appartient pas à ce projet et reste en place.
