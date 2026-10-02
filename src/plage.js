@@ -8,19 +8,15 @@
    marquée comme telle et jamais gardée. Le résultat se garde trente jours par
    commune. */
 
-import { dureesMinutes } from "./trajets.js";
+import { candidatesDe, prochesDe, gardees } from "./trajets.js";
+export { RAYON_KM, MINUTES_MAX, KM_PAR_HEURE_ESTIMEE } from "./trajets.js";
 import { cardinal } from "./previsions.js";
-import { recaler, elaguer, lireGardee, ecrireGardee, chercher, distanceKm } from "./horloge.js";
+import { recaler, lireGardee, ecrireGardee, chercher, distanceKm } from "./horloge.js";
 
-export const RAYON_KM = 100;
-export const MINUTES_MAX = 60;
-export const KM_PAR_HEURE_ESTIMEE = 55;
-const CANDIDATES_MAX = 80;
 /* La version 2, du 2 octobre 2026, porte la direction de la mer de chaque
    plage ; une liste gardée par la version 1 n'en a pas et se relit. */
 const CACHE = "mameteo.plage.proches.v2";
 const CACHE_ANCIEN = "mameteo.plage.proches.v1";
-const GARDE = 30 * 24 * 3600 * 1000;
 
 const dePlage = p => ({ nom: p[0], pays: p[1], lat: p[2], lon: p[3], commune: p[4] ?? null, departement: p[5] ?? null,
   qualite: p[6] ?? null, fiche: p[7] ?? null, versMer: p[8] ?? null });
@@ -51,43 +47,13 @@ export const ficheDe = f => {
   return `https://baignades.sante.gouv.fr/baignades/profil.do?idSite=${site}&codeDept=${dep}`;
 };
 
-export function candidates(g, liste = PLAGES) {
-  return liste.map(dePlage)
-    .map(p => ({ ...p, vol: distanceKm(g.lat, g.lon, p.lat, p.lon) }))
-    .filter(p => p.vol <= RAYON_KM)
-    .sort((a, b) => a.vol - b.vol)
-    .slice(0, CANDIDATES_MAX);
-}
-
-export async function proches(g, liste = PLAGES, fetcheur = chercher) {
-  const cands = candidates(g, liste);
-  if (!cands.length) return [];
-  try {
-    const m = await dureesMinutes(g, cands, fetcheur);
-    return cands.map((p, k) => ({ ...p, minutes: m[k], estime: false }))
-      .filter(p => p.minutes !== null && p.minutes <= MINUTES_MAX)
-      .sort((a, b) => a.minutes - b.minutes);
-  } catch {
-    return cands.filter(p => p.vol <= KM_PAR_HEURE_ESTIMEE)
-      .map(p => ({ ...p, minutes: Math.round((p.vol / KM_PAR_HEURE_ESTIMEE) * 60), estime: true }));
-  }
-}
-
-export async function prochesGardees(g, fetcheur = chercher) {
-  const cle = `${g.lat.toFixed(3)},${g.lon.toFixed(3)}`;
+/* La proximité est celle de la neige, dans src/trajets.js. */
+export const candidates = (g, liste = PLAGES) => candidatesDe(g, liste, dePlage);
+export const proches = (g, liste = PLAGES, fetcheur = chercher) => prochesDe(g, candidates(g, liste), fetcheur);
+export const prochesGardees = (g, fetcheur = chercher) => {
   try { localStorage.removeItem(CACHE_ANCIEN); } catch { /* cache indisponible */ }
-  try {
-    const e = JSON.parse(localStorage.getItem(CACHE) || "{}")[cle];
-    if (e && Date.now() - e.t < GARDE && !e.estime) return e.l;
-  } catch { /* cache indisponible */ }
-  const l = await proches(g, await listePlages(), fetcheur);
-  try {
-    const c = JSON.parse(localStorage.getItem(CACHE) || "{}");
-    c[cle] = { t: Date.now(), l, estime: l.some(p => p.estime) };
-    localStorage.setItem(CACHE, JSON.stringify(elaguer(c, GARDE)));
-  } catch { /* plein */ }
-  return l;
-}
+  return gardees(CACHE, g, async () => proches(g, await listePlages(), fetcheur));
+};
 
 /* ---------- Lot 3 : la mer et l'air des plages proches ---------- */
 

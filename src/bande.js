@@ -23,7 +23,12 @@ import { flecheSVG } from "./fleche.js";
 export const HEURES = 24;
 export const LARGEUR_HEURE = 56;
 export const LARGEUR_SOLEIL = 46;
-export const SEUIL_RISQUE = 20;
+/* Le risque de pluie que la bande écrit sous ses heures : vingt pour cent,
+   jalon 11, lot 1. La bande tient au premier écran et ne montre que les
+   risques notables ; la liste et le ruban écrivent tout risque mentionnable,
+   dès `SEUIL_RISQUE` de src/previsions.js, cinq pour cent. Les deux règles
+   portaient le même nom jusqu'au 2 octobre 2026, audit, constat 6.8. */
+export const SEUIL_RISQUE_BANDE = 20;
 /* Une heure compte comme pluvieuse quand il y tombe au moins la lame d'eau
    que le reste de l'application retient, un dixième de millimètre, et par la
    même fonction de plages que « Demain et après-demain ». La première version
@@ -119,7 +124,7 @@ export function bandeHoraire(s, g, maintenant = new Date()) {
   const yDe = t => tMax === tMin ? 9 : 15 - (t - tMin) / (tMax - tMin) * 12;
   /* La rangée des risques ne paraît que si une heure au moins atteint le seuil :
      une rangée vide de bout en bout coûtait une ligne au premier écran. */
-  const avecRisque = s.pb.slice(0, n).some(p => (p ?? 0) >= SEUIL_RISQUE);
+  const avecRisque = s.pb.slice(0, n).some(p => (p ?? 0) >= SEUIL_RISQUE_BANDE);
   /* Jalon 11, lot 3 : une seule ligne de vent, la flèche de direction et la
      vitesse. Les rafales ne paraissent que fortes, sur une seconde ligne qui
      n'existe que si une heure au moins les porte. */
@@ -142,7 +147,7 @@ export function bandeHoraire(s, g, maintenant = new Date()) {
     points.push([x + LARGEUR_HEURE / 2, yDe(s.t[k])]);
     x += LARGEUR_HEURE;
     const pb = Math.round(s.pb[k] ?? 0);
-    const risque = pb >= SEUIL_RISQUE ? `${pb} %` : "";
+    const risque = pb >= SEUIL_RISQUE_BANDE ? `${pb} %` : "";
     const h = k === 0 ? "Maint." : heureDite(s.heure[k]);
     const t = Math.round(s.t[k]);
     const v = Math.round(s.v[k]), r = Math.round(s.raf[k]);

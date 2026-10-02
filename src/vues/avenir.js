@@ -87,12 +87,18 @@ export function vueSemaine() {
   const fin = semaineEtendue ? Math.min(i + 35, dd.time.length) : finCourt;
   const plusDispo = lim >= i;
   const lignes = [];
+  /* Une borne absente de la charge reste absente : `Math.min` et `Math.round`
+     en faisaient zéro, l'échelle descendait à 0° et la rangée l'écrivait.
+     Audit du 1er octobre 2026, constat 1.11. */
+  const fini = v => (Number.isFinite(v) ? v : null);
   let tmin = Infinity, tmax = -Infinity;
   for (let k = debut; k < fin; k++) {
     const h = P.jourHoraire(dd.time[k]);
-    tmin = Math.min(tmin, h ? h.tn : dd.temperature_2m_min[k]);
-    tmax = Math.max(tmax, h ? h.tx : dd.temperature_2m_max[k]);
+    const a = fini(h ? h.tn : dd.temperature_2m_min[k]), b = fini(h ? h.tx : dd.temperature_2m_max[k]);
+    if (a !== null) tmin = Math.min(tmin, a);
+    if (b !== null) tmax = Math.max(tmax, b);
   }
+  if (!Number.isFinite(tmin) || !Number.isFinite(tmax)) { tmin = 0; tmax = 1; }
   const amp = Math.max(1, tmax - tmin);
 
   const maintenant = P.serieHoraire()?.t?.[0] ?? null;
@@ -104,8 +110,9 @@ export function vueSemaine() {
        au-delà. Deux sources pour un seul jour font des contradictions dans une
        même feuille. */
     const h = P.jourHoraire(dd.time[k]);
-    const tn = h ? h.tn : dd.temperature_2m_min[k];
-    const tx = h ? h.tx : dd.temperature_2m_max[k];
+    const tn = fini(h ? h.tn : dd.temperature_2m_min[k]);
+    const tx = fini(h ? h.tx : dd.temperature_2m_max[k]);
+    const bornes = tn !== null && tx !== null;
     const mm = h ? h.mm : dd.precipitation_sum[k];
     const pb = h ? h.pb : dd.precipitation_probability_max[k];
     const code = h ? h.code : dd.weather_code[k];
@@ -130,8 +137,8 @@ export function vueSemaine() {
     /* Une journée de tendance dit la part de ses scénarios pluvieux : une
        moyenne de pluie à cinq semaines, deux millimètres presque chaque jour,
        prêtait à la tendance une précision qu'elle n'a pas. */
-    const eau = k >= nPrev ? (pb >= 5 ? `${Math.round(pb)} %` : "")
-      : mm >= 0.1 ? `${nombreFr(mm)} mm` : pb >= 5 ? `${Math.round(pb)} %` : "";
+    const eau = k >= nPrev ? (pb >= SEUILS.risque ? `${Math.round(pb)} %` : "")
+      : mm >= SEUILS.lame ? `${nombreFr(mm)} mm` : pb >= SEUILS.risque ? `${Math.round(pb)} %` : "";
 
     const pointe = k === i && maintenant !== null
       ? `<u class="sem-pt" style="left:${(((maintenant - tmin) / amp) * 100).toFixed(1)}%"></u>`
@@ -178,17 +185,18 @@ export function vueSemaine() {
          dit. */
       + (eau ? `<em>${esc(eau)}</em>`
         : h?.raf >= 50 ? `<em class="sem-raf">raf. ${Math.round(h.raf)}</em>` : "") + `</span>`
-      + `<span class="b"><span class="titre-lu">minimum</span><b class="sem-min">${Math.round(tn)}°</b>`
-      + `<span class="sem-pc"><i class="sem-piste"><s class="sem-plage${accord ? ` sem-${accord}` : ""}" `
-      + `style="left:${gauche.toFixed(1)}%;`
-      + `width:${large.toFixed(1)}%;`
-      + `background:linear-gradient(90deg, ${couleurT(tn)}, ${couleurT(tx)})"></s>`
+      + `<span class="b"><span class="titre-lu">minimum</span><b class="sem-min">${tn === null ? "—" : `${Math.round(tn)}°`}</b>`
+      + `<span class="sem-pc"><i class="sem-piste">`
+      + (bornes ? `<s class="sem-plage${accord ? ` sem-${accord}` : ""}" `
+        + `style="left:${gauche.toFixed(1)}%;`
+        + `width:${large.toFixed(1)}%;`
+        + `background:linear-gradient(90deg, ${couleurT(tn)}, ${couleurT(tx)})"></s>` : "")
       + pointe + `</i>`
       /* Trois mots qui tiennent seuls dans la largeur de la barre : « confiance
          moyenne » passait sur deux lignes. Le volet garde la phrase complète. */
       + (accord ? `<em class="sem-conf">${esc({ bonne: "fiable", moyenne: "à confirmer", faible: "incertain" }[accord])}</em>` : "")
       + `</span>`
-      + `<span class="titre-lu">maximum</span><b class="sem-max">${Math.round(tx)}°</b></span>`;
+      + `<span class="titre-lu">maximum</span><b class="sem-max">${tx === null ? "—" : `${Math.round(tx)}°`}</b></span>`;
 
     /* Une journée sans heures complètes ne s'ouvre pas, et ne porte alors pas
        de chevron : une cible qui ne mène à rien vaut moins qu'aucune cible. */
@@ -272,7 +280,11 @@ export function grapheSemaine(jours, basDeCarte = "") {
   const COL = 42;
   const L = defile ? 8 + n * COL : 340, H = avecVent ? 214 : 176, bord = 4, col = (L - 2 * bord) / n;
   const x = k => bord + (k + 0.5) * col;
-  const mn = Math.min(...jours.map(j => j.tn)), mx = Math.max(...jours.map(j => j.tx));
+  /* Seules les bornes connues entrent dans l'échelle ; une borne absente ne
+     se trace pas et coupe la ligne. Audit, constat 1.11. */
+  const connues = cle => jours.map(j => j[cle]).filter(Number.isFinite);
+  const mn = connues("tn").length ? Math.min(...connues("tn")) : 0;
+  const mx = connues("tx").length ? Math.max(...connues("tx")) : 1;
   const amp = Math.max(4, mx - mn);
   const haut = 24, bas = 96;
   const y = t => bas - ((t - mn) / amp) * (bas - haut);
@@ -284,14 +296,21 @@ export function grapheSemaine(jours, basDeCarte = "") {
   const fonds = jours.map((j, k) => (j.passe || j.auj || j.tend)
     ? `<rect class="sg-${j.auj ? "auj" : j.tend ? "tend" : "passe"}" x="${(x(k) - col / 2 + 1).toFixed(1)}" y="2" `
       + `width="${(col - 2).toFixed(1)}" height="${H - 4}" rx="10"/>` : "").join("");
-  const ligne = (cle, cls) => `<polyline class="${cls}" fill="none" points="`
-    + jours.map((j, k) => `${x(k).toFixed(1)},${y(j[cle]).toFixed(1)}`).join(" ") + `"/>`;
-  const points = (cle, cls, dy) => jours.map((j, k) =>
+  const ligne = (cle, cls) => {
+    const troncons = [[]];
+    jours.forEach((j, k) => {
+      if (Number.isFinite(j[cle])) troncons[troncons.length - 1].push(`${x(k).toFixed(1)},${y(j[cle]).toFixed(1)}`);
+      else if (troncons[troncons.length - 1].length) troncons.push([]);
+    });
+    return troncons.filter(t => t.length > 1)
+      .map(t => `<polyline class="${cls}" fill="none" points="${t.join(" ")}"/>`).join("");
+  };
+  const points = (cle, cls, dy) => jours.map((j, k) => !Number.isFinite(j[cle]) ? "" :
     `<circle class="${cls}" cx="${x(k).toFixed(1)}" cy="${y(j[cle]).toFixed(1)}" r="2.6"/>`
     + `<text class="sg-v${j.passe ? " sg-p" : ""}" x="${x(k).toFixed(1)}" y="${(y(j[cle]) + dy).toFixed(1)}">`
     + `${Math.round(j[cle])}°</text>`).join("");
   const pluie = jours.map((j, k) => {
-    if (!(j.mm >= 0.1)) return "";
+    if (!(j.mm >= SEUILS.lame)) return "";
     const h = Math.max(2, Math.min(1, j.mm / 10) * pluieMax);
     /* La quantité se lit au-dessus de la barre, en millimètres. */
     const q = j.tend ? "" : j.mm >= 10 ? String(Math.round(j.mm)) : nombreFr(Math.round(j.mm * 10) / 10);
@@ -317,9 +336,10 @@ export function grapheSemaine(jours, basDeCarte = "") {
   const avenir = jours.filter(j => !j.passe);
   const total = avenir.reduce((a, j) => a + (j.mm || 0), 0);
   const rafMax = Math.max(0, ...avenir.map(j => ventDe(j) ?? 0));
-  const resume = `De ${Math.round(Math.min(...avenir.map(j => j.tx)))} à `
-    + `${Math.round(Math.max(...avenir.map(j => j.tx)))} degrés au plus chaud`
-    + (total >= 0.1 ? `, ${nombreFr(total)} millimètres de pluie en tout` : ", sans pluie")
+  const txAvenir = avenir.map(j => j.tx).filter(Number.isFinite);
+  const resume = (txAvenir.length ? `De ${Math.round(Math.min(...txAvenir))} à `
+    + `${Math.round(Math.max(...txAvenir))} degrés au plus chaud` : "Températures inconnues")
+    + (total >= SEUILS.lame ? `, ${nombreFr(total)} millimètres de pluie en tout` : ", sans pluie")
     + (avecVent && rafMax > 0 ? `, vent jusqu'à ${Math.round(rafMax)} kilomètres par heure.` : ".");
   return `<div class="carte sem-graphe"><div class="bande-tete"><h3>${avecVent ? "Températures, vent et pluie" : "Températures et pluie"}</h3></div>`
     + (defile ? `<div class="sg-defil">` : "")

@@ -46,7 +46,7 @@
 
 import { angleFleche, TRACE_FLECHE } from "./fleche.js";
 import { nombreFr, jourCourt, heureTxt, esc, cleJourLocal } from "./horloge.js";
-import { plagesDe, dCardinal, CARD_ABR, iCard } from "./previsions.js";
+import { plagesDe, dCardinal, CARD_ABR, iCard, SEUIL_LAME, SEUIL_RISQUE } from "./previsions.js";
 import { icoCiel, icoTemps, couleurT, couleurUV } from "./icones.js";
 import { alignerSur, LAME } from "./ensemble.js";
 
@@ -765,12 +765,12 @@ export function dessiner(s) {
     /* La voie paraît dès qu'il pleut quelque part sur l'horizon, non seulement
        dans la fenêtre : elle disparaîtrait sous le doigt à la première journée
        sèche, et la pile des voies sauterait d'un cran à chaque glissement. */
-    const h = Math.max(...s.mm) >= 0.05 ? H(cle, 48) : 0;
+    const h = Math.max(...s.mm) >= SEUIL_LAME ? H(cle, 48) : 0;
     const rx = Math.round(Math.max(...w.pb));
     const pointe = Math.max(...w.mm);
-    const droite = tot >= 0.1
+    const droite = tot >= SEUIL_LAME
       ? `${nombreFr(tot)} mm, ${motDe("mm", pointe)}`
-      : rx >= 5 ? `risque ${rx} %` : "aucune";
+      : rx >= SEUIL_RISQUE ? `risque ${rx} %` : "aucune";
     if (!h) { poser("Pluie", droite, 0); }
     else {
       const hs = 0, hv = g ? H_VAL : 0, hb = hs + hv;
@@ -784,18 +784,18 @@ export function dessiner(s) {
       /* Le risque passe derrière les barres, en aire très faible : deux
          questions sur une voie, combien et quelle chance. En pointillé par
          dessus, il traçait un trapèze qu'on prenait pour une seconde lame. */
-      if (Math.max(...s.pb) >= 5) {
+      if (Math.max(...s.pb) >= SEUIL_RISQUE) {
         d += `<path d="${aire(s.pb, y0, y1, 0, 100)}" fill="currentColor" opacity=".12"/>`;
       }
       for (let k = kA; k <= kB; k++) {
-        if (s.mm[k] < 0.05) continue;
+        if (s.mm[k] < SEUIL_LAME) continue;
         const hh = Math.max(1.5, (s.mm[k] / mx) * (y1 - y0));
         d += `<rect x="${u(X(k) + LA * 0.16)}" y="${u(y1 - hh)}" width="${u(LA * 0.68)}" `
           + `height="${u(hh)}" rx="1" fill="currentColor" opacity=".6"/>`;
       }
-      if (g) d += valeurs(s.mm, v => (v >= 0.1 ? nombreFr(v) : ""), hs + 9);
-      const quand = dire(plagesW(k => w.mm[k] >= 0.1));
-      poser("Pluie", droite, h, d, (tot < 0.1
+      if (g) d += valeurs(s.mm, v => (v >= SEUIL_LAME ? nombreFr(v) : ""), hs + 9);
+      const quand = dire(plagesW(k => w.mm[k] >= SEUIL_LAME));
+      poser("Pluie", droite, h, d, (tot < SEUIL_LAME
         ? `Aucune pluie sur la fenêtre. Risque maximal ${rx} %. `
           + `L'aire pâle derrière les barres porte le risque, de zéro à cent pour cent.`
         : `${nombreFr(tot)} mm attendus, ${quand}. Risque maximal ${rx} %. `
@@ -1057,7 +1057,7 @@ export function brancher(bloc, surVoie) {
     const prefixe = nomJour(s, s.jour[k]);
     const lit = {
       t: `${prefixe}${heureTxt(s.heure[k])}, ${Math.round(s.t[k])}°`,
-      mm: s.mm[k] >= 0.1
+      mm: s.mm[k] >= SEUIL_LAME
         ? `${prefixe}${heureTxt(s.heure[k])}, ${nombreFr(s.mm[k])} mm`
         : `${prefixe}${heureTxt(s.heure[k])}, ${Math.round(s.pb[k])} %`,
       v: `${prefixe}${heureTxt(s.heure[k])}, ${Math.round(s.v[k])} et ${Math.round(s.raf[k])} km/h`

@@ -30,14 +30,14 @@ export function vueNeige(ctx, rendre) {
   if (!nz.resumes.length) {
     return { titre, sous, corps: `<div class="carte"><p class="note">La neige a besoin du réseau.</p></div>` };
   }
-  const cm = v => `${Math.round(v)} cm`;
+  const cm = v => (Number.isFinite(v) ? `${Math.round(v)} cm` : "—");
   const valeurs = s => `<dl class="ng-val">`
     + `<dt>Au sommet, ${s.sommet} m</dt><dd>${cm(s.haut.sol)}</dd>`
     + `<dt>Au pied, ${s.pied} m</dt><dd>${cm(s.bas.sol)}</dd>`
     + `<dt>Fraîche, 72 heures</dt><dd>${cm(s.haut.fraiche72)}</dd>`
     + `<dt>Chutes, 7 jours</dt><dd>${cm(s.haut.chutes.slice(0, 7).reduce((a, c) => a + c.cm, 0))}</dd>`
-    + `<dt>Isotherme zéro</dt><dd>${s.haut.iso.toLocaleString("fr-FR")} m</dd>`
-    + `<dt>Rafales au sommet</dt><dd>${s.haut.rafales} km/h</dd></dl>`;
+    + `<dt>Isotherme zéro</dt><dd>${Number.isFinite(s.haut.iso) ? `${s.haut.iso.toLocaleString("fr-FR")} m` : "—"}</dd>`
+    + `<dt>Rafales au sommet</dt><dd>${Number.isFinite(s.haut.rafales) ? `${s.haut.rafales} km/h` : "—"}</dd></dl>`;
   /* Sous le titre d'un domaine, ses propres chiffres s'intitulent « Ensemble
      du domaine » : répéter son nom le disait deux fois. */
   const entete = (s, nom = s.nom) => `<div class="ng-tete"><b>${esc(nom)}</b>`

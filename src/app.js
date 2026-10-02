@@ -463,12 +463,15 @@ function ecranAccueil() {
        Une valeur ne prend une couleur que lorsqu'elle passe un seuil : colorer
        une valeur ordinaire ferait du bruit et userait le signal. Le chiffre
        porte l'information, la couleur ne fait que la doubler. */
-    const pb = jh ? Math.round(jh.pb) : 0;
-    const uv = jh ? Math.round(jh.uv) : 0;
-    const raf = jh ? Math.round(jh.raf) : 0;
-    const vent = jh ? Math.round(jh.v) : 0;
-    const hum = jh ? Math.round(jh.hum) : 0;
-    const res = jh ? Math.round(jh.res) : 0;
+    /* Une valeur absente de la journée reste absente et s'écrit « — ».
+       Audit, constat 1.11. */
+    const arrondi = v => (Number.isFinite(v) ? Math.round(v) : null);
+    const pb = jh ? arrondi(jh.pb) : null;
+    const uv = jh ? arrondi(jh.uv) : null;
+    const raf = jh ? arrondi(jh.raf) : null;
+    const vent = jh ? arrondi(jh.v) : null;
+    const hum = jh ? arrondi(jh.hum) : null;
+    const res = jh ? arrondi(jh.res) : null;
 
     /* Chaque mesure désigne la voie du ruban qui la déplie : un chiffre de
        l'accueil est une porte vers ses vingt-quatre heures. */
@@ -617,16 +620,17 @@ function ecranAccueil() {
       : presFin - pres0 > 1 ? "en hausse" : presFin - pres0 < -1 ? "en baisse" : "stable";
     const airJour = serieJour ? Air.pire(Air.alignerSur(serieJour)) : null;
     const tuiles = jh ? [
-      ["Ressenti", `${res}°`, "au plus chaud",
-        res >= SEUILS.chaleur ? "v-chaud" : res <= SEUILS.gel ? "v-froid" : "", "t", "thermo", "soleil"],
+      ["Ressenti", res === null ? "—" : `${res}°`, "au plus chaud",
+        res === null ? "" : res >= SEUILS.chaleur ? "v-chaud" : res <= SEUILS.gel ? "v-froid" : "", "t", "thermo", "soleil"],
       jh.mm >= SEUILS.lame
         ? ["Pluie", `${nombreFr(jh.mm)} mm`, "aujourd'hui", jh.mm >= 5 ? "v-eau" : "", "mm", "parapluie", "pluie"]
-        : ["Pluie", `${pb} %`, pb === 0 ? "Aucun risque" : "de risque", pb >= 60 ? "v-eau" : "", "mm", "parapluie", "pluie"],
-      ["Vent", `${vent} km/h`, `rafales ${raf} km/h`,
+        : ["Pluie", pb === null ? "—" : `${pb} %`, pb === null ? "de risque" : pb === 0 ? "Aucun risque" : "de risque",
+          pb >= 60 ? "v-eau" : "", "mm", "parapluie", "pluie"],
+      ["Vent", vent === null ? "—" : `${vent} km/h`, raf === null ? "rafales" : `rafales ${raf} km/h`,
         raf >= SEUILS.rafale || vent >= SEUILS.ventMoyen ? "v-attention" : "", "v", "vent", "nuage"],
       ["Ciel", nuaMax === null ? "—" : `${nuaMax} %`, "de nuages au plus", "", "nua", "nuage", "nuage"],
-      ["Humidité", `${hum} %`, "au plus", hum >= SEUILS.humidite ? "v-eau" : "", "hum", "goutte", "pluie"],
-      ["Indice UV", `${uv}`, uv >= SEUILS.uv ? "élevé" : "au plus",
+      ["Humidité", hum === null ? "—" : `${hum} %`, "au plus", hum >= SEUILS.humidite ? "v-eau" : "", "hum", "goutte", "pluie"],
+      ["Indice UV", uv === null ? "—" : `${uv}`, uv >= SEUILS.uv ? "élevé" : "au plus",
         uv >= 8 ? "v-brulant" : uv >= SEUILS.uv ? "v-chaud" : uv >= 3 ? "v-attention" : "", "uv", "soleil", "soleil"],
       ["Pression", pres0 === null ? "—" : `${Math.round(pres0)} hPa`, tendance || "maintenant", "", "pres", "jauge", "nuage"],
       ["Air", airJour ? `${airJour.indice}` : "—",

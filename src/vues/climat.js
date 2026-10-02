@@ -214,7 +214,7 @@ export function grapheComparaison(cette, autre, a1, a2, aujourdhui, periode = "7
     + (dy && n <= 7 ? `<text class="sg-v" x="${x(k).toFixed(1)}" y="${(y(j[cle]) + dy).toFixed(1)}">${Math.round(j[cle])}°</text>` : ""))).join(""));
   const mmMax = Math.max(10, ...[...cette, ...autre].map(j => j?.mm || 0));
   const bw = Math.max(1.5, Math.min(8, col * 0.36));
-  const barre = (j, k, dx, cls) => (!(j?.mm >= 0.1) ? "" : (() => {
+  const barre = (j, k, dx, cls) => (!(j?.mm >= P.SEUIL_LAME) ? "" : (() => {
     const h = Math.max(2, (j.mm / mmMax) * 26);
     return `<rect class="${cls}" x="${(x(k) + dx - bw / 2).toFixed(1)}" y="${(146 - h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="${Math.min(2, bw / 2).toFixed(1)}"/>`;
   })());

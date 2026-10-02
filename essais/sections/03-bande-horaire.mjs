@@ -723,6 +723,26 @@ export default async T => {
     lieuxPur.lat === "47.6000,48.8600" && lieuxPur.debut === "2026-09-28" && lieuxPur.fin === "2026-10-04"
     && lieuxPur.sec === "B le plus chaud ces 7 derniers jours, 22° en moyenne au plus chaud ; sec partout." && lieuxPur.seul === null,
     JSON.stringify(lieuxPur));
+  /* Audit, constat 1.6 : une journée dont la pluie manque, comme les derniers
+     jours d'une archive en retard, sort des cumuls au lieu de compter sèche, et
+     la phrase dit sur combien de jours elle compare. */
+  const trouPur = await pg.evaluate(async () => {
+    const C = await import("/src/comparaison.js");
+    const quinze = f => Array.from({ length: 15 }, (_, k) => f(k));
+    const cette = quinze(k => ({ tx: 20, tn: 10, mm: k >= 12 ? null : 0 }));
+    const autre = quinze(k => ({ tx: 20, tn: 10, mm: k >= 12 ? 5 : 0 }));
+    const vide = quinze(() => ({ tx: 20, tn: 10, mm: null }));
+    const sept = f => Array.from({ length: 7 }, (_, k) => f(k));
+    const lieux = C.bilanLieux([{ nom: "A", jours: sept(k => ({ tx: 20, tn: 10, mm: k >= 4 ? null : 0 })) },
+      { nom: "B", jours: sept(k => ({ tx: 22, tn: 12, mm: k >= 4 ? 5 : 0 })) }]);
+    return { trou: C.bilan(cette, autre, 2025, "15p")?.phrase, vide: C.bilan(vide, autre, 2025, "15p")?.phrase,
+      lieux: lieux?.phrase, arrose: lieux?.arrose };
+  });
+  ok("une journée sans pluie connue sort des cumuls de la comparaison, et la phrase le dit",
+    /; pluie comparable, 0 mm contre 0 sur 12 jours\.$/.test(trouPur.trou || "")
+    && /; pluie non comparée, archive incomplète\.$/.test(trouPur.vide || "")
+    && /; sec partout sur 4 jours\.$/.test(trouPur.lieux || "") && trouPur.arrose === null,
+    JSON.stringify(trouPur));
   /* Jalon 14, complément du 29 septembre 2026 : les périodes. Le passé finit
      hier, l'avenir commence demain, aujourd'hui n'appartient à aucune période ;
      le seuil de la pluie croît avec la racine de la durée. */
@@ -791,6 +811,49 @@ export default async T => {
     return noms.filter((n, k) => textes[k].includes("router.project-osrm.org")).join(" ");
   });
   ok("seul le module des trajets interroge OSRM", osrmDit === "trajets", osrmDit);
+  /* Audit, constat 6.9 : la proximité commune de la neige et des plages, dans
+     src/trajets.js. Une estimation à vol d'oiseau ne se garde pas : après
+     elle, l'ouverture suivante interroge de nouveau OSRM, et une réponse se
+     garde, la troisième ouverture n'interrogeant plus rien. */
+  const gardeDit = await pg.evaluate(async () => {
+    const essai = async (M, g) => {
+      let appels = 0;
+      const muet = async () => { appels++; throw new Error("réseau"); };
+      const repond = async u => {
+        appels++;
+        const n = new URL(u).pathname.split(";").length;
+        return { ok: true, json: async () => ({ code: "Ok", durations: [Array.from({ length: n }, () => 600)] }) };
+      };
+      const a = await M.prochesGardees(g, muet);
+      const apresEstimation = appels;
+      await M.prochesGardees(g, repond);
+      const apresReponse = appels;
+      await M.prochesGardees(g, repond);
+      return `${a.length > 0 && a.every(x => x.estime)}:${apresEstimation}:${apresReponse}:${appels}`;
+    };
+    localStorage.removeItem("mameteo.neige.proches.v1");
+    localStorage.removeItem("mameteo.plage.proches.v2");
+    const N = await import("/src/neige.js"), P = await import("/src/plage.js");
+    const r = { neige: await essai(N, { lat: 45.19, lon: 5.72 }), plage: await essai(P, { lat: 43.45, lon: -1.5 }) };
+    localStorage.removeItem("mameteo.neige.proches.v1");
+    localStorage.removeItem("mameteo.plage.proches.v2");
+    return r;
+  });
+  ok("une estimation à vol d'oiseau ne se garde pas, une durée de route se garde",
+    gardeDit.neige === "true:1:2:2" && gardeDit.plage === "true:1:2:2", JSON.stringify(gardeDit));
+  /* Audit, constat 6.8 : la lame d'un dixième de millimètre et le risque de
+     cinq pour cent s'écrivent une fois, dans src/previsions.js. Ils étaient
+     répétés vingt fois en dur, et le ruban dessinait la pluie dès 0,05 mm
+     quand il ne l'écrivait qu'à 0,1. */
+  const seuilsDit = await pg.evaluate(async () => {
+    const noms = ["ecritures", "ruban", "bande", "beautemps", "pluieproche", "app", "conseils", "activites",
+      "vues/avenir", "vues/climat", "vues/heures", "vues/feuilles"];
+    const textes = await Promise.all(noms.map(n => fetch(`/src/${n}.js`).then(r => r.text())));
+    const lame = /\b(?:mm|pluie|tot|total)\b(?:\[\w+\])?\)?\s*(?:>=|<=|<|>)\s*0\.(?:1|05)\b/;
+    const risque = /\b(?:pb|rx)\b(?:\[\w+\])?\)?\s*>=\s*5\b/;
+    return noms.filter((n, k) => lame.test(textes[k]) || risque.test(textes[k])).join(" ");
+  });
+  ok("les seuils de la pluie s'écrivent une seule fois", seuilsDit === "", seuilsDit);
   /* Jalon 16, lot 3 : la neige d'une station, lue à deux altitudes. Le résumé
      d'un point, l'adresse de la requête, la chute notable, la phrase et la
      saison se vérifient sur des données connues. */

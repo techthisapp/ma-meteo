@@ -700,8 +700,10 @@ export function momentsJour(date) {
       q, h0: q * 6, h1: q * 6 + 6,
       tn: Math.min(...t), tx: Math.max(...t),
       mm: k.reduce((a, j) => a + (val("precipitation", j) || 0), 0),
-      pb: Math.max(...k.map(j => val("precipitation_probability", j) || 0)),
-      raf: Math.max(...k.map(j => val("wind_gusts_10m", j) || 0)),
+      /* Une colonne vide sur le moment donne une valeur absente. Audit,
+         constat 1.11. */
+      pb: maxConnu(k.map(j => val("precipitation_probability", j))),
+      raf: maxConnu(k.map(j => val("wind_gusts_10m", j))),
       clair: k.some(j => val("is_day", j) === 1),
       code: k.reduce((a, j) => {
         const c = val("weather_code", j);
@@ -738,6 +740,12 @@ export function bilanEau(jours) {
   return { jours: i - debut, pluie: r(pluie), et0: r(et0), bilan: r(pluie - et0) };
 }
 
+/* Le plus grand des nombres connus d'une liste, ou null s'il n'y en a aucun. */
+const maxConnu = l => {
+  const v = l.filter(Number.isFinite);
+  return v.length ? Math.max(...v) : null;
+};
+
 export function jourHoraire(date) {
   const h = charge?.hourly;
   if (!Array.isArray(h?.time)) return null;
@@ -751,6 +759,13 @@ export function jourHoraire(date) {
   const t = k.map(j => val("temperature_2m", j)).filter(v => v !== null);
   if (t.length < k.length) return null;
   const ih = iHeure();
+  /* Le maximum d'une colonne vide est absent, non nul : « Indice UV 0 » ou
+     « Aucun risque » se lisaient quand la source ne disait rien. Audit du
+     1er octobre 2026, constat 1.11. */
+  const maxDe = c => {
+    const v = k.map(j => val(c, j)).filter(Number.isFinite);
+    return v.length ? Math.max(...v) : null;
+  };
   return {
     tx: Math.max(...t), tn: Math.min(...t),
     mm: k.reduce((a, j) => a + (val("precipitation", j) || 0), 0),
@@ -759,19 +774,16 @@ export function jourHoraire(date) {
        trois heures du matin manquaient à l'appel sans que rien ne le dise. */
     passe: ih < 0 ? 0
       : k.filter(j => j < ih).reduce((a, j) => a + (val("precipitation", j) || 0), 0),
-    pb: Math.max(...k.map(j => val("precipitation_probability", j) || 0)),
-    raf: Math.max(...k.map(j => val("wind_gusts_10m", j) || 0)),
+    pb: maxDe("precipitation_probability"),
+    raf: maxDe("wind_gusts_10m"),
     /* Les maximums de la journée civile. L'accueil les préfère aux valeurs de
        l'heure en cours : « indice UV 0 » à dix heures du soir ne dit rien de la
        journée, et un vent de onze kilomètres par heure relevé à cet instant
        n'annonce pas les quatre-vingts de l'après-midi. */
-    v: Math.max(...k.map(j => val("wind_speed_10m", j) || 0)),
-    hum: Math.max(...k.map(j => val("relative_humidity_2m", j) || 0)),
-    uv: Math.max(...k.map(j => val("uv_index", j) || 0)),
-    res: Math.max(...k.map(j => {
-      const v = val("apparent_temperature", j);
-      return v === null ? -99 : v;
-    })),
+    v: maxDe("wind_speed_10m"),
+    hum: maxDe("relative_humidity_2m"),
+    uv: maxDe("uv_index"),
+    res: maxDe("apparent_temperature"),
     code: k.reduce((a, j) => {
       const c = val("weather_code", j);
       return c !== null && graviteCiel(c) > graviteCiel(a) ? c : a;

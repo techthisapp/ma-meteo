@@ -17,7 +17,7 @@
    agréable ne font que corriger. */
 
 import { nombreFr } from "./horloge.js";
-import { versCardinal } from "./previsions.js";
+import { versCardinal, SEUIL_LAME } from "./previsions.js";
 import { ecart } from "./reglages.js";
 
 export const SEUILS_BEAU = {
@@ -196,4 +196,4 @@ export const loinTxt = l => (l.km < 1 ? "ici"
    absence ; et la rangée porte déjà sa distance, sa direction et son symbole de
    ciel, qui tiennent sur une ligne tant qu'on ne l'allonge pas. */
 export const journeeTxt = l =>
-  `${Math.round(l.tmax)}°${l.pluie >= 0.1 ? `, ${nombreFr(l.pluie)} mm` : ""}`;
+  `${Math.round(l.tmax)}°${l.pluie >= SEUIL_LAME ? `, ${nombreFr(l.pluie)} mm` : ""}`;

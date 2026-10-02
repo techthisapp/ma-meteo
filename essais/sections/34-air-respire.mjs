@@ -161,6 +161,34 @@ export default async T => {
   await ctxOffMuet.close();
   etat.atmoMuet = false;
 
+  /* Audit du 1er octobre 2026, constat 1.12 : la feuille rouverte pendant une
+     lecture lente ne relance pas la requête, et un service muet ne se relance
+     pas à chaque ouverture. Le contrôle précédent ne le voyait pas : la
+     feuille s'y ouvrait une fois toutes les sources arrivées. */
+  const rouvrir = async (p, fois) => {
+    for (let k = 0; k < fois; k++) {
+      await p.locator('.porte[data-feuille="air"]').click();
+      await p.waitForTimeout(250);
+      await p.locator("#feuille-fermer").click();
+      await p.waitForTimeout(250);
+    }
+  };
+  etat.appelsAtmo.length = 0;
+  etat.atmoLent = 2500;
+  const [ctxRelu, pgRelu] = await ctxReponse(METEO_NUE);
+  await rouvrir(pgRelu, 3);
+  const pendantLecture = etat.appelsAtmo.length;
+  await ctxRelu.close();
+  etat.appelsAtmo.length = 0;
+  etat.atmoLent = 0; etat.atmoMuet = true;
+  const [ctxReluMuet, pgReluMuet] = await ctxReponse(METEO_NUE);
+  await rouvrir(pgReluMuet, 3);
+  const apresEchec = etat.appelsAtmo.length;
+  await ctxReluMuet.close();
+  etat.atmoMuet = false;
+  ok("rouvrir la feuille ne relance l'indice officiel ni pendant sa lecture ni après un échec",
+    pendantLecture === 1 && apresEchec === 1, `${pendantLecture} pendant la lecture, ${apresEchec} après l'échec`);
+
   /* Un air dégradé se dit dans ce qui est à savoir, et pas en deçà. Les deux
      contextes ne diffèrent que par l'air servi. */
   const conseilsDe = async profil => {

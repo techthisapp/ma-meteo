@@ -22,7 +22,7 @@ application.
 
 ## État au 2 octobre 2026
 
-Version 136. Le projet est passé de claude.ai à Claude Code le 1er octobre
+Version 137. Le projet est passé de claude.ai à Claude Code le 1er octobre
 2026, à la version 118. Un audit complet de la version 120 a été mené le même
 jour, `docs/audit-2026-10-01.md`, avec le suivi de chaque lot en fin de
 document.
@@ -47,9 +47,9 @@ relevés seront réunis. Le jalon 5, la 3D, est écarté pour le moment.
    1322 plages françaises sur 1839 ; les heures à l'heure de Paris, l'outre-mer
    n'étant pas visé. La requête de la neige, le vent des plages et le
    `LISEZ-MOI.md` sont repris en version 136.
-2. Les constats de l'audit restés au stade « relevé », hors des lots : voir le
-   tableau de `docs/audit-2026-10-01.md`, par exemple la règle du seuil de
-   pluie écrite à plusieurs endroits, constat 6.8.
+2. Les constats de l'audit restés au stade « relevé » : plan et décisions de
+   Jérôme dans `docs/plan-constats-releves.md`. Lot H1 fait en version 137 ;
+   restent H2, accessibilité, et H3, sécurité et publication.
 
 ## Ce que Jérôme doit faire
 

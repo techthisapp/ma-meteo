@@ -5,7 +5,7 @@ export const titre = "La semaine";
 export const avecPage = true;
 
 export default async T => {
-  const { pg, ok, onglet } = T;
+  const { pg, ok, onglet, ctxReponse, METEO_NUE, reposer } = T;
   await onglet("semaine");
   /* Neuf rangées : les deux journées que les heures couvrent en arrière, puis les
      sept annoncées. La table commençait à aujourd'hui, faute d'avoir demandé les
@@ -214,4 +214,44 @@ export default async T => {
     && await pg.locator(".md:not([hidden]) > div").count() === 4);
   await pg.locator(".sem-passe .sem-r").first().click();
   await pg.waitForTimeout(300);
+
+  /* Audit du 1er octobre 2026, constat 1.11 : une valeur absente de la source
+     reste absente. Ici, le 24 août n'a plus d'heures complètes ni de bornes
+     quotidiennes, et l'indice UV manque toute la journée du 18. La rangée du
+     24 écrivait « 0° » et tirait l'échelle vers zéro, si bien qu'aucune barre
+     ne partait plus du bord gauche ; la tuile écrivait « Indice UV 0 ». La neige d'une station, de même, sans valeur. */
+  const [ctxTrou, pgTrou] = await ctxReponse(() => {
+    const d = METEO_NUE();
+    d.hourly.time.forEach((t, k) => {
+      if (t.startsWith("2026-08-18")) d.hourly.uv_index[k] = null;
+      if (t === "2026-08-24T12:00") d.hourly.temperature_2m[k] = null;
+    });
+    const j = d.daily.time.indexOf("2026-08-24");
+    d.daily.temperature_2m_max[j] = null;
+    d.daily.temperature_2m_min[j] = null;
+    return d;
+  });
+  const uvTrou = await pgTrou.evaluate(() => [...document.querySelectorAll(".tuile")]
+    .find(b => b.querySelector("i")?.textContent === "Indice UV")?.querySelector("b")?.textContent ?? "absente");
+  await pgTrou.locator('[data-onglet="semaine"]').click();
+  await reposer(pgTrou, 1500);
+  const trouDit = await pgTrou.evaluate(async () => {
+    const rangees = [...document.querySelectorAll(".sem-r, .sem-fixe")];
+    const der = rangees[rangees.length - 1];
+    const plages = [...document.querySelectorAll(".sem-plage")].map(s => s.getAttribute("style"));
+    const gauche = Math.min(...plages.map(s => parseFloat(/left:([\d.-]+)%/.exec(s)?.[1] ?? "100")));
+    const N = await import("/src/neige.js");
+    const heures = Array.from({ length: 24 }, (_, k) => `2026-12-01T${String(k).padStart(2, "0")}:00`);
+    const r = N.resumePoint({ hourly: { time: heures, snow_depth: heures.map(() => null), snowfall: heures.map(() => 0),
+      freezing_level_height: heures.map(() => null) }, daily: { time: ["2026-12-01"], snowfall_sum: [0], wind_gusts_10m_max: [null] } },
+      "2026-12-01T09:00");
+    return { min: der?.querySelector(".sem-min")?.textContent, max: der?.querySelector(".sem-max")?.textContent,
+      nan: document.querySelector("#ecran").innerHTML.includes("NaN"), gauche,
+      graphe: [...document.querySelectorAll(".sg text")].some(e => e.textContent === "0°"),
+      neige: [r.sol, r.iso, r.rafales].join(" ") };
+  });
+  ok("une valeur absente de la source ne s'écrit pas zéro",
+    uvTrou === "—" && trouDit.min === "—" && trouDit.max === "—" && !trouDit.nan && trouDit.gauche < 1
+    && !trouDit.graphe && trouDit.neige === "  ",
+    JSON.stringify({ uvTrou, ...trouDit }));
 };

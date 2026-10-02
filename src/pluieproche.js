@@ -22,6 +22,7 @@
 
 import { JETON } from "./vigilance.js";
 import { recaler, chercher, instantParis } from "./horloge.js";
+import { SEUIL_LAME } from "./previsions.js";
 
 const SERVICE = "https://webservice.meteofrance.com/v3/nowcast/rain";
 
@@ -41,7 +42,7 @@ export const PAS_REPLI = 15;  // minutes, pas du repli
    la classification usuelle des pluies : faible en dessous de 2,5, modérée
    jusqu'à 7,6, forte au delà. Le seuil d'entrée est celui que l'application
    emploie déjà sur la série horaire, un dixième de millimètre. */
-export const SEUILS_REPLI = { lame: 0.1, moderee: 2.5, forte: 7.6 };
+export const SEUILS_REPLI = { lame: SEUIL_LAME, moderee: 2.5, forte: 7.6 };
 
 /* Le produit se refait toutes les cinq minutes. Le garder trois est sans risque
    et évite qu'un aller-retour entre deux écrans redemande à chaque fois. */

@@ -222,7 +222,7 @@ case "$N" in
      perl -0pi -e 's/  const plusDispo = lim >= i;/  const plusDispo = false;/' src/vues/avenir.js
      ATTENDU="La semaine se déplie d.un « Voir plus » commun au graphique et à la liste, jusqu.à la tendance" ;;
   65) # Une journée de tendance affiche une moyenne de pluie.
-     perl -0pi -e 's/    const eau = k >= nPrev \? \(pb >= 5/    const eau = false ? (pb >= 5/' src/vues/avenir.js
+     perl -0pi -e 's/    const eau = k >= nPrev \? \(pb >= SEUILS\.risque/    const eau = false ? (pb >= SEUILS.risque/' src/vues/avenir.js
      ATTENDU="une journée de tendance dit la part de ses scénarios pluvieux, sans mot de confiance" ;;
   66) # Le plafond se cale de nouveau au point entier.
      perl -0pi -e 's/    const dx = \(\(t \* derive \* 0\.22\) % larg\) - larg;/    const dx = Math.round(((t * derive * 0.22) % larg) - larg);/' src/temps.js
@@ -247,14 +247,14 @@ case "$N" in
      perl -0pi -e 's/  const decal = \(d\.getDay\(\) \+ 6\) % 7;/  const decal = d.getDay();/' src/comparaison.js
      ATTENDU="la semaine va du lundi au dimanche, un 29 février devient le 28" ;;
   73) # La pluie se juge à la moindre différence.
-     perl -0pi -e 's/  const pluie = Math\.abs\(p1 - p2\) >= seuilPluie\(cette\.length\)/  const pluie = Math.abs(p1 - p2) >= 0.5/' src/comparaison.js
+     perl -0pi -e 's/    : Math\.abs\(p1 - p2\) >= seuilPluie\(avecPluie\.length\)/    : Math.abs(p1 - p2) >= 0.5/' src/comparaison.js
      ATTENDU="le bilan de la comparaison dit l.écart de température, et la pluie au-delà de dix millimètres" ;;
   74) # La carte de la comparaison n'est plus branchée.
      # Sa garde est dans la section du climat : lancer avec JUSQUA_EPREUVE.
      perl -0pi -e 's/      brancherComparaison\(bloc\.querySelector\("#clComparer"\), bloc, g, c, date\);\n//' src/vues/climat.js
      ATTENDU="la feuille du climat compare les 7 derniers jours aux mêmes jours de l.an dernier, dans l.archive" ;;
   75) # Une semaine sans pluie notable nomme quand même un lieu arrosé.
-     perl -0pi -e 's/  const pluie = arrose\.mm < 1 \? "sec partout"/  const pluie = arrose.mm < 0 ? "sec partout"/' src/comparaison.js
+     perl -0pi -e 's/: arrose\.mm < 1 \? `sec partout/: arrose.mm < 0 ? `sec partout/' src/comparaison.js
      ATTENDU="les lieux se demandent ensemble, et une semaine sans pluie notable se dit sèche partout" ;;
   76) # Tous les lieux reçoivent la charge du premier.
      # Sa garde est dans la section du climat : lancer avec JUSQUA_EPREUVE.
@@ -281,10 +281,10 @@ case "$N" in
      perl -0pi -e 's/, "Les Trois Vallées"\]/, null]/g' src/stations.js
      ATTENDU="la liste des stations couvre la France et ses voisins, le pied sous le sommet, rangées sous leur domaine" ;;
   82) # Une station à dix heures de route passe pour proche.
-     perl -0pi -e 's/^export const MINUTES_MAX = 60;/export const MINUTES_MAX = 600;/m' src/neige.js
+     perl -0pi -e 's/^export const MINUTES_MAX = 60;/export const MINUTES_MAX = 600;/m' src/trajets.js
      ATTENDU="les stations proches sont celles à une heure de route, en une requête à OSRM" ;;
   83) # Sans OSRM, plus aucune station.
-     perl -0pi -e 's/  \} catch \{\n    return cands\.filter\(s => s\.vol <= KM_PAR_HEURE_ESTIMEE\)/  } catch {\n    return [];\n    return cands.filter(s => s.vol <= KM_PAR_HEURE_ESTIMEE)/' src/neige.js
+     perl -0pi -e 's/  \} catch \{\n    return cands\.filter\(p => p\.vol <= KM_PAR_HEURE_ESTIMEE\)/  } catch {\n    return [];\n    return cands.filter(p => p.vol <= KM_PAR_HEURE_ESTIMEE)/' src/trajets.js
      ATTENDU="sans réponse d.OSRM, une estimation à vol d.oiseau prend le relais, marquée comme telle" ;;
   85) # Une chute ordinaire passe pour notable.
      perl -0pi -e 's/if \(\(trois >= 20 \|\| jourMax >= 10\)/if ((trois >= 2 || jourMax >= 1)/' src/neige.js
@@ -302,7 +302,7 @@ case "$N" in
      perl -0pi -e 's/\["Côte des Basques", "FR"/["COTE DES BASQUES", "FR"/' src/plages.js
      ATTENDU="la liste des plages couvre la France et ses côtes voisines, chaque plage française située, les noms lisibles" ;;
   90) # Une plage à dix heures de route passe pour proche.
-     perl -0pi -e 's/^export const MINUTES_MAX = 60;/export const MINUTES_MAX = 600;/m' src/plage.js
+     perl -0pi -e 's/^export const MINUTES_MAX = 60;/export const MINUTES_MAX = 600;/m' src/trajets.js
      ATTENDU="les plages proches sont celles à une heure de route, en une requête à OSRM" ;;
   91) # Les durées d'OSRM se décalent d'une destination.
      perl -0pi -e 's/\(durees\[k \+ 1\] == null \? null : Math\.round\(durees\[k \+ 1\] \/ 60\)\)/(durees[k] == null ? null : Math.round(durees[k] \/ 60))/' src/trajets.js
@@ -323,7 +323,7 @@ case "$N" in
      perl -0pi -e 's/export const SEUILS_BAIN = \{ air: 20, eau: 16, vagues: 1\.5,/export const SEUILS_BAIN = { air: 20, eau: 16, vagues: 15,/' src/plage.js
      ATTENDU="un créneau de baignade est la plus longue suite d.heures favorables, ou dit ce qui l.empêche" ;;
   97) # Le vent perd sa préposition.
-     perl -0pi -e 's/  return \/\^\(est\|ouest\)\$\/\.test\(c\) \? `de l.\$\{c\}` : `du \$\{c\}`;/  return c;/' src/plage.js
+     perl -0pi -e 's/  const dit = \/\^\(est\|ouest\)\$\/\.test\(c\) \? `de l.\$\{c\}` : `du \$\{c\}`;/  const dit = c;/' src/plage.js
      ATTENDU="le vent de la plage se dit par sa direction" ;;
   98) # La crise ne se range plus.
      perl -0pi -e 's/export const NIVEAUX = \["vigilance", "alerte", "alerte_renforcee", "crise"\];/export const NIVEAUX = ["vigilance", "alerte", "alerte_renforcee"];/' src/vigieau.js
@@ -542,10 +542,10 @@ case "$N" in
      perl -0pi -e 's/  if \(gardee\?\.e\?\.restriction\) \{ etat = gardee\.e; return etat; \}\n//' src/eau.js
      ATTENDU="l.état de l.eau se garde une heure une fois ses lectures arrivées" ;;
   168) # La liste des plages se charge de nouveau au lancement.
-     perl -0pi -e 's/(import \{ recaler, elaguer, lireGardee, ecrireGardee, chercher, distanceKm \} from "\.\/horloge\.js";)/$1\nimport { PLAGES as LISTE_STATIQUE } from ".\/plages.js";/' src/plage.js
+     perl -0pi -e 's/(import \{ recaler, lireGardee, ecrireGardee, chercher, distanceKm \} from "\.\/horloge\.js";)/$1\nimport { PLAGES as LISTE_STATIQUE } from ".\/plages.js";/' src/plage.js
      ATTENDU="l.accueil s.affiche sans les listes des plages et des stations" ;;
   169) # La liste des stations se charge de nouveau au lancement.
-     perl -0pi -e 's/(import \{ recaler, elaguer, lireGardee, ecrireGardee, chercher, distanceKm \} from "\.\/horloge\.js";)/$1\nimport { STATIONS as LISTE_STATIQUE } from ".\/stations.js";/' src/neige.js
+     perl -0pi -e 's/(import \{ recaler, lireGardee, ecrireGardee, chercher, distanceKm \} from "\.\/horloge\.js";)/$1\nimport { STATIONS as LISTE_STATIQUE } from ".\/stations.js";/' src/neige.js
      ATTENDU="l.accueil s.affiche sans les listes des plages et des stations" ;;
   170) # Une requête n'a de nouveau aucun délai.
      perl -0pi -e 's/  setTimeout\(\(\) => arret\.abort\(\), delai\);\n//' src/horloge.js
@@ -584,7 +584,7 @@ case "$N" in
      perl -0pi -e 's/        if \(E\.mesures\) E\.poserVent\(\);\n//' src/vues/carte.js
      ATTENDU="le mouvement réduit fige les particules sans les effacer" ;;
   182) # La neige reprend sa propre requête de route.
-     perl -0pi -e 's/(const CANDIDATES_MAX = 80;\n)/$1const OSRM = "https:\/\/router.project-osrm.org\/table\/v1\/driving\/";\n/' src/neige.js
+     perl -0pi -e 's/(const CACHE = "mameteo\.neige\.proches\.v1";\n)/$1const OSRM = "https:\/\/router.project-osrm.org\/table\/v1\/driving\/";\n/' src/neige.js
      ATTENDU="seul le module des trajets interroge OSRM" ;;
   183) # Le vent de mer et le vent de terre s'échangent.
      perl -0pi -e 's/return ecart <= 60 \? "mer" : ecart >= 120 \? "terre" : "rivage";/return ecart <= 60 ? "terre" : ecart >= 120 ? "mer" : "rivage";/' src/plage.js
@@ -595,6 +595,36 @@ case "$N" in
   185) # Biarritz se lit tournée vers la terre.
      perl -0pi -e 's/("Grande Plage Nord \(Palais\)", "FR", 43\.4877, -1\.558, null, "64", 1, "001127:064", )305\]/${1}125]/' src/plages.js
      ATTENDU="la direction de la mer des plages connues est la bonne, Hendaye n.en a pas, et la plage lue la garde" ;;
+  186) # Une journée sans pluie connue compte de nouveau sèche dans le bilan.
+     perl -0pi -e 's/\.filter\(\(\[a, b\]\) => b && Number\.isFinite\(a\.mm\) && Number\.isFinite\(b\.mm\)\);/.filter(([a, b]) => b).map(([a, b]) => [{ ...a, mm: a.mm || 0 }, { ...b, mm: b.mm || 0 }]);/' src/comparaison.js
+     ATTENDU="une journée sans pluie connue sort des cumuls de la comparaison, et la phrase le dit" ;;
+  187) # Entre lieux, une journée sans pluie connue compte de nouveau sèche.
+     perl -0pi -e 's/\.filter\(k => series\.every\(s => Number\.isFinite\(s\.jours\[k\]\?\.mm\)\)\);/;/; s/communs\.reduce\(\(a, k\) => a \+ s\.jours\[k\]\.mm, 0\)/communs.reduce((a, k) => a + (s.jours[k].mm || 0), 0)/' src/comparaison.js
+     ATTENDU="une journée sans pluie connue sort des cumuls de la comparaison, et la phrase le dit" ;;
+  188) # Une borne absente redevient zéro dans À venir.
+     perl -0pi -e 's/const fini = v => \(Number\.isFinite\(v\) \? v : null\);/const fini = v => Number(v);/' src/vues/avenir.js
+     ATTENDU="une valeur absente de la source ne s.écrit pas zéro" ;;
+  189) # Le maximum d'une colonne vide redevient zéro.
+     perl -0pi -e 's/    const v = k\.map\(j => val\(c, j\)\)\.filter\(Number\.isFinite\);\n    return v\.length \? Math\.max\(\.\.\.v\) : null;/    return Math.max(0, ...k.map(j => val(c, j) || 0));/' src/previsions.js
+     ATTENDU="une valeur absente de la source ne s.écrit pas zéro" ;;
+  190) # La neige absente d'une station redevient zéro.
+     perl -0pi -e 's/const connu = \(v, f\) => \(Number\.isFinite\(v\) \? f\(v\) : null\);/const connu = (v, f) => f(v ?? 0);/' src/neige.js
+     ATTENDU="une valeur absente de la source ne s.écrit pas zéro" ;;
+  191) # La lecture en cours de l'indice officiel n'est plus retenue.
+     perl -0pi -e 's/  if \(enCours && cleEnCours === cle\) return enCours;\n//' src/atmo.js
+     ATTENDU="rouvrir la feuille ne relance l.indice officiel ni pendant sa lecture ni après un échec" ;;
+  192) # L'échec de l'indice officiel n'est plus retenu.
+     perl -0pi -e 's/  if \(echec && echec\.cle === cle && Date\.now\(\) - echec\.t < REESSAI\) return Promise\.resolve\(null\);\n//' src/atmo.js
+     ATTENDU="rouvrir la feuille ne relance l.indice officiel ni pendant sa lecture ni après un échec" ;;
+  193) # Le ruban dessine de nouveau la pluie dès 0,05 mm.
+     perl -0pi -e 's/        if \(s\.mm\[k\] < SEUIL_LAME\) continue;/        if (s.mm[k] < 0.05) continue;/' src/ruban.js
+     ATTENDU="les seuils de la pluie s.écrivent une seule fois" ;;
+  194) # La table écrit de nouveau son risque en dur.
+     perl -0pi -e 's/\["Risque", s => \(s\.pb >= SEUIL_RISQUE \?/["Risque", s => (s.pb >= 5 ?/' src/ecritures.js
+     ATTENDU="les seuils de la pluie s.écrivent une seule fois" ;;
+  195) # Une estimation à vol d'oiseau se garde trente jours.
+     perl -0pi -e 's/ && Date\.now\(\) - e\.t < GARDE_PROCHES && !e\.estime\) return e\.l;/ \&\& Date.now() - e.t < GARDE_PROCHES) return e.l;/' src/trajets.js
+     ATTENDU="une estimation à vol d.oiseau ne se garde pas, une durée de route se garde" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

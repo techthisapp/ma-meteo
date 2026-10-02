@@ -71,7 +71,8 @@ export function journeesDe(daily) {
 /* Les périodes de la comparaison, reprises le 29 septembre 2026 à la demande
    de Jérôme : le passé et l'avenir ne se mélangent jamais dans une période.
    Le passé, 7, 15 et 30 derniers jours et deux derniers mois, finit hier et se
-   lit dans l'archive, réanalyse ERA5 qui répond jusqu'à la veille ; l'avenir,
+   lit dans l'archive, une réanalyse dont les derniers jours peuvent manquer :
+   une journée absente sort de la comparaison, et la phrase le dit ; l'avenir,
    3, 7 et 15 prochains jours, commence demain et se lit dans la prévision.
    Aujourd'hui, à moitié passé et à moitié prévu, n'appartient à aucune. La
    semaine en cours, qui mêlait les deux, a disparu. */
@@ -140,7 +141,9 @@ const fr = (v, n = 1) => String(Math.round(v * 10 ** n) / 10 ** n).replace(".", 
 /* Le bilan des deux semaines : l'écart moyen des maximums et des minimums, les
    deux cumuls de pluie, et la phrase, coupée en titre et précision par sa
    première virgule comme les conseils de l'accueil. Une journée sans valeur
-   dans l'une ou l'autre semaine sort de la moyenne. */
+   dans l'une ou l'autre semaine sort de la moyenne, et des cumuls de pluie :
+   jusqu'au 2 octobre 2026 elle comptait sèche, et une archive en retard de
+   quelques jours faisait dire « plus secs » à tort, audit, constat 1.6. */
 export function bilan(cette, autre, annee, periode = PERIODE_DEFAUT) {
   const paires = cette.map((j, k) => [j, autre[k]])
     .filter(([a, b]) => b && Number.isFinite(a.tx) && Number.isFinite(b.tx));
@@ -148,17 +151,22 @@ export function bilan(cette, autre, annee, periode = PERIODE_DEFAUT) {
   const dtx = moyenne(paires.map(([a, b]) => a.tx - b.tx));
   const dtn = moyenne(paires.filter(([a, b]) => Number.isFinite(a.tn) && Number.isFinite(b.tn))
     .map(([a, b]) => a.tn - b.tn));
-  const p1 = cette.reduce((s, j) => s + (j.mm || 0), 0);
-  const p2 = autre.reduce((s, j) => s + (j.mm || 0), 0);
+  const avecPluie = cette.map((j, k) => [j, autre[k]])
+    .filter(([a, b]) => b && Number.isFinite(a.mm) && Number.isFinite(b.mm));
+  const p1 = avecPluie.reduce((s, [a]) => s + a.mm, 0);
+  const p2 = avecPluie.reduce((s, [, b]) => s + b.mm, 0);
+  const surJours = avecPluie.length < cette.length ? ` sur ${avecPluie.length} jours` : "";
   const m = motsDe(periode);
   /* Des jours ou des mois : l'accord est au masculin pluriel. */
   const sens = dtx >= 1 ? "Plus chauds" : dtx <= -1 ? "Plus frais" : "Semblables";
   const titre = sens === "Semblables"
     ? `${sens} ${m.aux} de ${annee}, à ${fr(Math.abs(dtx))}° près au plus chaud`
     : `${sens} que ${m.que} de ${annee}, de ${fr(Math.abs(dtx))}° en moyenne au plus chaud`;
-  const pluie = Math.abs(p1 - p2) >= seuilPluie(cette.length)
-    ? (p1 > p2 ? `plus pluvieux, ${fr(p1, 0)} mm contre ${fr(p2, 0)}` : `plus secs, ${fr(p1, 0)} mm contre ${fr(p2, 0)}`)
-    : `pluie comparable, ${fr(p1, 0)} mm contre ${fr(p2, 0)}`;
+  const pluie = avecPluie.length < 4 ? "pluie non comparée, archive incomplète"
+    : Math.abs(p1 - p2) >= seuilPluie(avecPluie.length)
+      ? (p1 > p2 ? `plus pluvieux, ${fr(p1, 0)} mm contre ${fr(p2, 0)}${surJours}`
+        : `plus secs, ${fr(p1, 0)} mm contre ${fr(p2, 0)}${surJours}`)
+      : `pluie comparable, ${fr(p1, 0)} mm contre ${fr(p2, 0)}${surJours}`;
   return {
     dtx: Math.round(dtx * 10) / 10, dtn: Number.isFinite(dtn) ? Math.round(dtn * 10) / 10 : null,
     pluie: [Math.round(p1 * 10) / 10, Math.round(p2 * 10) / 10],
@@ -202,19 +210,26 @@ export async function lireLieux(lieux, dates, passe = false, fetcheur = chercher
 
 /* Le bilan des lieux : moyennes des maximums et des minimums, cumul de pluie,
    et la phrase qui nomme le plus chaud et le plus arrosé. En dessous d'un
-   millimètre partout, la semaine se dit sèche. */
+   millimètre partout, la semaine se dit sèche. La pluie ne se cumule que sur
+   les journées où tous les lieux ont une valeur : un lieu dont l'archive
+   manque des journées paraissait moins arrosé, audit, constat 1.6. */
 export function bilanLieux(series, periode = PERIODE_DEFAUT) {
+  const n = Math.min(...series.map(s => s.jours.length));
+  const communs = Array.from({ length: n }, (_, k) => k)
+    .filter(k => series.every(s => Number.isFinite(s.jours[k]?.mm)));
   const lignes = series.map(s => {
     const j = s.jours.filter(x => Number.isFinite(x.tx));
     if (j.length < Math.min(4, s.jours.length)) return null;
     return { nom: s.nom, tx: Math.round(moyenne(j.map(x => x.tx)) * 10) / 10,
       tn: Math.round(moyenne(j.filter(x => Number.isFinite(x.tn)).map(x => x.tn)) * 10) / 10,
-      mm: Math.round(s.jours.reduce((a, x) => a + (x.mm || 0), 0) * 10) / 10 };
+      mm: Math.round(communs.reduce((a, k) => a + s.jours[k].mm, 0) * 10) / 10 };
   }).filter(Boolean);
   if (lignes.length < 2) return null;
   const chaud = lignes.reduce((a, l) => (l.tx > a.tx ? l : a));
   const arrose = lignes.reduce((a, l) => (l.mm > a.mm ? l : a));
-  const pluie = arrose.mm < 1 ? "sec partout" : `${arrose.nom} le plus arrosé, ${fr(arrose.mm, 0)} mm`;
-  return { lignes, chaud: chaud.nom, arrose: arrose.mm < 1 ? null : arrose.nom,
+  const surJours = communs.length < n ? ` sur ${communs.length} jours` : "";
+  const pluie = communs.length < Math.min(4, n) ? "pluie non comparée, archive incomplète"
+    : arrose.mm < 1 ? `sec partout${surJours}` : `${arrose.nom} le plus arrosé, ${fr(arrose.mm, 0)} mm${surJours}`;
+  return { lignes, chaud: chaud.nom, arrose: arrose.mm < 1 || communs.length < Math.min(4, n) ? null : arrose.nom,
     phrase: `${chaud.nom} le plus chaud ${motsDe(periode).ici}, ${fr(chaud.tx)}° en moyenne au plus chaud ; ${pluie}.` };
 }

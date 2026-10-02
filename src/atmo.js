@@ -30,6 +30,8 @@
    mauvais nom. La distance au point demandé est gardée pour que la feuille
    puisse la dire. */
 
+import { cleJour, chercherEn } from "./horloge.js";
+
 const SERVICE = "https://data.atmo-france.org/geoserver/ind/ows";
 const COUCHE = "ind:ind_atmo";
 const CACHE = "mameteo.atmo.v1";
@@ -81,11 +83,10 @@ export const enMercator = (lat, lon) => [
   RAYON_TERRE * Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI / 180) / 2)),
 ];
 
-export const jourDe = (t = Date.now()) => {
-  const d = new Date(t);
-  const p = n => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-};
+/* Le jour de l'indice, à l'heure de Paris : celle du téléphone faisait
+   demander la veille ou le lendemain à un appareil réglé sur un autre fuseau.
+   Audit, constats 1.8 et 1.12. */
+export const jourDe = (t = Date.now()) => cleJour(new Date(t));
 
 export function adresse(lat, lon, jour = jourDe()) {
   const [x, y] = enMercator(lat, lon);
@@ -209,19 +210,34 @@ export function peindre(ctx, vue, l, h, tuilesVues, surPret) {
 
 let charge = null;
 let cleChargee = null;
+/* La lecture en cours et le dernier échec, par point et par jour. La feuille
+   de l'air se refait à chaque source qui arrive : chaque rendu relançait une
+   requête de trente secondes, et un service muet était relancé sans fin.
+   Audit du 1er octobre 2026, constat 1.12. */
+let enCours = null, cleEnCours = null;
+let echec = null;
+export const REESSAI = 10 * 60 * 1000;
 export const chargeCourante = () => charge;
-export function oublier() { charge = null; cleChargee = null; }
+export function oublier() { charge = null; cleChargee = null; enCours = null; cleEnCours = null; echec = null; }
 
 /* Lit l'indice officiel pour un point, ou rend `null`. Une lecture qui échoue
    ne prive de rien : l'air de Copernicus est déjà à l'écran, et la feuille se
-   lit sans cette carte. */
-export async function charger({ lat, lon }, fetcheur = fetch) {
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) { oublier(); return null; }
+   lit sans cette carte. La lecture est bornée, corps compris, par
+   `chercherEn`, règle réseau de la version 129. */
+export function charger({ lat, lon }, fetcheur = chercherEn(DELAI)) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) { oublier(); return Promise.resolve(null); }
   const jour = jourDe();
   const cle = `${lat.toFixed(3)},${lon.toFixed(3)}|${jour}`;
   if (cleChargee !== cle) { charge = null; cleChargee = cle; }
-  if (charge) return charge;
+  if (charge) return Promise.resolve(charge);
+  if (enCours && cleEnCours === cle) return enCours;
+  if (echec && echec.cle === cle && Date.now() - echec.t < REESSAI) return Promise.resolve(null);
+  cleEnCours = cle;
+  enCours = lire(lat, lon, jour, cle, fetcheur).finally(() => { if (cleEnCours === cle) enCours = null; });
+  return enCours;
+}
 
+async function lire(lat, lon, jour, cle, fetcheur) {
   try {
     const c = JSON.parse(localStorage.getItem(CACHE) || "null");
     if (c && c.cle === cle && Date.now() - c.t < GARDE) { charge = c.d; return charge; }
@@ -229,16 +245,14 @@ export async function charger({ lat, lon }, fetcheur = fetch) {
 
   let d = null;
   try {
-    const stop = new AbortController();
-    const minuteur = setTimeout(() => stop.abort(), DELAI);
-    const r = await fetcheur(adresse(lat, lon, jour), { signal: stop.signal });
-    clearTimeout(minuteur);
+    const r = await fetcheur(adresse(lat, lon, jour));
     if (r.ok) {
       const j = await r.json();
       d = plusProche(j?.features, lat, lon);
     }
   } catch { d = null; }
-  charge = d;
+  if (cleChargee === cle) charge = d;
+  if (!d) echec = { cle, t: Date.now() };
   if (d) {
     try { localStorage.setItem(CACHE, JSON.stringify({ cle, t: Date.now(), d })); }
     catch { /* quota atteint, la garde n'est pas indispensable */ }

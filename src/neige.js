@@ -12,17 +12,10 @@
    résultat le dit. La requête est celle des plages, `src/trajets.js`, depuis
    le 2 octobre 2026 ; la neige avait sa propre copie, antérieure. */
 
-import { recaler, elaguer, lireGardee, ecrireGardee, chercher, distanceKm } from "./horloge.js";
-import { dureesMinutes } from "./trajets.js";
-export { adresseOsrm } from "./trajets.js";
+import { recaler, lireGardee, ecrireGardee, chercher, distanceKm } from "./horloge.js";
+import { candidatesDe, prochesDe, gardees } from "./trajets.js";
+export { adresseOsrm, RAYON_KM, MINUTES_MAX, KM_PAR_HEURE_ESTIMEE } from "./trajets.js";
 
-export const RAYON_KM = 100;
-export const MINUTES_MAX = 60;
-export const KM_PAR_HEURE_ESTIMEE = 55;
-/* Quatre-vingts candidates : dans les Alpes, les quarante plus proches à vol
-   d'oiseau pouvaient écarter des stations à moins d'une heure par la route. Le
-   serveur public d'OSRM accepte cent points par requête. */
-const CANDIDATES_MAX = 80;
 const CACHE = "mameteo.neige.proches.v1";
 
 /* La liste des stations se charge à la première demande, non au lancement.
@@ -32,57 +25,19 @@ export async function listeStations() {
   if (!STATIONS) STATIONS = (await import("./stations.js")).STATIONS;
   return STATIONS;
 }
-const GARDE = 30 * 24 * 3600 * 1000;
 
 /* Le domaine d'une station, ou null si elle est indépendante : les stations
    se présentent regroupées sous leur domaine, décidé le 30 septembre 2026. */
 const deStation = s => ({ nom: s[0], pays: s[1], lat: s[2], lon: s[3], pied: s[4], sommet: s[5], km: s[6],
   domaine: s[7] ?? null });
 
-/* Les stations à moins de cent kilomètres à vol d'oiseau, les plus proches
-   d'abord, quatre-vingts au plus. */
-export function candidates(g, liste = STATIONS) {
-  return liste.map(deStation)
-    .map(s => ({ ...s, vol: distanceKm(g.lat, g.lon, s.lat, s.lon) }))
-    .filter(s => s.vol <= RAYON_KM)
-    .sort((a, b) => a.vol - b.vol)
-    .slice(0, CANDIDATES_MAX);
-}
-
-/* Les stations à une heure au plus, avec leur durée en minutes, les plus
-   proches d'abord. Sans réponse d'OSRM, l'estimation à vol d'oiseau, marquée
-   comme telle. */
-export async function proches(g, liste = STATIONS, fetcheur = chercher) {
-  const cands = candidates(g, liste);
-  if (!cands.length) return [];
-  try {
-    const m = await dureesMinutes(g, cands, fetcheur);
-    return cands.map((s, k) => ({ ...s, minutes: m[k], estime: false }))
-      .filter(s => s.minutes !== null && s.minutes <= MINUTES_MAX)
-      .sort((a, b) => a.minutes - b.minutes);
-  } catch {
-    return cands.filter(s => s.vol <= KM_PAR_HEURE_ESTIMEE)
-      .map(s => ({ ...s, minutes: Math.round((s.vol / KM_PAR_HEURE_ESTIMEE) * 60), estime: true }));
-  }
-}
-
-/* Les stations proches d'une commune, gardées trente jours. */
-export async function prochesGardees(g, fetcheur = chercher) {
-  const cle = `${g.lat.toFixed(3)},${g.lon.toFixed(3)}`;
-  try {
-    const c = JSON.parse(localStorage.getItem(CACHE) || "{}");
-    const e = c[cle];
-    if (e && Date.now() - e.t < GARDE && !e.estime) return e.l;
-  } catch { /* cache indisponible */ }
-  const l = await proches(g, await listeStations(), fetcheur);
-  try {
-    const c = JSON.parse(localStorage.getItem(CACHE) || "{}");
-    /* Une estimation ne se garde pas : la prochaine ouverture retentera OSRM. */
-    c[cle] = { t: Date.now(), l, estime: l.some(s => s.estime) };
-    localStorage.setItem(CACHE, JSON.stringify(elaguer(c, GARDE)));
-  } catch { /* plein */ }
-  return l;
-}
+/* La proximité est celle des plages, dans src/trajets.js : les stations à
+   moins de cent kilomètres, puis celles à une heure de route, gardées trente
+   jours par commune. */
+export const candidates = (g, liste = STATIONS) => candidatesDe(g, liste, deStation);
+export const proches = (g, liste = STATIONS, fetcheur = chercher) => prochesDe(g, candidates(g, liste), fetcheur);
+export const prochesGardees = (g, fetcheur = chercher) =>
+  gardees(CACHE, g, async () => proches(g, await listeStations(), fetcheur));
 
 /* ---------- Lot 3 : la neige des stations proches ---------- */
 
@@ -121,13 +76,16 @@ export function resumePoint(x, heure) {
   const jour = heure.slice(0, 10);
   const kj = Math.max(0, j.time.indexOf(jour));
   const cm = v => Math.round(v * 10) / 10;
+  /* Une valeur absente reste absente : « 0 cm au sol » ou « isotherme 0 m »
+     se lisaient quand la source ne disait rien. Audit, constat 1.11. */
+  const connu = (v, f) => (Number.isFinite(v) ? f(v) : null);
   return {
-    sol: Math.round((h.snow_depth[k] ?? 0) * 100),
+    sol: connu(h.snow_depth[k], v => Math.round(v * 100)),
     fraiche24: cm(somme(h.snowfall.slice(Math.max(0, k - 23), k + 1))),
     fraiche72: cm(somme(h.snowfall.slice(Math.max(0, k - 71), k + 1))),
     chutes: j.time.slice(kj).map((t, i) => ({ date: t, cm: cm(j.snowfall_sum[kj + i] ?? 0) })),
-    iso: Math.round((h.freezing_level_height[k] ?? 0) / 10) * 10,
-    rafales: Math.round(j.wind_gusts_10m_max[kj] ?? 0),
+    iso: connu(h.freezing_level_height[k], v => Math.round(v / 10) * 10),
+    rafales: connu(j.wind_gusts_10m_max[kj], Math.round),
   };
 }
 
@@ -187,7 +145,9 @@ export function phraseNeige(resumes) {
     const fraiche = mieux.haut.fraiche72 >= 1 ? `, dont ${Math.round(mieux.haut.fraiche72)} cm de fraîche` : "";
     return `${mieux.nom}, ${mieux.haut.sol} cm au sommet${fraiche}.`;
   }
-  const iso = Math.round(somme(resumes.map(s => s.haut.iso)) / resumes.length / 100) * 100;
+  const isos = resumes.map(s => s.haut.iso).filter(Number.isFinite);
+  if (!isos.length) return "Pas encore de neige au sol.";
+  const iso = Math.round(somme(isos) / isos.length / 100) * 100;
   return `Pas encore de neige au sol ; isotherme zéro vers ${fr(iso.toLocaleString("fr-FR"))} m.`;
 }
 

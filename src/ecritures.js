@@ -6,7 +6,7 @@
    série de vingt-quatre heures glissantes. */
 
 import { nombreFr, heureTxt, jourCourt, esc } from "./horloge.js";
-import { graviteCiel, CARD_ABR, iCard } from "./previsions.js";
+import { graviteCiel, CARD_ABR, iCard, SEUIL_LAME, SEUIL_RISQUE } from "./previsions.js";
 import { icoCiel, icoTemps, tempsDe } from "./icones.js";
 
 /* ---------- La liste ----------
@@ -27,8 +27,8 @@ const COLONNES = [
   ["Temp.", s => `${Math.round(s.t)}°`],
   ["Ress.", s => `${Math.round(s.res)}°`],
   ["Rosée", s => `${Math.round(s.ros)}°`],
-  ["Pluie", s => (s.mm >= 0.1 ? `${nombreFr(s.mm)}` : "—")],
-  ["Risque", s => (s.pb >= 5 ? `${Math.round(s.pb)} %` : "—")],
+  ["Pluie", s => (s.mm >= SEUIL_LAME ? `${nombreFr(s.mm)}` : "—")],
+  ["Risque", s => (s.pb >= SEUIL_RISQUE ? `${Math.round(s.pb)} %` : "—")],
   ["Hum.", s => `${Math.round(s.hum)} %`],
   ["Vent", s => `${Math.round(s.v)}`],
   ["Raf.", s => `${Math.round(s.raf)}`],
@@ -103,8 +103,8 @@ const plage = m => (m.tn === m.tx ? `${Math.round(m.tx)}°`
 
 const MESURES = [
   { nom: "Temp.", brut: true, lire: plage },
-  { nom: "Pluie", seuil: m => m.mm >= 0.1, lire: m => (m.mm >= 0.1 ? nombreFr(m.mm) : null) },
-  { nom: "Risque", seuil: m => m.pb >= 5, lire: m => (m.pb >= 5 ? `${Math.round(m.pb)} %` : null) },
+  { nom: "Pluie", seuil: m => m.mm >= SEUIL_LAME, lire: m => (m.mm >= SEUIL_LAME ? nombreFr(m.mm) : null) },
+  { nom: "Risque", seuil: m => m.pb >= SEUIL_RISQUE, lire: m => (m.pb >= SEUIL_RISQUE ? `${Math.round(m.pb)} %` : null) },
   { nom: "Vent", lire: m => `${Math.round(m.v)}` },
   { nom: "Rafales", seuil: m => m.raf >= 30, lire: m => `${Math.round(m.raf)}` },
   { nom: "Humidité", lire: m => `${Math.round(m.hum)} %` },
