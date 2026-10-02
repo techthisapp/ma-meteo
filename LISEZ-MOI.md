@@ -840,55 +840,87 @@ Une vigilance de quatorze jours ne dit rien du temps qu'il fait, et une prévisi
 du jour ne se compare pas à une mesure de juin. La vigilance renvoie donc vers
 Météo-France, et la comparaison entre mesure et modèle est retirée.
 
-Les modules `vigilance.js` et `postes.js` restent écrits, avec le schéma réel des
-deux sources documenté à l'intérieur, et les deux vues correspondantes sont dans
-`src/reserve.js`. Le jour où la synchronisation reprend, il suffit de rétablir
-les appels dans `app.js` et les entrées dans la table `VUES`.
+La vigilance a depuis rejoint le service en direct de Météo-France. Les modules
+de la comparaison entre mesure et modèle, `postes.js`, `reseau.js` et
+`reserve.js`, ont été retirés le 2 octobre 2026 ; ils restent dans
+l'historique du dépôt, au commit 62c0076, si la synchronisation reprend.
 
 ## Organisation
 
+État au 2 octobre 2026. Aucune dépendance à l'exécution ; Playwright sert aux
+contrôles seulement.
+
 ```
-index.html          coque, trois couches
-styles.css          tokens du design system, composants, mode sombre compris
+index.html, styles.css, manifest.webmanifest, sw.js, icones/
 DESIGN-SYSTEM.md    transposition web du design system iOS
-manifest.webmanifest, sw.js, icones/
 src/
-  horloge.js        clé du jour, écriture des nombres, département
-  previsions.js     charge Open-Meteo, fusion AROME, série horaire
-  reglages.js       stockage local, communes suivies, Ma position, recherche
-  icones.js         codes de temps sensible, dessins
-  conseils.js       les quatorze règles, leurs seuils et leur portée
-  ruban.js          météogramme à sept voies
-  ecritures.js      table des heures, moments par tranches de six heures
-  vigilance.js      bulletin en vigueur, phénomènes, niveaux, page du département
-  astres.js         positions du Soleil et de la Lune, phases, levers et couchers
-  feu.js            la boule de feu du bandeau, peinte sur une toile
-  temps.js          le temps qu'il fait, nuages, pluie, neige, brouillard, éclair
-  relief.js         le relief lunaire, carte du disque visible et éclairage
-  vues.js           temps, semaine, vigilance, soleil, lune, communes, réglages
-  app.js            amorçage, barre d'onglets, écrans, coque de la feuille
-  reseau.js         reprise à attente croissante, gzip, listage S3
-  vigilance.js      seau data.gouv, schéma réel, non branché
-  postes.js         fichier départemental et geojson des postes, non branché
-  reserve.js        les deux vues débranchées
+  Orchestration et écrans
+    app.js          amorçage, onglets, accueil, feuilles, chargement des sources
+    vues.js         les écrans et les feuilles
+    bande.js        la bande horaire de l'accueil
+    ruban.js        le ruban de « Heure par heure », sept voies
+    ecritures.js    la liste des heures, les moments par tranches de six heures
+    conseils.js     les conseils du jour et du lendemain
+    reponse.js      la réponse du matin
+    icones.js       codes de temps sensible, dessins, couleurs
+    fleche.js       la flèche du vent
+  Outils communs
+    horloge.js      clés de temps à l'heure de Paris, recalage des réponses,
+                    requêtes bornées, caches de l'appareil, écriture des nombres
+    reglages.js     stockage local, communes suivies, Ma position, recherche
+    version.js      numéro de version et recherche d'une version plus récente
+  Prévision et sources
+    previsions.js   prévision Open-Meteo, fusion AROME, séries
+    ensemble.js     scénarios horaires d'ICON
+    scenarios.js    scénarios quotidiens d'ICON et d'ECMWF, tendance de GFS
+    pluieproche.js  la pluie dans l'heure, Météo-France et repli
+    vigilance.js    la vigilance de Météo-France
+    air.js, atmo.js qualité de l'air et pollens, indice ATMO officiel
+    climat.js       le climat de la commune, réanalyse ERA5
+    comparaison.js  la comparaison avec une autre année ou d'autres lieux
+    justesse.js     le journal de la justesse des prévisions
+    activites.js    « Quand faire quoi »
+    beautemps.js    « Où est le beau temps »
+    parapluie.js    le rappel de parapluie
+    neige.js, stations.js       la neige et la liste des stations
+    plage.js, plages.js         les plages et la liste des eaux de baignade
+    trajets.js      les durées de route par OSRM
+    eau.js, vigieau.js          l'eau : restrictions, nappes, rivières, sol
+  Ciel
+    astres.js       positions du Soleil, de la Lune et des planètes
+    ciel.js         la voûte étoilée, données chargées à la demande
+    temps.js, feu.js, relief.js le ciel peint de l'accueil, le Soleil, la Lune
+  Carte
+    carte.js        fond et projection
+    geographie.js   contours embarqués, produit par outils/contours.mjs
+    nappe.js        grilles de température, d'indice UV, de vent et d'air
+    vent.js         particules du vent
+    radar.js, nuages.js, foudre.js, feux.js   couches en tuiles
+    deplacement.js  sens d'arrivée de la pluie
+    villes.js       prévisions des villes
+donnees/ciel.json   étoiles et figures, chargées à la demande
 essais/
-  controle.mjs      trois cent cinquante-deux contrôles en navigateur
+  controle.mjs      la suite des contrôles en navigateur
+  passe.sh          une passe sur une copie du dépôt
+  epreuve-bande.sh  les erreurs volontaires
+  borne.sh          la durée bornée d'une passe, sous macOS comme sous Linux
   vue-ecran.mjs     captures d'un écran, thème clair et sombre
   meteo.json        données figées au 18 août 2026, 9 h
+outils/             construction des listes embarquées
 ```
-
-Aucune dépendance à l'exécution. Playwright sert aux essais seulement.
 
 ## Essais
 
 ```
-npm install playwright
+npm ci
 npx playwright install chromium
-node essais/controle.mjs
+bash essais/passe.sh 8137
 ```
 
-Le chemin du navigateur peut être imposé par la variable `CHROMIUM` lorsque la
-révision installée par Playwright ne correspond pas à celle du poste.
+Le nombre de contrôles à jour, les erreurs volontaires et les règles apprises
+à l'usage sont dans `CLAUDE.md`. Le récit qui suit présente les contrôles tels
+qu'ils ont été posés ; la suite en compte bien davantage aujourd'hui. Le
+chemin du navigateur peut être imposé par la variable `CHROMIUM`.
 
 `node essais/vue-ecran.mjs` rend un écran dans les deux thèmes, en haut et en
 bas de page, sous `essais/captures`. Les variables `ECRAN` et `QUAND` portent la
@@ -897,8 +929,8 @@ destination et l'instant à figer, `OUVRIRVOIE` la voie du ruban à déplier et
 
 Le lanceur sert le dossier, fige l'horloge au 18 août 2026 à 9 h, détourne les
 trois appels Open-Meteo vers `meteo.json`, sert une vigilance orange de
-convention, et coupe les sources data.gouv pour éprouver le repli. Deux cent
-trois cent cinquante-deux contrôles, dont l'absence de répétition entre
+convention, et coupe les sources data.gouv pour éprouver le repli. Parmi les
+contrôles, l'absence de répétition entre
 les alertes et les conseils, les sept voies du ruban, l'agrandissement d'une
 voie, les treize colonnes de la liste, les vingt-quatre lignes de la fenêtre, la
 nature du renvoi de vigilance, et dix-sept contrôles de conformité au design

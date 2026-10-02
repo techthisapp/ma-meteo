@@ -522,15 +522,19 @@ La courbe `--ressort` reproduit l'amortissement iOS.
 
 ## Navigation
 
-Cinq destinations, le maximum admis par le document : Accueil, Le temps,
-La semaine, Le soleil, La lune. Réglages et Vigilance ne sont pas des
-destinations, ce sont des présentations en feuille.
+État au 2 octobre 2026. Quatre destinations dans la barre d'onglets : Accueil,
+À venir, Le ciel et La carte. « Heure par heure » est une page de détail,
+ouverte dans l'onglet où l'on se trouve ; un bouton de retour prend alors la
+place de la commune dans la barre de tête, comme dans iOS. Le ciel réunit trois
+écrans, Soleil, Lune et Étoiles, choisis par un contrôle segmenté. Les réglages,
+la vigilance, les lieux suivis et les détails de l'accueil sont des
+présentations en feuille, qui s'empilent.
+
+La commune vit dans la barre de tête, avec son département dessous ; un appui
+ouvre la feuille « Mes lieux ».
 
 Un contrôle automatique vérifie qu'aucun libellé d'onglet n'est tronqué à la
 largeur d'un iPhone.
-
-Le titre d'écran porte l'action de changement de commune, à la façon d'un titre
-à menu. Il se replie dans la barre de tête au défilement.
 
 ## Ce qui ne se transpose pas
 

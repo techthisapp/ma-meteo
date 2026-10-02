@@ -1,13 +1,27 @@
 # Publication
 
-Le dépôt local est initialisé, la branche est `main`, un premier commit porte les
-vingt-huit fichiers de l'application. Il reste à créer le dépôt distant et à
-pousser.
+La méthode de publication à jour est dans `CLAUDE.md`, section « Publication » :
+monter la version à deux endroits, passer la suite complète, écrire le message
+de commit, pousser sur `main`, vérifier la version servie, mettre à jour la
+feuille de route et le document de reprise. Depuis le 2 octobre 2026, la suite
+repasse aussi sur les machines de GitHub à chaque envoi sur `main`.
 
-## Précaution
+Ce fichier ne garde que ce qui touche au dépôt et à son hébergement.
 
-« Ma météo » demande un dépôt **distinct** de `techthisapp/mon-jardin`, qui sert
-déjà une application par GitHub Pages. Les deux cohabitent sans se voir :
+## Dépôt et hébergement
+
+| Élément | Valeur |
+|---|---|
+| Dépôt | `techthisapp/ma-meteo`, public |
+| Adresse | `https://techthisapp.github.io/ma-meteo/` |
+| GitHub Pages | Branche `main`, dossier racine ; `.nojekyll` évite la réécriture par Jekyll |
+| Identifiants | Ceux du poste, rangés dans le trousseau du Mac par GitHub CLI ; aucun jeton dans le dépôt |
+
+## Cohabitation avec « Mon jardin »
+
+« Ma météo » a son propre dépôt, distinct de `techthisapp/mon-jardin`, qui sert
+une autre application par GitHub Pages. Ne jamais lire, modifier ni pousser ce
+dépôt-là. Les deux applications cohabitent sans se voir :
 
 | | Mon jardin | Ma météo |
 |---|---|---|
@@ -16,77 +30,12 @@ déjà une application par GitHub Pages. Les deux cohabitent sans se voir :
 | Portée de l'agent de service | `/mon-jardin/` | `/ma-meteo/` |
 | Préfixe du stockage local | `monjardin.` | `mameteo.` |
 
-Le service sous sous-chemin a été vérifié en navigateur : le manifeste se résout
-en `/ma-meteo/manifest.webmanifest`, la portée de l'agent de service en
-`/ma-meteo/`, aucune requête n'échoue et aucune réponse 404 n'est émise.
+## Après une publication
 
-## Créer le dépôt distant
+1. Vérifier la version servie, commande de `CLAUDE.md`.
+2. Sur téléphone, accepter le bandeau de mise à jour, ou recharger.
+3. Pour éprouver le mode hors ligne : charger la page, passer en mode avion,
+   recharger. La coque et la dernière prévision gardée restent servies.
 
-Trois façons, au choix. Aucune ne touche à `mon-jardin`.
-
-### Par l'interface web
-
-1. Ouvrir `https://github.com/new`.
-2. Propriétaire `techthisapp`, nom `ma-meteo`, visibilité au choix.
-3. Ne cocher ni README, ni .gitignore, ni licence : le dépôt local les porte
-   déjà, et un dépôt distant non vide obligerait à une fusion.
-4. Créer.
-
-### Par la ligne de commande GitHub
-
-```
-gh repo create techthisapp/ma-meteo --public --source=. --remote=origin
-```
-
-La commande crée le dépôt et pose le distant en une fois. `--private` à la place
-de `--public` si le dépôt doit rester fermé.
-
-### Par le connecteur GitHub de Claude
-
-Le connecteur n'était pas joignable au moment où ce fichier a été écrit : il
-demandait encore une autorisation, et une session non interactive ne peut pas
-dérouler le flux OAuth. Une fois l'autorisation faite depuis les réglages de
-connecteurs de claude.ai, la création du dépôt redevient possible depuis une
-conversation.
-
-## Pousser
-
-Depuis `~/Documents/Claude/Projects/ma-meteo` :
-
-```
-git remote add origin https://github.com/techthisapp/ma-meteo.git
-git push -u origin main
-```
-
-Si le dépôt a été créé par `gh repo create --source=.`, le distant est déjà posé
-et seule la seconde ligne est nécessaire.
-
-## Activer GitHub Pages
-
-1. Dans le dépôt, `Settings`, puis `Pages`.
-2. Source : `Deploy from a branch`.
-3. Branche `main`, dossier `/ (root)`.
-4. Enregistrer.
-
-L'adresse `https://techthisapp.github.io/ma-meteo/` répond au bout d'une à deux
-minutes.
-
-Le fichier `.nojekyll` est déjà présent : il évite que Jekyll ne réécrive le
-dossier au passage.
-
-## Après la première publication
-
-1. **Révoquer le jeton d'accès personnel** collé en clair dans la conversation du
-   18 août. Réglages GitHub, `Developer settings`, `Personal access tokens`.
-2. **Vérifier l'installation sur téléphone.** Ouvrir l'adresse dans Safari ou
-   Chrome, puis « Sur l'écran d'accueil ». L'icône, le nom et le mode plein écran
-   viennent du manifeste.
-3. **Contrôler le mode hors ligne.** Charger la page, passer en mode avion,
-   recharger : la coque est servie par l'agent de service, la prévision annonce
-   son indisponibilité.
-
-## Ce qui n'est pas dans le dépôt
-
-Le dossier `Projects/meteo-autonome`, qui porte la cartographie du module
-d'origine et les huit documents de référence de « Mon jardin ». Ce sont des
-documents de travail, non du code.
+La création du dépôt et l'activation de GitHub Pages, faites le 18 août 2026,
+sont décrites dans l'historique de ce fichier.
