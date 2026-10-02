@@ -22,7 +22,7 @@ fs.mkdirSync(CAPTURES, { recursive: true });
 
 const MIME = { ".html":"text/html", ".js":"text/javascript", ".css":"text/css",
                ".json":"application/json", ".svg":"image/svg+xml",
-               ".webmanifest":"application/manifest+json", ".png":"image/png" };
+               ".webmanifest":"application/manifest+json", ".png":"image/png", ".webp":"image/webp" };
 
 const serveur = http.createServer((rq, rs) => {
   let p = decodeURIComponent(rq.url.split("?")[0]);
@@ -332,13 +332,17 @@ export const preparer = async (titre, avecPage) => {
 
   const METEO_NUE = () => JSON.parse(JSON.stringify(METEO));
 
-  const ouvrirCarte = async (reglages, futur = 0) => {
+  /* `sansFond` ouvre la carte sans le fond enrichi du jalon 19 : les contrôles
+     qui lisent la couleur d'une nappe en un point ne doivent pas tomber sur
+     le nom d'une ville ou sur une rivière. Le fond a sa propre section. */
+  const ouvrirCarte = async (reglages, futur = 0, { sansFond = false } = {}) => {
     etat.radarFutur = futur;
     const c = await nav.newContext({
       viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
       locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
     });
     await c.addInitScript(amorceGardee(reglages || FAIN, FIGE));
+    if (sansFond) await c.addInitScript(() => { window.__sansFond = true; });
     await brancherRoutes(c);
     const p = await c.newPage();
     await ouvrirPage(p);

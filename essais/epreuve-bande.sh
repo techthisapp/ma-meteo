@@ -697,6 +697,21 @@ case "$N" in
   219) # Le vent reprend une seule couleur.
      perl -0pi -e 's/ctx\.strokeStyle = PALIERS\[k\]\[1\];/ctx.strokeStyle = "#5b6a7c";/' src/vent.js
      ATTENDU="les traînées prennent la couleur de leur vitesse, plus denses qu.avant" ;;
+  220) # Le relief n'est plus dessiné.
+     perl -0pi -e 's/  Fond\.peindreRelief\(ctx, vue, l, h, Number\.isFinite\(force\) \? force : 1\);/  void force;/' src/carte.js
+     ATTENDU="le relief se voit dans les montagnes et pas en plaine" ;;
+  221) # La coque oublie les cours d'eau.
+     perl -0pi -e 's/  "\.\/donnees\/rivieres\.json",\n//' sw.js
+     ATTENDU="les fichiers du fond sont gardés dans la coque hors ligne" ;;
+  222) # Les noms des villes se chevauchent.
+     perl -0pi -e 's/ \|\| b\.y1 > h - 2 \|\| chevauche\(b, occupe\)\) continue;/ || b.y1 > h - 2) continue;/' src/fond.js
+     ATTENDU="sur le pays entier, seules les grandes villes sont nommées, sans chevauchement" ;;
+  223) # Toutes les villes se nomment, quel que soit le zoom.
+     perl -0pi -e 's/      if \(v\.pop < min\) break;/      if (v.pop < 2000) break;/' src/fond.js
+     ATTENDU="sur le pays entier, seules les grandes villes sont nommées, sans chevauchement" ;;
+  224) # Les noms n'évitent plus les repères ni les commandes.
+     perl -0pi -e 's/  const occupe = pris\.map\(/  const occupe = [].map(/' src/fond.js
+     ATTENDU="sur le pays entier, seules les grandes villes sont nommées, sans chevauchement" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

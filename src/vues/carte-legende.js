@@ -77,7 +77,9 @@ export function brancherLegende(E) {
         ? `<span>Feux <a href="https://effis.jrc.ec.europa.eu" target="_blank" `
           + `rel="noopener noreferrer">Copernicus</a></span>`
         : "")
-      + `<span>Contours IGN et Natural Earth</span>`;
+      + `<span>Contours IGN et Natural Earth</span>`
+      /* Le fond enrichi, jalon 19, lot 2. */
+      + `<span>Cours d'eau IGN, relief Mapzen Terrarium, villes geo.api.gouv.fr</span>`;
     E.resumer();
   };
 

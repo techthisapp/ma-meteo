@@ -18,6 +18,7 @@
    dépôt, le feu, le relief et le temps, qui animent une matière. */
 
 import { contours, anneauxDe, codesDepartements } from "./geographie.js";
+import * as Fond from "./fond.js";
 
 /* La projection vit dans src/projection.js, que la pluie dans l'heure charge
    dès le lancement ; elle est réexportée ici pour les modules de la carte. */
@@ -84,8 +85,16 @@ const couleurs = cv => {
     /* Les restrictions d'eau, jalon 18 : une palette à elles, du sable pâle au
        violet sombre, pour ne pas se lire comme une vigilance météo. */
     ve1: v("--ca-ve1"), ve2: v("--ca-ve2"), ve3: v("--ca-ve3"), ve4: v("--ca-ve4"),
+    /* Le fond enrichi, jalon 19. */
+    riviere: v("--ca-riviere"), ville: v("--ca-ville"), villePoint: v("--ca-ville-point"),
   };
 };
+
+/* Ce que le tracé des noms doit savoir de l'écran qui porte la carte : les
+   places déjà prises par les étiquettes du document, les noms de villes que
+   d'autres étiquettes portent, et à qui rendre la liste des noms posés. */
+const reglages = new WeakMap();
+export const reglerFond = (cv, o) => reglages.set(cv, o);
 
 /* Les trois traits, du plus fort au plus faible. Le contour du pays porte la
    côte et la frontière, les départements portent une limite administrative,
@@ -118,6 +127,9 @@ export function dessiner(cv, vue, nappes) {
   const c = couleurs(cv);
   ctx.fillStyle = c.fond || "#eef2f6";
   ctx.fillRect(0, 0, l, h);
+  /* Le relief, sous tout le reste : les nappes le laissent paraître. */
+  const force = parseFloat(getComputedStyle(cv).getPropertyValue("--ca-relief"));
+  Fond.peindreRelief(ctx, vue, l, h, Number.isFinite(force) ? force : 1);
 
   /* Chaque couche rend ce qu'elle a posé. Zéro partout veut dire fond nu, et les
      traits se suffisent alors à eux-mêmes.
@@ -143,6 +155,9 @@ export function dessiner(cv, vue, nappes) {
   const marge = 4 / e;
   const fo = cx - (l / 2) / e - marge, fe = cx + (l / 2) / e + marge;
   const fs = cy - (h / 2) / e - marge, fn = cy + (h / 2) / e + marge;
+
+  /* Les cours d'eau, au-dessus des nappes et sous les limites. */
+  Fond.peindreRivieres(ctx, vue, l, h, c.riviere || "#5b9bd5");
 
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
@@ -199,6 +214,14 @@ export function dessiner(cv, vue, nappes) {
     ctx.lineWidth = epais * gros;
     ctx.stroke();
   }
+
+  /* Les noms des villes et des cours d'eau, au-dessus de tout le tracé. */
+  const o = reglages.get(cv);
+  const poses = Fond.peindreNoms(ctx, vue, l, h,
+    { halo: c.fond || "#eef2f6", ville: c.ville || "#3c4654", point: c.villePoint || "#5d6875",
+      riviere: c.riviere || "#5b9bd5" },
+    o?.pris ? o.pris(l, h) : [], o?.taire ? o.taire() : new Set());
+  if (o?.noms) o.noms(poses);
 }
 
 /* La vue bornée. Le zoom reste entre ses deux bornes, et le centre dans la

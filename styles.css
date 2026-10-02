@@ -1186,6 +1186,13 @@ button.rangee:active{background:var(--surface-2)}
   --ca-ve1:rgba(214,190,120,.45);--ca-ve2:rgba(232,146,62,.5);--ca-ve3:rgba(206,70,58,.55);--ca-ve4:rgba(106,44,95,.6);
   --ca-vg3:#f3c98d;
   --ca-vg4:#eba9a0;
+  /* Le fond enrichi, jalon 19 : l'eau, les noms des villes et leur point. */
+  --ca-riviere:#5b9bd5;
+  --ca-ville:#3a4452;
+  --ca-ville-point:#5d6875;
+  /* La force du relief : sur le fond clair, une passe en lumière douce se
+     voyait à peine. */
+  --ca-relief:2.2;
 }
 @media (prefers-color-scheme:dark){
   .ca-cadre{
@@ -1198,6 +1205,10 @@ button.rangee:active{background:var(--surface-2)}
     --ca-ve1:rgba(214,190,120,.4);--ca-ve2:rgba(232,146,62,.45);--ca-ve3:rgba(226,90,78,.5);--ca-ve4:rgba(170,90,160,.55);
     --ca-vg3:#573a1f;
     --ca-vg4:#5a2e2a;
+    --ca-riviere:#4f87bb;
+    --ca-ville:#cfd8e2;
+    --ca-ville-point:#9aa7b5;
+    --ca-relief:1.2;
   }
 }
 

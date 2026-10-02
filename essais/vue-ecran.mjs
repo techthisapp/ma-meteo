@@ -18,7 +18,7 @@ fs.mkdirSync(SORTIE, { recursive: true });
 
 const MIME = { ".html":"text/html", ".js":"text/javascript", ".css":"text/css",
                ".json":"application/json", ".svg":"image/svg+xml",
-               ".webmanifest":"application/manifest+json", ".png":"image/png" };
+               ".webmanifest":"application/manifest+json", ".png":"image/png", ".webp":"image/webp" };
 
 const serveur = http.createServer((rq, rs) => {
   let p = decodeURIComponent(rq.url.split("?")[0]);
@@ -52,7 +52,9 @@ const REGLAGES = { commune: "Fain-lès-Moutiers", codePostal: "21500",
      capture n'ayant pas à passer par le panneau pour la choisir. */
   ...(process.env.NAPPE ? { nappe: process.env.NAPPE } : {}),
   ...(process.env.CIEL ? { ciel: process.env.CIEL } : {}),
-  ...(process.env.VENT ? { ventcarte: true } : {}) };
+  ...(process.env.VENT ? { ventcarte: true } : {}),
+  /* Une carte nue, pour regarder le fond : ni pluie, ni vigilance, ni foudre. */
+  ...(process.env.NUE ? { pluiecarte: false, vigicarte: false, foudrecarte: false } : {}) };
 
 /* Une tuile de pluie fabriquée. La nappe est une somme d'ondes prises en
    coordonnées de monde : elle se raccorde donc d'une tuile à l'autre, et
@@ -302,6 +304,12 @@ for (const theme of ["light", "dark"]) {
   if (process.env.PANNEAU) {
     await pg.locator("#caCouches").click();
     await pg.waitForTimeout(400);
+  }
+  /* Un cadrage sur le lieu courant, puis des crans de zoom en plus. */
+  if (process.env.ZOOM) {
+    await pg.locator("#caIci").click();
+    for (let k = 0; k < Number(process.env.ZOOM); k++) await pg.locator("#caToile").press("+");
+    await pg.waitForTimeout(800);
   }
   if (process.env.DEZOOM) {
     for (let k = 0; k < Number(process.env.DEZOOM); k++) {

@@ -2,7 +2,7 @@
    réponse d'API : une prévision périmée servie sans le dire vaut moins qu'un
    message d'indisponibilité. */
 
-const VERSION = "ma-meteo-v141";
+const VERSION = "ma-meteo-v142";
 const DELAI_RESEAU = 3000;
 const COQUE = [
   "./",
@@ -42,6 +42,7 @@ const COQUE = [
   "./src/scenarios.js",
   "./src/comparaison.js",
   "./src/neige.js",
+  "./src/fond.js",
   "./src/stations.js",
   "./src/plage.js",
   "./src/plages.js",
@@ -81,6 +82,10 @@ const COQUE = [
   /* Le ciel des étoiles se lit à la demande, mais doit rester lisible hors
      connexion même si l'écran n'a jamais été ouvert en ligne. */
   "./donnees/ciel.json",
+  "./donnees/relief.webp",
+  "./donnees/relief.json",
+  "./donnees/rivieres.json",
+  "./donnees/villes.json",
 ];
 
 /* Un téléchargement incomplet fait échouer l'installation : l'agent précédent

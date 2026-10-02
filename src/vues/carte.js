@@ -18,6 +18,7 @@ import { esc } from "../horloge.js";
 import * as P from "../previsions.js";
 import * as Reglages from "../reglages.js";
 import * as Carte from "../carte.js";
+import * as Fond from "../fond.js";
 import { poserRedimension } from "./communs.js";
 import { gabaritCarte } from "./carte-gabarit.js";
 import { brancherCouches } from "./carte-couches.js";
@@ -122,6 +123,40 @@ export function vueCarte(ctx, rendre, majEtat) {
       const departCouches = brancherCouches(E);
       const departPluie = brancherChronologie(E);
       const departEtiquettes = brancherEtiquettes(E);
+
+      /* Le fond enrichi, jalon 19, lot 2 : les noms des villes et des cours
+         d'eau évitent les repères des lieux et les étiquettes posées par le
+         document, recalculés pour la vue en cours ; une ville qui porte déjà
+         une étiquette de prévision ne se nomme pas une seconde fois. */
+      const zonePrev = bloc.querySelector("#caPrevs");
+      Carte.reglerFond(cv, {
+        pris: (l, h) => {
+          const out = [];
+          boutons.forEach((b, k) => {
+            const p = Carte.surEcran(vue, lieux[k].lat, lieux[k].lon, l, h);
+            const w = 26 + (b.querySelector(".ca-r-nom")?.offsetWidth || 0);
+            const gauche = b.classList.contains("ca-r-gauche");
+            out.push({ x: gauche ? p.x + 11 - w / 2 : p.x - 11 + w / 2, y: p.y, w, h: 26 });
+          });
+          /* Les commandes posées sur la carte : boutons, légendes, échelle,
+             chronologie. Un nom passé dessous ne se lirait pas. */
+          const base = cv.getBoundingClientRect();
+          bloc.querySelectorAll(".ca-outils, .ca-legende:not([hidden]), .ca-bas, .ca-temps:not([hidden]), .ca-moments:not([hidden])").forEach(el => {
+            const b = el.getBoundingClientRect();
+            if (!b.width) return;
+            out.push({ x: b.left - base.left + b.width / 2, y: b.top - base.top + b.height / 2, w: b.width + 4, h: b.height + 4 });
+          });
+          zonePrev?.querySelectorAll(".ca-pv:not([hidden])").forEach(el => {
+            const p = Carte.surEcran(vue, Number(el.dataset.lat), Number(el.dataset.lon), l, h);
+            out.push({ x: p.x, y: p.y, w: el.offsetWidth || 48, h: el.offsetHeight || 22 });
+          });
+          return out;
+        },
+        taire: () => new Set([...(zonePrev?.querySelectorAll(".ca-pv:not([hidden])") || [])]
+          .map(el => el.dataset.ville).filter(Boolean)),
+        noms: poses => { E.nomsPoses = poses; },
+      });
+      Fond.charger().then(() => { if (cv.isConnected) E.revoir(); });
 
       const main = Carte.poser(cv, vue, placer, E.COUCHES);
       /* Chaque nouveau tracé refait aussi le résumé lu : une grille arrivée

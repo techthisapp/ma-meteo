@@ -6,7 +6,10 @@ export const titre = "Les nappes de la carte";
 export const avecPage = true;
 
 export default async T => {
-  const { ctx, etat, ok, onglet, ouvrirCarte, reposer } = T;
+  const { ctx, etat, ok, onglet, reposer } = T;
+  /* Les cartes de cette section s'ouvrent sans le fond enrichi : leurs
+     contrôles lisent la couleur des nappes en des points précis. */
+  const ouvrirCarte = (r, f) => T.ouvrirCarte(r, f, { sansFond: true });
   etat.appelsGrille.length = 0;
   /* La pluie est allumée au départ et se pose désormais par-dessus la nappe :
      les contrôles qui lisent la couleur d'une nappe l'éteignent d'abord, sans

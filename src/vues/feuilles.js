@@ -563,6 +563,9 @@ export function vueReglages(ctx, rendre, majEtat) {
     ["Eau", "VigiEau et Hub'eau"],
     ["Durées de route", "serveur public de démonstration OSRM"],
     ["Couches de la carte", "RainViewer, EUMETSAT et le système européen d'information sur les feux de forêt"],
+    /* Le fond est embarqué : ces sources ne reçoivent rien, elles sont citées
+       pour leurs licences. Jalon 19, lot 2. */
+    ["Fond de la carte, embarqué", "contours et cours d'eau de l'IGN, Natural Earth, relief d'après les altitudes Terrarium de Mapzen, villes de geo.api.gouv.fr"],
   ];
 
   return {

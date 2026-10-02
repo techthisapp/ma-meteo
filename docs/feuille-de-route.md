@@ -863,6 +863,7 @@ Demandé par Jérôme le 2 octobre 2026 : « améliorer la carte ».
 
 **Mesures du 2 octobre 2026.**
 1. VigiEau publie chaque jour les zones d'alerte en vigueur en tuiles vectorielles PMTiles, `regleau.s3.gra.perf.cloud.ovh.net/pmtiles/zones_arretes_en_vigueur.pmtiles`, lisibles par plages d'octets et ouvertes aux autres sites. Chaque zone porte son niveau, son type de ressource et son nom. La France entière coûte 1,2 Mo, une vue de département 40 à 160 Ko. Le même fichier en GeoJSON pèse 418 Mo.
+3. La BD TOPO de l'IGN porte une importance par cours d'eau, mais ses cours d'eau n'y sont que des fragments : six bouts de 6 à 17 points pour la Saône. La BD CARTO, au 1/50 000, donne la Saône entière en 3986 points, sans importance. Retenu : les 2447 cours d'eau nommés de la BD CARTO d'au moins vingt kilomètres, classés par longueur, 271 Ko compressés. Le relief vient des tuiles d'altitude Terrarium au zoom 7, ombrage calculé à la construction, 261 Ko ; les villes, les 5564 communes de 2000 habitants et plus, 75 Ko compressés.
 2. Natural Earth ne donne qu'environ soixante-dix rivières françaises. Le service WFS de l'IGN, `data.geopf.fr`, ouvert aux autres sites, donne tous les cours d'eau nommés avec leur importance, de 1 à 6, mais à pleine précision : 5 Mo pour les environs de Fain.
 
 **Décisions de Jérôme.**
@@ -878,7 +879,7 @@ Demandé par Jérôme le 2 octobre 2026 : « améliorer la carte ».
 | Lot | Contenu | État |
 |---|---|---|
 | 1 | Panneau à moitié transparent où toutes les tuiles se voient, zoom au seul pincement, sources derrière un bouton, légendes resserrées, vent plus dense et coloré selon sa vitesse | livré, versions 140 et 141 |
-| 2 | Fond : noms des villes selon le zoom, relief léger, cours d'eau tracés et nommés | à faire |
+| 2 | Fond : noms des villes selon le zoom, relief léger, cours d'eau tracés et nommés | livré, version 142 |
 | 3 | Prévisions des villes plus nombreuses selon le zoom | à faire |
 | 4 | Toucher un point : bulle du lieu, prévision en consultation, « Suivre ce lieu » ; recherche d'une commune sur la carte | à faire |
 | 5 | Nappes nouvelles : vent et rafales, cumul de pluie, neige et limite pluie-neige, pression, gel de la nuit, ciel de la nuit, pollens, mer, brouillard ; pluie prévue douze heures ; toutes les nappes dans le temps | à faire |
@@ -1070,3 +1071,4 @@ Les deux premières lignes se lèvent avec le même service dorsal minimal. Les 
 | 2 octobre 2026 | Jalon 19 ouvert, la carte enrichie, demande de Jérôme ; sept lots, décisions et mesures dans la section du jalon |
 | 2 octobre 2026 | Version 140, jalon 19, lot 1 : panneau des couches translucide, une rangée qui défile par section, tuiles à la largeur de leur nom ; boutons de zoom retirés, le pincement et les touches plus et moins du clavier suffisant ; sources derrière un bouton ; légende de la nappe sur deux lignes basses ; vent plus dense, une particule pour 170 points au lieu de 300, et coloré selon sa vitesse en huit paliers. Cinq contrôles nouveaux, erreurs volontaires 215 à 219 vues |
 | 2 octobre 2026 | Version 141, jalon 19, lot 1 repris après essai de Jérôme sur son téléphone : le panneau ne paraissait pas translucide, le fondu du bord droit faisait un halo blanc, et le défilement de côté gênait. Toutes les tuiles se voient d'un coup, en grille de même largeur ; fond à moitié transparent sous un flou léger ; plus de fondu. La règle des deux cinquièmes du cadre est levée. Erreurs volontaires 216 et 217 refaites et vues |
+| 3 octobre 2026 | Version 142, jalon 19, lot 2 : le fond enrichi, embarqué et gardé hors ligne, environ 600 Ko compressés lus à la première ouverture de la carte. Relief en lumière douce, cours d'eau de la BD CARTO tracés et nommés le long de leur cours selon leur longueur et le zoom, noms des villes selon leur population et le zoom ; les noms se posent par ordre d'importance, sans se chevaucher ni couvrir les repères et les commandes. Défauts trouvés en route : la BD TOPO ne donnait que des fragments de rivières ; un nom plus long qu'un segment simplifié ne trouvait jamais de place ; les bourgs prenaient la place des grands cours d'eau ; les contrôles des nappes tombaient sur des noms de villes, ils ouvrent désormais la carte sans le fond. Cinq contrôles nouveaux, erreurs volontaires 220 à 224 vues |
