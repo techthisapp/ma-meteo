@@ -220,7 +220,18 @@ function eclairer(angleI, angle, eclairee, clarte = 0) {
          disque entier dont une part est cendrée, de jour on ne voit que le
          croissant, et le reste est du ciel. Une pâleur portée sur tout le
          disque laissait au contraire un rond gris posé sur le bleu. */
-      const garde = Math.max(0, Math.min(1, (e - 0.12) / 0.38));
+      /* Demande de Jérôme du 3 octobre 2026 : la part sombre reste
+         perceptible de jour, en disque pâle à peine plus clair que le ciel.
+         Effacée en entier, la Lune se réduisait à un croissant flottant. Le
+         plancher d'opacité et l'éclaircissement de la part sombre suivent la
+         clarté du ciel. */
+      const garde = Math.max(0.42, Math.min(1, (e - 0.12) / 0.38));
+      if (clarte > 0.02 && mu0 <= 0) {
+        const p = 0.55 * clarte;
+        out.data[k] = out.data[k] * (1 - p) + 210 * p;
+        out.data[k + 1] = out.data[k + 1] * (1 - p) + 216 * p;
+        out.data[k + 2] = out.data[k + 2] * (1 - p) + 228 * p;
+      }
       out.data[k + 3] = clarte > 0.02 ? a * (1 - clarte + clarte * garde) : a;
     }
   }
@@ -238,7 +249,7 @@ function eclairer(angleI, angle, eclairee, clarte = 0) {
 const DISQUES = new Map();
 const MAX_DISQUES = 24;
 
-function disque(angleI, angle, eclairee, clarte = 0) {
+export function disque(angleI, angle, eclairee, clarte = 0) {
   const pi = Math.round(angleI / 2) * 2;
   const pa = Math.round(angle / (5 * RAD)) * 5 * RAD;
   // La clarté du ciel entre dans la clé : elle change ce que le disque montre.
@@ -362,12 +373,15 @@ export function vignette(cv) {
      éclairée. Elle porte sur quelques centaines de pixels, non sur la carte. */
   const im = x.getImageData(0, 0, px, px);
   const d = im.data;
-  const SEUIL = 0.15, PLAGE = 0.72;
+  /* La part cendrée garde un plancher de gris, 3 octobre 2026 : écrasée au
+     noir, elle se confondait avec un bandeau sombre et le disque paraissait
+     transparent. */
+  const SEUIL = 0.15, PLAGE = 0.72, PLANCHER = 0.24;
   for (let k = 0; k < d.length; k += 4) {
     if (!d[k + 3]) continue;
     for (let q = 0; q < 3; q++) {
       const v = (d[k + q] / 255 - SEUIL) / PLAGE;
-      d[k + q] = Math.round(255 * Math.min(1, Math.max(0, v)));
+      d[k + q] = Math.round(255 * Math.min(1, Math.max(PLANCHER, v)));
     }
   }
   x.save();

@@ -479,6 +479,14 @@ main:focus{outline:none}
 }
 .aide[open] .aide-i{background:var(--accent);border-color:var(--accent);color:#fff}
 .aide-txt{margin-top:0}
+/* Le « i » à droite du titre de sa carte, 3 octobre 2026 : `ranger` de
+   src/aide.js le place après le titre, la feuille de style le pose dans le
+   coin, la cible de quarante-quatre points centrée sur la ligne du titre. */
+.aide-tete{position:relative}
+.aide-tete > .carte-tete,.aide-tete > h3{padding-right:30px}
+.aide-tete > .aide{margin:0}
+.aide-tete > .aide > summary{position:absolute;top:3px;right:5px;margin:0}
+.aide-tete > .aide[open] > .aide-txt{margin:0 0 var(--espace-md)}
 /* « Plus de détails », jalon 20 : une carte repliée dont le titre se touche. */
 .plus > summary{
   list-style:none;display:flex;align-items:center;justify-content:space-between;
@@ -2326,6 +2334,12 @@ button.rangee:active{background:var(--surface-2)}
   font-size:var(--texte-note);color:var(--etiquette);
 }
 .rg-maj{flex-wrap:wrap;gap:var(--espace-sm)}
+.rg-b{font-size:var(--texte-corps);padding:0}
+.rangee:has(> .rg-b){padding-top:0;padding-bottom:0;margin-bottom:calc(var(--espace-sm) * -1)}
+.rg-maj .note:empty{display:none}
+.rg-src{padding-top:var(--espace-sm);padding-bottom:var(--espace-sm)}
+.rg-src .rangee-txt b{font-weight:var(--graisse-regular)}
+.rg-src .rangee-txt span{font-size:var(--texte-note);line-height:1.4}
 
 /* Les quatre portes en grille de deux sur deux, en bas de l'accueil. Dans une
    demi-largeur, le symbole passe au-dessus du titre, et le chevron se loge en

@@ -184,7 +184,7 @@ export default async T => {
   await pgMuet.locator("#btnReglages").click();
   await pgMuet.waitForTimeout(500);
   const sourcesDit = await pgMuet.evaluate(() => [...document.querySelectorAll("#feuille-corps .rangee")]
-    .find(r => /^Vigilance/.test(r.querySelector(".rangee-txt")?.textContent || ""))?.querySelector(".rangee-val")?.textContent || "");
+    .find(r => /^Vigilance/.test(r.querySelector(".rangee-txt b")?.textContent || ""))?.querySelector(".rangee-txt > span")?.textContent || "");
   await pgMuet.locator("#feuille-fermer").click();
   await pgMuet.waitForTimeout(400);
   await pgMuet.locator('[data-onglet="carte"]').click();

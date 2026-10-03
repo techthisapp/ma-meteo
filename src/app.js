@@ -11,6 +11,7 @@
 
 import { nombreFr, esc, heureJour, enumerer, cleHeure } from "./horloge.js";
 import { surveiller } from "./typo.js";
+import { surveillerAides } from "./aide.js";
 import * as P from "./previsions.js";
 import * as Reglages from "./reglages.js";
 import { ico, icoTemps, icoCiel, tempsDe } from "./icones.js";
@@ -1724,6 +1725,8 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) cher
 /* Les espaces insécables s'appliquent à tout texte de la page, audit,
    constat 4.12. */
 surveiller();
+/* Chaque « i » se range à hauteur du titre de sa carte, 3 octobre 2026. */
+surveillerAides();
 charger();
 
 /* La prévision du dernier relevé paraît tout de suite ; le relevé suivant part

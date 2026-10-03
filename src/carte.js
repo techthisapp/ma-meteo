@@ -459,7 +459,10 @@ export function vueSur(b, l, h, marge = 0.06) {
 }
 
 /* Le geste. Un doigt déplace, deux doigts zooment autour de leur milieu, un
-   double appui zoome d'un cran sur le point touché.
+   double appui zoome d'un cran sur le point touché. Depuis le 3 octobre 2026,
+   demande de Jérôme, le geste de Plans d'Apple s'y ajoute : un double appui
+   dont le second doigt reste posé puis glisse zoome d'un seul doigt, vers le
+   bas pour grossir, vers le haut pour réduire, autour du point touché.
 
    La toile ne rend pas la main au défilement : l'écran de la carte ne défile
    pas, il n'y a donc rien à lui disputer. C'est ce qui distingue ce geste de
@@ -473,6 +476,11 @@ export function poser(cv, vue, surVue, nappes, { surAppui } = {}) {
   let depart = null;
   let attendu = null;
   let dernierAppui = 0;
+  /* Le zoom d'un doigt : le second appui d'un double appui, tant qu'il est
+     posé. `bouge` dit s'il a glissé ; sans glissement, le lâcher fait le
+     cran de zoom du double appui ordinaire. */
+  let zoomDoigt = null;
+  const PX_PAR_CRAN = 90;
   /* L'appui long, version 154 : un doigt posé une demi-seconde sans bouger
      ouvre la bulle du point. Le toucher bref du lot 4 l'ouvrait au moindre
      geste qui commençait un déplacement ou un pincement, relevé par Jérôme
@@ -537,12 +545,10 @@ export function poser(cv, vue, surVue, nappes, { surAppui } = {}) {
     const t = Date.now();
     if (points.size === 1 && t - dernierAppui < 300) {
       const l = cv.clientWidth, h = cv.clientHeight;
-      const sous = depuisEcran(vue, ev.offsetX, ev.offsetY, l, h);
-      const apres = borner({ ...vue, z: vue.z + 1 });
-      /* Le point touché reste sous le doigt : le centre se déplace de ce qu'il
-         faut pour cela, faute de quoi zoomer sur un coin ramène au centre. */
-      Object.assign(vue, recentrer(apres, sous, ev.offsetX, ev.offsetY, l, h));
-      redessiner();
+      annulerAppui();
+      depart = null;
+      zoomDoigt = { x: ev.offsetX, y: ev.offsetY, z: vue.z, vue: { ...vue }, bouge: false,
+        sous: depuisEcran(vue, ev.offsetX, ev.offsetY, l, h) };
       dernierAppui = 0;
     } else if (points.size === 1) {
       dernierAppui = t;
@@ -553,6 +559,17 @@ export function poser(cv, vue, surVue, nappes, { surAppui } = {}) {
     if (!points.has(ev.pointerId)) return;
     points.set(ev.pointerId, { x: ev.offsetX, y: ev.offsetY });
     if (appui && (points.size > 1 || Math.hypot(ev.offsetX - appui.x, ev.offsetY - appui.y) > TOLERANCE_APPUI)) annulerAppui();
+    if (zoomDoigt && points.size === 1) {
+      const dy = ev.offsetY - zoomDoigt.y;
+      if (!zoomDoigt.bouge && Math.abs(dy) <= TOLERANCE_APPUI) return;
+      zoomDoigt.bouge = true;
+      const l = cv.clientWidth, h = cv.clientHeight;
+      const apres = borner({ ...zoomDoigt.vue, z: zoomDoigt.z + dy / PX_PAR_CRAN });
+      Object.assign(vue, recentrer(apres, zoomDoigt.sous, zoomDoigt.x, zoomDoigt.y, l, h));
+      redessiner();
+      return;
+    }
+    if (zoomDoigt) zoomDoigt = null;
     if (!depart) return;
     const l = cv.clientWidth, h = cv.clientHeight;
     const m = milieu();
@@ -568,6 +585,16 @@ export function poser(cv, vue, surVue, nappes, { surAppui } = {}) {
   });
 
   const relacher = ev => {
+    /* Le second appui levé sans avoir glissé : le cran du double appui. Le
+       point touché reste sous le doigt : le centre se déplace de ce qu'il
+       faut pour cela, faute de quoi zoomer sur un coin ramène au centre. */
+    if (zoomDoigt && ev.type === "pointerup" && !zoomDoigt.bouge) {
+      const l = cv.clientWidth, h = cv.clientHeight;
+      const apres = borner({ ...vue, z: vue.z + 1 });
+      Object.assign(vue, recentrer(apres, zoomDoigt.sous, zoomDoigt.x, zoomDoigt.y, l, h));
+      redessiner();
+    }
+    zoomDoigt = null;
     points.delete(ev.pointerId);
     if (points.size) poserDepart(); else depart = null;
     annulerAppui();

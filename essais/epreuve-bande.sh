@@ -67,9 +67,8 @@ case "$N" in
   14) # Une lecture reste d'une ouverture précédente.
      perl -0pi -e 's/    if \(heure === null\) Ruban\.poserHeure\(-1\);\n//' src/app.js
      ATTENDU="sans heure désignée, aucune lecture ne reste d.une ouverture précédente" ;;
-  15) # Le dessin revient à zéro avant le rendu : la saccade du glissement.
-     perl -0pi -e 's/      deporter\(-reel \* LA\);/      deporter(0);/' src/ruban.js
-     ATTENDU="au lâcher d.un glissement, le dessin reste là où le rendu le pose" ;;
+  15) # Retirée le 3 octobre 2026 : le glissement du ruban n'existe plus, jalon 21, lot 2.
+     echo "ÉPREUVE 15 RETIRÉE : le glissement du ruban n'existe plus, jalon 21, lot 2."; exit 0 ;;
   16) # La version du module n'est pas montée avec celle de la coque.
      perl -0pi -e 's/export const VERSION = "ma-meteo-v(\d+)";/export const VERSION = "ma-meteo-v1";/' src/version.js
      ATTENDU="le numéro de version est celui de la coque" ;;
@@ -82,9 +81,8 @@ case "$N" in
   19) # Le service worker repasse par le cache du navigateur.
      perl -0pi -e 's/fetch\(ev\.request, \{ cache: "no-cache" \}\)/fetch(ev.request)/' sw.js
      ATTENDU="le service worker redemande la coque sans le cache du navigateur" ;;
-  20) # La découpe revient sur le groupe qui glisse, et glisse avec lui.
-     perl -0pi -e 's/<g clip-path="url\(#\$\{id0\}\)"><g class="mg-mob">/<g><g class="mg-mob" clip-path="url(#\$\{id0\})">/' src/ruban.js
-     ATTENDU="pendant le glissement, la suite du ruban paraît sous le doigt" ;;
+  20) # Retirée le 3 octobre 2026 : le glissement du ruban n'existe plus, jalon 21, lot 2.
+     echo "ÉPREUVE 20 RETIRÉE : le glissement du ruban n'existe plus, jalon 21, lot 2."; exit 0 ;;
   21) # La largeur du dessin redevient fixe : le paysage grossit tout.
      perl -0pi -e 's/  L = largeurVoulue\(\);/  L = L_PORTRAIT;/' src/ruban.js
      ATTENDU="le ruban garde en paysage la densité du portrait" ;;
@@ -240,9 +238,8 @@ case "$N" in
   70) # Le bandeau ne colle plus.
      perl -0pi -e 's/  position:sticky;top:calc\(env\(safe-area-inset-top, 0px\) \+ var\(--nav-haut\)\);z-index:3;/  position:relative;z-index:3;/' styles.css
      ATTENDU="un bandeau collant porte le jour et les heures, et glisse avec le ruban" ;;
-  71) # Le trait continu de minuit disparaît.
-     perl -0pi -e 's/<div class="mg">\$\{traits\}\$\{voies\.join\(""\)\}/<div class="mg">\${voies.join("")}/' src/ruban.js
-     ATTENDU="un trait continu marque minuit sur toute la pile, sans pointillé dans chaque voie" ;;
+  71) # Retirée le 3 octobre 2026 : le calque de minuit a disparu en version 160 ; l'erreur 283 éprouve son retour.
+     echo "ÉPREUVE 71 RETIRÉE : le calque de minuit a disparu en version 160 ; l'erreur 283 éprouve son retour."; exit 0 ;;
   72) # La semaine commence le dimanche.
      perl -0pi -e 's/  const decal = \(d\.getDay\(\) \+ 6\) % 7;/  const decal = d.getDay();/' src/comparaison.js
      ATTENDU="la semaine va du lundi au dimanche, un 29 février devient le 28" ;;
@@ -922,6 +919,21 @@ case "$N" in
   294) # Le « i » de la liste retourne au pied.
      perl -0pi -e 's/return `<div class="hl-aide">` \+ aide\(/return `<div class="hl-pied">` + aide(/' src/ecritures.js
      ATTENDU="les lignes sont resserrées" ;;
+  295) # Le « i » reste au pied de sa carte.
+     perl -0pi -e 's/    titre\.after\(d\);\n    carte\.classList\.add\("aide-tete"\);/    void titre;/' src/aide.js
+     ATTENDU="le « i » d'une carte titrée" ;;
+  296) # Les sources reprennent deux colonnes.
+     perl -0pi -e 's/<div class="rangee rg-src"><span class="rangee-txt"><b>\$\{esc\(n\)\}<\/b>`\n        \+ `<span>\$\{esc\(v\)\}<\/span><\/span><\/div>`/<div class="rangee rg-src"><span class="rangee-txt">\${esc(n)}<\/span>`\n        + `<span class="rangee-val">\${esc(v)}<\/span><\/div>`/' src/vues/feuilles.js
+     ATTENDU="les réglages ont un engrenage" ;;
+  297) # La part sombre de la Lune s'efface de jour.
+     perl -0pi -e 's/const garde = Math\.max\(0\.42,/const garde = Math.max(0,/' src/relief.js
+     ATTENDU="la face sombre de la Lune" ;;
+  298) # La vignette écrase de nouveau la part cendrée au noir.
+     perl -0pi -e 's/PLANCHER = 0\.24/PLANCHER = 0/' src/relief.js
+     ATTENDU="la face sombre de la Lune" ;;
+  299) # Le glissement après un double appui ne zoome plus.
+     perl -0pi -e 's/if \(zoomDoigt && points\.size === 1\) \{/if (false) {/' src/carte.js
+     ATTENDU="un double appui suivi d'un glissement" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

@@ -576,7 +576,10 @@ export function vueReglages(ctx, rendre, majEtat) {
       + `<div class="carte"><div class="carte-tete"><h3>Application</h3></div>`
       + `<div class="rangee"><span class="rangee-txt">Version</span>`
       + `<span class="rangee-val" id="rgVersion">${Version.numero()}</span></div>`
-      + `<div class="rangee rg-maj"><button type="button" class="bouton-borde" id="rgChercher">`
+      /* Les deux boutons des réglages s'alignent sur le texte des rangées,
+         3 octobre 2026 : le bouton bordé, sans bord sur la surface de la
+         carte, se lisait décalé et laissait un vide sous lui. */
+      + `<div class="rangee rg-maj"><button type="button" class="bouton-texte rg-b" id="rgChercher">`
       + `Rechercher une mise à jour</button><span class="note" id="rgMaj" role="status"></span></div>`
       + `</div>`
 
@@ -585,15 +588,18 @@ export function vueReglages(ctx, rendre, majEtat) {
       + `restent sur cet appareil.</p>`
       + (g.lat !== null ? `<div class="rangee"><span class="rangee-txt">Coordonnées du lieu</span>`
         + `<span class="rangee-val">${esc(`${g.lat}, ${g.lon}`)}</span></div>` : "")
-      + `<div class="rangee"><button type="button" class="bouton-borde" id="rgEffacer">`
+      + `<div class="rangee"><button type="button" class="bouton-texte rg-b" id="rgEffacer">`
       + `Effacer les données de cet appareil</button></div>`
       + aide("Pour lire la météo, les services de la carte « Sources » reçoivent les coordonnées du lieu "
         + "affiché, arrondies à un kilomètre environ en mode position. Le fond de la carte et le ciel ne reçoivent rien.")
       + `</div>`
 
       + `<div class="carte"><div class="carte-tete"><h3>Sources</h3></div>`
-      + sources.map(([n, v]) => `<div class="rangee"><span class="rangee-txt">${esc(n)}</span>`
-        + `<span class="rangee-val">${esc(v)}</span></div>`).join("")
+      /* Le sujet au-dessus, ses sources dessous, 3 octobre 2026 : en deux
+         colonnes, « Vigilance, pluie dans l'heure » tenait sur trois lignes
+         et les sources se tassaient à droite. */
+      + sources.map(([n, v]) => `<div class="rangee rg-src"><span class="rangee-txt"><b>${esc(n)}</b>`
+        + `<span>${esc(v)}</span></span></div>`).join("")
       + `</div>`,
 
     brancher(bloc) {

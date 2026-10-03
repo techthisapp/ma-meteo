@@ -43,8 +43,10 @@ export default async T => {
     return n > (d.length / 4) * 0.5;
   }));
   /* À la taille d'un mot, la lumière cendrée noie le croissant : la part sombre
-     doit être franche, sans quoi la vignette n'est qu'un rond gris. */
-  ok("la part sombre de la vignette est franche", await pg.evaluate(() => {
+     doit trancher sur le croissant. Depuis le 3 octobre 2026, demande de
+     Jérôme, elle reste grise et non noire : écrasée au noir, elle se perdait
+     sur un bandeau sombre. */
+  ok("la part sombre de la vignette tranche sans tomber au noir", await pg.evaluate(() => {
     const cv = document.getElementById("ptLune");
     if (!cv) return false;
     const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
@@ -52,7 +54,9 @@ export default async T => {
     for (let i = 0; i < d.length; i += 4) {
       if (d[i + 3] < 200) continue;
       opaques++;
-      if (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2] < 5) noirs++;
+      const lum = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+      if (lum < 5) return false;
+      if (lum < 80) noirs++;
     }
     return opaques > 0 && noirs / opaques >= 0.30;
   }), await pg.evaluate(() => {

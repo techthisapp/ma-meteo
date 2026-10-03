@@ -340,7 +340,13 @@ for (const theme of ["light", "dark"]) {
         const fe = document.getElementById("feuille"); fe.style.position = "absolute"; fe.style.maxHeight = "none"; fe.style.height = "auto";
       }
     });
-    await pg.screenshot({ path: path.join(SORTIE, `${cle}-pleine-${theme}.png`), fullPage: true });
+    /* Une feuille ouverte se photographie seule : la page derrière elle,
+       plus longue, la coupait. */
+    const feuille = await pg.evaluate(() => !document.getElementById("feuille").hidden);
+    if (feuille) {
+      await pg.evaluate(() => { const fe = document.getElementById("feuille"); fe.style.top = "0"; fe.style.transform = "none"; fe.style.bottom = "auto"; });
+      await pg.locator("#feuille").screenshot({ path: path.join(SORTIE, `${cle}-pleine-${theme}.png`) });
+    } else await pg.screenshot({ path: path.join(SORTIE, `${cle}-pleine-${theme}.png`), fullPage: true });
   }
   await pg.screenshot({ path: path.join(SORTIE, `${cle}-haut-${theme}.png`) });
   /* Une feuille ouverte a son propre défilement : faire glisser la fenêtre

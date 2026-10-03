@@ -303,7 +303,9 @@ export default async T => {
     if (Math.abs(dr - 8) > 30) return `la dernière bande n'est pas rouge, teinte ${dr.toFixed(0)}`;
     const ans = [...document.querySelectorAll(".cl-ans span")].map(s => s.textContent);
     if (ans.join(",") !== "1950,2025") return `bornes ${ans.join(",")}`;
-    const note = document.querySelector("#clBandes .note").textContent;
+    /* La note du graphique, non l'explication du « i », rangée sous le titre
+       depuis le 3 octobre 2026. */
+    const note = document.querySelector("#clBandes .note:not(.aide-txt)").textContent;
     const m = note.match(/de ([\d,]+)°/);
     if (!m) return `note ${note}`;
     const ecrit = Number(m[1].replace(",", "."));

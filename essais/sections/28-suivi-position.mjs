@@ -1251,8 +1251,10 @@ export default async T => {
       places.length === 2 && Math.abs(places[0] - places[1]) > 25,
       places.map(v => v.toFixed(0)).join(" et "));
     const pf = await profilLune(pg);
-    ok("de jour, la part sombre de la Lune s'efface",
-      pf && pf.clarte > 0.9 && pf.mn < 60 && pf.mx > 150,
+    /* Depuis le 3 octobre 2026, demande de Jérôme : de jour, la part sombre
+       pâlit sans disparaître. */
+    ok("de jour, la part sombre de la Lune reste perceptible, plus pâle que le croissant",
+      pf && pf.clarte > 0.9 && pf.mn >= 80 && pf.mx > 150 && pf.mx - pf.mn > 40,
       pf ? `opacité de ${pf.mn} à ${pf.mx}, clarté ${pf.clarte}` : "aucune toile");
   });
 
