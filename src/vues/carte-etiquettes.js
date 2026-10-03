@@ -96,9 +96,13 @@ export function brancherEtiquettes(E) {
       + (r.ecart >= 20 ? `<span class="ca-t ca-t-haut" aria-label="en hausse"></span>` : r.ecart <= -20 ? `<span class="ca-t ca-t-bas" aria-label="en baisse"></span>` : "")
       + `</span>`).join("") : "";
     zonePrev.innerHTML = neiges + mers + rivs + previs;
-    /* La toile se redessine, et pas seulement les étiquettes : les noms du
-       fond évitent les étiquettes et taisent les villes qui en portent une. */
-    E.revoir ? E.revoir() : E.placer();
+    /* Les étiquettes se placent tout de suite ; la toile se redessine ensuite,
+       les noms du fond évitant les étiquettes et taisant les villes qui en
+       portent une. Placer seulement au tracé suivant laissait, sur une machine
+       lente, des étiquettes empilées au coin le temps d'une image : relevé
+       par la suite complète sur GitHub le 3 octobre 2026. */
+    E.placer();
+    E.revoir?.();
   };
   E.poserPrevis = poserPrevis;
   /* Le choix des villes de la vue : parmi les communes du fond, ou les
