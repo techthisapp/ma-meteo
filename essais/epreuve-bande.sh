@@ -739,6 +739,9 @@ case "$N" in
   233) # La ville proche ignore la distance.
      perl -0pi -e 's/    if \(d > rayonKm\) continue;\n//' src/fond.js
      ATTENDU="un point hors de toute commune se nomme par la ville proche, et rien au large" ;;
+  234) # Le nom du point ne vient plus que du service d'adresses.
+     perl -0pi -e 's/    communeDu\(lat, lon, fetcheur === chercher \? chercherEn\(5000\) : fetcheur\)/    communeDe(lat, lon)/' src/point.js
+     ATTENDU="le nom du point vient de la commune qui le contient, au millième de degré" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

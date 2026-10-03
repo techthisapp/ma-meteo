@@ -34,6 +34,12 @@ export default async T => {
     JSON.stringify(b1));
   ok("le point touché n'est envoyé qu'au centième de degré",
     envoye.length === 1 && envoye.every(c => c.every(v => /^-?\d+(\.\d{1,2})?$/.test(v))), JSON.stringify(envoye));
+  /* Le nom vient du découpage administratif, qui nomme la commune contenant
+     le point : le service d'adresses restait muet loin d'une adresse. */
+  const geo = etat.appelsGeo.map(u => new URL(u).searchParams);
+  ok("le nom du point vient de la commune qui le contient, au millième de degré",
+    geo.length >= 1 && geo.every(q => /^-?\d+(\.\d{1,3})?$/.test(q.get("lat")) && /^-?\d+(\.\d{1,3})?$/.test(q.get("lon"))),
+    JSON.stringify(etat.appelsGeo));
 
   /* Un glissement et un double appui n'ouvrent pas de bulle. */
   await p.locator("#caBulleFermer").click();

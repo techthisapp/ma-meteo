@@ -822,10 +822,14 @@ export const brancherFauxServices = async (c, etat) => {
           ] };
     r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(corps) });
   });
-  /* Le nom de la commune d'une plage, quand la liste embarquée ne le porte
-     pas : une consultation loin de Fain, jalon 19, lot 4, en demande. */
-  await c.route(/geo\.api\.gouv\.fr\/communes/, r => r.fulfill({ status: 200, contentType: "application/json",
-    body: JSON.stringify([{ nom: "Commune de la plage" }]) }));
+  /* La commune qui contient un point : le point touché sur la carte, jalon
+     19, lot 4, et le nom d'une plage que la liste embarquée ne porte pas.
+     Tout point est à Grenoble, comme pour le service d'adresses. */
+  await c.route(/geo\.api\.gouv\.fr\/communes/, r => {
+    etat.appelsGeo.push(r.request().url());
+    r.fulfill({ status: 200, contentType: "application/json",
+      body: JSON.stringify([{ nom: "Grenoble", codesPostaux: ["38000"], codeDepartement: "38" }]) });
+  });
   await c.route(/api-adresse\.data\.gouv\.fr/, r => {
     const q = new URL(r.request().url()).searchParams.get("q") || "";
     const vide = { features: [] };
@@ -1057,6 +1061,7 @@ export const nouvelEtat = () => ({
   appelsVigieau: [],
   appelsVilles: [],
   appelsPoint: [],
+  appelsGeo: [],
   appelsHubeau: [],
   appelsLieux: [],
   archiveMuette: false,

@@ -81,7 +81,8 @@ export function brancherPoint(E, rendre) {
     /* Hors de toute commune, en mer le plus souvent, le point se nomme par la
        ville la plus proche. */
     const proche = lieu?.commune ? null : Fond.villeProche(lat, lon);
-    nomEl.textContent = lieu?.commune || (proche ? `Près de ${proche.nom}` : "Ce point de la carte");
+    ouvert.proche = proche ? `Près de ${proche.nom}` : null;
+    nomEl.textContent = lieu?.commune || ouvert.proche || "Ce point de la carte";
     const t = d.temps;
     let html = "";
     if (t && t.t !== null) {
@@ -141,7 +142,7 @@ export function brancherPoint(E, rendre) {
     if (!ouvert) return;
     const l = ouvert.lieu;
     Reglages.consulter({
-      commune: l?.commune || "Point de la carte", codePostal: l?.codePostal ?? null, departement: l?.departement ?? null,
+      commune: l?.commune || ouvert.proche || "Point de la carte", codePostal: l?.codePostal ?? null, departement: l?.departement ?? null,
       lat: Number.isFinite(l?.lat) ? l.lat : Math.round(ouvert.lat * 1000) / 1000,
       lon: Number.isFinite(l?.lon) ? l.lon : Math.round(ouvert.lon * 1000) / 1000,
     });
