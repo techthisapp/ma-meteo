@@ -112,7 +112,7 @@ export function vueCommunes(ctx, rendre, majEtat) {
     corps: liste
       + `<p class="note">Ma position suit l'appareil et se relève à chaque ouverture. `
       + `Un appui long sur un lieu le déplace dans la liste. Glisser une rangée vers `
-      + `la gauche pour la retirer. Le lieu courant porte une coche.</p>`
+      + `la gauche pour la renommer ou la retirer. Le lieu courant porte une coche.</p>`
       + (plein ? `<p class="note">Dix lieux au plus. En retirer un pour en ajouter `
         + `un autre.</p>` : ""),
 
