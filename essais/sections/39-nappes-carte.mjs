@@ -44,6 +44,19 @@ export default async T => {
     if (p.hidden) { document.getElementById("caCouches").click(); await dodo(200); }
     const cadre = document.querySelector(".ca-cadre").getBoundingClientRect();
     const pan = p.getBoundingClientRect();
+    /* Chaque tuile reçoit son appui : rien ne la couvre, ni légende ni
+       chronologie. Le pied de la carte, qui les porte, est remonté sous le
+       panneau le temps de la mesure : selon l'écran et les couches allumées,
+       il le rejoint ou non. */
+    const pied = document.querySelector(".ca-pied");
+    const avantPied = pied.getAttribute("style") || "";
+    pied.style.top = "0";
+    const atteintes = [...p.querySelectorAll(".ca-ch")].every(b => {
+      const r = b.getBoundingClientRect();
+      const x = r.left + r.width / 2, y = r.top + r.height / 2;
+      return y > window.innerHeight || b.contains(document.elementFromPoint(x, y));
+    });
+    pied.setAttribute("style", avantPied);
     const toutesVues = [...p.querySelectorAll(".ca-ch")].every(b => {
       const r = b.getBoundingClientRect();
       return r.left >= pan.left - 1 && r.right <= pan.right + 1 && r.top >= pan.top - 1 && r.bottom <= pan.bottom + 1;
@@ -69,7 +82,7 @@ export default async T => {
     await dodo(200);
     return { hauteurCadre: cadre.height, hauteur: pan.height, gauche: pan.left,
       droite: pan.right, largeurEcran: window.innerWidth, tuiles: ch, rangees,
-      outilsGauche: outils.left, fond, toutesVues };
+      outilsGauche: outils.left, fond, toutesVues, atteintes };
   });
 
   /* Le panneau ouvert devait laisser à la carte la plus grande part du cadre,
@@ -84,10 +97,10 @@ export default async T => {
      voient sans rien faire défiler, aucun nom ne déborde ni ne se coupe au
      milieu d'un mot, le panneau laisse libre la colonne des commandes et
      laisse paraître la carte à travers un fond à moitié transparent. */
-  ok("toutes les tuiles du panneau se voient d'un coup, sans nom coupé",
-    tuiles.rangees.length === 2 && tuiles.rangees.every(r => !r.defile) && tuiles.toutesVues
+  ok("toutes les tuiles du panneau se voient d'un coup, sans nom coupé, et reçoivent leur appui",
+    tuiles.rangees.length === 2 && tuiles.rangees.every(r => !r.defile) && tuiles.toutesVues && tuiles.atteintes
     && tuiles.tuiles.every(t => t.largeur >= 60 && !t.deborde),
-    JSON.stringify({ rangees: tuiles.rangees, toutesVues: tuiles.toutesVues,
+    JSON.stringify({ rangees: tuiles.rangees, toutesVues: tuiles.toutesVues, atteintes: tuiles.atteintes,
       etroites: tuiles.tuiles.filter(t => t.largeur < 60).map(t => t.id),
       deborde: tuiles.tuiles.filter(t => t.deborde).map(t => t.id) }));
   const alpha = Number((/[,/]\s*(0?\.\d+)\)$/.exec(tuiles.fond) || [])[1]);

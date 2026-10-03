@@ -69,8 +69,8 @@ export function brancherPoint(E, rendre) {
     const n = NAPPES_CARTE.find(x => x.cle === E.choisie && x.champ);
     if (!n) return "";
     const grille = E.grilleDe(n);
-    const v = grille ? NappeCarte.valeurA(grille[n.champ], lat, lon) : null;
-    return Number.isFinite(v) ? ligne(`${esc(n.nom)}, ${esc(n.porte)} : <b>${Math.round(v)}${n.unite}</b>`) : "";
+    const v = grille ? NappeCarte.valeurA(grille[n.champ], lat, lon, n.mer === true) : null;
+    return Number.isFinite(v) ? ligne(`${esc(n.nom)}, ${esc(n.porte)} : <b>${esc(n.ecrire ? n.ecrire(v) : `${Math.round(v)}${n.unite}`)}</b>`) : "";
   };
 
   const remplir = async (lat, lon, connu, moi) => {

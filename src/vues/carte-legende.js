@@ -22,9 +22,9 @@ export function brancherLegende(E) {
     let nappe = "Aucune nappe.";
     if (n) {
       const grille = n.champ ? E.grilleDe(n) : null;
-      const v = grille && E.g ? NappeCarte.valeurA(grille[n.champ], E.g.lat, E.g.lon) : null;
+      const v = grille && E.g ? NappeCarte.valeurA(grille[n.champ], E.g.lat, E.g.lon, n.mer === true) : null;
       nappe = `Nappe ${n.nom.toLowerCase()}, ${n.porte}`
-        + (Number.isFinite(v) ? `, ${Math.round(v)}${n.unite === "°" ? " degrés" : n.unite} au lieu courant.` : ".");
+        + (Number.isFinite(v) ? `, ${n.ecrire ? n.ecrire(v) : `${Math.round(v)}${n.unite === "°" ? " degrés" : n.unite}`} au lieu courant.` : ".");
     }
     const dessus = [E.pluieAllume && "pluie", E.ventAllume && "vent", E.vigiAllume && "vigilance",
       E.foudreAllume && "foudre", E.nuagesAllume && "nuages", E.feuxAllume && "feux",
@@ -121,7 +121,9 @@ export function brancherLegende(E) {
          touchaient : trois suffisent alors, les deux bouts et le milieu. */
       const ecrits = a.map(v => `${String(v).replace(".", ",")}${longue ? "" : n.unite.trim()}`);
       const garder = ecrits.some(t => t.length >= 4) ? [0, Math.floor(ecrits.length / 2), ecrits.length - 1] : ecrits.map((_, k) => k);
-      grads.innerHTML = garder.map(k => `<span>${ecrits[k]}</span>`).join("");
+      grads.innerHTML = n.etiquettes
+        ? n.etiquettes.map(t => `<span>${esc(t)}</span>`).join("")
+        : garder.map(k => `<span>${ecrits[k]}</span>`).join("");
       legende.setAttribute("aria-label",
         `Échelle de ${n.nom.toLowerCase()}, ${n.porte}, de ${a[0]} à ${a[a.length - 1]}`);
     }

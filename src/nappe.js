@@ -17,6 +17,7 @@
    au delà. */
 
 import { recaler, chercher, cleJour } from "./horloge.js";
+import { POLLENS } from "./air.js";
 
 export const S = 41.0, N = 51.4, O = -5.6, E = 10.0;
 export const PAS_LAT = 0.55, PAS_LON = 0.80;
@@ -197,15 +198,101 @@ export async function chargerAir(fetcheur = chercher) {
   return d;
 }
 
+/* Les pollens et la mer, jalon 19, lot 5b, demandes de Jérôme du 3 octobre
+   2026. Deux lectures de plus sur la même grille, chacune lue seulement si sa
+   nappe est choisie, gardées comme l'air. Mesurées le 3 octobre 2026 : 243 Ko
+   pour les pollens, 167 Ko pour la mer, trois dixièmes de seconde chacune. */
+export const SERVICE_MER = "https://marine-api.open-meteo.com/v1/marine";
+export const COLONNES_MER = ["wave_height", "sea_surface_temperature"];
+export const GARDE_MER = 3600 * 1000;
+export const GARDE_POLLENS = 3 * 3600 * 1000;
+const CACHE_MER = "mameteo.nappe-mer.v1", CACHE_POLLENS = "mameteo.nappe-pollens.v1";
+
+const adresseSur = (service, colonnes) => {
+  const p = points();
+  const q = new URLSearchParams();
+  q.set("latitude", p.map(x => x[0].toFixed(2)).join(","));
+  q.set("longitude", p.map(x => x[1].toFixed(2)).join(","));
+  q.set("current", colonnes.join(","));
+  return `${service}?${q}`;
+};
+export const adresseMer = () => adresseSur(SERVICE_MER, COLONNES_MER);
+export const adressePollens = () => adresseSur(SERVICE_AIR, POLLENS.map(x => x.colonne));
+
+/* L'indice d'un pollen, sur l'échelle de ses deux seuils : en dessous de un,
+   hors saison ; de un à deux, en saison ; deux au pic ; trois à trois fois
+   le pic et au-delà. La nappe garde le plus fort des six, et lequel. */
+export function indicePollen(c, p) {
+  if (!Number.isFinite(c)) return NaN;
+  if (c < p.saison) return c / p.saison;
+  if (c < p.pic) return 1 + (c - p.saison) / (p.pic - p.saison);
+  return Math.min(3, 2 + (c - p.pic) / (2 * p.pic));
+}
+
+export function lirePollens(d) {
+  if (!Array.isArray(d) || d.length !== COLS * RANGS) return null;
+  const n = COLS * RANGS;
+  const out = { pollens: new Float32Array(n), dominant: new Float32Array(n), maj: null };
+  for (let i = 0; i < n; i++) {
+    const c = d[i] && d[i].current;
+    if (!c) return null;
+    let mieux = NaN, k = NaN;
+    POLLENS.forEach((p, j) => {
+      const v = indicePollen(c[p.colonne], p);
+      if (Number.isFinite(v) && !(v <= mieux)) { mieux = v; k = j; }
+    });
+    out.pollens[i] = mieux;
+    out.dominant[i] = k;
+    if (!out.maj && typeof c.time === "string") out.maj = c.time;
+  }
+  return out;
+}
+
+export function lireMer(d) {
+  if (!Array.isArray(d) || d.length !== COLS * RANGS) return null;
+  const n = COLS * RANGS;
+  const out = { vagues: new Float32Array(n), eauMer: new Float32Array(n), maj: null };
+  for (let i = 0; i < n; i++) {
+    const c = (d[i] && d[i].current) || {};
+    out.vagues[i] = Number.isFinite(c.wave_height) ? c.wave_height : NaN;
+    out.eauMer[i] = Number.isFinite(c.sea_surface_temperature) ? c.sea_surface_temperature : NaN;
+    if (!out.maj && typeof c.time === "string") out.maj = c.time;
+  }
+  return out;
+}
+
+const gardes = {};
+async function chargerGrille(cle, cache, adresse, lireD, duree, fetcheur) {
+  const t = Date.now();
+  if (!gardes[cle]) gardes[cle] = lireGarde(cache);
+  if (gardes[cle] && t < gardes[cle].exp) return gardes[cle].d;
+  let d = null;
+  try {
+    const r = await fetcheur(adresse());
+    if (r.ok) d = lireD(recaler(await r.json()));
+  } catch { d = null; }
+  gardes[cle] = { d, exp: t + (d ? duree : 60 * 1000) };
+  ecrireGarde(cache, gardes[cle]);
+  return d;
+}
+export const chargerMer = (fetcheur = chercher) => chargerGrille("mer", CACHE_MER, adresseMer, lireMer, GARDE_MER, fetcheur);
+export const chargerPollens = (fetcheur = chercher) =>
+  chargerGrille("pollens", CACHE_POLLENS, adressePollens, lirePollens, GARDE_POLLENS, fetcheur);
+
 export function oublier() {
   garde = null; gardeAir = null;
+  for (const k of Object.keys(gardes)) delete gardes[k];
+  try { localStorage.removeItem(CACHE_MER); localStorage.removeItem(CACHE_POLLENS); } catch { /* stockage indisponible */ }
   try { localStorage.removeItem(CACHE); localStorage.removeItem(CACHE_AIR); } catch { /* stockage indisponible */ }
 }
 
 /* La valeur en un point quelconque, par interpolation bilinéaire sur les quatre
    mailles voisines. Hors de l'emprise, rien : une nappe qui prolongerait sa
    dernière valeur jusqu'au bord de la vue inventerait une donnée. */
-export function valeurA(champ, lat, lon) {
+/* `partiel`, pour la mer : une maille sur la terre n'a pas de valeur, et sans
+   ce repli toute la bande côtière restait blanche. La valeur se tire alors
+   des mailles voisines qui en ont une, à poids renormalisés. */
+export function valeurA(champ, lat, lon, partiel = false) {
   if (!champ) return null;
   const x = (lon - O) / PAS_LON, y = (lat - S) / PAS_LAT;
   if (x < 0 || y < 0 || x > COLS - 1 || y > RANGS - 1) return null;
@@ -213,6 +300,11 @@ export function valeurA(champ, lat, lon) {
   const fx = x - c0, fy = y - r0;
   const v = (r, c) => champ[r * COLS + c];
   const a = v(r0, c0), b = v(r0, c0 + 1), c = v(r0 + 1, c0), e = v(r0 + 1, c0 + 1);
+  if (partiel) {
+    const w = [[a, (1 - fx) * (1 - fy)], [b, fx * (1 - fy)], [c, (1 - fx) * fy], [e, fx * fy]].filter(([x]) => Number.isFinite(x));
+    const tot = w.reduce((s2, [, p]) => s2 + p, 0);
+    return tot > 0.05 ? w.reduce((s2, [x, p]) => s2 + x * p, 0) / tot : null;
+  }
   if (!Number.isFinite(a) || !Number.isFinite(b) || !Number.isFinite(c) || !Number.isFinite(e)) return null;
   return a * (1 - fx) * (1 - fy) + b * fx * (1 - fy) + c * (1 - fx) * fy + e * fx * fy;
 }
@@ -220,9 +312,9 @@ export function valeurA(champ, lat, lon) {
 /* Ce que la carte a besoin de savoir pour peindre : l'emprise, le nombre de
    colonnes, la valeur en un point et la teinte d'une valeur. La carte ne sait
    pas ce qu'elle peint, la nappe ne sait rien de la projection. */
-export function couche(champ, teinte) {
+export function couche(champ, teinte, partiel = false) {
   if (!champ) return null;
-  return { S, N, O, E, cols: COLS, teinte, valeurA: (lat, lon) => valeurA(champ, lat, lon) };
+  return { S, N, O, E, cols: COLS, teinte, valeurA: (lat, lon) => valeurA(champ, lat, lon, partiel) };
 }
 
 /* Les isolignes d'un champ à un niveau, par la méthode des carrés : sur chaque

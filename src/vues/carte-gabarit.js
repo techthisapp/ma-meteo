@@ -36,6 +36,9 @@ const R_GEL = rampe([[-10, 250], [-4, 225], [0, 200], [4, 160], [10, 90], [18, 3
 const R_CIEL = rampe([[0, 228], [100, 215]], { sat: v => 0.6 - 0.55 * Math.min(1, v / 100), clarte: v => 0.32 + 0.5 * Math.min(1, v / 100) });
 const R_BROUILLARD = rampe([[100, 265], [5000, 230]], { plafond: 5000, sat: 0.18,
   clarte: v => 0.5 + 0.3 * Math.min(1, Math.max(0, (v - 100) / 4900)) });
+/* Les pollens, sur l'échelle des deux seuils de chaque taxon, et la mer. */
+const R_POLLENS = rampe([[1, 100], [2, 40], [3, 0]], { seuil: 1, sat: 0.62, clarte: 0.5 });
+const R_VAGUES = rampe([[0, 190], [0.5, 205], [1, 225], [2, 260], [4, 300]], { sat: 0.55, clarte: 0.5 });
 const prevue = (cle, id, nom, tuile, ico, porte, champ, r, arrets, unite, plus = {}) =>
   ({ cle, id, nom, tuile, ico, porte, champ, source: "prevue", teinte: r.teinte, couleur: r.couleur,
     sat: r.sat, clarte: r.clarte, arrets, unite, ...plus });
@@ -98,6 +101,21 @@ export const NAPPES_CARTE = [
     [0, 25, 50, 75, 100], " %"),
   prevue("brouillard", "caBrouillard", "Brouillard du matin", "Brouillard", "brume", "visibilité de 5 h à 10 h", "brouillard",
     R_BROUILLARD, [100, 500, 1000, 2000, 5000], " m"),
+  /* Les pollens et la mer, jalon 19, lot 5b. Le pollen le plus fort des six
+     en chaque point, sur l'échelle de ses seuils ; la mer se peint hors des
+     terres de France. */
+  { cle: "pollens", id: "caPollens", nom: "Pollens", tuile: null, ico: "pollen", porte: "le plus fort des six, maintenant",
+    champ: "pollens", source: "pollens", teinte: R_POLLENS.teinte, couleur: R_POLLENS.couleur, sat: R_POLLENS.sat,
+    clarte: R_POLLENS.clarte, arrets: [1, 2, 3], etiquettes: ["Saison", "Pic", "Très fort"], unite: "",
+    ecrire: v => (v < 1 ? "hors saison" : v < 2 ? "en saison" : v < 3 ? "au pic" : "très fort"),
+    credit: "Pollens Copernicus" },
+  { cle: "vagues", id: "caVagues", nom: "Vagues", tuile: null, ico: "vague", porte: "hauteur maintenant",
+    champ: "vagues", source: "mer", mer: true, teinte: R_VAGUES.teinte, couleur: R_VAGUES.couleur, sat: R_VAGUES.sat,
+    clarte: R_VAGUES.clarte, arrets: [0, 0.5, 1, 2, 4], unite: " m",
+    ecrire: v => `${String(Math.round(v * 10) / 10).replace(".", ",")} m` },
+  { cle: "eaumer", id: "caEauMer", nom: "Eau de mer", tuile: "Eau de mer", ico: "thermo", porte: "température maintenant",
+    champ: "eauMer", source: "mer", mer: true, teinte: teinteT, sat: 0.54, clarte: 0.47,
+    arrets: [12, 15, 18, 21, 24], unite: "°", couleur: couleurT },
 ];
 
 /* Le document de la carte : les deux toiles, les repères, les outils, le

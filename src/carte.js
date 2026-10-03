@@ -341,11 +341,15 @@ export function peindreNappe(ctx, vue, l, h, couche, style = {}) {
   const x0 = (mx(O) - cx) * e + l / 2, x1 = (mx(E) - cx) * e + l / 2;
   const y0 = (yN - cy) * e + h / 2, y1 = (yS - cy) * e + h / 2;
   ctx.save();
+  /* La nappe de la mer, jalon 19, lot 5b, se découpe à l'inverse : tout sauf
+     la France, par la règle pair-impair sur le cadre et les départements. */
+  const mer = style.mer === true;
   /* La nappe s'arrête au pays. Son emprise est un rectangle, et un rectangle de
      couleur posé sur la mer et sur les pays voisins donnerait un bord droit là
      où il n'y a pas de frontière. Le chemin de découpe est celui des anneaux des
      départements, ceux-là mêmes qui portent la teinte de la vigilance. */
   ctx.beginPath();
+  if (mer) ctx.rect(-10, -10, l + 20, h + 20);
   for (const code of codesDepartements()) {
     for (const a of anneauxDe(code)) {
       const n = a.length / 2;
@@ -357,7 +361,7 @@ export function peindreNappe(ctx, vue, l, h, couche, style = {}) {
       ctx.closePath();
     }
   }
-  ctx.clip();
+  ctx.clip(mer ? "evenodd" : "nonzero");
   ctx.globalAlpha = style.opacite ?? 0.55;
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";

@@ -37,15 +37,16 @@ export function brancherCouches(E) {
   /* Depuis la version 149, une troisième grille, la prévue, sert les nappes
      du jalon 19, lot 5 : sa vue de l'heure choisie porte chaque champ. */
   const grilleDe = n => (!n ? E.mesures : n.source === "air" ? E.mesuresAir
-    : n.source === "prevue" ? E.prevueVue : E.mesures);
+    : n.source === "prevue" ? E.prevueVue : n.source === "pollens" ? E.grillePollens
+      : n.source === "mer" ? E.grilleMer : E.mesures);
   E.grilleDe = grilleDe;
   const coucheValeur = (c, v, l, h) => {
     const n = NAPPES_CARTE.find(x => x.cle === E.choisie && x.champ);
     const g = grilleDe(n);
     if (!n || !g) return 0;
     const posees = Carte.peindreNappe(c, v, l, h,
-      NappeCarte.couche(g[n.champ], n.teinte),
-      { opacite: 0.62, sat: n.sat, clarte: n.clarte });
+      NappeCarte.couche(g[n.champ], n.teinte, n.mer === true),
+      { opacite: 0.62, sat: n.sat, clarte: n.clarte, mer: n.mer === true });
     /* Les isolignes, par-dessus la nappe : les isobares, le trait du gel. */
     if (n.isolignes) {
       const cs = getComputedStyle(cv);
@@ -196,6 +197,23 @@ export function brancherCouches(E) {
     }
   };
 
+  /* Les pollens et la mer, lot 5b : une lecture chacune, comme l'air. */
+  const lireGrille = async (charger, cle, vide) => {
+    try {
+      const d = await charger();
+      if (!cv.isConnected) return;
+      if (!d) { E.dire("La nappe a besoin du réseau."); return; }
+      E[cle] = d;
+      E.dire(vide && vide(d) ? vide(d) : "");
+      E.revoir();
+    } catch {
+      if (cv.isConnected) E.dire("La nappe a besoin du réseau.");
+    }
+  };
+  const lirePollens = () => lireGrille(NappeCarte.chargerPollens, "grillePollens",
+    d => (d.pollens.some(v => v >= 1) ? "" : "Aucun pollen en saison sur la carte."));
+  const lireMer = () => lireGrille(NappeCarte.chargerMer, "grilleMer");
+
   const lireAir = async () => {
     try {
       const d = await NappeCarte.chargerAir();
@@ -241,6 +259,8 @@ export function brancherCouches(E) {
       if (grilleDe(n)) E.revoir();
       else if (n.source === "air") lireAir();
       else if (n.source === "prevue") lirePrevue();
+      else if (n.source === "pollens") lirePollens();
+      else if (n.source === "mer") lireMer();
       else lireMesures();
       return;
     }
@@ -350,6 +370,8 @@ export function brancherCouches(E) {
       if ((auDepart && !auDepart.source) || E.ventAllume) lireMesures();
       if (auDepart && auDepart.source === "air") lireAir();
       if (auDepart && auDepart.source === "prevue") lirePrevue();
+      if (auDepart && auDepart.source === "pollens") lirePollens();
+      if (auDepart && auDepart.source === "mer") lireMer();
       if (E.vigiAllume) lireVigi();
     },
   };

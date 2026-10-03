@@ -687,7 +687,7 @@ case "$N" in
      ATTENDU="la carte n.a plus de boutons de zoom, et ses sources s.ouvrent derrière un bouton" ;;
   216) # Le panneau revient en rangées à faire défiler de côté.
      perl -0pi -e 's/  display:grid;grid-template-columns:repeat\(auto-fill,minmax\(84px,1fr\)\);gap:2px;/  display:flex;gap:2px;overflow-x:auto;/; s/\.ca-ch\{\n  min-width:0;/.ca-ch{\n  flex:0 0 84px;/' styles.css
-     ATTENDU="toutes les tuiles du panneau se voient d.un coup, sans nom coupé" ;;
+     ATTENDU="toutes les tuiles du panneau se voient d.un coup, sans nom coupé, et reçoivent leur appui" ;;
   217) # Le panneau redevient presque opaque.
      perl -0pi -e 's/  background:color-mix\(in srgb, var\(--surface\) 50%, transparent\);/  background:color-mix(in srgb, var(--surface) 72%, transparent);/' styles.css
      ATTENDU="le panneau laisse libre la colonne des commandes et son fond est à moitié transparent" ;;
@@ -766,6 +766,21 @@ case "$N" in
   242) # Les réglages oublient les nappes prévues.
      perl -0pi -e 's/export const NAPPES = \["temp", "uv", "air", "eau", "ventmoy",/export const NAPPES = ["temp", "uv", "air", "eau", "xventmoy",/' src/reglages.js
      ATTENDU="toute nappe du panneau est gardée par les réglages" ;;
+  243) # L'indice d'un pollen ignore le seuil de saison.
+     perl -0pi -e 's/  if \(c < p\.pic\) return 1 \+ \(c - p\.saison\) \/ \(p\.pic - p\.saison\);/  if (c < p.pic) return 1 + c \/ p.pic;/' src/nappe.js
+     ATTENDU="l.indice d.un pollen suit ses deux seuils" ;;
+  244) # La mer se découpe comme les autres nappes.
+     perl -0pi -e 's/  if \(mer\) ctx\.rect\(-10, -10, l \+ 20, h \+ 20\);/  if (false) ctx.rect(-10, -10, l + 20, h + 20);/' src/carte.js
+     ATTENDU="les vagues se peignent sur la mer et non sur la terre de France" ;;
+  245) # La mer perd ses valeurs près des côtes.
+     perl -0pi -e 's/  if \(partiel\) \{/  if (false) {/' src/nappe.js
+     ATTENDU="la mer garde une valeur près des côtes" ;;
+  246) # La légende des pollens perd ses seuils nommés.
+     perl -0pi -e 's/      grads\.innerHTML = n\.etiquettes\n/      grads.innerHTML = false\n/' src/vues/carte-legende.js
+     ATTENDU="les pollens se peignent où ils sont en saison, et la légende nomme les seuils" ;;
+  247) # Les légendes passent devant le panneau.
+     perl -0pi -e 's/     le panneau descend jusqu.à elles sur un petit écran, et elles prenaient\n     les appuis de ses dernières tuiles\. \*\/\n  z-index:4;/     le panneau descend jusqu à elles. *\/\n  z-index:auto;/' styles.css
+     ATTENDU="toutes les tuiles du panneau se voient d.un coup, sans nom coupé, et reçoivent leur appui" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

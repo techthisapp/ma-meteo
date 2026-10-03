@@ -896,7 +896,24 @@ export const brancherFauxServices = async (c, etat) => {
      enneigé à 50 cm au sommet, l'autre sans neige. */
   const heuresCarte = Array.from({ length: 24 }, (_, h) => `2026-08-18T${String(h).padStart(2, "0")}:00`);
   await c.route(/marine-api\.open-meteo\.com/, r => {
-    const lats = (new URL(r.request().url()).searchParams.get("latitude") || "").split(",");
+    const u = r.request().url();
+    /* La grille de la mer sur la carte, jalon 19, lot 5b : l'instant sur les
+       380 points. La mer est à l'ouest de 2° de longitude ou au sud de 43,2° ;
+       la terre ne rend rien. Des vagues qui grossissent vers l'ouest, une eau
+       plus chaude au sud. */
+    if (u.includes("current=")) {
+      etat.appelsMer.push(u);
+      const q = new URL(u).searchParams;
+      const la = q.get("latitude").split(",").map(Number), lo = q.get("longitude").split(",").map(Number);
+      r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(la.map((x, i) => {
+        const mer = lo[i] < -2 || x < 43.2;
+        return { current: { time: "2026-08-18T09:00", interval: 900,
+          wave_height: mer ? Math.round((0.5 + Math.max(0, -lo[i]) * 0.5) * 10) / 10 : null,
+          sea_surface_temperature: mer ? Math.round((26 - (x - 41) * 0.9) * 10) / 10 : null } };
+      })) });
+      return;
+    }
+    const lats = (new URL(u).searchParams.get("latitude") || "").split(",");
     r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(lats.map((_, i) => ({ hourly: { time: heuresCarte,
       sea_surface_temperature: heuresCarte.map(() => 17 + (i % 6)), wave_height: heuresCarte.map(() => 0.4 + (i % 4) * 0.5),
       wave_period: heuresCarte.map(() => 8), wave_direction: heuresCarte.map(() => 270), sea_level_height_msl: heuresCarte.map(() => 0) } }))) });
@@ -920,6 +937,17 @@ export const brancherFauxServices = async (c, etat) => {
     const u = r.request().url();
     /* La grille de la carte se reconnaît à ce qu'elle demande l'instant sur
        plusieurs points, quand la feuille demande des heures sur un seul. */
+    /* Les pollens de la carte, jalon 19, lot 5b : des graminées au pic dans
+       le sud-ouest, en saison au centre, rien au nord. */
+    if (u.includes("current=") && u.includes("grass_pollen")) {
+      etat.appelsPollens.push(u);
+      const q = new URL(u).searchParams;
+      const la = q.get("latitude").split(",").map(Number), lo = q.get("longitude").split(",").map(Number);
+      r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(la.map((x, i) => ({ current: {
+        time: "2026-08-18T09:00", interval: 3600, alder_pollen: 0, birch_pollen: 0, mugwort_pollen: 0, olive_pollen: 0,
+        ragweed_pollen: 0, grass_pollen: x < 44.5 && lo[i] < 2 ? 60 : x < 47.5 ? 10 : 0 } }))) });
+      return;
+    }
     if (u.includes("current=")) {
       etat.appelsGrilleAir.push(u);
       r.fulfill({ status: 200, contentType: "application/json",
@@ -1101,6 +1129,8 @@ export const nouvelEtat = () => ({
   appelsPoint: [],
   appelsGeo: [],
   appelsPrevue: [],
+  appelsMer: [],
+  appelsPollens: [],
   appelsHubeau: [],
   appelsLieux: [],
   archiveMuette: false,

@@ -1349,6 +1349,10 @@ button.rangee:active{background:var(--surface-2)}
   top:var(--espace-base);
   max-width:520px;margin-left:auto;
   max-height:calc(100% - var(--espace-base) * 2);overflow-y:auto;overscroll-behavior:contain;
+  /* Au-dessus des légendes et de la chronologie : depuis les nappes du lot 5,
+     le panneau descend jusqu'à elles sur un petit écran, et elles prenaient
+     les appuis de ses dernières tuiles. */
+  z-index:4;
   padding:var(--espace-xs);
   display:flex;flex-direction:column;gap:2px;
   border-radius:var(--rayon-md);
