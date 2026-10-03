@@ -7,10 +7,39 @@ import { heureJour } from "../horloge.js";
 import { ico } from "../icones.js";
 import * as Radar from "../radar.js";
 import * as Reglages from "../reglages.js";
+import * as Carte from "../carte.js";
+import * as NappeCarte from "../nappe.js";
+import * as Prevue from "../prevue.js";
+import { NAPPES_CARTE } from "./carte-gabarit.js";
 
-/* La couche de pluie, prise dans l'ordre de tracé de la carte. */
+/* Douze heures prévues après les images du radar, jalon 19, lot 5c,
+   décision de Jérôme du 2 octobre 2026. */
+export const HEURES_PREVUES = 12;
+
+/* La pluie prévue, en millimètres par heure, sur une rampe proche de celle
+   du radar : bleu pâle, bleu, vert, jaune, rouge, magenta. */
+const ARRETS_PLUIE = [[0.1, 200], [1, 215], [3, 120], [6, 55], [12, 15], [25, 320]];
+const teintePluie = v => {
+  if (!Number.isFinite(v) || v < 0.1) return null;
+  if (v >= 25) return 320;
+  for (let k = 0; k < ARRETS_PLUIE.length - 1; k++) {
+    const [a0, h0] = ARRETS_PLUIE[k], [a1, h1] = ARRETS_PLUIE[k + 1];
+    if (v <= a1) return h0 + ((v - a0) / (a1 - a0)) * (h1 - h0);
+  }
+  return 320;
+};
+
+/* La couche de pluie, prise dans l'ordre de tracé de la carte : l'image du
+   radar, ou la pluie de la grille prévue sur une heure à venir. */
 export const couchePluie = E => (c, v, l, h) => {
-  if (!E.pluieAllume || !E.images.length) return 0;
+  if (!E.pluieAllume) return 0;
+  const cadre = E.cadres?.[E.cadre];
+  if (cadre?.prevue) {
+    if (!E.prevueVue) return 0;
+    return Carte.peindreNappe(c, v, l, h, NappeCarte.couche(E.prevueVue.pluie, teintePluie),
+      { opacite: 0.72, sat: 0.7, clarte: 0.5, libre: true });
+  }
+  if (!E.images.length) return 0;
   return Radar.peindre(c, v, l, h, E.hote, E.images[E.rang].chemin,
     () => E.revoir());
 };
@@ -19,7 +48,19 @@ export const couchePluie = E => (c, v, l, h) => {
 
    Deux heures d'images observées au pas de dix minutes, et l'extrapolation
    du service quand il en publie. Elle ne se met pas en marche seule : une
-   carte s'ouvre sur ce qu'il pleut maintenant, non sur un film. */
+   carte s'ouvre sur ce qu'il pleut maintenant, non sur un film.
+
+   Depuis la version 151, jalon 19, lot 5c, douze heures prévues suivent les
+   images du radar : la pluie s'y peint d'après la grille prévue, et les
+   nappes qui changent d'heure en heure, température, vent moyen, rafales et
+   pression, suivent l'heure choisie. Sans la pluie, la piste paraît quand une
+   de ces nappes est choisie, de maintenant à douze heures. La grille prévue
+   ne se lit qu'à la première heure prévue atteinte : la piste ne coûte rien
+   tant qu'on reste sur le radar.
+
+   La piste porte des cadres : une image du radar, ou une heure prévue. `E.rang`
+   reste le rang de l'image du radar, que la foudre et les nuages suivent ; sur
+   une heure prévue, il désigne l'image du moment présent. */
 export function brancherChronologie(E) {
   const { bloc, cv } = E;
   const rangee = bloc.querySelector("#caTemps");
@@ -28,18 +69,62 @@ export function brancherChronologie(E) {
   const heure = bloc.querySelector("#caHeure");
   let enLecture = false;
 
-  const poserRang = k => {
-    E.rang = Math.max(0, Math.min(E.images.length - 1, k));
-    const im = E.images[E.rang];
-    const part = E.images.length > 1 ? E.rang / (E.images.length - 1) : 1;
-    piste.style.setProperty("--cp", `${(part * 100).toFixed(2)}%`);
-    const dit = heureJour(new Date(im.t));
-    piste.setAttribute("aria-valuenow", String(E.rang));
-    piste.setAttribute("aria-valuetext", im.futur ? `${dit}, prévu` : dit);
-    piste.classList.toggle("ca-piste-futur", im.futur === true);
-    heure.textContent = dit;
-    heure.classList.toggle("ca-heure-futur", im.futur === true);
+  const nappeHoraire = () => NAPPES_CARTE.some(n => n.cle === E.choisie && n.parHeure);
+  E.cadres = []; E.cadre = 0; E.heurePrevue = 0;
+
+  /* Le rang d'une heure prévue dans la grille, une fois la grille lue. */
+  const rangPrevue = c => (E.prevue ? Math.max(0, Math.round((c.t / 1000 - E.prevue.t0) / 3600)) : 0);
+  E.majHeure = () => {
+    const c = E.cadres[E.cadre];
+    E.heurePrevue = c?.prevue ? rangPrevue(c) : 0;
+    if (E.prevue) E.prevueVue = Prevue.vue(E.prevue, E.heurePrevue);
+    E.heureCadre = c?.prevue ? c.t : null;
+    E.poserLegende?.();
     E.revoir();
+    E.poserVent?.();
+  };
+
+  const poserRang = k => {
+    E.cadre = Math.max(0, Math.min(E.cadres.length - 1, k));
+    const c = E.cadres[E.cadre];
+    if (!c) return;
+    E.rang = c.radar !== undefined ? c.radar : (E.images.length ? Radar.rangCourant(E.images) : 0);
+    const part = E.cadres.length > 1 ? E.cadre / (E.cadres.length - 1) : 1;
+    piste.style.setProperty("--cp", `${(part * 100).toFixed(2)}%`);
+    const dit = heureJour(new Date(c.t));
+    piste.setAttribute("aria-valuenow", String(E.cadre));
+    piste.setAttribute("aria-valuetext", c.futur ? `${dit}, prévu` : dit);
+    piste.classList.toggle("ca-piste-futur", c.futur === true);
+    heure.textContent = dit;
+    heure.classList.toggle("ca-heure-futur", c.futur === true);
+    /* Une heure prévue demande la grille prévue, lue une fois. */
+    if (c.prevue && !E.prevue) E.lirePrevue?.();
+    E.majHeure();
+  };
+
+  /* Les cadres de la piste : les images du radar quand la pluie est allumée,
+     puis douze heures prévues ; sans pluie, maintenant puis douze heures,
+     si une nappe horaire est choisie. La piste paraît dès deux cadres. */
+  E.majChronologie = () => {
+    const radar = E.pluieAllume ? E.images.map((im, k) => ({ t: im.t, futur: im.futur === true, radar: k })) : [];
+    const horaire = E.pluieAllume || nappeHoraire();
+    const fin = radar.length ? radar[radar.length - 1].t : Date.now();
+    const prevues = [];
+    if (horaire && (radar.length || !E.pluieAllume)) {
+      const h0 = Math.floor(fin / 3600000) * 3600000 + 3600000;
+      for (let k = 0; k < HEURES_PREVUES; k++) prevues.push({ t: h0 + k * 3600000, futur: true, prevue: true });
+    }
+    const avant = E.cadres[E.cadre];
+    E.cadres = radar.length ? [...radar, ...prevues]
+      : (prevues.length ? [{ t: Date.now(), futur: false }, ...prevues] : []);
+    rangee.hidden = E.cadres.length < 2;
+    if (rangee.hidden) { arreter(); E.cadre = 0; if (E.heurePrevue) E.majHeure(); else E.heurePrevue = 0; return; }
+    piste.setAttribute("aria-valuemax", String(E.cadres.length - 1));
+    piste.style.setProperty("--cn", String(E.cadres.length));
+    /* Le cadre montré se garde quand les cadres changent, s'il existe encore ;
+       sinon la piste revient au moment présent. */
+    const garde = avant ? E.cadres.findIndex(c => c.t === avant.t && !!c.prevue === !!avant.prevue) : -1;
+    poserRang(garde >= 0 ? garde : (radar.length ? Radar.rangCourant(E.images) : 0));
   };
 
   /* Le pas de la piste : le rang le plus proche du doigt. La piste est un
@@ -47,9 +132,9 @@ export function brancherChronologie(E) {
      feraient vingt-deux points chacune, la moitié de ce qu'un doigt vise. */
   const versDoigt = x => {
     const r = piste.getBoundingClientRect();
-    if (!r.width || E.images.length < 2) return;
+    if (!r.width || E.cadres.length < 2) return;
     const part = Math.max(0, Math.min(1, (x - r.left) / r.width));
-    poserRang(Math.round(part * (E.images.length - 1)));
+    poserRang(Math.round(part * (E.cadres.length - 1)));
   };
   let glisse = false;
   piste.addEventListener("pointerdown", ev => {
@@ -65,9 +150,9 @@ export function brancherChronologie(E) {
   piste.addEventListener("pointercancel", lacher);
   piste.addEventListener("keydown", ev => {
     const d = ev.key === "ArrowRight" ? 1 : ev.key === "ArrowLeft" ? -1 : 0;
-    if (d) { arreter(); poserRang(E.rang + d); ev.preventDefault(); return; }
+    if (d) { arreter(); poserRang(E.cadre + d); ev.preventDefault(); return; }
     if (ev.key === "Home") { arreter(); poserRang(0); ev.preventDefault(); }
-    if (ev.key === "End") { arreter(); poserRang(E.images.length - 1); ev.preventDefault(); }
+    if (ev.key === "End") { arreter(); poserRang(E.cadres.length - 1); ev.preventDefault(); }
   });
 
   function arreter() {
@@ -84,13 +169,15 @@ export function brancherChronologie(E) {
     enLecture = true;
     jouer.innerHTML = ico("pause", "");
     jouer.setAttribute("aria-label", "Arrêter la chronologie");
-    while (enLecture && cv.isConnected) {
-      const k = (E.rang + 1) % E.images.length;
+    while (enLecture && cv.isConnected && E.cadres.length > 1) {
+      const k = (E.cadre + 1) % E.cadres.length;
+      const c = E.cadres[k];
       const l = cv.clientWidth, h = cv.clientHeight;
-      await Radar.preparer(E.vue, l, h, E.hote, E.images[k].chemin);
+      if (c.radar !== undefined) await Radar.preparer(E.vue, l, h, E.hote, E.images[c.radar].chemin);
+      else if (c.prevue && !E.prevue && E.lirePrevue) await E.lirePrevue();
       if (!enLecture || !cv.isConnected) break;
       poserRang(k);
-      await new Promise(t => setTimeout(t, k === E.images.length - 1 ? 1100 : 420));
+      await new Promise(t => setTimeout(t, k === E.cadres.length - 1 ? 1100 : 420));
     }
     if (!cv.isConnected) enLecture = false;
   }
@@ -106,12 +193,11 @@ export function brancherChronologie(E) {
       E.hote = d.hote; E.images = d.images;
       if (!E.images.length) { E.dire("Le radar n'a pas d'image."); return; }
       E.dire("");
-      piste.setAttribute("aria-valuemax", String(E.images.length - 1));
-      piste.style.setProperty("--cn", String(E.images.length));
-      /* La chronologie appartient à la pluie : une lecture qui arrive après
-         que la couche a été éteinte ne doit pas la faire paraître. */
-      rangee.hidden = !E.pluieAllume || E.images.length < 2;
-      poserRang(Radar.rangCourant(E.images));
+      /* La chronologie appartient à la pluie et aux nappes horaires : une
+         lecture qui arrive après que la couche a été éteinte ne la fait pas
+         paraître. */
+      E.cadres = [];
+      E.majChronologie();
     } catch {
       if (!cv.isConnected) return;
       E.dire("La pluie a besoin du réseau.");
@@ -128,11 +214,11 @@ export function brancherChronologie(E) {
     pluieB.setAttribute("aria-checked", E.pluieAllume ? "true" : "false");
     E.mention();
     E.poserLegende();
-    if (!E.pluieAllume) { arreter(); rangee.hidden = true; E.revoir(); return; }
+    if (!E.pluieAllume) { arreter(); E.majChronologie(); E.revoir(); return; }
     E.dire("");
-    if (E.images.length) { rangee.hidden = E.images.length < 2; E.revoir(); } else lireIndex();
+    if (E.images.length) { E.majChronologie(); E.revoir(); } else lireIndex();
   });
 
   /* Le départ, que la carte lance une fois tous ses modules branchés. */
-  return () => { if (E.pluieAllume) lireIndex(); };
+  return () => { if (E.pluieAllume) lireIndex(); else E.majChronologie(); };
 }

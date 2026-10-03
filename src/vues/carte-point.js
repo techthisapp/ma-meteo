@@ -70,7 +70,7 @@ export function brancherPoint(E, rendre) {
     if (!n) return "";
     const grille = E.grilleDe(n);
     const v = grille ? NappeCarte.valeurA(grille[n.champ], lat, lon, n.mer === true) : null;
-    return Number.isFinite(v) ? ligne(`${esc(n.nom)}, ${esc(n.porte)} : <b>${esc(n.ecrire ? n.ecrire(v) : `${Math.round(v)}${n.unite}`)}</b>`) : "";
+    return Number.isFinite(v) ? ligne(`${esc(n.nom)}, ${esc(E.porteDe ? E.porteDe(n) : n.porte)} : <b>${esc(n.ecrire ? n.ecrire(v) : `${Math.round(v)}${n.unite}`)}</b>`) : "";
   };
 
   const remplir = async (lat, lon, connu, moi) => {

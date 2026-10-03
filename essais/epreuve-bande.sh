@@ -781,6 +781,24 @@ case "$N" in
   247) # Les légendes passent devant le panneau.
      perl -0pi -e 's/     le panneau descend jusqu.à elles sur un petit écran, et elles prenaient\n     les appuis de ses dernières tuiles\. \*\/\n  z-index:4;/     le panneau descend jusqu à elles. *\/\n  z-index:auto;/' styles.css
      ATTENDU="toutes les tuiles du panneau se voient d.un coup, sans nom coupé, et reçoivent leur appui" ;;
+  248) # Plus d'heures prévues après le radar.
+     perl -0pi -e 's/export const HEURES_PREVUES = 12;/export const HEURES_PREVUES = 0;/' src/vues/carte-chronologie.js
+     ATTENDU="après le radar, la piste porte douze heures prévues" ;;
+  249) # La température ne suit plus l'heure.
+     perl -0pi -e 's/        : n\.parHeure && E\.heurePrevue > 0 && E\.prevueVue \? E\.prevueVue : E\.mesures\);/        : E.mesures);/' src/vues/carte-couches.js
+     ATTENDU="la température suit l.heure de la piste" ;;
+  250) # La légende ne dit plus l'heure prévue.
+     perl -0pi -e 's/  E\.porteDe = n => \(n\.parHeure && E\.heurePrevue > 0 && E\.heureCadre/  E.porteDe = n => (false \&\& E.heureCadre/' src/vues/carte-legende.js
+     ATTENDU="une nappe horaire fait paraître la piste sans la pluie, et la légende dit l.heure prévue" ;;
+  251) # La grille prévue se lit dès l'ouverture.
+     perl -0pi -e 's/  E\.majChronologie = \(\) => \{\n/  E.majChronologie = () => {\n    E.lirePrevue?.();\n/' src/vues/carte-chronologie.js
+     ATTENDU="après le radar, la piste porte douze heures prévues" ;;
+  252) # Sans la pluie, la piste ne paraît plus.
+     perl -0pi -e 's/    const horaire = E\.pluieAllume \|\| nappeHoraire\(\);/    const horaire = E.pluieAllume;/' src/vues/carte-chronologie.js
+     ATTENDU="une nappe horaire fait paraître la piste sans la pluie" ;;
+  253) # Une nappe choisie sur une heure prévue n'a pas sa grille du moment.
+     perl -0pi -e 's/      if \(n\.source \? grilleDe\(n\) : E\.mesures\) E\.revoir\(\);/      if (grilleDe(n)) E.revoir();/' src/vues/carte-couches.js
+     ATTENDU="la température suit l.heure de la piste" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

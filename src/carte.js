@@ -361,6 +361,8 @@ export function peindreNappe(ctx, vue, l, h, couche, style = {}) {
       ctx.closePath();
     }
   }
+  /* La pluie prévue, lot 5c, ne s'arrête pas au pays : le radar non plus. */
+  if (style.libre) ctx.beginPath(), ctx.rect(-10, -10, l + 20, h + 20);
   ctx.clip(mer ? "evenodd" : "nonzero");
   ctx.globalAlpha = style.opacite ?? 0.55;
   ctx.imageSmoothingEnabled = true;

@@ -36,9 +36,12 @@ export function brancherCouches(E) {
      diffère. */
   /* Depuis la version 149, une troisième grille, la prévue, sert les nappes
      du jalon 19, lot 5 : sa vue de l'heure choisie porte chaque champ. */
+  /* Sur une heure prévue de la chronologie, la température se lit dans la
+     grille prévue, à cette heure : lot 5c. */
   const grilleDe = n => (!n ? E.mesures : n.source === "air" ? E.mesuresAir
     : n.source === "prevue" ? E.prevueVue : n.source === "pollens" ? E.grillePollens
-      : n.source === "mer" ? E.grilleMer : E.mesures);
+      : n.source === "mer" ? E.grilleMer
+        : n.parHeure && E.heurePrevue > 0 && E.prevueVue ? E.prevueVue : E.mesures);
   E.grilleDe = grilleDe;
   const coucheValeur = (c, v, l, h) => {
     const n = NAPPES_CARTE.find(x => x.cle === E.choisie && x.champ);
@@ -75,8 +78,10 @@ export function brancherCouches(E) {
     vue: E.vue,
     emprise: { S: NappeCarte.S, N: NappeCarte.N, O: NappeCarte.O, E: NappeCarte.E },
     champ: !E.mesures ? null : (la, lo) => {
-      const vitesse = NappeCarte.valeurA(E.mesures.vent, la, lo);
-      const direction = NappeCarte.valeurA(E.mesures.dir, la, lo);
+      /* Sur une heure prévue, le vent de cette heure. */
+      const g = E.heurePrevue > 0 && E.prevueVue ? E.prevueVue : E.mesures;
+      const vitesse = NappeCarte.valeurA(g.vent, la, lo);
+      const direction = NappeCarte.valeurA(g.dir, la, lo);
       return vitesse === null || direction === null ? null : { vitesse, direction };
     },
   });
@@ -182,20 +187,22 @@ export function brancherCouches(E) {
   };
 
   /* La grille prévue, trente-six heures, lue à la première nappe qui en vit. */
-  const lirePrevue = async () => {
+  let prevueEnCours = null;
+  const lirePrevue = () => prevueEnCours || (prevueEnCours = (async () => {
     try {
       E.dire("Lecture de la prévision de la carte…");
       const d = await Prevue.charger();
       if (!cv.isConnected) return;
       if (!d) { E.dire("La nappe a besoin du réseau."); return; }
       E.prevue = d;
-      E.prevueVue = Prevue.vue(d, E.heurePrevue || 0);
       E.dire("");
-      E.revoir();
+      if (E.majHeure) E.majHeure();
+      else { E.prevueVue = Prevue.vue(d, 0); E.revoir(); }
     } catch {
       if (cv.isConnected) E.dire("La nappe a besoin du réseau.");
-    }
-  };
+    } finally { prevueEnCours = null; }
+  })());
+  E.lirePrevue = lirePrevue;
 
   /* Les pollens et la mer, lot 5b : une lecture chacune, comme l'air. */
   const lireGrille = async (charger, cle, vide) => {
@@ -250,13 +257,17 @@ export function brancherCouches(E) {
     sans.setAttribute("aria-checked", c === null ? "true" : "false");
     E.mention();
     E.poserLegende();
+    E.majChronologie?.();
     if (c === "eau") {
       if (eauNiveaux) E.revoir(); else lireEau();
       return;
     }
     const n = NAPPES_CARTE.find(x => x.cle === c && x.champ);
     if (n) {
-      if (grilleDe(n)) E.revoir();
+      /* La grille propre à la nappe, non celle qu'une heure prévue lui
+         prête : la température choisie sur une heure prévue doit avoir la
+         grille du moment pour quand la piste revient à maintenant. */
+      if (n.source ? grilleDe(n) : E.mesures) E.revoir();
       else if (n.source === "air") lireAir();
       else if (n.source === "prevue") lirePrevue();
       else if (n.source === "pollens") lirePollens();

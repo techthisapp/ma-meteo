@@ -2,7 +2,7 @@
    src/vues/carte.js le 2 octobre 2026, docs/plan-chantiers-facultatifs.md. Les
    modules de la carte partagent l'objet d'état décrit dans src/vues/carte.js. */
 
-import { esc } from "../horloge.js";
+import { esc, heureJour } from "../horloge.js";
 import { ECHELLES } from "../ruban.js";
 import * as Vent from "../vent.js";
 import * as NappeCarte from "../nappe.js";
@@ -10,6 +10,10 @@ import { NAPPES_CARTE } from "./carte-gabarit.js";
 
 export function brancherLegende(E) {
   const { bloc, cv } = E;
+  /* Ce sur quoi une nappe porte : sur une heure prévue de la chronologie, une
+     nappe horaire dit l'heure prévue au lieu de « maintenant ». Lot 5c. */
+  E.porteDe = n => (n.parHeure && E.heurePrevue > 0 && E.heureCadre
+    ? `prévue à ${heureJour(new Date(E.heureCadre))}` : n.porte);
   const credit = bloc.querySelector("#caCredit");
 
   /* Le résumé lu de la carte : la nappe choisie et sa valeur au lieu courant,
@@ -23,7 +27,7 @@ export function brancherLegende(E) {
     if (n) {
       const grille = n.champ ? E.grilleDe(n) : null;
       const v = grille && E.g ? NappeCarte.valeurA(grille[n.champ], E.g.lat, E.g.lon, n.mer === true) : null;
-      nappe = `Nappe ${n.nom.toLowerCase()}, ${n.porte}`
+      nappe = `Nappe ${n.nom.toLowerCase()}, ${E.porteDe(n)}`
         + (Number.isFinite(v) ? `, ${n.ecrire ? n.ecrire(v) : `${Math.round(v)}${n.unite === "°" ? " degrés" : n.unite}`} au lieu courant.` : ".");
     }
     const dessus = [E.pluieAllume && "pluie", E.ventAllume && "vent", E.vigiAllume && "vigilance",
@@ -42,7 +46,7 @@ export function brancherLegende(E) {
   E.mention = () => {
     credit.innerHTML = (E.pluieAllume
       ? `<span>Pluie <a href="https://www.rainviewer.com" target="_blank" `
-        + `rel="noopener noreferrer">RainViewer</a></span>`
+        + `rel="noopener noreferrer">RainViewer</a>, pluie prévue Open-Meteo</span>`
       : "")
       + (() => {
         /* Deux couches de la même source ne la nomment qu'une fois. La
@@ -116,7 +120,7 @@ export function brancherLegende(E) {
       /* Une unité longue, kilomètres par heure ou hectopascals, passe dans le
          titre : écrite à chaque graduation, elle ne tiendrait pas. */
       const longue = n.unite.trim().length > 1 && n.unite.trim() !== "%";
-      titreLeg.textContent = `${n.nom}, ${n.porte}${longue ? ` (${n.unite.trim()})` : ""}`;
+      titreLeg.textContent = `${n.nom}, ${E.porteDe(n)}${longue ? ` (${n.unite.trim()})` : ""}`;
       /* Des graduations de quatre chiffres, celles de la pression, se
          touchaient : trois suffisent alors, les deux bouts et le milieu. */
       const ecrits = a.map(v => `${String(v).replace(".", ",")}${longue ? "" : n.unite.trim()}`);

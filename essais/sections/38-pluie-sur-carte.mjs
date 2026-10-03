@@ -54,7 +54,9 @@ export default async T => {
       const r = document.getElementById("caTemps");
       const p = document.getElementById("caPiste");
       if (!r || r.hidden) return "la chronologie ne paraît pas";
-      return p.getAttribute("aria-valuemax") === "14" ? ""
+      /* Quinze images du radar, puis douze heures prévues depuis la
+         version 151. */
+      return p.getAttribute("aria-valuemax") === "26" ? ""
         : `valeur maximale ${p.getAttribute("aria-valuemax")}`;
     }) === "");
 
@@ -206,8 +208,13 @@ export default async T => {
   });
   ok("un trait posé sur la couche garde son écart de clarté", gaineDit === "", gaineDit);
 
-  ok("une image extrapolée se distingue d'une observation",
-    await pgNappe.evaluate(async () => {
+  /* La pluie est rallumée d'abord : le contrôle précédent l'éteint, et sans
+     pluie ni nappe horaire la piste n'a plus de cadres depuis la version 151. */
+  await pgNappe.evaluate(async () => {
+    const p = document.getElementById("caPluie");
+    if (p.getAttribute("aria-checked") !== "true") { p.click(); await new Promise(r => setTimeout(r, 900)); }
+  });
+  const extrapoleDit = await pgNappe.evaluate(async () => {
       const p = document.getElementById("caPiste");
       const h = document.getElementById("caHeure");
       if (p.classList.contains("ca-piste-futur")) return "l'observation se dit future";
@@ -218,10 +225,10 @@ export default async T => {
       if (!p.classList.contains("ca-piste-futur")) return "l'extrapolation ne se dit pas";
       if (!h.classList.contains("ca-heure-futur")) return "l'heure ne porte pas la marque";
       return h.textContent === "09:20" ? "" : `heure ${h.textContent}`;
-    }) === "");
+    });
+  ok("une image extrapolée se distingue d'une observation", extrapoleDit === "", extrapoleDit);
 
-  ok("la lecture avance d'image en image",
-    await pgNappe.evaluate(async () => {
+  const lectureDit = await pgNappe.evaluate(async () => {
       const p = document.getElementById("caPiste");
       const j = document.getElementById("caJouer");
       p.dispatchEvent(new KeyboardEvent("keydown", { key: "Home", bubbles: true }));
@@ -239,7 +246,8 @@ export default async T => {
       await new Promise(r => setTimeout(r, 1400));
       if (Number(p.getAttribute("aria-valuenow")) !== arrete) return "la lecture ne s'arrête pas";
       return apres > depart ? "" : `le rang n'a pas avancé, ${depart} puis ${apres}`;
-    }) === "");
+    });
+  ok("la lecture avance d'image en image", lectureDit === "", lectureDit);
 
   /* Le doigt sur la piste choisit un instant. La piste est un curseur et non
      treize boutons : treize cibles sur trois cents points feraient vingt-deux
@@ -266,7 +274,9 @@ export default async T => {
     await pgNappe.mouse.up();
     await pgNappe.waitForTimeout(800);
   };
-  await poserDoigt(0.98);
+  /* Le doigt se pose vers le milieu de la piste, sur les dernières images du
+     radar : le bout porte depuis la version 151 les heures prévues. */
+  await poserDoigt(0.5);
   const bout = await lirePiste();
   await poserDoigt(0.02);
   const debut = await lirePiste();
@@ -352,12 +362,14 @@ export default async T => {
   /* Sans image extrapolée, la chronologie s'arrête à la dernière observation. Le
      service en publiait aucune aux deux relevés du 5 septembre 2026 : la couche ne
      l'invente pas. */
+  /* Depuis la version 151, les douze heures prévues suivent : la piste porte
+     treize images observées puis douze heures, et s'ouvre sur maintenant. */
   ok("sans image extrapolée la chronologie s'arrête à maintenant",
     await pgRad.evaluate(() => {
       const p = document.getElementById("caPiste");
       return `${p.getAttribute("aria-valuemax")}|${p.getAttribute("aria-valuenow")}`
         + `|${p.classList.contains("ca-piste-futur")}`;
-    }) === "12|12|false");
+    }) === "24|12|false");
 
   // Une tuile déjà vue ne se redemande pas : la chronologie parcourue deux fois
   // ne coûte pas deux fois.
