@@ -15,7 +15,8 @@ import * as Reglages from "../reglages.js";
 import * as Vig from "../vigilance.js";
 import * as Point from "../point.js";
 import * as NappeCarte from "../nappe.js";
-import { cardinal, SEUIL_RAFALE } from "../previsions.js";
+import { cardinal, SEUIL_RAFALE, SEUIL_LAME } from "../previsions.js";
+import * as P from "../previsions.js";
 import * as Carte from "../carte.js";
 import * as Fond from "../fond.js";
 import { NAPPES_CARTE } from "./carte-gabarit.js";
@@ -83,12 +84,20 @@ export function brancherPoint(E, rendre) {
     const proche = lieu?.commune ? null : Fond.villeProche(lat, lon);
     ouvert.proche = proche ? `Près de ${proche.nom}` : null;
     nomEl.textContent = lieu?.commune || ouvert.proche || "Ce point de la carte";
-    const t = d.temps;
+    /* Au lieu affiché, à moins de deux kilomètres, la bulle reprend la
+       prévision de l'accueil, 3 octobre 2026 : le point lisait une autre
+       réponse du service, sans le modèle AROME, et le même lieu portait deux
+       températures. */
+    const g = Reglages.lire();
+    const pres = Number.isFinite(g.lat) && Math.hypot(lat - g.lat, (lon - g.lon) * Math.cos(lat * Math.PI / 180)) * 111 < 2;
+    const s0 = pres ? P.serieHoraire(0, 1, 1) : null;
+    const t = s0 ? { t: s0.t[0], code: s0.code[0], jour: s0.clair[0], pluie: s0.mm[0], vent: s0.v[0], dir: s0.dir[0], rafales: s0.raf[0] }
+      : d.temps;
     let html = "";
     if (t && t.t !== null) {
       html += ligne(`${t.code !== null ? icoTemps(icoCiel(t.code, t.jour), "") : ""}<b>${Math.round(t.t)}°</b>`
         + (t.code !== null ? ` ${esc(tempsDe(t.code)[1].toLowerCase())}` : ""), "cb-temps");
-      html += ligne(t.pluie > 0 ? `Pluie en ce moment : <b>${fr(Math.round(t.pluie * 10) / 10)} mm</b>` : "Pas de pluie en ce moment");
+      html += ligne(t.pluie >= SEUIL_LAME ? `Pluie en ce moment : <b>${fr(Math.round(t.pluie * 10) / 10)} mm</b>` : "Pas de pluie en ce moment");
       if (t.vent !== null) {
         html += ligne(`Vent <b>${Math.round(t.vent)} km/h</b>${t.dir !== null ? ` du ${cardinal(t.dir)}` : ""}`
           + (t.rafales !== null && t.rafales >= SEUIL_RAFALE ? `, rafales <b>${Math.round(t.rafales)} km/h</b>` : ""));

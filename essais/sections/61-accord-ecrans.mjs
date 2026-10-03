@@ -4,11 +4,13 @@
    échelle d'indice UV, une seule règle de tendance de la pression. Elle part
    d'un état neuf préparé par essais/banc.mjs. */
 
+import { FAIN } from "../faux-services.mjs";
+
 export const titre = "L'accord des écrans";
 export const avecPage = true;
 
 export default async T => {
-  const { pg, ok, onglet, ouvrirLeTemps, reposer, ctxReponse, etat, METEO_NUE } = T;
+  const { pg, ok, onglet, ouvrirLeTemps, reposer, ctxReponse, etat, METEO_NUE, ouvrirCarte, appuiLong } = T;
   await onglet("accueil"); await reposer(pg, 2000);
   const tuile = nom => pg.evaluate(n => {
     const e = [...document.querySelectorAll(".bd-m")].find(x => x.querySelector("i")?.textContent.trim() === n);
@@ -86,4 +88,45 @@ export default async T => {
   etat.profilAir = "base";
   ok("la porte de l'air dit l'indice de l'heure en cours", air.attendu && air.attendu !== air.minuit
     && air.porte.startsWith(`Air ${air.attendu}`), JSON.stringify(air));
+
+  /* Second lot. À venir : la rafale du jour se lit sur les heures, dans la
+     rangée comme dans le graphique, même quand la charge quotidienne en dit
+     une autre. */
+  const [ctxRaf, pgRaf] = await ctxReponse(() => {
+    const d = METEO_NUE();
+    d.daily.wind_gusts_10m_max = d.daily.time.map(() => 99);
+    return d;
+  });
+  await reposer(pgRaf, 1500);
+  await pgRaf.locator('[data-onglet="semaine"]').click(); await reposer(pgRaf, 1500);
+  const graphe = await pgRaf.evaluate(() => [...document.querySelectorAll(".sg text")].map(e => e.textContent).join(" "));
+  await ctxRaf.close();
+  ok("les rafales du graphique d'À venir viennent des heures, comme la rangée", graphe.length > 0 && !/\b99\b/.test(graphe),
+    graphe.slice(0, 200));
+
+  /* La bande écrit le cumul comme le reste de l'application. */
+  const cumul = await pg.evaluate(async () => {
+    const B = await import("/src/bande.js");
+    const heure = Array.from({ length: 24 }, (_, k) => (9 + k) % 24);
+    const s = { n: 24, heure, mm: heure.map(h => (h >= 3 && h <= 5 ? 4.11 : 0)), pb: heure.map(() => 80),
+      raf: heure.map(() => 10), t: heure.map(() => 15), v: heure.map(() => 10), code: heure.map(() => 61), clair: heure.map(() => 1) };
+    return B.phraseBande(s).replace(/[\u00A0\u202F]/g, " ");
+  });
+  ok("la bande écrit le cumul de pluie comme le reste de l'application", /, 12 mm/.test(cumul), cumul);
+
+  /* La bulle de la carte, au lieu affiché, dit la température de l'accueil. */
+  const tAccueil = await pg.evaluate(async () => Math.round((await import("/src/previsions.js")).serieHoraire(0, 1, 1).t[0]));
+  /* La carte s'ouvre centrée sur le lieu, de près : le centre de la toile
+     est le lieu affiché. */
+  const [, pc] = await ouvrirCarte({ ...FAIN, pluiecarte: false, foudrecarte: false, vigicarte: false,
+    vuecarte: { lat: FAIN.lat, lon: FAIN.lon, z: 12 } }, 0, { sansFond: true });
+  await reposer(pc, 1500);
+  const bc = await pc.locator("#caToile").boundingBox();
+  /* En bas à gauche du lieu, hors de son étiquette, qui prend les appuis. */
+  const cx = bc.x + bc.width / 2 - 30, cy = bc.y + bc.height / 2 + 30;
+  await appuiLong(pc, cx, cy);
+  await pc.waitForTimeout(800); await reposer(pc, 1500);
+  const tBulle = await pc.evaluate(() => (document.querySelector("#caBulle .cb-temps b")?.textContent || "").replace("°", ""));
+  ok("la bulle de la carte, au lieu affiché, dit la température de l'accueil", tBulle === String(tAccueil),
+    JSON.stringify({ tBulle, tAccueil }));
 };

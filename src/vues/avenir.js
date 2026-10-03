@@ -150,8 +150,12 @@ export function vueSemaine() {
       /* Au-delà des sept premiers jours, le graphique ajoute le numéro du jour :
          la seconde semaine répétait « lun », « mar » sans dire laquelle. */
       num: k >= i + 7 ? Number(dd.time[k].slice(8, 10)) : null,
-      pb, code, vent: dd.wind_speed_10m_max?.[k] ?? null,
-      raf: dd.wind_gusts_10m_max?.[k] ?? null, dir: dd.wind_direction_10m_dominant?.[k] ?? null,
+      /* Le vent et les rafales des heures là où elles couvrent la journée,
+         comme les températures, 3 octobre 2026 : le graphique lisait la
+         charge quotidienne et la rangée les heures, et la même journée
+         portait deux rafales. */
+      pb, code, vent: h && Number.isFinite(h.v) ? h.v : dd.wind_speed_10m_max?.[k] ?? null,
+      raf: h && Number.isFinite(h.raf) ? h.raf : dd.wind_gusts_10m_max?.[k] ?? null, dir: dd.wind_direction_10m_dominant?.[k] ?? null,
       long: k === i ? "aujourd'hui" : k === i + 1 ? "demain"
         : new Date(`${dd.time[k]}T12:00`).toLocaleDateString("fr-FR", { weekday: "long" }) });
 

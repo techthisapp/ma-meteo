@@ -15,7 +15,7 @@
    températures dès l'écriture, sans mesurer la page après coup. */
 
 import { icoCiel, icoTemps, ico, tempsDe } from "./icones.js";
-import { esc } from "./horloge.js";
+import { esc, nombreFr } from "./horloge.js";
 import * as Astres from "./astres.js";
 import { plagesDe, SEUIL_LAME, SEUIL_RAFALE } from "./previsions.js";
 import { flecheSVG } from "./fleche.js";
@@ -67,7 +67,8 @@ export function phraseBande(s, n = Math.min(HEURES, s.n)) {
     parties.push(a === b
       ? `Pluie ${quand} vers ${heureDite(s.heure[a])}`
       : `Pluie ${quand} de ${heureDite(s.heure[a])} à ${heureDite(fin)}`);
-    if (mm >= SEUIL_MM) parties[0] += `, ${mm.toFixed(1).replace(".", ",")} mm`;
+    /* Le cumul s'écrit comme partout, `nombreFr`, 3 octobre 2026. */
+    if (mm >= SEUIL_MM) parties[0] += `, ${nombreFr(mm)} mm`;
   }
   let kMax = -1;
   for (let k = 0; k < n; k++) if (kMax < 0 || s.raf[k] > s.raf[kMax]) kMax = k;

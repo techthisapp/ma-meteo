@@ -949,6 +949,15 @@ case "$N" in
   304) # La porte de l'air relit l'indice de minuit.
      perl -0pi -e 's/const air = Air\.alignerSur\(P\.serieHoraire\(0, 24 - new Date\(\)\.getHours\(\), 1\)\);/const air = Air.chargeCourante();/' src/app.js
      ATTENDU="la porte de l'air dit l'indice de l'heure en cours" ;;
+  305) # Le graphique d'À venir relit les rafales quotidiennes.
+     perl -0pi -e 's/raf: h && Number\.isFinite\(h\.raf\) \? h\.raf : dd\.wind_gusts_10m_max/raf: dd.wind_gusts_10m_max/' src/vues/avenir.js
+     ATTENDU="les rafales du graphique d'À venir viennent des heures" ;;
+  306) # La bande écrit le cumul à la décimale.
+     perl -0pi -e 's/parties\[0\] \+= `, \$\{nombreFr\(mm\)\} mm`;/parties[0] += `, \${mm.toFixed(1).replace(".", ",")} mm`;/' src/bande.js
+     ATTENDU="la bande écrit le cumul de pluie comme le reste" ;;
+  307) # La bulle de la carte relit le point au lieu affiché.
+     perl -0pi -e 's/const s0 = pres \? P\.serieHoraire\(0, 1, 1\) : null;/const s0 = null;/' src/vues/carte-point.js
+     ATTENDU="la bulle de la carte, au lieu affiché" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

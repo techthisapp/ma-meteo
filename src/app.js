@@ -964,7 +964,10 @@ function infosPortes(g) {
     const jour = cleHeure().slice(0, 10);
     const d = Climat.garde(Climat.cle(g.lat, g.lon));
     const k = P.iJour();
-    const tmax = k >= 0 ? P.chargeCourante()?.daily?.temperature_2m_max?.[k] : null;
+    /* Le maximum de la journée lu sur les heures, comme la feuille du climat,
+       3 octobre 2026 : deux maximums de deux sources faisaient dire à la
+       porte et à la feuille deux mots différents. */
+    const tmax = P.jourHoraire(jour)?.tx ?? (k >= 0 ? P.chargeCourante()?.daily?.temperature_2m_max?.[k] : null);
     const b = d ? Climat.bilan({ base: d, enCours: null, annee: +jour.slice(0, 4) }, jour, tmax) : null;
     if (b?.mot) out.climat = b.mot.charAt(0).toUpperCase() + b.mot.slice(1);
 
