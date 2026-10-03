@@ -66,7 +66,33 @@ export default async T => {
     && pays.villes.every(([, p]) => p >= 100000) && pays.heurts === 0 && pays.pris >= 2,
     JSON.stringify(pays));
 
-  /* Au plus près de Fain : les rivières du coin et les petites villes. */
+  /* Le fond adaptatif, version 154 : sans couche de l'eau ni de la montagne,
+     ni cours d'eau ni relief ; la nappe des restrictions d'eau fait paraître
+     les cours d'eau, celle de la neige le relief. */
+  const C = () => pg.evaluate(async () => ({ ...(await import("/src/carte.js")).dernierFond }));
+  const choisir = async id => {
+    await pg.locator("#caCouches").click();
+    await pg.waitForTimeout(150);
+    await pg.locator(`#${id}`).click();
+    await pg.locator("#caCouches").click();
+    await reposer(pg, 1000);
+  };
+  const nu = await C();
+  await choisir("caEau");
+  const eau = await C();
+  await choisir("caNeige24");
+  const neige = await C();
+  await choisir("caSansNappe");
+  ok("le fond s'adapte : les cours d'eau avec l'eau, le relief avec la neige, rien sans elles",
+    !nu.rivieres && !nu.relief && eau.rivieres && !eau.relief && neige.relief && !neige.rivieres,
+    JSON.stringify({ nu, eau, neige }));
+
+  /* Au plus près de Fain : les rivières du coin, avec la couche des cours
+     d'eau, et les petites villes. */
+  await pg.locator("#caCouches").click();
+  await pg.waitForTimeout(150);
+  await pg.locator("#caRivieres").click();
+  await pg.locator("#caCouches").click();
   await pg.locator("#caIci").click();
   await pg.locator("#caToile").press("+");
   await pg.locator("#caToile").press("+");

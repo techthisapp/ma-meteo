@@ -22,7 +22,7 @@ application.
 
 ## État au 2 octobre 2026
 
-Version 153. Le projet est passé de claude.ai à Claude Code le 1er octobre
+Version 154. Le projet est passé de claude.ai à Claude Code le 1er octobre
 2026, à la version 118. Un audit complet de la version 120 a été mené le même
 jour, `docs/audit-2026-10-01.md`, avec le suivi de chaque lot en fin de
 document.
@@ -38,7 +38,7 @@ document.
 | G, maintenance | fait, versions 132 à 135 : intégration continue, code mort, anciens scripts d'épreuve, documents, découpage de `src/vues.js` puis de la carte, chargement différé, suite des contrôles en sections indépendantes, outil de captures sur les faux services |
 
 Jalons de la feuille de route : 1 à 4 et 7 à 18 livrés. Le jalon 19, la carte
-enrichie, ouvert le 2 octobre 2026, est livré en versions 140 à 153, détail dans
+enrichie, ouvert le 2 octobre 2026, est livré en versions 140 à 153 et repris en version 154, détail dans
 la feuille de route. Reste aussi le jalon 6, la
 justesse des prévisions publiée, vers la fin octobre, quand soixante jours de
 relevés seront réunis. Le jalon 5, la 3D, est écarté pour le moment.

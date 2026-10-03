@@ -162,6 +162,14 @@ export function vueCarte(ctx, rendre, majEtat) {
         taire: () => new Set([...(zonePrev?.querySelectorAll(".ca-pv:not([hidden])") || [])]
           .map(el => el.dataset.ville).filter(Boolean)),
         noms: poses => { E.nomsPoses = poses; },
+        /* Le fond adaptatif : les cours d'eau avec les couches de l'eau, le
+           relief avec celles de la neige et de la montagne. La pluie n'en est
+           pas : allumée par défaut, elle aurait fait paraître les rivières
+           presque toujours. */
+        fond: () => ({
+          rivieres: ["eau", "pluie24"].includes(E.choisie) || E.rivAllume === true,
+          relief: ["neige24", "limite"].includes(E.choisie) || E.neigeAllume === true,
+        }),
       });
       Fond.charger().then(() => { if (cv.isConnected) E.revoir(); });
 

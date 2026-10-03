@@ -698,7 +698,7 @@ case "$N" in
      perl -0pi -e 's/ctx\.strokeStyle = PALIERS\[k\]\[1\];/ctx.strokeStyle = "#5b6a7c";/' src/vent.js
      ATTENDU="les traînées prennent la couleur de leur vitesse, plus denses qu.avant" ;;
   220) # Le relief n'est plus dessiné.
-     perl -0pi -e 's/  Fond\.peindreRelief\(ctx, vue, l, h, Number\.isFinite\(force\) \? force : 1\);/  void force;/' src/carte.js
+     perl -0pi -e 's/if \(montre\.relief\) Fond\.peindreRelief\(/if (false) Fond.peindreRelief(/' src/carte.js
      ATTENDU="le relief se voit dans les montagnes et pas en plaine" ;;
   221) # La coque oublie les cours d'eau.
      perl -0pi -e 's/  "\.\/donnees\/rivieres\.json",\n//' sw.js
@@ -721,8 +721,8 @@ case "$N" in
   227) # L'étiquette perd le nom de sa ville.
      perl -0pi -e 's/<small>\$\{esc\(v\[0\]\)\}<\/small>//' src/vues/carte-etiquettes.js
      ATTENDU="sur le pays entier, les grandes villes portent leur prévision et leur nom, sans chevauchement" ;;
-  228) # Le double appui ouvre aussi une bulle.
-     perl -0pi -e 's/    toucher = points\.size === 1 && !\(Date\.now\(\) - dernierAppui < 300\)\n/    toucher = points.size === 1\n/' src/carte.js
+  228) # Un doigt qui bouge n'annule plus l'appui long.
+     perl -0pi -e 's/    if \(appui && \(points\.size > 1 \|\| Math\.hypot\(ev\.offsetX - appui\.x, ev\.offsetY - appui\.y\) > TOLERANCE_APPUI\)\) annulerAppui\(\);/    if (appui \&\& points.size > 1) annulerAppui();/' src/carte.js
      ATTENDU="un glissement ou un double appui n.ouvre pas de bulle, le double appui zoome" ;;
   229) # La consultation fait entrer le lieu dans la liste.
      perl -0pi -e 's/  etat = \{ \.\.\.etat, \.\.\.nu\(l\), poste: null, auto: false, retour \};/  poserLieu(l); etat = { ...etat, retour };/' src/reglages.js
@@ -823,6 +823,18 @@ case "$N" in
   261) # La légende de l'eau reprend ses quatre classes.
      perl -0pi -e 's/const classes = n\.classes\.join\(""\)\.length > 18/const classes = n.classes.join("").length > 999/' src/vues/carte-legende.js
      ATTENDU="sa légende nomme les classes extrêmes, et la mention cite VigiEau" ;;
+  262) # Le toucher bref ouvre de nouveau la bulle.
+     perl -0pi -e 's/    if \(points\.size\) poserDepart\(\); else depart = null;\n    annulerAppui\(\);/    if (points.size) poserDepart(); else depart = null;\n    if (appui \&\& surAppui) surAppui(appui.x, appui.y);\n    annulerAppui();/' src/carte.js
+     ATTENDU="un toucher bref sur la carte n.ouvre pas de bulle" ;;
+  263) # Les cours d'eau paraissent toujours.
+     perl -0pi -e 's/          rivieres: \["eau", "pluie24"\]\.includes\(E\.choisie\) \|\| E\.rivAllume === true,/          rivieres: true,/' src/vues/carte.js
+     ATTENDU="le fond s.adapte" ;;
+  264) # Le relief paraît toujours.
+     perl -0pi -e 's/          relief: \["neige24", "limite"\]\.includes\(E\.choisie\) \|\| E\.neigeAllume === true,/          relief: true,/' src/vues/carte.js
+     ATTENDU="le fond s.adapte" ;;
+  265) # Les familles ne tiennent plus sur une ligne.
+     perl -0pi -e 's/\.ca-fam\{display:grid;grid-template-columns:70px repeat\(3,minmax\(0,1fr\)\);/.ca-fam{display:block;/' styles.css
+     ATTENDU="toutes les tuiles du panneau se voient d.un coup" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

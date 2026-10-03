@@ -95,6 +95,8 @@ const couleurs = cv => {
    places déjà prises par les étiquettes du document, les noms de villes que
    d'autres étiquettes portent, et à qui rendre la liste des noms posés. */
 const reglages = new WeakMap();
+/* Ce que le dernier tracé a montré du fond, pour les contrôles. */
+export const dernierFond = { relief: true, rivieres: true };
 export const reglerFond = (cv, o) => reglages.set(cv, o);
 
 /* Les trois traits, du plus fort au plus faible. Le contour du pays porte la
@@ -128,9 +130,15 @@ export function dessiner(cv, vue, nappes) {
   const c = couleurs(cv);
   ctx.fillStyle = c.fond || "#eef2f6";
   ctx.fillRect(0, 0, l, h);
+  /* Le fond adaptatif, version 154, demande de Jérôme du 3 octobre 2026 : le
+     relief et les cours d'eau ne paraissent qu'avec les couches qui en
+     parlent. L'écran qui porte la carte le dit ; sans lui, tout paraît. */
+  const o = reglages.get(cv);
+  const montre = o?.fond ? o.fond() : { relief: true, rivieres: true };
+  dernierFond.relief = montre.relief; dernierFond.rivieres = montre.rivieres;
   /* Le relief, sous tout le reste : les nappes le laissent paraître. */
   const force = parseFloat(getComputedStyle(cv).getPropertyValue("--ca-relief"));
-  Fond.peindreRelief(ctx, vue, l, h, Number.isFinite(force) ? force : 1);
+  if (montre.relief) Fond.peindreRelief(ctx, vue, l, h, Number.isFinite(force) ? force : 1);
 
   /* Chaque couche rend ce qu'elle a posé. Zéro partout veut dire fond nu, et les
      traits se suffisent alors à eux-mêmes.
@@ -158,7 +166,7 @@ export function dessiner(cv, vue, nappes) {
   const fs = cy - (h / 2) / e - marge, fn = cy + (h / 2) / e + marge;
 
   /* Les cours d'eau, au-dessus des nappes et sous les limites. */
-  Fond.peindreRivieres(ctx, vue, l, h, c.riviere || "#5b9bd5");
+  if (montre.rivieres) Fond.peindreRivieres(ctx, vue, l, h, c.riviere || "#5b9bd5");
 
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
@@ -217,10 +225,9 @@ export function dessiner(cv, vue, nappes) {
   }
 
   /* Les noms des villes et des cours d'eau, au-dessus de tout le tracé. */
-  const o = reglages.get(cv);
   const poses = Fond.peindreNoms(ctx, vue, l, h,
     { halo: c.fond || "#eef2f6", ville: c.ville || "#3c4654", point: c.villePoint || "#5d6875",
-      riviere: c.riviere || "#5b9bd5" },
+      riviere: c.riviere || "#5b9bd5", rivieres: montre.rivieres },
     o?.pris ? o.pris(l, h) : [], o?.taire ? o.taire() : new Set());
   if (o?.noms) o.noms(poses);
 }
@@ -466,10 +473,14 @@ export function poser(cv, vue, surVue, nappes, { surAppui } = {}) {
   let depart = null;
   let attendu = null;
   let dernierAppui = 0;
-  /* Le toucher bref, jalon 19, lot 4 : un doigt posé et levé sans glisser
-     ouvre la bulle du point. Il attend trois cents millisecondes, le temps
-     qu'un second appui en fasse un double appui, qui zoome. */
-  let toucher = null, minuteurToucher = null;
+  /* L'appui long, version 154 : un doigt posé une demi-seconde sans bouger
+     ouvre la bulle du point. Le toucher bref du lot 4 l'ouvrait au moindre
+     geste qui commençait un déplacement ou un pincement, relevé par Jérôme
+     le 3 octobre 2026. Un second doigt, un glissement de plus de six points
+     ou un doigt levé avant le délai annulent l'appui. */
+  const DELAI_APPUI = 500, TOLERANCE_APPUI = 6;
+  let appui = null;
+  const annulerAppui = () => { if (appui) clearTimeout(appui.minuteur); appui = null; };
 
   const redessiner = () => {
     if (attendu !== null) return;
@@ -508,9 +519,19 @@ export function poser(cv, vue, surVue, nappes, { surAppui } = {}) {
     cv.setPointerCapture(ev.pointerId);
     points.set(ev.pointerId, { x: ev.offsetX, y: ev.offsetY });
     poserDepart();
-    clearTimeout(minuteurToucher);
-    toucher = points.size === 1 && !(Date.now() - dernierAppui < 300)
-      ? { x: ev.offsetX, y: ev.offsetY, t: Date.now(), bouge: 0 } : null;
+    annulerAppui();
+    if (points.size === 1 && surAppui) {
+      const a = { x: ev.offsetX, y: ev.offsetY };
+      a.minuteur = setTimeout(() => {
+        if (appui !== a) return;
+        appui = null;
+        /* Le geste en cours s'arrête : le doigt qui reste posé ne déplace
+           pas la carte sous la bulle. */
+        depart = null;
+        surAppui(a.x, a.y);
+      }, DELAI_APPUI);
+      appui = a;
+    }
     /* Le double appui : deux appuis brefs au même endroit, à moins de trois
        cents millisecondes l'un de l'autre. */
     const t = Date.now();
@@ -531,8 +552,7 @@ export function poser(cv, vue, surVue, nappes, { surAppui } = {}) {
   cv.addEventListener("pointermove", ev => {
     if (!points.has(ev.pointerId)) return;
     points.set(ev.pointerId, { x: ev.offsetX, y: ev.offsetY });
-    if (toucher) toucher.bouge = Math.max(toucher.bouge, Math.hypot(ev.offsetX - toucher.x, ev.offsetY - toucher.y));
-    if (points.size > 1) toucher = null;
+    if (appui && (points.size > 1 || Math.hypot(ev.offsetX - appui.x, ev.offsetY - appui.y) > TOLERANCE_APPUI)) annulerAppui();
     if (!depart) return;
     const l = cv.clientWidth, h = cv.clientHeight;
     const m = milieu();
@@ -550,11 +570,7 @@ export function poser(cv, vue, surVue, nappes, { surAppui } = {}) {
   const relacher = ev => {
     points.delete(ev.pointerId);
     if (points.size) poserDepart(); else depart = null;
-    const t = toucher;
-    toucher = null;
-    if (t && ev.type === "pointerup" && !points.size && t.bouge < 8 && Date.now() - t.t < 500 && surAppui) {
-      minuteurToucher = setTimeout(() => surAppui(t.x, t.y), 300);
-    }
+    annulerAppui();
   };
   cv.addEventListener("pointerup", relacher);
   cv.addEventListener("pointercancel", relacher);

@@ -39,6 +39,7 @@ const R_BROUILLARD = rampe([[100, 265], [5000, 230]], { plafond: 5000, sat: 0.18
 /* Les pollens, sur l'échelle des deux seuils de chaque taxon, et la mer. */
 const R_POLLENS = rampe([[1, 100], [2, 40], [3, 0]], { seuil: 1, sat: 0.62, clarte: 0.5 });
 const R_VAGUES = rampe([[0, 190], [0.5, 205], [1, 225], [2, 260], [4, 300]], { sat: 0.55, clarte: 0.5 });
+const enFamille = (famille, ...a) => ({ ...prevue(...a), famille });
 const prevue = (cle, id, nom, tuile, ico, porte, champ, r, arrets, unite, plus = {}) =>
   ({ cle, id, nom, tuile, ico, porte, champ, source: "prevue", teinte: r.teinte, couleur: r.couleur,
     sat: r.sat, clarte: r.clarte, arrets, unite, ...plus });
@@ -53,15 +54,19 @@ const prevue = (cle, id, nom, tuile, ico, porte, champ, r, arrets, unite, plus =
    est passée au-dessus, avec le vent, la vigilance, la foudre et les nuages, ce
    qui permet de la lire en même temps qu'une température ou une qualité de
    l'air. Sa place ici tenait à l'ordre dans lequel les couches sont venues. */
+/* Les familles des nappes, dans l'ordre du panneau. */
+export const FAMILLES = [["eau", "Eau"], ["temp", "Températures"], ["vent", "Vent et pression"],
+  ["neige", "Neige et montagne"], ["ciel", "Ciel"], ["air", "Air"], ["mer", "Mer"]];
+
 export const NAPPES_CARTE = [
   /* Les restrictions d'eau, VigiEau, jalon 18 : une nappe par départements, sans
      grille de valeurs ; la légende nomme ses quatre classes. */
-  { cle: "eau", id: "caEau", nom: "Restrictions d'eau", tuile: "Eau", ico: "goutte", porte: "en vigueur",
+  { cle: "eau", famille: "eau", id: "caEau", nom: "Restrictions d'eau", tuile: "Eau", ico: "goutte", porte: "en vigueur",
     departements: true, classes: ["Vigilance", "Alerte", "Renforcée", "Crise"] },
-  { cle: "temp", id: "caTemp", nom: "Température", ico: "thermo", porte: "maintenant",
+  { cle: "temp", famille: "temp", id: "caTemp", nom: "Température", ico: "thermo", porte: "maintenant",
     champ: "temp", parHeure: true, teinte: teinteT, sat: 0.54, clarte: 0.47,
     arrets: [-5, 5, 15, 25, 35], unite: "°", couleur: couleurT },
-  { cle: "uv", id: "caUV", nom: "Indice UV", ico: "soleil", porte: "maximum du jour",
+  { cle: "uv", famille: "ciel", id: "caUV", nom: "Indice UV", ico: "soleil", porte: "maximum du jour",
     champ: "uv", teinte: teinteUV, sat: satUV, clarte: clarteUV,
     arrets: [0, 2, 4, 6, 8], unite: "", couleur: couleurUV },
   /* La qualité de l'air vient d'un second service sur la même grille, d'où la
@@ -79,42 +84,42 @@ export const NAPPES_CARTE = [
      restait entre 25 et 34, soit une seule classe. L'indice officiel ne couvre
      en revanche que la France, et une carte ouverte au zoom cinq montrerait un
      pays coloré dans un continent vide s'il était seul. */
-  { cle: "air", id: "caAir", nom: "Qualité de l'air", tuile: "Air", ico: "brume", porte: "maintenant",
+  { cle: "air", famille: "air", id: "caAir", nom: "Qualité de l'air", tuile: "Air", ico: "brume", porte: "maintenant",
     champ: "aqi", source: "air", teinte: teinteAQI, sat: 0.58, clarte: 0.46,
     arrets: [0, 20, 40, 60, 80], unite: "", couleur: couleurAQI, officiel: true,
     credit: "Qualité de l'air Copernicus" },
   /* La grille prévue, jalon 19, lot 5 : `src/prevue.js`. */
-  prevue("ventmoy", "caVentMoy", "Vent moyen", "Vent moyen", "vent", "maintenant", "vent", R_VENT,
+  enFamille("vent", "ventmoy", "caVentMoy", "Vent moyen", "Vent moyen", "vent", "maintenant", "vent", R_VENT,
     [0, 15, 30, 50, 75], " km/h", { parHeure: true }),
-  prevue("rafales", "caRafales", "Rafales", null, "vent", "maintenant", "rafales", R_VENT, [0, 25, 50, 75, 100], " km/h",
+  enFamille("vent", "rafales", "caRafales", "Rafales", null, "vent", "maintenant", "rafales", R_VENT, [0, 25, 50, 75, 100], " km/h",
     { parHeure: true }),
-  prevue("pluie24", "caPluie24", "Pluie sur 24 h", "Pluie 24 h", "goutte", "cumul prévu", "pluie24", R_PLUIE,
+  enFamille("eau", "pluie24", "caPluie24", "Pluie sur 24 h", "Pluie 24 h", "goutte", "cumul prévu", "pluie24", R_PLUIE,
     [0.3, 3, 10, 25, 50], " mm"),
-  prevue("neige24", "caNeige24", "Neige sur 24 h", "Neige 24 h", "neige", "cumul prévu", "neige24", R_NEIGE,
+  enFamille("neige", "neige24", "caNeige24", "Neige sur 24 h", "Neige 24 h", "neige", "cumul prévu", "neige24", R_NEIGE,
     [0.2, 2, 10, 25, 50], " cm"),
-  prevue("limite", "caLimite", "Limite pluie-neige", "Limite neige", "neige", "au plus bas sur 24 h", "limite", R_LIMITE,
+  enFamille("neige", "limite", "caLimite", "Limite pluie-neige", "Limite neige", "neige", "au plus bas sur 24 h", "limite", R_LIMITE,
     [0, 600, 1200, 2500, 3500], " m"),
-  prevue("pression", "caPression", "Pression", null, "jauge", "maintenant", "pression", R_PRESSION,
+  enFamille("vent", "pression", "caPression", "Pression", null, "jauge", "maintenant", "pression", R_PRESSION,
     [985, 1000, 1013, 1025, 1040], " hPa", { isolignes: { pas: 4, base: 1012 }, parHeure: true }),
-  prevue("gel", "caGel", "Gel de la nuit", "Gel nuit", "thermo", "minimum de 18 h à 10 h", "gel", R_GEL,
+  enFamille("temp", "gel", "caGel", "Gel de la nuit", "Gel nuit", "thermo", "minimum de 18 h à 10 h", "gel", R_GEL,
     [-10, -4, 0, 4, 10], "°", { isolignes: { niveaux: [0] } }),
-  prevue("cielnuit", "caCielNuit", "Ciel de la nuit", "Ciel nuit", "lune", "couverture de 22 h à 2 h", "cielNuit", R_CIEL,
+  enFamille("ciel", "cielnuit", "caCielNuit", "Ciel de la nuit", "Ciel nuit", "lune", "couverture de 22 h à 2 h", "cielNuit", R_CIEL,
     [0, 25, 50, 75, 100], " %"),
-  prevue("brouillard", "caBrouillard", "Brouillard du matin", "Brouillard", "brume", "visibilité de 5 h à 10 h", "brouillard",
+  enFamille("ciel", "brouillard", "caBrouillard", "Brouillard du matin", "Brouillard", "brume", "visibilité de 5 h à 10 h", "brouillard",
     R_BROUILLARD, [100, 500, 1000, 2000, 5000], " m"),
   /* Les pollens et la mer, jalon 19, lot 5b. Le pollen le plus fort des six
      en chaque point, sur l'échelle de ses seuils ; la mer se peint hors des
      terres de France. */
-  { cle: "pollens", id: "caPollens", nom: "Pollens", tuile: null, ico: "pollen", porte: "le plus fort des six, maintenant",
+  { cle: "pollens", famille: "air", id: "caPollens", nom: "Pollens", tuile: null, ico: "pollen", porte: "le plus fort des six, maintenant",
     champ: "pollens", source: "pollens", teinte: R_POLLENS.teinte, couleur: R_POLLENS.couleur, sat: R_POLLENS.sat,
     clarte: R_POLLENS.clarte, arrets: [1, 2, 3], etiquettes: ["Saison", "Pic", "Très fort"], unite: "",
     ecrire: v => (v < 1 ? "hors saison" : v < 2 ? "en saison" : v < 3 ? "au pic" : "très fort"),
     credit: "Pollens Copernicus" },
-  { cle: "vagues", id: "caVagues", nom: "Vagues", tuile: null, ico: "vague", porte: "hauteur maintenant",
+  { cle: "vagues", famille: "mer", id: "caVagues", nom: "Vagues", tuile: null, ico: "vague", porte: "hauteur maintenant",
     champ: "vagues", source: "mer", mer: true, teinte: R_VAGUES.teinte, couleur: R_VAGUES.couleur, sat: R_VAGUES.sat,
     clarte: R_VAGUES.clarte, arrets: [0, 0.5, 1, 2, 4], unite: " m",
     ecrire: v => `${String(Math.round(v * 10) / 10).replace(".", ",")} m` },
-  { cle: "eaumer", id: "caEauMer", nom: "Eau de mer", tuile: "Eau de mer", ico: "thermo", porte: "température maintenant",
+  { cle: "eaumer", famille: "mer", id: "caEauMer", nom: "Eau de mer", tuile: "Eau de mer", ico: "thermo", porte: "température maintenant",
     champ: "eauMer", source: "mer", mer: true, teinte: teinteT, sat: 0.54, clarte: 0.47,
     arrets: [12, 15, 18, 21, 24], unite: "°", couleur: couleurT },
 ];
@@ -169,16 +174,24 @@ export const gabaritCarte = g => `<div class="ca-cadre">`
   /* Le panneau en deux rangées qui défilent de côté, la nappe puis ce qui se
      pose par-dessus, depuis la version 140. En grille, chaque couche nouvelle
      ajoutait une rangée ; en défilement, le panneau garde sa hauteur quel que
-     soit le nombre des couches. Chaque tuile garde son nom sous son icône. */
+     soit le nombre des couches. Chaque tuile garde son nom sous son icône.
+
+     Depuis la version 154, demande de Jérôme du 3 octobre 2026, les nappes
+     vont par familles : une ligne par famille, son nom à gauche, ses tuiles à
+     droite. Seize nappes en sept lignes tiennent encore dans le cadre sans
+     défilement ; des titres posés au-dessus de chaque famille l'auraient fait
+     déborder. « Aucune » passe dans la ligne du titre. */
   + `<div class="ca-panneau" id="caPanneau" hidden>`
-  + `<p class="ca-p-titre" id="caPnTitre">Nappe</p>`
-  + `<div class="ca-grille" role="radiogroup" aria-labelledby="caPnTitre">`
-  + NAPPES_CARTE.map(n => `<button type="button" class="ca-ch" id="${n.id}" `
-    + `role="radio" aria-checked="${Reglages.nappe() === n.cle ? "true" : "false"}">`
-    + ico(n.ico, "") + `<span>${n.tuile || n.nom}</span></button>`).join("")
-  + `<button type="button" class="ca-ch" id="caSansNappe" role="radio" `
-  + `aria-checked="${Reglages.nappe() === null ? "true" : "false"}">`
-  + ico("interdit", "") + `<span>Aucune</span></button>`
+  + `<div class="ca-p-tete"><p class="ca-p-titre" id="caPnTitre">Nappe</p>`
+  + `<button type="button" class="ca-aucune" id="caSansNappe" role="radio" `
+  + `aria-checked="${Reglages.nappe() === null ? "true" : "false"}">Aucune</button></div>`
+  + `<div class="ca-familles" role="radiogroup" aria-labelledby="caPnTitre">`
+  + FAMILLES.map(([fam, nom]) => `<div class="ca-fam" role="group" aria-label="${esc(nom)}">`
+    + `<span class="ca-fam-nom" aria-hidden="true">${esc(nom)}</span>`
+    + NAPPES_CARTE.filter(n => n.famille === fam).map(n => `<button type="button" class="ca-ch" id="${n.id}" `
+      + `role="radio" aria-checked="${Reglages.nappe() === n.cle ? "true" : "false"}">`
+      + ico(n.ico, "") + `<span>${n.tuile || n.nom}</span></button>`).join("")
+    + `</div>`).join("")
   + `</div>`
   + `<p class="ca-p-titre" id="caPnTitre2">Par-dessus</p>`
   + `<div class="ca-grille" role="group" aria-labelledby="caPnTitre2">`

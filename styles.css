@@ -1188,7 +1188,10 @@ button.rangee:active{background:var(--surface-2)}
 }
 /* La toile ne rend pas la main au défilement : sans cela, un glissement
    vertical ferait défiler la page sous la carte au lieu de la déplacer. */
-.ca{display:block;width:100%;height:100%;touch-action:none;background:var(--ca-fond)}
+.ca{display:block;width:100%;height:100%;touch-action:none;background:var(--ca-fond);
+  /* L'appui long ouvre la bulle d'un point : iOS ne doit pas y ouvrir son
+     menu ni sélectionner. */
+  -webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 /* La toile du vent se pose devant celle de la carte. Deux toiles parce que les
    deux tracés n'ont pas la même cadence : la carte se refait à la demande, les
    particules trente fois par seconde. Elle ne prend aucun geste, la toile de
@@ -1376,6 +1379,25 @@ button.rangee:active{background:var(--surface-2)}
   text-transform:uppercase;letter-spacing:.04em;
 }
 .ca-p-titre + *{margin-top:0}
+/* Les nappes par familles, version 154 : une ligne par famille, son nom dans
+   une colonne étroite à gauche, ses tuiles à droite. « Aucune » se tient dans
+   la ligne du titre. */
+.ca-p-tete{display:flex;align-items:center;justify-content:space-between;padding-right:var(--espace-xs)}
+.ca-aucune{
+  min-height:32px;padding:0 var(--espace-md);border-radius:var(--rayon-plein);
+  font-size:var(--texte-note);color:var(--etiquette-2);background:color-mix(in srgb, var(--surface) 60%, transparent);
+}
+.ca-aucune[aria-checked="true"]{background:var(--accent);color:#fff}
+.ca-familles{display:flex;flex-direction:column;gap:2px}
+.ca-fam{display:grid;grid-template-columns:70px repeat(3,minmax(0,1fr));gap:2px;align-items:stretch}
+/* Le nom de la famille en petites lettres, coupé aux espaces seulement : en
+   capitales, « Températures » se coupait en trois. */
+.ca-fam-nom{
+  align-self:center;padding:0 2px 0 var(--espace-sm);
+  font-size:10.5px;line-height:1.2;color:var(--etiquette-2);font-weight:var(--graisse-medium);
+  overflow-wrap:normal;hyphens:none;
+}
+.ca-fam .ca-ch{min-height:50px;font-size:12px}
 /* Les tuiles passent à la ligne, de même largeur, la plus petite qui loge
    « Température » sans la couper. */
 .ca-grille{

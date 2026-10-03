@@ -351,6 +351,16 @@ export const preparer = async (titre, avecPage) => {
     return [c, p];
   };
 
+  /* L'appui long qui ouvre la bulle d'un point de la carte, version 154 : le
+     doigt reste posé sept dixièmes de seconde. */
+  const appuiLong = async (page, x, y) => {
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.waitForTimeout(700);
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+  };
+
   const finir = async () => {
     for (const c of contextes) await c.close().catch(() => {});
     return { n, ko, lignes, erreurs };
@@ -359,7 +369,7 @@ export const preparer = async (titre, avecPage) => {
     titre, dire, ok, etat, brancherRoutes, nav, ctx, pg, erreurs,
     appelsHoraire, appelsTous, ouvrirPage, reposer, RACINE_HTTP, RACINE, ICI, CAPTURES,
     ouvrirLeTemps, phrasesConseils, txt, txtDe, onglet, ecranCiel, ouvrirEcran,
-    CADRE, meteoRes, ctxReponse, REGL_BEAU, METEO_NUE, ouvrirCarte,
+    CADRE, meteoRes, ctxReponse, REGL_BEAU, METEO_NUE, ouvrirCarte, appuiLong,
     finir,
   };
 };

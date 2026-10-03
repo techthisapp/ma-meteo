@@ -7,7 +7,7 @@ export const titre = "Les nappes prévues";
 export const avecPage = false;
 
 export default async T => {
-  const { ok, etat, ouvrirCarte, reposer } = T;
+  const { ok, etat, ouvrirCarte, reposer, appuiLong } = T;
   const [, p] = await ouvrirCarte({ ...FAIN, pluiecarte: false, foudrecarte: false, vigicarte: false }, 0, { sansFond: true });
   await reposer(p, 1500);
 
@@ -96,7 +96,7 @@ export default async T => {
   const b = await p.locator("#caToile").boundingBox();
   await p.locator("#caIci").click();
   await reposer(p, 800);
-  await p.mouse.click(b.x + b.width * 0.5, b.y + b.height * 0.5 + 60);
+  await appuiLong(p, b.x + b.width * 0.5, b.y + b.height * 0.5 + 60);
   await p.waitForTimeout(800);
   await reposer(p, 1200);
   /* La recherche se fait ici, sur le texte que le banc a normalisé : dans la

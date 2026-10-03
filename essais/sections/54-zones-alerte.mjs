@@ -9,7 +9,7 @@ export const titre = "Les zones d'alerte";
 export const avecPage = false;
 
 export default async T => {
-  const { ok, etat, ouvrirCarte, reposer } = T;
+  const { ok, etat, ouvrirCarte, reposer, appuiLong } = T;
   const [, p] = await ouvrirCarte({ ...FAIN, nappe: "eau", pluiecarte: false, foudrecarte: false, vigicarte: false }, 0,
     { sansFond: true });
   await reposer(p, 1500);
@@ -48,7 +48,7 @@ export default async T => {
 
   /* La bulle d'un point nomme la zone la plus grave que VigiEau rend. */
   const b = await p.locator("#caToile").boundingBox();
-  await p.mouse.click(b.x + b.width * 0.4, b.y + b.height * 0.7);
+  await appuiLong(p, b.x + b.width * 0.4, b.y + b.height * 0.7);
   await p.waitForTimeout(800);
   await reposer(p, 1200);
   const lignes = await p.evaluate(() => [...document.querySelectorAll("#caBulle .cb-l")].map(x => x.textContent));

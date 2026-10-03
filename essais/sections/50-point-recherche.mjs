@@ -8,7 +8,7 @@ export const titre = "Le point touché et la recherche";
 export const avecPage = false;
 
 export default async T => {
-  const { ok, etat, ouvrirCarte, reposer } = T;
+  const { ok, etat, ouvrirCarte, reposer, appuiLong } = T;
   const [, p] = await ouvrirCarte({ ...FAIN, pluiecarte: false, foudrecarte: false }, 0);
   await reposer(p, 2000);
   const boite = await p.locator("#caToile").boundingBox();
@@ -19,15 +19,20 @@ export default async T => {
       marque: !document.getElementById("caBullePt").hidden, voir: !document.getElementById("caBulleVoir").disabled };
   });
 
-  /* Un toucher bref ouvre la bulle du point, qui se remplit : le nom, le
-     temps, le vent, l'eau. Les coordonnées envoyées sont arrondies au
-     centième. */
+  /* Un toucher bref n'ouvre rien depuis la version 154 : il ouvrait la bulle
+     au début de chaque déplacement. L'appui long l'ouvre, et elle se
+     remplit : le nom, le temps, le vent, l'eau. Les coordonnées envoyées sont
+     arrondies au centième. */
   await p.mouse.click(boite.x + boite.width * 0.3, boite.y + boite.height * 0.6);
+  await p.waitForTimeout(900);
+  const bref = (await bulle()).ouverte;
+  ok("un toucher bref sur la carte n'ouvre pas de bulle", !bref && etat.appelsPoint.length === 0);
+  await appuiLong(p, boite.x + boite.width * 0.3, boite.y + boite.height * 0.6);
   await p.waitForTimeout(700);
   await reposer(p, 1500);
   const b1 = await bulle();
   const envoye = etat.appelsPoint.map(u => [new URL(u).searchParams.get("latitude"), new URL(u).searchParams.get("longitude")]);
-  ok("un toucher bref ouvre la bulle du point, avec son nom, son temps, son vent et son eau",
+  ok("un appui long ouvre la bulle du point, avec son nom, son temps, son vent et son eau",
     b1.ouverte && b1.marque && b1.voir && b1.nom === "Grenoble" && b1.lignes.some(l => /^21° pluie/.test(l))
     && b1.lignes.some(l => /^Vent 18 km\/h du sud-ouest, rafales 42 km\/h$/.test(l))
     && b1.lignes.some(l => /^Pluie en ce moment : 0,6 mm$/.test(l)) && b1.lignes.some(l => /Restriction d'eau|Aucune restriction/.test(l)),
@@ -46,7 +51,11 @@ export default async T => {
   /* Les gestes se font loin du centre, où l'étiquette de Fain prendrait les
      appuis. */
   const x0 = boite.x + boite.width * 0.25, y0 = boite.y + boite.height * 0.8;
-  await p.mouse.move(x0, y0); await p.mouse.down(); await p.mouse.move(x0 + 60, y0 - 30, { steps: 6 }); await p.mouse.up();
+  /* Un glissement lent, plus long que le délai de l'appui : le doigt bouge,
+     l'appui s'annule. */
+  await p.mouse.move(x0, y0); await p.mouse.down();
+  for (let k = 1; k <= 8; k++) { await p.mouse.move(x0 + k * 8, y0 - k * 4); await p.waitForTimeout(100); }
+  await p.mouse.up();
   await p.waitForTimeout(600);
   const apresGlisse = (await bulle()).ouverte;
   const zAvant = await p.evaluate(() => document.querySelector(".ca-echelle span").textContent);
@@ -60,7 +69,7 @@ export default async T => {
   /* « Voir la prévision » ouvre le lieu en consultation : l'accueil s'ouvre
      sur lui, le bandeau le dit, la liste des lieux ne change pas ; « Revenir »
      rétablit Fain. */
-  await p.mouse.click(boite.x + boite.width * 0.3, boite.y + boite.height * 0.6);
+  await appuiLong(p, boite.x + boite.width * 0.3, boite.y + boite.height * 0.6);
   await p.waitForTimeout(700);
   await reposer(p, 1500);
   await p.locator("#caBulleVoir").click();
@@ -84,7 +93,7 @@ export default async T => {
   /* « Suivre ce lieu » l'ajoute à la liste et lève le bandeau. */
   await p.locator('[data-onglet="carte"]').click();
   await reposer(p, 1500);
-  await p.mouse.click(boite.x + boite.width * 0.3, boite.y + boite.height * 0.6);
+  await appuiLong(p, boite.x + boite.width * 0.3, boite.y + boite.height * 0.6);
   await p.waitForTimeout(700);
   await reposer(p, 1500);
   await p.locator("#caBulleVoir").click();

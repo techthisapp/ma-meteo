@@ -61,6 +61,10 @@ export default async T => {
       const r = b.getBoundingClientRect();
       return r.left >= pan.left - 1 && r.right <= pan.right + 1 && r.top >= pan.top - 1 && r.bottom <= pan.bottom + 1;
     }) && p.scrollHeight <= p.clientHeight + 1;
+    /* Les nappes vont par familles depuis la version 154, une ligne chacune ;
+       les superpositions gardent leur grille. */
+    const familles = [...p.querySelectorAll(".ca-fam")].map(f =>
+      new Set([...f.querySelectorAll(".ca-ch")].map(b => Math.round(b.getBoundingClientRect().top))).size);
     const rangees = [...p.querySelectorAll(".ca-grille")].map(g => ({
       defile: g.scrollWidth > g.clientWidth + 1,
       tops: new Set([...g.querySelectorAll(".ca-ch")].map(b => Math.round(b.getBoundingClientRect().top))).size }));
@@ -82,7 +86,7 @@ export default async T => {
     await dodo(200);
     return { hauteurCadre: cadre.height, hauteur: pan.height, gauche: pan.left,
       droite: pan.right, largeurEcran: window.innerWidth, tuiles: ch, rangees,
-      outilsGauche: outils.left, fond, toutesVues, atteintes };
+      outilsGauche: outils.left, fond, toutesVues, atteintes, familles };
   });
 
   /* Le panneau ouvert devait laisser à la carte la plus grande part du cadre,
@@ -98,9 +102,10 @@ export default async T => {
      milieu d'un mot, le panneau laisse libre la colonne des commandes et
      laisse paraître la carte à travers un fond à moitié transparent. */
   ok("toutes les tuiles du panneau se voient d'un coup, sans nom coupé, et reçoivent leur appui",
-    tuiles.rangees.length === 2 && tuiles.rangees.every(r => !r.defile) && tuiles.toutesVues && tuiles.atteintes
+    tuiles.rangees.length === 1 && tuiles.rangees.every(r => !r.defile) && tuiles.toutesVues && tuiles.atteintes
+    && tuiles.familles.length === 7 && tuiles.familles.every(n => n === 1)
     && tuiles.tuiles.every(t => t.largeur >= 60 && !t.deborde),
-    JSON.stringify({ rangees: tuiles.rangees, toutesVues: tuiles.toutesVues, atteintes: tuiles.atteintes,
+    JSON.stringify({ rangees: tuiles.rangees, familles: tuiles.familles, toutesVues: tuiles.toutesVues, atteintes: tuiles.atteintes,
       etroites: tuiles.tuiles.filter(t => t.largeur < 60).map(t => t.id),
       deborde: tuiles.tuiles.filter(t => t.deborde).map(t => t.id) }));
   const alpha = Number((/[,/]\s*(0?\.\d+)\)$/.exec(tuiles.fond) || [])[1]);

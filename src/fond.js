@@ -284,10 +284,13 @@ export function peindreNoms(ctx, vue, l, h, style, pris = [], taire = new Set())
     }
   };
 
+  /* Les cours d'eau ne se nomment que s'ils sont tracés : le fond adaptatif
+     les retire hors des couches de l'eau. */
+  const avecRivieres = style.rivieres !== false;
   nommerVilles(true);
-  nommerRivieres(1, 2);
+  if (avecRivieres) nommerRivieres(1, 2);
   nommerVilles(false);
-  nommerRivieres(3, 4);
+  if (avecRivieres) nommerRivieres(3, 4);
   ctx.restore();
   derniers = { poses, pris: occupe.slice(0, pris.length) };
   return poses;
