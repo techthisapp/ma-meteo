@@ -69,7 +69,7 @@ export function brancherLegende(E) {
         E.neigeAllume && "neige"].filter(Boolean).join(", ").replace(/^./, c => c.toUpperCase())} Open-Meteo</span>` : "")
       + (E.neigeAllume ? `<span>Stations OpenSkiMap, © contributeurs OpenStreetMap</span>` : "")
       + (E.rivAllume ? `<span>Cours d'eau Hub'eau</span>` : "")
-      + (E.choisie === "eau" ? `<span>Restrictions <a href="https://vigieau.gouv.fr" target="_blank" `
+      + (E.choisie === "eau" ? `<span>Restrictions${E.modeZones ? " par zone" : ""} <a href="https://vigieau.gouv.fr" target="_blank" `
         + `rel="noopener noreferrer">VigiEau</a></span>` : "")
       + (E.foudreAllume || E.nuagesAllume
         ? `<span>${E.foudreAllume && E.nuagesAllume ? "Foudre et nuages"
@@ -107,7 +107,7 @@ export function brancherLegende(E) {
       const ve = n.classes.map((_, i) => cs.getPropertyValue(`--ca-ve${i + 1}`).trim());
       const pas = 100 / ve.length;
       rampeEl.style.background = `linear-gradient(to right, ${ve.map((c, i) => `${c} ${(i * pas).toFixed(0)}% ${((i + 1) * pas).toFixed(0)}%`).join(", ")})`;
-      titreLeg.textContent = `${n.nom}, ${n.porte}`;
+      titreLeg.textContent = `${n.nom}, ${n.porte}${E.modeZones ? ", par zone d'alerte" : ""}`;
       grads.innerHTML = n.classes.map(v => `<span>${esc(v)}</span>`).join("");
       legende.setAttribute("aria-label", `${n.nom} en vigueur, de la vigilance à la crise`);
     } else if (n) {

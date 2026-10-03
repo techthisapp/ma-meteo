@@ -100,7 +100,9 @@ export function brancherPoint(E, rendre) {
     const dep = lieu?.departement || Reglages.departementDu(lieu || {});
     const niveau = dep && vig?.niveaux ? vig.niveaux.get(dep) : null;
     if (niveau) html += ligne(niveau >= 2 ? `Vigilance <b>${esc(Vig.NIVEAUX[niveau].nom)}</b>` : "Pas de vigilance météo");
-    if (d.eau) html += ligne(d.eau.rang ? `Restriction d'eau : <b>${esc(d.eau.niveau.toLowerCase())}</b>` : "Aucune restriction d'eau");
+    /* La zone d'alerte la plus grave est nommée, lot 6. */
+    if (d.eau) html += ligne(d.eau.rang ? `Restriction d'eau : <b>${esc(d.eau.niveau.toLowerCase())}</b>`
+      + (d.eau.zones?.[0]?.nom ? `, ${esc(d.eau.zones[0].nom)}` : "") : "Aucune restriction d'eau");
     corps.innerHTML = html;
     voir.disabled = false;
     poserBulle();

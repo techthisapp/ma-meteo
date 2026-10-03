@@ -799,6 +799,18 @@ case "$N" in
   253) # Une nappe choisie sur une heure prévue n'a pas sa grille du moment.
      perl -0pi -e 's/      if \(n\.source \? grilleDe\(n\) : E\.mesures\) E\.revoir\(\);/      if (grilleDe(n)) E.revoir();/' src/vues/carte-couches.js
      ATTENDU="la température suit l.heure de la piste" ;;
+  254) # Le saut d'un champ perd de nouveau l'octet de sa longueur.
+     perl -0pi -e 's/      else if \(t === 2\) \{ const n = varint\(\); i \+= n; \}/      else if (t === 2) i += varint();/' src/zones-eau.js
+     ATTENDU="au zoom d.un département, les zones d.alerte remplacent les départements" ;;
+  255) # Les zones ne remplacent jamais les départements.
+     perl -0pi -e 's/    const zones = v\.z >= ZonesEau\.ZOOM_ZONES;/    const zones = false;/' src/vues/carte-couches.js
+     ATTENDU="au zoom d.un département, les zones d.alerte remplacent les départements" ;;
+  256) # Le rang d'une tuile inverse ses coordonnées.
+     perl -0pi -e 's/    const rx = \(x & s\) > 0 \? 1 : 0, ry = \(y & s\) > 0 \? 1 : 0;/    const rx = (y \& s) > 0 ? 1 : 0, ry = (x \& s) > 0 ? 1 : 0;/' src/zones-eau.js
+     ATTENDU="au zoom d.un département, les zones d.alerte remplacent les départements" ;;
+  257) # Les tuiles de zones se relisent à chaque tracé.
+     perl -0pi -e 's/        if \(zonesLues\.has\(cle\)\) \{ lues\+\+; zones\.push\(\.\.\.\(zonesLues\.get\(cle\) \|\| \[\]\)\); continue; \}\n        if \(zonesEnCours\.has\(cle\)\) continue;/        if (zonesEnCours.has(cle)) continue;/; s/  if \(tuiles\.has\(cle\)\) return tuiles\.get\(cle\);\n//' src/vues/carte-couches.js src/zones-eau.js
+     ATTENDU="une tuile de zones déjà lue ne se relit pas" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

@@ -16,6 +16,7 @@ import * as NappeCarte from "../nappe.js";
 import * as Vent from "../vent.js";
 import * as Vig from "../vigilance.js";
 import * as Prevue from "../prevue.js";
+import * as ZonesEau from "../zones-eau.js";
 import { NAPPES_CARTE } from "./carte-gabarit.js";
 import { couchePluie } from "./carte-chronologie.js";
 
@@ -102,8 +103,79 @@ export function brancherCouches(E) {
   /* Les restrictions d'eau teintent les départements ; la vigilance météo
      passe alors en liseré, comme au-dessus des nappes de valeurs. */
   let eauNiveaux = null;
+  /* Les zones d'alerte, jalon 19, lot 6 : à partir du zoom d'un département,
+     les zones de VigiEau remplacent les départements. Les tuiles de la vue se
+     lisent à la demande ; tant qu'aucune n'est arrivée, les départements
+     restent peints. Les zones se peignent de la moins grave à la plus grave,
+     sur une toile à part à pleine couleur, posée ensuite d'une seule
+     transparence : trois zones superposées, eau de surface, souterraine et
+     potable, ne s'assombrissent pas l'une l'autre. */
+  const zonesLues = new Map(), zonesEnCours = new Set();
+  let toileZones = null;
+  E.modeZones = false;
+  const peindreZones = (c, v, l, h) => {
+    const [zmin, zmax] = ZonesEau.bornesZoom();
+    const tz = Math.max(zmin, Math.min(zmax, Math.floor(v.z)));
+    const n = 2 ** tz, e = Carte.echelle(v.z);
+    const cx = Carte.mx(v.lon), cy = Carte.my(v.lat);
+    const x0 = Math.floor((cx - l / 2 / e) * n), x1 = Math.floor((cx + l / 2 / e) * n);
+    const y0 = Math.floor((cy - h / 2 / e) * n), y1 = Math.floor((cy + h / 2 / e) * n);
+    const zones = [];
+    let lues = 0;
+    for (let x = x0; x <= x1; x++) {
+      for (let y = y0; y <= y1; y++) {
+        const cle = `${tz}/${x}/${y}`;
+        if (zonesLues.has(cle)) { lues++; zones.push(...(zonesLues.get(cle) || [])); continue; }
+        if (zonesEnCours.has(cle)) continue;
+        zonesEnCours.add(cle);
+        ZonesEau.zonesTuile(tz, x, y).then(z => {
+          zonesEnCours.delete(cle);
+          zonesLues.set(cle, z);
+          if (cv.isConnected) E.revoir();
+        });
+      }
+    }
+    if (!lues) return -1;
+    const cs = getComputedStyle(cv);
+    const plein = k => (cs.getPropertyValue(`--ca-ve${k}`).trim() || "#999").replace(/rgba\((\d+),\s*(\d+),\s*(\d+),[^)]*\)/, "rgb($1,$2,$3)");
+    if (!toileZones) toileZones = document.createElement("canvas");
+    const dpr = c.getTransform().a || 1;
+    if (toileZones.width !== Math.round(l * dpr) || toileZones.height !== Math.round(h * dpr)) {
+      toileZones.width = Math.round(l * dpr); toileZones.height = Math.round(h * dpr);
+    }
+    const t = toileZones.getContext("2d");
+    t.setTransform(dpr, 0, 0, dpr, 0, 0);
+    t.clearRect(0, 0, l, h);
+    const avecRang = zones.map(z => ({ z, r: VigiEau.rangDe(z.niveau) })).filter(x => x.r > 0).sort((a, b) => a.r - b.r);
+    for (const { z, r } of avecRang) {
+      t.beginPath();
+      for (const a of z.anneaux) {
+        a.forEach(([wx, wy], k) => {
+          const px = (wx - cx) * e + l / 2, py = (wy - cy) * e + h / 2;
+          if (k === 0) t.moveTo(px, py); else t.lineTo(px, py);
+        });
+        t.closePath();
+      }
+      t.fillStyle = plein(r);
+      t.fill("evenodd");
+      t.strokeStyle = "rgba(0,0,0,.18)"; t.lineWidth = 0.6; t.stroke();
+    }
+    c.save();
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.globalAlpha = 0.55;
+    c.drawImage(toileZones, 0, 0);
+    c.restore();
+    return avecRang.length;
+  };
   const coucheEau = (c, v, l, h) => {
-    if (E.choisie !== "eau" || !eauNiveaux) return 0;
+    if (E.choisie !== "eau") return 0;
+    const zones = v.z >= ZonesEau.ZOOM_ZONES;
+    if (zones !== E.modeZones) { E.modeZones = zones; setTimeout(() => E.poserLegende?.(), 0); }
+    if (zones) {
+      const k = peindreZones(c, v, l, h);
+      if (k >= 0) return k;
+    }
+    if (!eauNiveaux) return 0;
     return Carte.peindreDepartements(cv, c, v, l, h, eauNiveaux, { palette: "ve" });
   };
   const coucheVigiFond = (c, v, l, h) => {

@@ -444,6 +444,59 @@ export const amorce = reglages => `{
    descend du sud au nord et monte vers l'est, ce qui donne une nappe dont
    l'ordre se vérifie ; le vent et l'indice ultraviolet suivent le même
    principe. */
+/* L'archive des zones d'alerte de VigiEau, jalon 19, lot 6 : une seule tuile
+   au zoom 8, celle de Fain, avec deux zones carrées. À l'ouest, une zone en
+   crise sur les eaux de surface, « Zone d'essai Armançon », qui couvre Fain ;
+   à l'est, une zone en vigilance sur l'eau potable, « Zone d'essai Ouche ».
+   L'archive suit le format PMTiles 3, la tuile le format Mapbox Vector Tile,
+   l'une et l'autre écrits ici à la main. */
+export const ZONES_TUILE = (() => {
+  const z = 8, n = 2 ** z, la = 47.5, lo = 4.3;
+  const x = Math.floor((lo + 180) / 360 * n);
+  const r = la * Math.PI / 180;
+  const y = Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * n);
+  return { z, x, y };
+})();
+export function zonesArchive() {
+  const v = n => { const o = []; do { let b = n % 128; n = Math.floor(n / 128); if (n) b |= 128; o.push(b); } while (n); return o; };
+  const cle = (f, t) => v(f * 8 + t);
+  const chaine = (f, txt) => { const b = [...Buffer.from(txt, "utf8")]; return [...cle(f, 2), ...v(b.length), ...b]; };
+  const bloc = (f, octets) => [...cle(f, 2), ...v(octets.length), ...octets];
+  const zz = n => (n << 1) ^ (n >> 31);
+  const carre = (x0, y0, x1, y1) => [9, zz(x0), zz(y0), 26, zz(x1 - x0), 0, 0, zz(y1 - y0), zz(x0 - x1), 0, 15];
+  const cles = ["niveauGravite", "type", "nom"];
+  const vals = ["crise", "SUP", "Zone d'essai Armançon", "vigilance", "AEP", "Zone d'essai Ouche"];
+  const objet = (tags, geo) => [...bloc(2, tags.flatMap(t => v(t))), ...cle(3, 0), ...v(3), ...bloc(4, geo.flatMap(t => v(t)))];
+  const pos = ZONES_TUILE;
+  /* La position de Fain dans la tuile, pour que la zone en crise la couvre. */
+  const fx = Math.round((((4.3 + 180) / 360) * 256 - pos.x) * 4096);
+  const calque = [...chaine(1, "zones_arretes_en_vigueur"),
+    ...bloc(2, objet([0, 0, 1, 1, 2, 2], carre(Math.max(0, fx - 900), 400, fx + 500, 3700))),
+    ...bloc(2, objet([0, 3, 1, 4, 2, 5], carre(fx + 900, 400, Math.min(4095, fx + 2500), 3700))),
+    ...cles.flatMap(k => chaine(3, k)), ...vals.flatMap(t => bloc(4, chaine(1, t))), ...cle(5, 0), ...v(4096), ...cle(15, 0), ...v(2)];
+  const tuile = zlib.gzipSync(Buffer.from(bloc(3, calque)));
+  /* Le rang de la tuile sur la courbe de Hilbert. */
+  let acc = 0;
+  for (let t = 0; t < pos.z; t++) acc += 4 ** t;
+  let { x, y } = pos, d = 0;
+  const N = 2 ** pos.z;
+  for (let s2 = N / 2; s2 >= 1; s2 /= 2) {
+    const rx = (x & s2) > 0 ? 1 : 0, ry = (y & s2) > 0 ? 1 : 0;
+    d += s2 * s2 * ((3 * rx) ^ ry);
+    if (ry === 0) { if (rx === 1) { x = N - 1 - x; y = N - 1 - y; } [x, y] = [y, x]; }
+  }
+  const racine = zlib.gzipSync(Buffer.from([...v(1), ...v(acc + d), ...v(1), ...v(tuile.length), ...v(1)]));
+  const tete = Buffer.alloc(127);
+  tete.write("PMTiles", 0, "ascii"); tete.writeUInt8(3, 7);
+  const u64 = (o, n) => { tete.writeUInt32LE(n % 4294967296, o); tete.writeUInt32LE(Math.floor(n / 4294967296), o + 4); };
+  u64(8, 127); u64(16, racine.length); u64(24, 127 + racine.length); u64(32, 0);
+  u64(40, 127 + racine.length); u64(48, 0); u64(56, 127 + racine.length); u64(64, tuile.length);
+  u64(72, 1); u64(80, 1); u64(88, 1);
+  tete.writeUInt8(1, 96); tete.writeUInt8(2, 97); tete.writeUInt8(2, 98); tete.writeUInt8(1, 99);
+  tete.writeUInt8(8, 100); tete.writeUInt8(8, 101);
+  return Buffer.concat([tete, racine, tuile]);
+}
+
 export function prevueCorps(u) {
   const q = new URL(u).searchParams;
   const lats = decodeURIComponent(q.get("latitude")).split(",").map(Number);
@@ -886,6 +939,17 @@ export const brancherFauxServices = async (c, etat) => {
   /* L'archive du climat. Son domaine porte « open-meteo.com » et la route de la
      prévision le happerait : elle se pose donc après, Playwright essayant la
      dernière posée en premier. */
+  /* L'archive des zones d'alerte, servie par plages d'octets comme le fait le
+     serveur de VigiEau. */
+  const archiveZones = zonesArchive();
+  await c.route(/regleau\.s3\.gra\.perf\.cloud\.ovh\.net/, r => {
+    etat.appelsZones.push(r.request().headers().range || "sans plage");
+    const m = /bytes=(\d+)-(\d+)/.exec(r.request().headers().range || "");
+    const a = m ? Number(m[1]) : 0, b = m ? Math.min(Number(m[2]), archiveZones.length - 1) : archiveZones.length - 1;
+    r.fulfill({ status: m ? 206 : 200, headers: { "content-type": "application/octet-stream",
+      "content-range": `bytes ${a}-${b}/${archiveZones.length}`, "access-control-allow-origin": "*" },
+      body: archiveZones.subarray(a, b + 1) });
+  });
   await c.route(/api\.vigieau\.gouv\.fr/, r => {
     const u = r.request().url();
     etat.appelsVigieau.push(u);
@@ -1131,6 +1195,7 @@ export const nouvelEtat = () => ({
   appelsPrevue: [],
   appelsMer: [],
   appelsPollens: [],
+  appelsZones: [],
   appelsHubeau: [],
   appelsLieux: [],
   archiveMuette: false,
