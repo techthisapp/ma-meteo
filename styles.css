@@ -815,29 +815,35 @@ button.rangee:active{background:var(--surface-2)}
 
 /* La barre de commande du ruban : deux sauts d'une journée et le libellé de la
    fenêtre lue, qui ramène à l'heure en cours dès qu'on s'en est éloigné. */
-.mg-nav{
-  display:flex;align-items:center;gap:var(--espace-xs);
-  padding-bottom:var(--espace-sm);
-  box-shadow:inset 0 -1px 0 var(--filet-clair);
+/* Le choix du jour, jalon 21, lot 2 : « Maint. » puis un bouton par jour,
+   tous sur une ligne, sans défilement de côté. */
+.mg-nav{padding-bottom:var(--espace-sm);box-shadow:inset 0 -1px 0 var(--filet-clair)}
+.mg-jours{display:grid;grid-template-columns:repeat(var(--n), minmax(0, 1fr));gap:4px}
+.mg-j{
+  min-height:var(--touche);display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:1px;border-radius:var(--rayon-sm);color:var(--etiquette-2);font-variant-numeric:tabular-nums;
 }
-.mg-sa{
-  flex:0 0 auto;width:var(--touche);height:var(--touche);
-  display:inline-flex;align-items:center;justify-content:center;
-  border-radius:var(--rayon-plein);color:var(--accent);
-}
-.mg-sa svg{width:20px;height:20px}
-.mg-sa:active{background:var(--surface-2)}
-.mg-fen{
-  flex:1 1 auto;min-width:0;min-height:var(--touche);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:1px;border-radius:var(--rayon-sm);text-align:center;
-  font-size:var(--texte-note);font-weight:var(--graisse-semibold);color:var(--etiquette);
-}
-.mg-fen i{
-  font-style:normal;font-size:var(--texte-legende);
-  font-weight:var(--graisse-regular);color:var(--accent);
-}
-.mg-loin:active{background:var(--surface-2)}
+.mg-j span{font-size:var(--texte-legende2)}
+.mg-j b{font-size:var(--texte-note);font-weight:var(--graisse-semibold);color:var(--etiquette)}
+.mg-j:active{background:var(--surface-2)}
+.mg-j-on{background:var(--accent);color:#fff}
+.mg-j-on b{color:#fff}
+.mg-j-on:active{background:var(--accent)}
+
+/* La bulle de lecture, sous l'axe collant : l'heure, le ciel et la
+   température à gauche, les autres grandeurs en grille. */
+.mg-lu{padding:var(--espace-xs) 0 var(--espace-sm)}
+.mg-lu-t{display:flex;align-items:center;gap:var(--espace-sm);margin-bottom:var(--espace-xs)}
+.mg-lu-h{font-size:var(--texte-legende);font-weight:var(--graisse-semibold);color:var(--accent)}
+.mg-lu-c{display:flex;align-items:center;gap:var(--espace-xs)}
+.mg-lu-c b{font-size:var(--texte-titre2);font-weight:var(--graisse-semibold);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.mg-lu-ic{width:26px;height:26px}
+.mg-lu-m{font-size:var(--texte-note);color:var(--etiquette-2)}
+.mg-lu-g{display:grid;grid-template-columns:repeat(4, minmax(0, 1fr));gap:4px var(--espace-sm);margin:0}
+.mg-lu-g div{min-width:0}
+.mg-lu-g dt{font-size:var(--texte-legende2);color:var(--etiquette-3);white-space:nowrap}
+.mg-lu-g dd{margin:0;font-size:var(--texte-legende);font-weight:var(--graisse-medium);white-space:nowrap;font-variant-numeric:tabular-nums}
+.mg-aide{margin-top:0}
 
 .mg{display:flex;flex-direction:column}
 .mg-v{padding:var(--espace-sm) 0}
@@ -898,7 +904,7 @@ button.rangee:active{background:var(--surface-2)}
 .mg-a{display:block;width:100%;height:auto}
 /* La nuit et les montants gardent l'encre du texte : à la couleur de la voie,
    une nuit virait au jaune sur l'indice ultraviolet. */
-.mg-nuit{fill:var(--etiquette);opacity:.05}
+.mg-nuit{fill:var(--etiquette);opacity:.03}
 .mg-mont{stroke:var(--etiquette);opacity:.1}
 /* L'enveloppe des scénarios. Elle prend l'encre du texte et non la couleur de la
    température : une bande teintée aurait concurrencé la rampe de la courbe, qui
@@ -917,10 +923,8 @@ button.rangee:active{background:var(--surface-2)}
 .mg-ici-g{stroke:var(--surface);stroke-width:3.6;opacity:.9}
 .mg-ici{stroke:var(--accent);stroke-width:1.6}
 .mg-ici-p{fill:var(--accent)}
-.mg-cur{stroke:var(--accent);stroke-width:1;opacity:.65}
-/* L'attribut `hidden` ne masque pas un élément SVG : la règle de l'agent
-   utilisateur ne vise que l'espace de noms HTML. */
-.mg-cur[hidden]{display:none}
+/* Le montant de l'heure lue, toujours posé depuis le jalon 21, lot 2. */
+.mg-cur{stroke:var(--accent);stroke-width:1.4;opacity:.8}
 
 
 /* ---------- 10. Liste horaire ---------- */
@@ -2495,7 +2499,7 @@ button.rangee:active{background:var(--surface-2)}
   position:sticky;top:calc(env(safe-area-inset-top, 0px) + var(--nav-haut));z-index:3;
   background:var(--surface);box-shadow:0 1px 0 var(--filet-clair);
 }
-.mg-bd{display:block;width:100%;height:auto}
+.mg-bd{display:block;width:100%;height:auto;touch-action:pan-y}
 .mg-bj{font-size:12px;font-weight:600;fill:var(--etiquette)}
 .mg-bh{font-size:10px;text-anchor:middle;fill:var(--etiquette-2)}
 .mg-bm{stroke:var(--etiquette);stroke-width:1.5;opacity:.45}

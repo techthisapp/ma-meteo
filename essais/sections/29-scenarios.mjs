@@ -178,7 +178,7 @@ export default async T => {
      vaut un demi-degré. */
   await pgSc.locator('.mg-b[data-voie="t"]').click();
   await pgSc.waitForTimeout(500);
-  const phraseSc = await pgSc.locator('.mg-v[data-cle="t"] .mg-l').innerText();
+  const phraseSc = await pgSc.locator('.mg-v[data-cle="t"] .mg-l').textContent();
   ok("la voie dit ce que l'ombre porte",
     /L'ombre porte les 40 scénarios de la source, écartés de \d+ degrés? au plus large vers/
       .test(phraseSc), phraseSc);
@@ -215,7 +215,7 @@ export default async T => {
       return Math.abs(c - raf) < Math.abs(c - moy) ? ""
         : `bande centrée à ${c.toFixed(0)}, rafale à ${raf.toFixed(0)}, vent à ${moy.toFixed(0)}`;
     }) === "");
-  const phraseV = await pgSc.locator('.mg-v[data-cle="v"] .mg-l').innerText();
+  const phraseV = await pgSc.locator('.mg-v[data-cle="v"] .mg-l').textContent();
   ok("la voie du vent dit ce que son ombre porte",
     /L'ombre porte les 40 scénarios de la source, écartés de \d+ km\/h au plus large vers/
       .test(phraseV), phraseV);
@@ -414,8 +414,8 @@ export default async T => {
     await pgMuet.locator('.mg-v[data-cle="t"] polyline').count() >= 3
     && await pgMuet.locator('.mg-v[data-cle="t"] .mg-sc-q').count() === 0);
   ok("et sa phrase ne parle pas d'une ombre absente",
-    !/ombre/.test(await pgMuet.locator('.mg-v[data-cle="t"] .mg-l').innerText()),
-    await pgMuet.locator('.mg-v[data-cle="t"] .mg-l').innerText());
+    !/ombre/.test(await pgMuet.locator('.mg-v[data-cle="t"] .mg-l').textContent()),
+    await pgMuet.locator('.mg-v[data-cle="t"] .mg-l').textContent());
   await ctxMuet.close();
 
   /* Le journal de justesse. Rien ne s'affiche : deux mois de couples entre ce qui

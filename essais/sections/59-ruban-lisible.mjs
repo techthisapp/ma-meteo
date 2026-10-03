@@ -34,7 +34,8 @@ export default async T => {
       const heures = [...svg.querySelectorAll(".mg-bh")].map(t => t.textContent);
       return [...libres, ...heures.filter(h => !/^\d{2} h$/.test(h)).map(h => `format:${h}`)];
     }));
-    await pg.locator('[data-glisse="24"]').click(); await reposer(pg, 800);
+    /* Les fenêtres se choisissent par jour depuis le jalon 21, lot 2. */
+    await pg.locator(".mg-jours [data-jour]").nth(n).click(); await reposer(pg, 800);
   }
   ok("l'axe du haut n'écrit que des libellés entiers, au format des heures de l'application",
     coupes.length === 0, coupes.join(" | "));
@@ -48,4 +49,17 @@ export default async T => {
     }).length;
   });
   ok("le trait de minuit ne traverse ni les titres ni les phrases des voies", croise === 0, String(croise));
+
+  /* La voie de la pluie ne se dessine que s'il pleut dans la fenêtre. */
+  const pluies = [];
+  for (const sel of ['.mg-jours [data-maintenant]', ...Array.from({ length: 6 }, (_, k) => `.mg-jours [data-jour] >> nth=${k}`)]) {
+    if (!await pg.locator(sel).count()) continue;
+    await pg.locator(sel).click(); await reposer(pg, 600);
+    pluies.push(await pg.evaluate(() => {
+      const v = document.querySelector('.mg-v[data-cle="mm"]');
+      return { r: v?.querySelector(".mg-r")?.textContent || "", trace: !!v?.querySelector(".mg-s") };
+    }));
+  }
+  ok("la voie de la pluie se replie sur une fenêtre sans pluie et se dessine dès qu'il pleut",
+    pluies.every(p => p.trace === /mm/.test(p.r)) && pluies.some(p => p.trace) && pluies.some(p => !p.trace), JSON.stringify(pluies));
 };

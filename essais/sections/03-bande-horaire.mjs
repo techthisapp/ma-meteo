@@ -154,7 +154,8 @@ export default async T => {
     retour: !!document.getElementById("btnRetour"),
     titre: document.querySelector("#ecran h1")?.textContent || "",
     accueilCourant: document.querySelector('[data-onglet="accueil"]')?.getAttribute("aria-current") === "page",
-    lecture: document.querySelector('.mg-v[data-cle="t"] .mg-r')?.textContent || "",
+    /* Depuis le jalon 21, lot 2, la lecture se fait dans la bulle sous l'axe. */
+    lecture: document.querySelector(".mg-lu-h")?.textContent || "",
   }));
   ok("une heure touchée dans la bande ouvre le temps en page de détail",
     /* La page s'appelle « Heure par heure » depuis le 28 septembre 2026. */
@@ -183,8 +184,12 @@ export default async T => {
      puis le lien « Plus de détails ». Le second efface la lecture de lui-même,
      et le seul essayer laissait passer l'erreur volontaire 14, qui porte sur le
      premier. */
+  /* Depuis le jalon 21, lot 2, la bulle lit toujours une heure : sans heure
+     désignée, c'est maintenant, et aucun montant de lecture ne double le
+     repère. */
   const sansLectureDe = () => pg.evaluate(() =>
-    [...document.querySelectorAll(".mg-cur")].every(c => c.hasAttribute("hidden")));
+    document.querySelector(".mg-lu-h")?.textContent === "Maintenant"
+    && [...document.querySelectorAll(".mg-cur")].every(c => c.style.display === "none"));
   await pg.locator(".bd-deg").click();
   await pg.waitForTimeout(700);
   const sansLectureVoie = await sansLectureDe();
@@ -195,41 +200,27 @@ export default async T => {
   const sansLecture = await sansLectureDe();
   ok("sans heure désignée, aucune lecture ne reste d'une ouverture précédente", sansLecture && sansLectureVoie,
     `par un chiffre ${sansLectureVoie}, par le lien ${sansLecture}`);
-  await pg.evaluate(() => {
-    window.__tr = [];
-    const g = document.querySelector(".mg-mob");
-    new MutationObserver(() => window.__tr.push(g.getAttribute("transform") || ""))
-      .observe(g, { attributes: true, attributeFilter: ["transform"] });
-  });
-  let sousLeDoigt = "pas de glissement";
-  const tracé = await pg.locator(".mg-s").first().boundingBox();
-  if (tracé) {
-    const y = tracé.y + tracé.height / 2, x = tracé.x + tracé.width * 0.7;
+  /* Le glissement de côté a disparu, décision de Jérôme du 3 octobre 2026 :
+     un doigt qui court à l'horizontale fait suivre la lecture, la fenêtre ne
+     bouge pas et le dessin ne se translate plus. */
+  const avantGlisse = await pg.evaluate(() => ({ jour: document.querySelector(".mg-j-on")?.getAttribute("aria-label"),
+    lu: document.querySelector(".mg-lu-h")?.textContent }));
+  const trace = await pg.locator('.mg-v[data-cle="t"] .mg-s').boundingBox();
+  if (trace) {
+    const y = trace.y + trace.height / 2, x = trace.x + trace.width * 0.7;
     await pg.mouse.move(x, y);
     await pg.mouse.down();
     await pg.mouse.move(x - 40, y, { steps: 3 });
     await pg.mouse.move(x - 120, y, { steps: 4 });
-    /* Doigt encore posé : un point proche du bord droit de la courbe de
-       température doit toucher le dessin. Une zone découpée ne reçoit pas le
-       pointeur ; tant que la découpe glissait avec le dessin, ce point tombait
-       dans le vide et la suite du ruban ne paraissait qu'au lâcher. */
-    sousLeDoigt = await pg.evaluate(() => {
-      const v = document.querySelector('.mg-v[data-cle="t"] .mg-s');
-      if (!v) return "voie de température introuvable";
-      const r = v.getBoundingClientRect();
-      const el = document.elementFromPoint(r.left + r.width * 0.7, r.top + r.height * 0.85);
-      return el && el.closest(".mg-mob") ? "" : `touché : ${el ? el.tagName + "." + (el.getAttribute("class") || "") : "rien"}`;
-    });
     await pg.mouse.up();
-    await pg.waitForTimeout(500);
+    await pg.waitForTimeout(300);
   }
-  const translations = await pg.evaluate(() => window.__tr || []);
-  ok("pendant le glissement, la suite du ruban paraît sous le doigt",
-    sousLeDoigt === "", sousLeDoigt);
-  ok("au lâcher d'un glissement, le dessin reste là où le rendu le pose",
-    translations.length > 2 && /^translate\(-?\d/.test(translations[translations.length - 1])
-    && translations[translations.length - 1] !== "translate(0.00,0)",
-    `dernières : ${translations.slice(-3).map(t => t || "zéro").join(" | ")}`);
+  const apresGlisse = await pg.evaluate(() => ({ jour: document.querySelector(".mg-j-on")?.getAttribute("aria-label"),
+    lu: document.querySelector(".mg-lu-h")?.textContent,
+    tr: [...document.querySelectorAll(".mg-mob")].map(g => g.getAttribute("transform") || "").filter(Boolean).length }));
+  ok("un glissement de côté ne déplace plus la fenêtre, il fait suivre la lecture",
+    trace && avantGlisse.jour === "Maintenant" && apresGlisse.jour === "Maintenant" && apresGlisse.tr === 0
+    && apresGlisse.lu !== avantGlisse.lu, JSON.stringify({ avantGlisse, apresGlisse }));
 
   /* Un onglet referme la page de détail, comme sur iPhone. */
   await pg.locator('[data-onglet="semaine"]').click();
@@ -473,7 +464,8 @@ export default async T => {
   await pg.locator(`[data-jour-heures="${jourVise}"]`).click();
   await pg.waitForTimeout(900);
   const heuresDit = await pg.evaluate(() => ({
-    fenetre: document.querySelector(".mg-fenl")?.textContent || "",
+    fenetre: document.querySelector(".mg-j-on")?.getAttribute("aria-label") || "",
+    debut: document.querySelector(".mg-bd .mg-bj")?.textContent || "",
     retour: document.getElementById("btnRetour")?.textContent || "",
   }));
   await pg.evaluate(() => history.back());
@@ -486,7 +478,8 @@ export default async T => {
     weDit.some(x => x.we) && weDit.every(x => x.we === x.marque),
     weDit.map(x => `${x.j}${x.marque ? "*" : ""}`).join(" "));
   ok("une journée dépliée mène à ses heures, le ruban ouvert à son minuit",
-    /^\S+ 00 h à /.test(heuresDit.fenetre) && heuresDit.retour.trim() === "À venir",
+    /* Depuis le jalon 21, lot 2, le bouton du jour s'allume. */
+    new RegExp(`${Number(jourVise.slice(8))} août`).test(heuresDit.fenetre) && heuresDit.retour.trim() === "À venir",
     `${jourVise} : « ${heuresDit.fenetre} », retour « ${heuresDit.retour.trim()} »`);
 
   await onglet("accueil");

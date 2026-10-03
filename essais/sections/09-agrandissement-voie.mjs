@@ -24,7 +24,10 @@ export default async T => {
     const hum = (await pg.locator('.mg-v[data-cle="hum"] svg.mg-s').boundingBox()).height;
     return `vent ${v.toFixed(0)}, humidité ${hum.toFixed(0)}`;
   })());
-  ok("la légende paraît avec l'agrandissement", await pg.locator(".mg-l:visible").count() === 1);
+  /* Depuis le jalon 21, lot 2, la phrase de la voie dépliée attend derrière
+     le « i ». */
+  ok("la phrase de la voie dépliée attend derrière le « i »",
+    await pg.locator(".mg-grand details.mg-aide .mg-l").count() === 1 && await pg.locator(".mg-l:visible").count() === 0);
   /* La pile fait cinq cents points et l'axe est tout en bas : une voie dépliée
      au milieu n'aurait plus de repère de temps. Trois axes en tout, celui du ciel
      en tête, celui de la voie dépliée, celui du pied de pile. */

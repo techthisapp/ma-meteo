@@ -47,7 +47,7 @@
 import { angleFleche, TRACE_FLECHE } from "./fleche.js";
 import { nombreFr, jourCourt, heureTxt, esc, cleJourLocal } from "./horloge.js";
 import { plagesDe, dCardinal, CARD_ABR, iCard, SEUIL_LAME, SEUIL_RISQUE } from "./previsions.js";
-import { icoCiel, icoTemps, couleurT, couleurUV } from "./icones.js";
+import { icoCiel, icoTemps, couleurT, couleurUV, tempsDe } from "./icones.js";
 import { alignerSur, LAME } from "./ensemble.js";
 
 /* La largeur du dessin, en unités, suit celle de l'écran à la densité du
@@ -99,11 +99,15 @@ export const heureCourante = () => heureLue;
 export const poserHeure = k => { heureLue = k; };
 export const decalageCourant = () => decalage;
 export const auMaintenant = () => { ancre = true; };
-export const glisser = h => {
+/* La fenêtre calée sur le minuit du jour qui porte l'heure `k`, jalon 21,
+   lot 2 : le choix du jour, et l'accueil qui désigne une heure lointaine. */
+export const poserJour = k => {
   if (!serie) return;
-  const f = fenetre();
-  decalage = Math.max(0, Math.min(serie.n - f, decalage + h));
-  ancre = decalage === pose(serie);
+  let m = Math.max(0, Math.min(serie.n - 1, k));
+  while (m > 0 && serie.heure[m] !== 0) m--;
+  decalage = Math.max(0, Math.min(serie.n - fenetre(), m));
+  ancre = false;
+  heureLue = -1;
 };
 
 /* Où commence la fenêtre calée sur maintenant. Non pas à l'heure en cours mais
@@ -182,6 +186,29 @@ const nomJour = (s, jour) => {
   return MOTS_JOUR[e] !== undefined ? MOTS_JOUR[e] : `${jourCourt(jour)} `;
 };
 
+/* La bulle de lecture, jalon 21, lot 2, décision de Jérôme du 3 octobre
+   2026 : toutes les grandeurs d'une heure au même endroit, sous l'axe collant.
+   Chaque voie écrivait sa valeur à droite de son titre, et lire une heure
+   demandait de regarder à sept endroits. */
+function bulle(s, k) {
+  if (!s || k < 0 || k >= s.n) return "";
+  const quand = k === s.ici ? "Maintenant" : `${nomJour(s, s.jour[k])}${heureTxt(s.heure[k])}`;
+  const cases = [
+    ["Ressenti", `${Math.round(s.res[k])}°`],
+    ["Pluie", s.mm[k] >= SEUIL_LAME ? `${nombreFr(s.mm[k])} mm` : "0 mm"],
+    ["Risque", `${Math.round(s.pb[k])} %`],
+    ["Vent", `${Math.round(s.v[k])} km/h ${CARD_ABR[iCard(s.dir[k])]}`],
+    ["Rafales", `${Math.round(s.raf[k])} km/h`],
+    ["UV", s.uv[k] >= 0.5 ? nombreFr(s.uv[k]) : "0"],
+    ["Humidité", `${Math.round(s.hum[k])} %`],
+    ["Pression", `${Math.round(s.pres[k])} hPa`],
+  ];
+  return `<div class="mg-lu-t"><span class="mg-lu-h">${esc(quand.charAt(0).toUpperCase() + quand.slice(1))}</span>`
+    + `<span class="mg-lu-c">${icoTemps(icoCiel(s.code[k], s.clair[k]), "mg-lu-ic")}<b>${Math.round(s.t[k])}°</b></span>`
+    + `<span class="mg-lu-m">${esc(tempsDe(s.code[k])[1])}</span></div>`
+    + `<dl class="mg-lu-g">${cases.map(([n, v]) => `<div><dt>${esc(n)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>`;
+}
+
 export function dessiner(s) {
   L = largeurVoulue();
   P = L - M - GOUT;
@@ -194,6 +221,13 @@ export function dessiner(s) {
   if (ancre) decalage = pose(s);
   decalage = Math.max(0, Math.min(Math.max(0, s.n - FEN), decalage));
   const dec = decalage;
+  /* L'heure lue, jalon 21, lot 2 : toujours une, pour que la bulle ne soit
+     jamais vide. L'heure en cours sur la fenêtre de maintenant, midi sur un
+     jour choisi, tant qu'aucun doigt n'en a désigné une autre dans la
+     fenêtre. */
+  if (heureLue < dec || heureLue >= Math.min(s.n, dec + FEN)) {
+    heureLue = ancre && s.ici >= dec && s.ici < dec + FEN ? s.ici : Math.min(s.n - 1, dec + 12);
+  }
 
   /* L'abscisse est celle de la fenêtre : l'heure `dec` tombe sur la marge
      gauche, l'heure `dec + FEN` sur la gouttière. Les heures d'avant et d'après
@@ -202,12 +236,11 @@ export function dessiner(s) {
   const X = k => M + ((k - dec) / FEN) * P;
   const LA = P / FEN;
 
-  /* La bande dessinée : une fenêtre de part et d'autre de la fenêtre visible.
-     Un doigt ne parcourt pas plus d'une largeur d'écran avant de relâcher, et
-     le dessin se refait au calage. Dessiner l'horizon entier ferait sept fois
-     cent soixante-huit heures de décorations pour douze visibles. */
-  const kA = Math.max(0, dec - FEN);
-  const kB = Math.min(s.n - 1, dec + 2 * FEN);
+  /* La bande dessinée est la fenêtre visible, plus une heure de chaque côté
+     pour ouvrir et fermer les courbes. Elle débordait d'une fenêtre de part
+     et d'autre pour servir le glissement, retiré au jalon 21, lot 2. */
+  const kA = Math.max(0, dec - 1);
+  const kB = Math.min(s.n - 1, dec + FEN);
 
   // La fenêtre visible, pour tout ce qui s'écrit.
   const w = trancher(s, dec, Math.min(s.n, dec + FEN));
@@ -559,9 +592,16 @@ export function dessiner(s) {
     const dessin = `<svg class="mg-s" viewBox="0 0 ${L} ${haut}" aria-hidden="true">${defs}`
       + `<g clip-path="url(#${id0})"><g class="mg-mob">${dedans}`
       + `${passe(0, haut)}${repere(0, haut)}</g></g>${dedansFixe}`
-      + `<line class="mg-cur" x1="0" y1="0" x2="0" y2="${haut}" hidden/></svg>`;
+      /* Le montant de l'heure lue se tait sur l'heure en cours, que le repère
+         marque déjà : deux traits voisins se lisaient comme un seul épais. */
+      + `<line class="mg-cur" x1="${u(X(heureLue + 0.5))}" y1="0" x2="${u(X(heureLue + 0.5))}" y2="${haut}"`
+      + `${heureLue === s.ici ? ' style="display:none"' : ""}/></svg>`;
     const id = `mgl${++n}`;
-    const bas = resume ? `<p class="mg-l" id="${id}"${g ? "" : " hidden"}>${esc(resume)}</p>` : "";
+    /* La phrase de la voie dépliée se range derrière le « i », jalon 21,
+       lot 2. */
+    const bas = !resume ? "" : g ? `<details class="aide mg-aide"><summary aria-label="Explication">`
+      + `<span class="aide-i" aria-hidden="true">i</span></summary><p class="mg-l" id="${id}">${esc(resume)}</p></details>`
+      : `<p class="mg-l" id="${id}" hidden>${esc(resume)}</p>`;
     voies.push(`<div class="mg-v${g ? " mg-grand" : ""}" data-cle="${esc(cle)}">`
       + `<button type="button" class="mg-t mg-b" data-voie="${esc(cle)}" aria-expanded="${g}"`
       + (resume ? ` aria-controls="${id}"` : "") + ">"
@@ -734,10 +774,10 @@ export function dessiner(s) {
     const cle = "mm";
     const g = grand(cle);
     const tot = w.mm.reduce((a, b) => a + b, 0);
-    /* La voie paraît dès qu'il pleut quelque part sur l'horizon, non seulement
-       dans la fenêtre : elle disparaîtrait sous le doigt à la première journée
-       sèche, et la pile des voies sauterait d'un cran à chaque glissement. */
-    const h = Math.max(...s.mm) >= SEUIL_LAME ? H(cle, 48) : 0;
+    /* La voie ne se dessine que s'il pleut dans la fenêtre, jalon 21, lot 2 :
+       sans glissement, la pile ne saute plus sous le doigt, et une voie vide
+       tenait une grande hauteur pour rien. */
+    const h = Math.max(...w.mm) >= SEUIL_LAME ? H(cle, 48) : 0;
     const rx = Math.round(Math.max(...w.pb));
     const pointe = Math.max(...w.mm);
     const droite = tot >= SEUIL_LAME
@@ -832,7 +872,7 @@ export function dessiner(s) {
     const cle = "uv";
     const g = grand(cle);
     const mxUV = Math.max(...w.uv);
-    const h = Math.max(...s.uv) >= 0.5 ? H(cle, 48) : 0;
+    const h = mxUV >= 0.5 ? H(cle, 48) : 0;
     if (!h) { poser("Indice UV", "nul", 0); }
     else {
       const hs = 0, hv = g ? H_VAL : 0, hb = hs + hv;
@@ -924,40 +964,26 @@ export function dessiner(s) {
           + `Une baisse marquée annonce une dégradation.`, cle);
   }
 
-  /* La barre de commande, en tête du ruban. Deux flèches font le saut d'une
-     journée, le doigt fait le reste. Le libellé au centre dit la fenêtre lue et
-     ramène à l'heure en cours d'un appui : parti à cinq jours, on n'a pas à
-     refaire cinq glissements pour revenir. Calé sur maintenant, il n'a nulle
-     part où ramener et ne se laisse plus presser. */
-  /* La borne haute du libellé tombe une heure après le dernier point de la
-     fenêtre. Au bout de l'horizon cette heure n'a plus d'indice dans la série :
-     elle se calcule, sans quoi la dernière fenêtre s'annonçait « lun 00 h à lun
-     23 h » là où elle porte bien une journée pleine. */
-  const kFin = Math.min(s.n - 1, dec + FEN - 1);
-  const dFin = new Date(`${s.jour[kFin]}T00:00:00`);
-  dFin.setHours(s.heure[kFin] + 1);
-  const jFin = cleJourLocal(dFin);
-  const lib = `${HJ(dec)} à ${nomJour(s, jFin)}${heureTxt(dFin.getHours())}`;
-  const chev = droite => `<svg viewBox="0 0 24 24" aria-hidden="true">`
-    + `<path d="${droite ? "M9 5l7 7-7 7" : "M15 5l-7 7 7 7"}" fill="none" `
-    + `stroke="currentColor" stroke-width="2.2" stroke-linecap="round" `
-    + `stroke-linejoin="round"/></svg>`;
-  const saut = (h, droite, dit) => {
-    const mort = h < 0 ? dec <= 0 : dec >= s.n - FEN;
-    return `<button type="button" class="mg-sa" data-glisse="${h}" `
-      + `aria-label="${esc(dit)}"${mort ? " disabled" : ""}>${chev(droite)}</button>`;
-  };
-  /* Calé sur maintenant, le libellé n'est pas un bouton désactivé mais un
-     simple texte : l'état désactivé se porte à trente-huit pour cent d'opacité,
-     et la fenêtre lue serait devenue illisible au repos, c'est-à-dire presque
-     toujours. La hauteur de touche est réservée dans les deux cas, la barre ne
-     change donc pas de taille quand la seconde ligne paraît. */
-  const centre = ancre
-    ? `<span class="mg-fen"><span class="mg-fenl">${esc(lib)}</span></span>`
-    : `<button type="button" class="mg-fen mg-loin" data-maintenant="1">`
-      + `<span class="mg-fenl">${esc(lib)}</span><i>Revenir à maintenant</i></button>`;
-  const nav = `<div class="mg-nav">${saut(-24, false, "Vingt-quatre heures plus tôt")}`
-    + `${centre}${saut(24, true, "Vingt-quatre heures plus tard")}</div>`;
+  /* Le choix du jour, jalon 21, lot 2, décision de Jérôme du 3 octobre 2026 :
+     des boutons remplacent les deux flèches et le glissement de côté, que le
+     doigt déclenchait sans le vouloir et qui décalait la fenêtre d'une durée
+     sans repère. « Maint. » cale la fenêtre sur l'heure en cours ; chaque
+     jour suivant la cale sur son minuit, tant que l'horizon porte la fenêtre
+     entière. Tous les boutons tiennent sur une ligne, sans défilement. */
+  const jours = [];
+  for (let k = s.ici + 1; k + FEN <= s.n; k++) if (s.heure[k] === 0) jours.push(k);
+  const JOURS_SEM = ["dim", "lun", "mar", "mer", "jeu", "ven", "sam"];
+  const bouton = (k, haut, bas, dit, actif, attr) => `<button type="button" class="mg-j${actif ? " mg-j-on" : ""}" ${attr}`
+    + ` aria-pressed="${actif}" aria-label="${esc(dit)}"><span>${esc(haut)}</span><b>${esc(bas)}</b></button>`;
+  const nav = `<div class="mg-nav mg-jours" style="--n:${jours.length + 1}">`
+    + bouton(s.ici, "Maint.", heureTxt(s.heure[Math.max(0, s.ici)]), "Maintenant", ancre, 'data-maintenant="1"')
+    + jours.map(k => {
+      const d = new Date(`${s.jour[k]}T12:00`);
+      const nom = d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+      return bouton(k, JOURS_SEM[d.getDay()], String(d.getDate()), nomJour(s, s.jour[k]).trim() === "demain" ? `Demain, ${nom}` : nom,
+        !ancre && dec === k, `data-jour="${k}"`);
+    }).join("")
+    + `</div>`;
 
   /* Le découpage par jour, demandé par Jérôme le 28 septembre 2026. Un trait
      continu à chaque minuit traverse toute la pile des voies, titres compris,
@@ -1014,7 +1040,8 @@ export function dessiner(s) {
     + nomsMinuit.map(k => `<text class="mg-bj" x="${u(X(k) + 4)}" y="13">${esc(jourBandeau(s.jour[k]))}</text>`).join("")
     + heuresVues.map(k => `<line class="mg-bt" x1="${u(X(k))}" y1="${H_BANDEAU - 7}" x2="${u(X(k))}" y2="${H_BANDEAU}"/>`
       + `<text class="mg-bh" x="${u(X(k))}" y="${H_BANDEAU - 10}">${heureTxt(s.heure[k])}</text>`).join("")
-    + ici + `</g></g>${jourGauche}</svg></div>`;
+    + ici + `</g></g>${jourGauche}</svg>`
+    + `<div class="mg-lu" aria-live="polite">${bulle(s, heureLue)}</div></div>`;
   return `${nav}${bandeau}<div class="mg">${voies.join("")}</div>`;
 }
 
@@ -1029,167 +1056,78 @@ export function brancher(bloc, surVoie) {
   if (!s) return;
   const FEN = fenetre();
   const dec = decalage;
-  const LA = P / FEN;
   const X = k => M + ((k - dec) / FEN) * P;
 
+  /* La lecture, jalon 21, lot 2 : la bulle sous l'axe et le montant de
+     chaque voie suivent l'heure lue, qui reste posée après le geste. */
+  const lu = bloc.querySelector(".mg-lu");
   const lire = k => {
     heureLue = k;
-    const prefixe = nomJour(s, s.jour[k]);
-    const lit = {
-      t: `${prefixe}${heureTxt(s.heure[k])}, ${Math.round(s.t[k])}°`,
-      mm: s.mm[k] >= SEUIL_LAME
-        ? `${prefixe}${heureTxt(s.heure[k])}, ${nombreFr(s.mm[k])} mm`
-        : `${prefixe}${heureTxt(s.heure[k])}, ${Math.round(s.pb[k])} %`,
-      v: `${prefixe}${heureTxt(s.heure[k])}, ${Math.round(s.v[k])} et ${Math.round(s.raf[k])} km/h`
-        + ` ${CARD_ABR[iCard(s.dir[k])]}`,
-      nua: `${prefixe}${heureTxt(s.heure[k])}, ${Math.round(s.nua[k])} %`,
-      uv: `${prefixe}${heureTxt(s.heure[k])}, ${nombreFr(s.uv[k])}`,
-      hum: `${prefixe}${heureTxt(s.heure[k])}, ${Math.round(s.hum[k])} %`,
-      pres: `${prefixe}${heureTxt(s.heure[k])}, ${Math.round(s.pres[k])} hPa`,
-    };
-    for (const v of bloc.querySelectorAll(".mg-v")) {
-      const cle = v.dataset.cle;
-      const r = v.querySelector(".mg-r");
-      if (r && lit[cle]) r.textContent = lit[cle];
-      const cur = v.querySelector(".mg-cur");
-      if (cur) {
-        const svg = cur.closest("svg");
-        const x = X(k + 0.5);
-        cur.setAttribute("x1", x); cur.setAttribute("x2", x);
-        /* `hidden` est une propriété de HTMLElement, non de SVGElement :
-           l'affecter sur une ligne SVG posait une propriété sans effet et
-           laissait l'attribut en place. Le montant de lecture ne paraissait
-           donc jamais. L'attribut se pose et se retire à la main. */
-        cur.removeAttribute("hidden");
-        if (svg) svg.style.color = "";
-      }
-    }
-  };
-
-  /* Une heure posée avant le rendu, depuis une heure touchée dans la bande de
-     l'accueil : sa lecture s'affiche d'emblée, et le premier relâchement du
-     doigt l'efface comme toute autre. Jalon 10, lot 5. */
-  if (heureLue >= 0 && heureLue < s.n) lire(heureLue);
-  const relacher = () => {
-    heureLue = -1;
-    for (const v of bloc.querySelectorAll(".mg-v")) {
-      const r = v.querySelector(".mg-r");
-      if (r && r.dataset.plage) r.textContent = r.dataset.plage;
-      const cur = v.querySelector(".mg-cur");
-      if (cur) cur.setAttribute("hidden", "");
+    if (lu) lu.innerHTML = bulle(s, k);
+    const x = u(X(k + 0.5));
+    for (const cur of bloc.querySelectorAll(".mg-cur")) {
+      cur.setAttribute("x1", x); cur.setAttribute("x2", x);
+      cur.style.display = k === s.ici ? "none" : "";
     }
   };
 
   const kDe = ev => {
     const b = ev.currentTarget.getBoundingClientRect();
     const rel = ((ev.clientX - b.left) / b.width) * L;
-    return Math.max(0, Math.min(s.n - 1, dec + Math.floor(((rel - M) / P) * FEN)));
+    return Math.max(dec, Math.min(Math.min(s.n, dec + FEN) - 1, dec + Math.floor(((rel - M) / P) * FEN)));
   };
 
-  /* Le glissement porte sur tout le ruban, non sur la seule voie touchée : les
-     sept voies partagent un axe, en décaler une seule le romprait. Chaque voie
-     ne translate donc pas pour son compte, c'est le groupe mobile de chacune qui
-     reçoit le même déport. Le dessin se refait au relâchement, à l'heure
-     entière : pendant le geste, une translation suffit. */
-  const mobiles = [...bloc.querySelectorAll(".mg-mob")];
-  const deporter = px => {
-    for (const m of mobiles) {
-      m.setAttribute("transform", px ? `translate(${px.toFixed(2)},0)` : "");
-    }
-  };
+  /* Deux issues pour un appui, jalon 21, lot 2. Un toucher bref lit l'heure
+     touchée ; un déplacement à l'horizontale fait suivre la lecture au doigt,
+     à la verticale la page défile. La lecture reste posée au relâchement.
+     L'appui maintenu d'un quart de seconde que demandait la lecture ne se
+     devinait pas : un toucher ne faisait rien. Le glissement de la fenêtre a
+     disparu, remplacé par le choix du jour.
 
-  /* Trois issues pour un même appui, tranchées sans jamais se reprendre.
-
-     Le déplacement franc décide en premier : à l'horizontale le ruban glisse, à
-     la verticale la page défile et l'appui est oublié. Sans déplacement, un
-     quart de seconde d'appui maintenu ouvre la lecture, qui suit ensuite le
-     doigt où qu'il aille. Un appui bref ne fait donc rien, et c'est voulu : la
-     lecture et le glissement se disputaient le même geste, l'un finissait
-     toujours par déclencher l'autre.
-
-     `touch-action: pan-y` laisse le navigateur mener le défilement vertical, ce
-     qui reste plus fluide que de le simuler, et nous réserve l'horizontale. */
+     `touch-action: pan-y` laisse le navigateur mener le défilement vertical,
+     et nous réserve l'horizontale. */
   const TANGENTE = Math.tan(40 * Math.PI / 180);
   const SEUIL = 8;
-  const TENUE = 250;
 
-  for (const svg of bloc.querySelectorAll(".mg-s")) {
-    let x0 = 0, y0 = 0, mode = null, minuteur = 0, kAppui = 0;
+  for (const svg of bloc.querySelectorAll(".mg-s, .mg-bd")) {
+    let x0 = 0, y0 = 0, mode = null, kAppui = 0, actif = false;
 
     svg.addEventListener("pointerdown", ev => {
-      x0 = ev.clientX; y0 = ev.clientY; mode = null;
+      x0 = ev.clientX; y0 = ev.clientY; mode = null; actif = true;
       kAppui = kDe(ev);
-      clearTimeout(minuteur);
-      minuteur = setTimeout(() => {
-        if (mode !== null) return;
-        mode = "lit";
-        try { svg.setPointerCapture(ev.pointerId); } catch { /* souris déjà prise */ }
-        lire(kAppui);
-      }, TENUE);
     });
 
     svg.addEventListener("pointermove", ev => {
-      if (!ev.buttons) return;
+      if (!actif || !ev.buttons) return;
       const dx = ev.clientX - x0, dy = ev.clientY - y0;
       if (mode === null) {
         if (Math.hypot(dx, dy) < SEUIL) return;
-        clearTimeout(minuteur);
-        mode = Math.abs(dy) <= Math.abs(dx) * TANGENTE ? "glisse" : "defile";
+        mode = Math.abs(dy) <= Math.abs(dx) * TANGENTE ? "lit" : "defile";
         if (mode === "defile") return;
         try { svg.setPointerCapture(ev.pointerId); } catch { /* souris déjà prise */ }
-        relacher();
       }
-      if (mode === "lit") { ev.preventDefault(); lire(kDe(ev)); return; }
-      if (mode !== "glisse") return;
+      if (mode !== "lit") return;
       ev.preventDefault();
-      // Le déport se compte en unités du dessin, non en pixels d'écran.
-      deporter((dx / svg.getBoundingClientRect().width) * L);
+      lire(kDe(ev));
     });
 
-    const fin = ev => {
-      clearTimeout(minuteur);
-      const g = mode === "glisse";
-      const dx = ev && ev.clientX !== undefined ? ev.clientX - x0 : 0;
-      mode = null;
-      relacher();
-      if (!g) return;
-      const px = (dx / svg.getBoundingClientRect().width) * L;
-      const h = Math.round(-px / LA);
-      if (!h) { deporter(0); return; }
-      /* Le dessin reste là où le rendu suivant va le poser, à l'heure entière
-         la plus proche, puis le rendu le remplace à l'identique. La première
-         version remettait la translation à zéro avant de redessiner : les
-         courbes revenaient en arrière puis sautaient en avant au rendu, la
-         saccade relevée sur l'appareil le 23 septembre 2026. Le glissement réel
-         peut être plus court que demandé, borné par le bout de l'horizon. */
-      const avant = decalage;
-      glisser(h);
-      const reel = decalage - avant;
-      deporter(-reel * LA);
-      if (!reel) return;
-      requestAnimationFrame(() => surVoie());
+    const fin = () => {
+      if (actif && mode === null) lire(kAppui);
+      actif = false; mode = null;
     };
     svg.addEventListener("pointerup", fin);
-    svg.addEventListener("pointercancel", fin);
-
-    /* La prise du pointeur fait sortir le curseur de l'élément aux yeux du
-       navigateur, qui émet aussitôt un `pointerleave`. Le traiter comme une fin
-       de geste coupait la lecture au premier déplacement. */
-    svg.addEventListener("pointerleave", ev => {
-      if (mode === null) { clearTimeout(minuteur); return; }
-      if (mode !== "lit" && mode !== "glisse") fin(ev);
-    });
+    svg.addEventListener("pointercancel", () => { actif = false; mode = null; });
   }
 
   for (const b of bloc.querySelectorAll(".mg-b")) {
     b.addEventListener("click", () => { ouvrir(b.dataset.voie); surVoie(); });
   }
 
-  for (const b of bloc.querySelectorAll("[data-glisse]")) {
-    b.addEventListener("click", () => { glisser(Number(b.dataset.glisse)); surVoie(); });
+  for (const b of bloc.querySelectorAll("[data-jour]")) {
+    b.addEventListener("click", () => { poserJour(Number(b.dataset.jour)); surVoie(); });
   }
 
   for (const b of bloc.querySelectorAll("[data-maintenant]")) {
-    b.addEventListener("click", () => { auMaintenant(); surVoie(); });
+    b.addEventListener("click", () => { auMaintenant(); heureLue = -1; surVoie(); });
   }
 }

@@ -1613,7 +1613,7 @@ function ouvrirJour(jour) {
   debutHeure.setMinutes(0, 0, 0);
   const h = Math.round((new Date(`${jour}T00:00`) - debutHeure) / 3600000);
   const cible = Math.max(0, Math.min(sr.n - 1, sr.ici + h));
-  Ruban.glisser(cible - Ruban.decalageCourant());
+  Ruban.poserJour(cible);
   rendre();
 }
 
@@ -1636,7 +1636,7 @@ function allerAuDetail(cle, heure = null) {
       if (sr) {
         const cible = Math.min(sr.n - 1, sr.ici + heure);
         const fin = Ruban.decalageCourant() + Ruban.fenetre() - 1;
-        if (cible > fin) Ruban.glisser(cible - fin);
+        if (cible > fin) Ruban.poserJour(cible);
         Ruban.poserHeure(cible);
         rendre();
       }

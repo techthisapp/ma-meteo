@@ -889,6 +889,27 @@ case "$N" in
   283) # Minuit retraverse les titres.
      perl -0pi -e 's/return `\$\{nav\}\$\{bandeau\}<div class="mg">\$\{voies\.join\(""\)\}<\/div>`;/return `\${nav}\${bandeau}<div class="mg"><svg class="mg-minuits" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none" viewBox="0 0 \${L} 1000" preserveAspectRatio="none">\${minuits.map(k => `<line class="mg-mp" x1="\${X(k)}" y1="0" x2="\${X(k)}" y2="1000"\/>`).join("")}<\/svg>\${voies.join("")}<\/div>`;/' src/ruban.js
      ATTENDU="le trait de minuit ne traverse ni les titres" ;;
+  284) # Un toucher bref ne lit plus.
+     perl -0pi -e 's/if \(actif && mode === null\) lire\(kAppui\);//' src/ruban.js
+     ATTENDU="un toucher bref lit l'heure touchée" ;;
+  285) # La bulle reste vide.
+     perl -0pi -e 's/if \(!s \|\| k < 0 \|\| k >= s\.n\) return "";/return "";/' src/ruban.js
+     ATTENDU="au repos, la bulle lit l'heure en cours" ;;
+  286) # Les boutons des jours débordent la carte.
+     perl -0pi -e 's/\.mg-jours\{display:grid;grid-template-columns:repeat\(var\(--n\), minmax\(0, 1fr\)\);gap:4px\}/.mg-jours{display:flex;gap:4px}.mg-j{flex:0 0 72px}/' styles.css
+     ATTENDU="le choix du jour porte" ;;
+  287) # Un jour choisi ne se cale plus sur son minuit.
+     perl -0pi -e 's/while \(m > 0 && serie\.heure\[m\] !== 0\) m--;/m += 3;/' src/ruban.js
+     ATTENDU="le bouton du lendemain cale la fenêtre sur son minuit" ;;
+  288) # La lecture revient à maintenant au relâchement.
+     perl -0pi -e 's/actif = false; mode = null;\n    \};/actif = false; mode = null; setTimeout(() => lire(s.ici), 500);\n    };/' src/ruban.js
+     ATTENDU="la lecture reste posée après le relâchement" ;;
+  289) # La phrase de la voie dépliée s'affiche en clair.
+     perl -0pi -e 's/const bas = !resume \? "" : g \?/const bas = !resume ? "" : g ? `<p class="mg-l">\${esc(resume)}<\/p>` : false ?/' src/ruban.js
+     ATTENDU="la phrase de la voie dépliée attend derrière" ;;
+  290) # La voie de la pluie se dessine dès qu'il pleut sur l'horizon.
+     perl -0pi -e 's/const h = Math\.max\(\.\.\.w\.mm\) >= SEUIL_LAME/const h = Math.max(...s.mm) >= SEUIL_LAME/' src/ruban.js
+     ATTENDU="la voie de la pluie se replie" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
