@@ -28,7 +28,7 @@ export default async T => {
   const touche = await bulle();
   ok("un toucher bref lit l'heure touchée et pose le montant", touche.h !== depart.h && touche.cur === 1, JSON.stringify(touche));
   ok("la lecture porte une heure et un degré",
-    /^(Demain |Après-demain |[a-zéû]{3}\.? )?\d{2} h$/i.test(touche.h) && /^-?\d+°$/.test(touche.t), JSON.stringify(touche));
+    /^(Demain, |[A-Z][a-zéû]+ \d{1,2}, )?\d{2} h$/.test(touche.h) && /^-?\d+°$/.test(touche.t), JSON.stringify(touche));
   await pg.waitForTimeout(400);
   ok("la lecture reste posée après le relâchement", (await bulle()).h === touche.h);
 

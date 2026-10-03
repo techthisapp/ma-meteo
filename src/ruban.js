@@ -190,9 +190,23 @@ const nomJour = (s, jour) => {
    2026 : toutes les grandeurs d'une heure au même endroit, sous l'axe collant.
    Chaque voie écrivait sa valeur à droite de son titre, et lire une heure
    demandait de regarder à sept endroits. */
+/* Le nom d'un jour sur l'axe et dans la bulle, le même aux deux endroits :
+   « Aujourd'hui », « Demain », « Hier », puis « Lundi 5 ». */
+function jourBandeau(s, j) {
+  const auj = s.jour[Math.max(0, Math.min(s.n - 1, s.ici))];
+  const e = ecartJours(auj, j);
+  if (e === 0) return "Aujourd'hui";
+  if (e === 1) return "Demain";
+  if (e === -1) return "Hier";
+  return new Date(`${j}T12:00`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric" })
+    .replace(/^./, c => c.toUpperCase());
+}
+
 function bulle(s, k) {
   if (!s || k < 0 || k >= s.n) return "";
-  const quand = k === s.ici ? "Maintenant" : `${nomJour(s, s.jour[k])}${heureTxt(s.heure[k])}`;
+  const j = jourBandeau(s, s.jour[k]);
+  const quand = k === s.ici ? "Maintenant"
+    : j === "Aujourd'hui" ? heureTxt(s.heure[k]) : `${j}, ${heureTxt(s.heure[k])}`;
   const cases = [
     ["Ressenti", `${Math.round(s.res[k])}°`],
     ["Pluie", s.mm[k] >= SEUIL_LAME ? `${nombreFr(s.mm[k])} mm` : "0 mm"],
@@ -991,18 +1005,6 @@ export function dessiner(s) {
      avec le dessin puisqu'il porte, lui aussi, un groupe mobile. Et un bandeau
      collant, en tête du ruban, garde sous la barre de tête le nom du jour et
      les heures de la journée pendant qu'on descend dans les voies. */
-  const jourBandeau = j => {
-    const auj = s.jour[Math.max(0, Math.min(s.n - 1, s.ici))];
-    const dem = new Date(`${auj}T12:00`); dem.setDate(dem.getDate() + 1);
-    const cleDem = `${dem.getFullYear()}-${String(dem.getMonth() + 1).padStart(2, "0")}-${String(dem.getDate()).padStart(2, "0")}`;
-    const hie = new Date(`${auj}T12:00`); hie.setDate(hie.getDate() - 1);
-    const cleHier = `${hie.getFullYear()}-${String(hie.getMonth() + 1).padStart(2, "0")}-${String(hie.getDate()).padStart(2, "0")}`;
-    if (j === auj) return "Aujourd'hui";
-    if (j === cleDem) return "Demain";
-    if (j === cleHier) return "Hier";
-    return new Date(`${j}T12:00`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric" })
-      .replace(/^./, c => c.toUpperCase());
-  };
   const minuits = [];
   const graduations = [];
   for (let k = kA; k <= kB; k++) {
@@ -1020,10 +1022,10 @@ export function dessiner(s) {
   const dedansCadre = (x0, x1) => x0 >= M - 0.5 && x1 <= M + P + 0.5;
   const LJ = t => t.length * 6.9, LH = t => t.length * 5.4;
   const minuitsVus = minuits.filter(k => X(k) >= M && X(k) <= M + P);
-  const nomsMinuit = minuitsVus.filter(k => dedansCadre(X(k) + 4, X(k) + 4 + LJ(jourBandeau(s.jour[k]))));
+  const nomsMinuit = minuitsVus.filter(k => dedansCadre(X(k) + 4, X(k) + 4 + LJ(jourBandeau(s, s.jour[k]))));
   /* Le jour du bord gauche est écrit à la marge, sauf si le nom d'un minuit
      tombe trop près pour que les deux tiennent. */
-  const nomGauche = jourBandeau(s.jour[dec]);
+  const nomGauche = jourBandeau(s, s.jour[dec]);
   const premier = nomsMinuit[0];
   const gaucheTient = premier === undefined || X(premier) - M >= LJ(nomGauche) + 10;
   const jourGauche = !gaucheTient || (premier !== undefined && X(premier) - M < 1) ? ""
@@ -1037,7 +1039,7 @@ export function dessiner(s) {
   const bandeau = `<div class="mg-bandeau"><svg class="mg-bd" viewBox="0 0 ${L} ${H_BANDEAU}" aria-hidden="true">${defsB}`
     + `<g clip-path="url(#${idB})"><g class="mg-mob">`
     + minuitsVus.map(k => `<line class="mg-bm" x1="${u(X(k))}" y1="0" x2="${u(X(k))}" y2="${H_BANDEAU}"/>`).join("")
-    + nomsMinuit.map(k => `<text class="mg-bj" x="${u(X(k) + 4)}" y="13">${esc(jourBandeau(s.jour[k]))}</text>`).join("")
+    + nomsMinuit.map(k => `<text class="mg-bj" x="${u(X(k) + 4)}" y="13">${esc(jourBandeau(s, s.jour[k]))}</text>`).join("")
     + heuresVues.map(k => `<line class="mg-bt" x1="${u(X(k))}" y1="${H_BANDEAU - 7}" x2="${u(X(k))}" y2="${H_BANDEAU}"/>`
       + `<text class="mg-bh" x="${u(X(k))}" y="${H_BANDEAU - 10}">${heureTxt(s.heure[k])}</text>`).join("")
     + ici + `</g></g>${jourGauche}</svg>`

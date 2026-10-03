@@ -86,7 +86,7 @@ export default async T => {
   await pg.waitForTimeout(420);
   const demain = await choix();
   ok("le bouton du lendemain cale la fenêtre sur son minuit et lit son midi",
-    /^Demain, /.test(demain.on[0] || "") && demain.gauche === "Demain" && demain.lu === "Demain 12 h", JSON.stringify(demain));
+    /^Demain, /.test(demain.on[0] || "") && demain.gauche === "Demain" && demain.lu === "Demain, 12 h", JSON.stringify(demain));
   ok("l'heure en cours ne se repère pas dans une fenêtre qui ne la contient pas",
     await pg.evaluate(() => {
       const svg = document.querySelector('.mg-v[data-cle="t"] svg.mg-s');
@@ -105,7 +105,8 @@ export default async T => {
   await pg.locator(".mg-jours [data-jour]").nth(1).click();
   await pg.waitForTimeout(420);
   const loin = await choix();
-  ok("au delà de demain, le jour se nomme en entier", /^Jeudi 20$/.test(loin.gauche) && /^Après-demain 12 h$/.test(loin.lu),
+  ok("au delà de demain, le jour se nomme en entier, sur l'axe comme dans la bulle",
+    loin.gauche === "Jeudi 20" && loin.lu === "Jeudi 20, 12 h",
     JSON.stringify(loin));
   ok("la lecture de droite parle de la fenêtre, non de l'horizon", await pg.evaluate(() => {
     const r = document.querySelector('.mg-v[data-cle="t"] .mg-r').textContent;

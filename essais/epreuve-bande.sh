@@ -910,6 +910,9 @@ case "$N" in
   290) # La voie de la pluie se dessine dès qu'il pleut sur l'horizon.
      perl -0pi -e 's/const h = Math\.max\(\.\.\.w\.mm\) >= SEUIL_LAME/const h = Math.max(...s.mm) >= SEUIL_LAME/' src/ruban.js
      ATTENDU="la voie de la pluie se replie" ;;
+  291) # La bulle nomme le jour autrement que l'axe.
+     perl -0pi -e 's/: j === "Aujourd.hui" \? heureTxt\(s\.heure\[k\]\) : `\$\{j\}, \$\{heureTxt\(s\.heure\[k\]\)\}`;/: `\${nomJour(s, s.jour[k])}\${heureTxt(s.heure[k])}`;/' src/ruban.js
+     ATTENDU="au delà de demain, le jour se nomme en entier" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
