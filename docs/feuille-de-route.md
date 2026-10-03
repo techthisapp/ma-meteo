@@ -908,6 +908,18 @@ Demandé par Jérôme le 3 octobre 2026.
 | 3 | Le ciel : indicateurs au-dessus de la trajectoire | livré, version 158 |
 | 4 | Heure par heure refait | livré, version 159 |
 
+## Jalon 21. Le ruban repris
+
+Demande de Jérôme du 3 octobre 2026 : le ruban Heure par heure est difficile
+à lire et à manipuler. Examen dans le simulateur, puis décisions de Jérôme :
+corriger les défauts d'abord, retenir toutes les améliorations, retirer le
+glissement de côté.
+
+| Lot | Contenu | État |
+|---|---|---|
+| 1 | Défauts : sélection de texte à l'appui long, trait de minuit sur les titres, libellés coupés de l'axe du haut, deux axes écrits autrement | livré, version 160 |
+| 2 | Lecture au toucher bref, bulle de lecture unique, choix du jour par boutons sans glissement, voies allégées | à faire |
+
 ## Hors cadre
 
 | Fonction | Ce qu'elle exigerait |
@@ -1114,3 +1126,4 @@ Les deux premières lignes se lèvent avec le même service dorsal minimal. Les 
 | 3 octobre 2026 | Version 158, jalon 20, lot 3 : sur le Soleil, la durée du jour, la clarté et la nuit noire passent en tête, au-dessus de la trajectoire ; sur la Lune, le temps au-dessus de l'horizon, l'âge et la lunaison aussi. Sur les Étoiles, la nuit noire, les nuages et la Lune de « Cette nuit » prennent le même format, un nom, une valeur, une précision ; une Lune gênante se teinte. Trois contrôles nouveaux, un adapté, erreurs volontaires 275 à 277 vues. Passe complète verte, 1108 contrôles |
 | 3 octobre 2026 | Version 159, jalon 20, lot 4 : la liste Heure par heure est refaite. La table de treize colonnes à défiler de côté laisse place à une carte par moment, ce matin, cet après-midi, ce soir, cette nuit, demain matin ; chaque heure tient une ligne, l'heure, le ciel, la température en grand, et la pluie en millimètres seulement quand il pleut. Toucher la ligne ouvre le ressenti, la rosée, le vent et sa direction, les rafales, l'humidité, le risque de pluie, l'indice UV et la pression. Quatre contrôles nouveaux, deux adaptés, erreurs volontaires 278 à 280 vues. Passe complète verte, 1110 contrôles. Le jalon 20 est livré |
 | 3 octobre 2026 | Décisions de Jérôme sur Heure par heure : le détail d'une heure garde tout, risque de pluie, indice UV et pression compris ; la ligne n'affiche la pluie que lorsqu'il pleut, un risque sans pluie mesurée reste dans le détail |
+| 3 octobre 2026 | Version 160, jalon 21, lot 1 : le ruban ne se sélectionne plus, l'appui long n'y ouvre plus la loupe ni le menu d'iOS. Minuit se trace dans chaque voie et ne traverse plus les titres ni les phrases. Un seul axe des heures, le bandeau du haut, au format « 03 h » ; les axes sous les voies disparaissent ; un libellé ne s'écrit que s'il tient entier. La phrase de la pluie, soupçonnée de ne pas suivre la fenêtre, était juste. Trois contrôles nouveaux, cinq adaptés, erreurs volontaires 281 à 283 vues. Passe complète verte, 1113 contrôles |

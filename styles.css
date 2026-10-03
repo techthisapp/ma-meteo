@@ -2486,8 +2486,11 @@ button.rangee:active{background:var(--surface-2)}
 /* Le découpage par jour du ruban, le 28 septembre 2026 : le bandeau collant du
    jour et des heures, et le trait continu de minuit, derrière les voies. */
 .mg{position:relative;isolation:isolate}
-.mg-minuits{position:absolute;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none}
 .mg-mp{stroke:var(--etiquette);stroke-width:1.5;opacity:.45}
+/* Le ruban se touche, il ne se sélectionne pas : un appui long y ouvrait la
+   loupe, les poignées et le menu « Copier » d'iOS, relevés dans le simulateur
+   le 3 octobre 2026. */
+.mg,.mg *,.mg-bandeau,.mg-bandeau *,.mg-nav{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .mg-bandeau{
   position:sticky;top:calc(env(safe-area-inset-top, 0px) + var(--nav-haut));z-index:3;
   background:var(--surface);box-shadow:0 1px 0 var(--filet-clair);

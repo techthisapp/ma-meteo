@@ -38,21 +38,22 @@ export default async T => {
     const g = getComputedStyle(v.querySelector(".mg-ici-g")).strokeWidth;
     const t = getComputedStyle(v.querySelector(".mg-ici")).strokeWidth;
     if (parseFloat(g) <= parseFloat(t)) return `gaine ${g} contre trait ${t}`;
-    return document.querySelector(".mg-a .mg-ici-p") ? "" : "aucune pastille sur l'axe";
+    return document.querySelector(".mg-bd .mg-ici-p") ? "" : "aucune pastille sur l'axe";
   }) === "");
   ok("la fenêtre porte vingt-quatre heures", await pg.evaluate(`(() => {
-  const a = document.querySelector(".mg-a");
+  const a = document.querySelector(".mg-bd");
   const c = ${CADRE}(a);
-  const t = [...a.querySelectorAll("text")].filter(e => {
+  const t = [...a.querySelectorAll("text.mg-bh")].filter(e => {
     const x = e.getBoundingClientRect().left;
     return x >= c.gauche - 1 && x <= c.droite;
   }).map(e => e.textContent);
-  // Un montant toutes les six heures : quatre ou cinq dans vingt-quatre heures.
-  return t.length >= 4 && t.length <= 5 ? "" : t.length + " montants : " + t.join("/");
+  /* Une heure toutes les trois heures, minuit portant le nom du jour : six à
+     huit dans vingt-quatre heures, selon les bords. */
+  return t.length >= 6 && t.length <= 8 ? "" : t.length + " heures : " + t.join("/");
 })()`) === "", await pg.evaluate(`(() => {
-  const a = document.querySelector(".mg-a");
+  const a = document.querySelector(".mg-bd");
   const c = ${CADRE}(a);
-  return [...a.querySelectorAll("text")].filter(e => {
+  return [...a.querySelectorAll("text.mg-bh")].filter(e => {
     const x = e.getBoundingClientRect().left;
     return x >= c.gauche - 1 && x <= c.droite;
   }).map(e => e.textContent).join("/");

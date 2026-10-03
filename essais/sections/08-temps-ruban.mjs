@@ -23,7 +23,7 @@ export default async T => {
   const uv = (await pg.locator('.mg-v[data-cle="uv"]').innerText());
   ok("l'indice UV porte son maximum et le mot qui le qualifie",
     /7[,.\d]*\s*au plus, (faible|modéré|élevé|très élevé|extrême)/.test(uv), uv.split("\n")[0]);
-  ok("l'axe des heures est posé", await pg.locator(".mg-a text").count() >= 3);
+  ok("l'axe des heures est posé", await pg.locator(".mg-bd .mg-bh").count() >= 3);
 
   /* Le ciel ouvre la pile, et sa bande de symboles ne se mérite pas : c'est le
      dessin qu'on lit en un coup d'œil, il paraît replié comme déplié. L'axe le
@@ -44,9 +44,11 @@ export default async T => {
     const haut = Math.min(...lames.map(e => e.getBoundingClientRect().top));
     return haut >= bas - 1 ? "" : `chevauchement de ${(bas - haut).toFixed(1)} points`;
   }) === "", String(await pg.locator('.mg-v[data-cle="nua"] svg.mg-ic').count()));
-  ok("l'axe des heures suit la bande du ciel",
-    await pg.locator('.mg-v[data-cle="nua"] .mg-a text').count() >= 3,
-    String(await pg.locator('.mg-v[data-cle="nua"] .mg-a text').count()));
+  /* Depuis le 3 octobre 2026, un seul axe : le bandeau collant en tête du
+     ruban. Les axes sous les voies écrivaient les heures autrement. */
+  ok("un seul axe des heures, en tête du ruban, aucune voie n'en porte",
+    await pg.locator(".mg-v .mg-a, .mg-a").count() === 0 && await pg.locator(".mg-bd .mg-bh").count() >= 3,
+    String(await pg.locator(".mg-a").count()));
   ok("aucun montant de lecture visible au repos", await pg.locator(".mg-cur:visible").count() === 0);
   const chVent = (await pg.locator('.mg-v[data-cle="v"]').locator("text.mg-g").allTextContents())
     .map(x => String(x ?? "").replace(/\s|km\/h/g, "")).filter(Boolean);

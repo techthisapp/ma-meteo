@@ -28,9 +28,8 @@ export default async T => {
   /* La pile fait cinq cents points et l'axe est tout en bas : une voie dépliée
      au milieu n'aurait plus de repère de temps. Trois axes en tout, celui du ciel
      en tête, celui de la voie dépliée, celui du pied de pile. */
-  ok("l'axe des heures se répète sous la voie dépliée",
-    await pg.locator('.mg-v[data-cle="t"] .mg-a').count() === 1
-    && await pg.locator(".mg-a").count() === 3,
+  ok("la voie dépliée ne répète pas l'axe des heures, le bandeau le porte seul",
+    await pg.locator(".mg-a").count() === 0,
     String(await pg.locator(".mg-a").count()));
   /* Les symboles et les valeurs occupent deux bandes distinctes : écrits au même
      niveau, les flèches du vent et les chiffres du vent se recouvraient. */

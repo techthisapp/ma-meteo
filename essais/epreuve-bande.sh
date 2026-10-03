@@ -880,6 +880,15 @@ case "$N" in
   280) # Le détail perd le ressenti.
      perl -0pi -e 's/  \["Ressenti", h => `\$\{Math\.round\(h\.res\)\}°`\],\n//' src/ecritures.js
      ATTENDU="toucher une heure ouvre le ressenti" ;;
+  281) # Le ruban redevient sélectionnable.
+     perl -0pi -e 's/\.mg,\.mg \*,\.mg-bandeau,\.mg-bandeau \*,\.mg-nav\{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none\}//' styles.css
+     ATTENDU="le ruban ne se sélectionne pas" ;;
+  282) # L'axe du haut écrit ses heures sans vérifier qu'elles tiennent.
+     perl -0pi -e 's/const heuresVues = graduations\.filter\(k => \{/const heuresVues = graduations.filter(k => { return true;/' src/ruban.js
+     ATTENDU="l'axe du haut n'écrit que des libellés entiers" ;;
+  283) # Minuit retraverse les titres.
+     perl -0pi -e 's/return `\$\{nav\}\$\{bandeau\}<div class="mg">\$\{voies\.join\(""\)\}<\/div>`;/return `\${nav}\${bandeau}<div class="mg"><svg class="mg-minuits" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none" viewBox="0 0 \${L} 1000" preserveAspectRatio="none">\${minuits.map(k => `<line class="mg-mp" x1="\${X(k)}" y1="0" x2="\${X(k)}" y2="1000"\/>`).join("")}<\/svg>\${voies.join("")}<\/div>`;/' src/ruban.js
+     ATTENDU="le trait de minuit ne traverse ni les titres" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

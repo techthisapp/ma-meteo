@@ -79,7 +79,6 @@ const H_TEMP = 66;   // amplitude réservée à la température dans sa voie
    vent et les chiffres du vent se recouvraient. */
 const H_SYM = 15;
 const H_VAL = 12;
-const H_AXE = 13;    // l'axe des heures, sous une voie dépliée
 const MIN_BANDE = 60; // hauteur en deçà de laquelle la bande mangerait le tracé
 
 let voieOuverte = null;
@@ -220,11 +219,6 @@ export function dessiner(s) {
     if (s.heure[k] % 6 !== 0) continue;
     montants.push([k, s.heure[k] === 0 ? jourCourt(s.jour[k]) : heureTxt(s.heure[k])]);
   }
-  /* Le libellé que la pastille de l'heure en cours recouvrirait est écarté :
-     l'axe porte une graduation toutes les six heures, il en perd une sans
-     dommage, et deux marques à la même abscisse ne se lisent ni l'une ni
-     l'autre. */
-  const surIci = k => Math.abs(k - s.ici) < 1.6;
 
   /* La nuit est lavée sur les sept voies, sans exception. Présente sur quatre
      d'entre elles et absente des trois autres, elle se lisait comme un
@@ -241,11 +235,12 @@ export function dessiner(s) {
       o += `<rect class="mg-nuit" x="${u(X(a))}" y="${u(y0)}" `
         + `width="${u(X(b + 1) - X(a))}" height="${u(hl)}"/>`;
     }
-    /* Minuit n'a plus de pointillé dans chaque voie : un trait continu le
-       porte sur toute la hauteur de la pile, depuis le 28 septembre 2026. */
+    /* Minuit se trace dans chaque voie, plus marqué que les autres
+       montants. Le trait continu posé derrière toute la pile, du 28 septembre
+       2026, traversait aussi les titres et les phrases : relevé dans le
+       simulateur le 3 octobre 2026, il s'arrête désormais aux tracés. */
     for (const [k] of montants) {
-      if (s.heure[k] === 0) continue;
-      o += `<line class="mg-mont" x1="${u(X(k))}" `
+      o += `<line class="${s.heure[k] === 0 ? "mg-mp" : "mg-mont"}" x1="${u(X(k))}" `
         + `y1="${u(y0)}" x2="${u(X(k))}" y2="${u(y1)}"/>`;
     }
     return o;
@@ -541,29 +536,6 @@ export function dessiner(s) {
       + `<rect x="${M}" y="-4" width="${P}" height="${u(haut + 8)}"/></clipPath></defs>`];
   };
 
-  /* L'axe des heures, aux abscisses exactes des montants. Il glisse avec le
-     dessin, sans quoi les heures écrites ne diraient plus celles tracées. */
-  const axeSvg = () => {
-    const [id, defs] = cadre(H_AXE);
-    const marque = s.ici > dec && s.ici >= kA && s.ici <= kB
-      ? `<circle class="mg-ici-p" cx="${u(X(s.ici))}" cy="5.5" r="2.8"/>` : "";
-    return `<svg class="mg-a" viewBox="0 0 ${L} ${H_AXE}" aria-hidden="true">${defs}`
-      /* La découpe est portée par un groupe fixe, la translation par le groupe
-         intérieur. Posée sur le groupe qui glisse, la découpe glissait avec
-         lui : pendant le geste, la fenêtre découvrait la réserve de gauche
-         jusque dans la marge et tranchait celle de droite, qui ne paraissait
-         qu'au lâcher. Relevé sur l'appareil le 24 septembre 2026. */
-      + `<g clip-path="url(#${id})"><g class="mg-mob">`
-      /* Un libellé à cheval sur le bord gauche est tranché par la découpe et se
-         lit alors « h » pour « 18 h ». Il est écarté : celui d'à côté suit six
-         heures plus loin, l'axe n'y perd rien. Ceux qui tombent entièrement hors
-         du cadre sont gardés, c'est la réserve que le glissement découvre. */
-      + montants.filter(([k, lib]) => !(marque && surIci(k))
-        && !(X(k) + 2 < M && X(k) + 2 + lib.length * 5.6 > M)).map(([k, lib]) =>
-        `<text class="mg-c" x="${u(X(k) + 2)}" y="9">${esc(lib)}</text>`).join("")
-      + marque + `</g></g></svg>`;
-  };
-
   /* La hauteur dépliée est propre à la voie. L'agrandissement vaut pour une
      courbe, qui gagne du relief, il ne donne rien à une bande de densité, qui
      reste plate qu'elle fasse quarante ou cent dix points. */
@@ -574,7 +546,7 @@ export function dessiner(s) {
   const voies = [];
   let n = 0;
 
-  const poser = (nom, droite, haut, dedans, resume, cle, axe) => {
+  const poser = (nom, droite, haut, dedans, resume, cle) => {
     const dedansFixe = fixe;
     prises = []; fixe = "";
     const val = `<span class="mg-r" data-plage="${esc(droite)}">${esc(droite)}</span>`;
@@ -594,7 +566,7 @@ export function dessiner(s) {
       + `<button type="button" class="mg-t mg-b" data-voie="${esc(cle)}" aria-expanded="${g}"`
       + (resume ? ` aria-controls="${id}"` : "") + ">"
       + `<span class="mg-n">${esc(nom)}<i aria-hidden="true">${g ? "−" : "+"}</i></span>`
-      + `${val}</button>${dessin}${g || axe ? axeSvg() : ""}${bas}</div>`);
+      + `${val}</button>${dessin}${bas}</div>`);
   };
 
   /* Les phrases de résumé. Un fait tiré de la série, non une notice : « Écran
@@ -676,7 +648,7 @@ export function dessiner(s) {
       bascule < 0
         ? `Ciel ${motDe("nua", w.nua[0])} sur toute la fenêtre.`
         : `Ciel ${motDe("nua", w.nua[0])} jusqu'à ${HJ(bascule)}, `
-          + `${motDe("nua", s.nua[bascule])} ensuite.`, cle, true);
+          + `${motDe("nua", s.nua[bascule])} ensuite.`, cle);
   }
 
   // ---- 2. Température, ressenti et point de rosée ----
@@ -1013,29 +985,37 @@ export function dessiner(s) {
   }
   const H_BANDEAU = 34;
   const [idB, defsB] = cadre(H_BANDEAU);
-  /* Le jour du bord gauche est écrit à la marge, hors du groupe mobile, sauf si
-     un minuit tombe tout près : son propre nom prend alors la place. */
-  const premier = minuits.find(k => X(k) >= M);
-  const jourGauche = premier !== undefined && X(premier) - M < 118 ? ""
-    : `<text class="mg-bj" x="${u(M + 2)}" y="13">${esc(jourBandeau(s.jour[dec]))}</text>`;
-  /* Quand le nom de la marge cède la place, le jour qui finit se nomme juste à
-     gauche du trait de minuit, s'il y tient : sans quoi la fin de soirée
-     d'hier restait anonyme. */
-  const avantMinuit = premier !== undefined && jourGauche === "" && X(premier) - M >= 44 && premier > 0
-    ? `<text class="mg-bj mg-bj-fin" x="${u(X(premier) - 4)}" y="13">${esc(jourBandeau(s.jour[premier - 1]))}</text>` : "";
+  /* L'axe unique du ruban depuis le 3 octobre 2026 : les axes posés sous
+     certaines voies écrivaient « dim » et « 06 h » là où le bandeau écrivait
+     « Demain » et « 3 h ». Les heures s'écrivent ici comme partout dans
+     l'application, « 03 h ». Un libellé ne s'écrit que s'il tient entier dans
+     le cadre : coupé au bord, il se lisait « 2 h » ou « Lundi 5 ». Les
+     largeurs sont estimées d'après la taille des caractères. */
+  const dedansCadre = (x0, x1) => x0 >= M - 0.5 && x1 <= M + P + 0.5;
+  const LJ = t => t.length * 6.9, LH = t => t.length * 5.4;
+  const minuitsVus = minuits.filter(k => X(k) >= M && X(k) <= M + P);
+  const nomsMinuit = minuitsVus.filter(k => dedansCadre(X(k) + 4, X(k) + 4 + LJ(jourBandeau(s.jour[k]))));
+  /* Le jour du bord gauche est écrit à la marge, sauf si le nom d'un minuit
+     tombe trop près pour que les deux tiennent. */
+  const nomGauche = jourBandeau(s.jour[dec]);
+  const premier = nomsMinuit[0];
+  const gaucheTient = premier === undefined || X(premier) - M >= LJ(nomGauche) + 10;
+  const jourGauche = !gaucheTient || (premier !== undefined && X(premier) - M < 1) ? ""
+    : `<text class="mg-bj" x="${u(M + 2)}" y="13">${esc(nomGauche)}</text>`;
+  const heuresVues = graduations.filter(k => {
+    const t = heureTxt(s.heure[k]), x0 = X(k) - LH(t) / 2, x1 = X(k) + LH(t) / 2;
+    return dedansCadre(x0, x1);
+  });
+  const ici = s.ici >= dec && s.ici < dec + FEN
+    ? `<circle class="mg-ici-p" cx="${u(X(s.ici))}" cy="${H_BANDEAU - 3}" r="2.8"/>` : "";
   const bandeau = `<div class="mg-bandeau"><svg class="mg-bd" viewBox="0 0 ${L} ${H_BANDEAU}" aria-hidden="true">${defsB}`
     + `<g clip-path="url(#${idB})"><g class="mg-mob">`
-    + minuits.map(k => `<line class="mg-bm" x1="${u(X(k))}" y1="0" x2="${u(X(k))}" y2="${H_BANDEAU}"/>`
-      + `<text class="mg-bj" x="${u(X(k) + 4)}" y="13">${esc(jourBandeau(s.jour[k]))}</text>`).join("")
-    + graduations.map(k => `<line class="mg-bt" x1="${u(X(k))}" y1="${H_BANDEAU - 7}" x2="${u(X(k))}" y2="${H_BANDEAU}"/>`
-      + `<text class="mg-bh" x="${u(X(k))}" y="${H_BANDEAU - 10}">${s.heure[k]} h</text>`).join("")
-    + avantMinuit + `</g></g>${jourGauche}</svg></div>`;
-  const [idM, defsM] = cadre(1000);
-  const traits = `<svg class="mg-minuits" viewBox="0 0 ${L} 1000" preserveAspectRatio="none" aria-hidden="true">${defsM}`
-    + `<g clip-path="url(#${idM})"><g class="mg-mob">`
-    + minuits.map(k => `<line class="mg-mp" x1="${u(X(k))}" y1="0" x2="${u(X(k))}" y2="1000" vector-effect="non-scaling-stroke"/>`).join("")
-    + `</g></g></svg>`;
-  return `${nav}${bandeau}<div class="mg">${traits}${voies.join("")}</div>${axeSvg()}`;
+    + minuitsVus.map(k => `<line class="mg-bm" x1="${u(X(k))}" y1="0" x2="${u(X(k))}" y2="${H_BANDEAU}"/>`).join("")
+    + nomsMinuit.map(k => `<text class="mg-bj" x="${u(X(k) + 4)}" y="13">${esc(jourBandeau(s.jour[k]))}</text>`).join("")
+    + heuresVues.map(k => `<line class="mg-bt" x1="${u(X(k))}" y1="${H_BANDEAU - 7}" x2="${u(X(k))}" y2="${H_BANDEAU}"/>`
+      + `<text class="mg-bh" x="${u(X(k))}" y="${H_BANDEAU - 10}">${heureTxt(s.heure[k])}</text>`).join("")
+    + ici + `</g></g>${jourGauche}</svg></div>`;
+  return `${nav}${bandeau}<div class="mg">${voies.join("")}</div>`;
 }
 
 /* Lecture au doigt. Le montant est posé dès le dessin, replié : le faire naître

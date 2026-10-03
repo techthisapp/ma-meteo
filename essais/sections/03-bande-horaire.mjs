@@ -679,21 +679,23 @@ export default async T => {
       colle: cs ? cs.position === "sticky" && parseFloat(cs.top) >= 44 : false,
       jours: b ? [...b.querySelectorAll(".mg-bj")].map(t => t.textContent) : [],
       heures: b ? [...b.querySelectorAll(".mg-bh")].map(t => t.textContent) : [],
-      mobiles: document.querySelectorAll("#ecran .mg-bandeau .mg-mob, #ecran .mg-minuits .mg-mob").length,
-      traits: document.querySelectorAll("#ecran .mg-minuits .mg-mp").length,
+      mobiles: document.querySelectorAll("#ecran .mg-bandeau .mg-mob").length,
+      /* Depuis le 3 octobre 2026, minuit se trace dans chaque voie et s'arrête
+         aux tracés : le calque posé derrière la pile traversait les titres. */
+      traits: document.querySelectorAll("#ecran .mg-s .mg-mp").length,
+      voiesTracees: document.querySelectorAll("#ecran .mg-s").length,
+      calque: document.querySelectorAll("#ecran .mg-minuits").length,
       pointilles: document.querySelectorAll("#ecran .mg-s .mg-minuit").length,
-      pile: (() => { const m = document.querySelector("#ecran .mg"), t = document.querySelector("#ecran .mg-minuits");
-        return m && t ? Math.round(t.getBoundingClientRect().height) === Math.round(m.getBoundingClientRect().height) : false; })(),
     };
   });
   await pg.evaluate(() => history.back());
   await pg.waitForTimeout(500);
   ok("la page des heures s'appelle « Heure par heure »", hph.titre === "Heure par heure", hph.titre);
   ok("un bandeau collant porte le jour et les heures, et glisse avec le ruban",
-    hph.colle && hph.jours.some(j => /^(Aujourd'hui|Demain|Hier)$/.test(j)) && hph.heures.includes("12 h") && hph.mobiles === 2,
+    hph.colle && hph.jours.some(j => /^(Aujourd'hui|Demain|Hier)$/.test(j)) && hph.heures.includes("12 h") && hph.mobiles === 1,
     JSON.stringify(hph));
-  ok("un trait continu marque minuit sur toute la pile, sans pointillé dans chaque voie",
-    hph.traits >= 1 && hph.pile && hph.pointilles === 0, JSON.stringify(hph));
+  ok("minuit se trace dans chaque voie dessinée, sans calque qui traverse les titres",
+    hph.traits >= hph.voiesTracees && hph.voiesTracees >= 1 && hph.calque === 0 && hph.pointilles === 0, JSON.stringify(hph));
   /* Jalon 14, lot 1 : la semaine du lundi au dimanche, les mêmes dates d'une
      autre année, et le bilan avec sa phrase. */
   const cmpPur = await pg.evaluate(async () => {
