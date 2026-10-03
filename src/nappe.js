@@ -225,6 +225,35 @@ export function couche(champ, teinte) {
   return { S, N, O, E, cols: COLS, teinte, valeurA: (lat, lon) => valeurA(champ, lat, lon) };
 }
 
+/* Les isolignes d'un champ à un niveau, par la méthode des carrés : sur chaque
+   maille, les bords que la ligne traverse, interpolés. Rend des segments
+   `[lat, lon, lat, lon]`. Jalon 19, lot 5 : les isobares de la pression, le
+   trait de zéro degré du gel. */
+export function isolignes(champ, niveau) {
+  const seg = [];
+  if (!champ) return seg;
+  const v = (r, c) => champ[r * COLS + c];
+  const lat = r => S + r * PAS_LAT, lon = c => O + c * PAS_LON;
+  for (let r = 0; r < RANGS - 1; r++) {
+    for (let c = 0; c < COLS - 1; c++) {
+      const coins = [[r, c], [r, c + 1], [r + 1, c + 1], [r + 1, c]];
+      const val = coins.map(([a, b]) => v(a, b));
+      if (val.some(x => !Number.isFinite(x))) continue;
+      const pts = [];
+      for (let k = 0; k < 4; k++) {
+        const a = val[k], b = val[(k + 1) % 4];
+        if ((a < niveau) === (b < niveau)) continue;
+        const t = (niveau - a) / (b - a);
+        const [r0, c0] = coins[k], [r1, c1] = coins[(k + 1) % 4];
+        pts.push([lat(r0 + (r1 - r0) * t), lon(c0 + (c1 - c0) * t)]);
+      }
+      if (pts.length >= 2) seg.push([...pts[0], ...pts[1]]);
+      if (pts.length === 4) seg.push([...pts[2], ...pts[3]]);
+    }
+  }
+  return seg;
+}
+
 /* Les bornes d'un champ, pour la légende. */
 export function bornes(champ) {
   let mn = Infinity, mx = -Infinity;

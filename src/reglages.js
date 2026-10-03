@@ -362,7 +362,11 @@ export function poserCiel(e) {
    deux cas la pluie s'allume et la nappe reste absente. */
 /* Les restrictions d'eau, VigiEau, rejoignent les nappes le 30 septembre
    2026 : elles teintent tout un département, comme un étalement. */
-export const NAPPES = ["temp", "uv", "air", "eau"];
+/* Les nappes de la grille prévue rejoignent la liste le 3 octobre 2026, jalon
+   19, lot 5 : oubliées ici, elles se peignaient sans que le choix soit gardé
+   d'une ouverture à l'autre. */
+export const NAPPES = ["temp", "uv", "air", "eau", "ventmoy", "rafales", "pluie24", "neige24", "limite", "pression",
+  "gel", "cielnuit", "brouillard"];
 export const nappe = () => (NAPPES.includes(etat.nappe) ? etat.nappe : null);
 export function poserNappe(v) { poser({ nappe: NAPPES.includes(v) ? v : null }); }
 

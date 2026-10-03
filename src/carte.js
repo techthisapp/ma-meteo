@@ -19,6 +19,7 @@
 
 import { contours, anneauxDe, codesDepartements } from "./geographie.js";
 import * as Fond from "./fond.js";
+import { isolignes as NappeIso } from "./nappe.js";
 
 /* La projection vit dans src/projection.js, que la pluie dans l'heure charge
    dès le lancement ; elle est réexportée ici pour les modules de la carte. */
@@ -363,6 +364,59 @@ export function peindreNappe(ctx, vue, l, h, couche, style = {}) {
   ctx.drawImage(tramePot, x0, y0, x1 - x0, y1 - y0);
   ctx.restore();
   return 1;
+}
+
+/* Les isolignes d'une nappe, jalon 19, lot 5 : un trait par niveau, et le
+   niveau écrit une fois, au plus près du centre de la vue. `niveaux` est une
+   liste, ou se tire d'un pas et d'une base dans les bornes du champ. Rend le
+   nombre de traits posés. */
+export const derniersTraits = { n: 0, niveaux: [] };
+export function peindreIsolignes(ctx, vue, l, h, champ, regle, style = {}) {
+  if (!champ) return 0;
+  let niveaux = regle.niveaux;
+  if (!niveaux) {
+    let mn = Infinity, mxv = -Infinity;
+    for (const x of champ) if (Number.isFinite(x)) { if (x < mn) mn = x; if (x > mxv) mxv = x; }
+    niveaux = [];
+    if (mn <= mxv) {
+      for (let v = regle.base + Math.ceil((mn - regle.base) / regle.pas) * regle.pas; v <= mxv; v += regle.pas) niveaux.push(v);
+    }
+  }
+  const e = echelle(vue.z), cx = mx(vue.lon), cy = my(vue.lat);
+  const X = lon => (mx(lon) - cx) * e + l / 2, Y = lat => (my(lat) - cy) * e + h / 2;
+  let n = 0;
+  const poses = [];
+  ctx.save();
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  for (const niv of niveaux) {
+    const segs = NappeIso(champ, niv);
+    if (!segs.length) continue;
+    ctx.beginPath();
+    let mieux = null;
+    for (const [la0, lo0, la1, lo1] of segs) {
+      const x0 = X(lo0), y0 = Y(la0), x1 = X(lo1), y1 = Y(la1);
+      ctx.moveTo(x0, y0); ctx.lineTo(x1, y1);
+      const xm = (x0 + x1) / 2, ym = (y0 + y1) / 2;
+      if (xm < 30 || xm > l - 30 || ym < 20 || ym > h - 20) continue;
+      const d = Math.hypot(xm - l / 2, ym - h / 2);
+      if (!mieux || d < mieux.d) mieux = { d, x: xm, y: ym };
+    }
+    ctx.strokeStyle = style.halo || "#fff"; ctx.globalAlpha = 0.6; ctx.lineWidth = (style.epais || 1.2) + 2;
+    ctx.stroke();
+    ctx.strokeStyle = style.trait || "#334"; ctx.globalAlpha = 1; ctx.lineWidth = style.epais || 1.2;
+    ctx.stroke();
+    if (mieux) poses.push({ ...mieux, t: `${Math.round(niv)}${style.unite || ""}` });
+    n++;
+  }
+  ctx.font = "600 11px -apple-system, system-ui, sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  for (const p of poses) {
+    ctx.strokeStyle = style.halo || "#fff"; ctx.lineWidth = 3; ctx.strokeText(p.t, p.x, p.y);
+    ctx.fillStyle = style.trait || "#334"; ctx.fillText(p.t, p.x, p.y);
+  }
+  ctx.restore();
+  derniersTraits.n = n; derniersTraits.niveaux = niveaux;
+  return n;
 }
 
 /* Une teinte de roue en composantes, à saturation et clarté données : celles de

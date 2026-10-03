@@ -15,6 +15,7 @@ import * as Feux from "../feux.js";
 import * as NappeCarte from "../nappe.js";
 import * as Vent from "../vent.js";
 import * as Vig from "../vigilance.js";
+import * as Prevue from "../prevue.js";
 import { NAPPES_CARTE } from "./carte-gabarit.js";
 import { couchePluie } from "./carte-chronologie.js";
 
@@ -33,7 +34,11 @@ export function brancherCouches(E) {
      celle de la qualité de l'air pour la quatrième. Les deux se posent sur
      les mêmes points et se peignent de la même façon ; seule la lecture
      diffère. */
-  const grilleDe = n => (n && n.source === "air" ? E.mesuresAir : E.mesures);
+  /* Depuis la version 149, une troisième grille, la prévue, sert les nappes
+     du jalon 19, lot 5 : sa vue de l'heure choisie porte chaque champ. */
+  const grilleDe = n => (!n ? E.mesures : n.source === "air" ? E.mesuresAir
+    : n.source === "prevue" ? E.prevueVue : E.mesures);
+  E.grilleDe = grilleDe;
   const coucheValeur = (c, v, l, h) => {
     const n = NAPPES_CARTE.find(x => x.cle === E.choisie && x.champ);
     const g = grilleDe(n);
@@ -41,6 +46,13 @@ export function brancherCouches(E) {
     const posees = Carte.peindreNappe(c, v, l, h,
       NappeCarte.couche(g[n.champ], n.teinte),
       { opacite: 0.62, sat: n.sat, clarte: n.clarte });
+    /* Les isolignes, par-dessus la nappe : les isobares, le trait du gel. */
+    if (n.isolignes) {
+      const cs = getComputedStyle(cv);
+      Carte.peindreIsolignes(c, v, l, h, g[n.champ], n.isolignes, { unite: n.unite === "°" ? "°" : "",
+        trait: cs.getPropertyValue("--etiquette").trim() || "#2b3542", halo: cs.getPropertyValue("--ca-fond").trim() || "#fff",
+        epais: n.cle === "gel" ? 2 : 1.1 });
+    }
     /* Les tuiles de l'indice officiel se posent par-dessus l'interpolation,
        sur la France seule : elles y séparent bien mieux les zones, et
        l'interpolation garde le reste de l'Europe. */
@@ -168,6 +180,22 @@ export function brancherCouches(E) {
     }
   };
 
+  /* La grille prévue, trente-six heures, lue à la première nappe qui en vit. */
+  const lirePrevue = async () => {
+    try {
+      E.dire("Lecture de la prévision de la carte…");
+      const d = await Prevue.charger();
+      if (!cv.isConnected) return;
+      if (!d) { E.dire("La nappe a besoin du réseau."); return; }
+      E.prevue = d;
+      E.prevueVue = Prevue.vue(d, E.heurePrevue || 0);
+      E.dire("");
+      E.revoir();
+    } catch {
+      if (cv.isConnected) E.dire("La nappe a besoin du réseau.");
+    }
+  };
+
   const lireAir = async () => {
     try {
       const d = await NappeCarte.chargerAir();
@@ -212,6 +240,7 @@ export function brancherCouches(E) {
     if (n) {
       if (grilleDe(n)) E.revoir();
       else if (n.source === "air") lireAir();
+      else if (n.source === "prevue") lirePrevue();
       else lireMesures();
       return;
     }
@@ -320,6 +349,7 @@ export function brancherCouches(E) {
       const auDepart = NAPPES_CARTE.find(n => n.cle === E.choisie && n.champ);
       if ((auDepart && !auDepart.source) || E.ventAllume) lireMesures();
       if (auDepart && auDepart.source === "air") lireAir();
+      if (auDepart && auDepart.source === "prevue") lirePrevue();
       if (E.vigiAllume) lireVigi();
     },
   };

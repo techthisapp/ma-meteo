@@ -7,6 +7,39 @@ import { ico, teinteT, couleurT, teinteUV, satUV, clarteUV, couleurUV, teinteAQI
 import * as Reglages from "../reglages.js";
 import * as Villes from "../villes.js";
 
+/* Une rampe de nappe à partir d'arrêts `[valeur, teinte]` : la teinte en
+   degrés de roue pour la toile, la couleur écrite pour la légende. Hors de
+   `[seuil, plafond]`, rien ne se peint : une pluie de zéro, une visibilité de
+   dix kilomètres n'ont pas de couleur. Jalon 19, lot 5. */
+const rampeTeinte = (arrets, v) => {
+  if (v <= arrets[0][0]) return arrets[0][1];
+  for (let k = 0; k < arrets.length - 1; k++) {
+    const [a0, h0] = arrets[k], [a1, h1] = arrets[k + 1];
+    if (v <= a1) return h0 + ((v - a0) / (a1 - a0)) * (h1 - h0);
+  }
+  return arrets[arrets.length - 1][1];
+};
+const rampe = (arrets, { sat = 0.55, clarte = 0.48, seuil = -Infinity, plafond = Infinity } = {}) => ({
+  teinte: v => (v === null || !Number.isFinite(v) || v < seuil || v > plafond ? null : rampeTeinte(arrets, v)),
+  couleur: v => `hsl(${rampeTeinte(arrets, v).toFixed(0)} ${Math.round((typeof sat === "function" ? sat(v) : sat) * 100)}% `
+    + `${Math.round((typeof clarte === "function" ? clarte(v) : clarte) * 100)}%)`,
+  sat, clarte,
+});
+const R_VENT = rampe([[0, 200], [15, 170], [30, 110], [50, 50], [75, 15], [100, 320]]);
+const R_PLUIE = rampe([[0.3, 195], [3, 215], [10, 240], [25, 275], [50, 310]], { seuil: 0.3, sat: 0.6, clarte: 0.5 });
+const R_NEIGE = rampe([[0.2, 195], [2, 210], [10, 235], [25, 265], [50, 290]], { seuil: 0.2, sat: 0.45, clarte: 0.62 });
+const R_LIMITE = rampe([[0, 280], [600, 240], [1200, 200], [1800, 150], [2500, 90], [3500, 40]], { sat: 0.5 });
+const R_PRESSION = rampe([[985, 275], [1000, 225], [1013, 160], [1025, 70], [1040, 25]], { sat: 0.42, clarte: 0.52 });
+const R_GEL = rampe([[-10, 250], [-4, 225], [0, 200], [4, 160], [10, 90], [18, 30]], { sat: 0.55, clarte: 0.5 });
+/* Le ciel de la nuit : bleu nuit franc sous un ciel dégagé, gris clair sous un
+   ciel couvert. La saturation et la clarté suivent la couverture. */
+const R_CIEL = rampe([[0, 228], [100, 215]], { sat: v => 0.6 - 0.55 * Math.min(1, v / 100), clarte: v => 0.32 + 0.5 * Math.min(1, v / 100) });
+const R_BROUILLARD = rampe([[100, 265], [5000, 230]], { plafond: 5000, sat: 0.18,
+  clarte: v => 0.5 + 0.3 * Math.min(1, Math.max(0, (v - 100) / 4900)) });
+const prevue = (cle, id, nom, tuile, ico, porte, champ, r, arrets, unite, plus = {}) =>
+  ({ cle, id, nom, tuile, ico, porte, champ, source: "prevue", teinte: r.teinte, couleur: r.couleur,
+    sat: r.sat, clarte: r.clarte, arrets, unite, ...plus });
+
 /* Les nappes de la carte, exclusives entre elles. Ce sont des étalements de
    couleur sur toute la surface : deux superposés ne se liraient ni l'un ni
    l'autre. La vigilance n'entre pas dans cette liste, elle ne teinte que les
@@ -47,6 +80,24 @@ export const NAPPES_CARTE = [
     champ: "aqi", source: "air", teinte: teinteAQI, sat: 0.58, clarte: 0.46,
     arrets: [0, 20, 40, 60, 80], unite: "", couleur: couleurAQI, officiel: true,
     credit: "Qualité de l'air Copernicus" },
+  /* La grille prévue, jalon 19, lot 5 : `src/prevue.js`. */
+  prevue("ventmoy", "caVentMoy", "Vent moyen", "Vent moyen", "vent", "maintenant", "vent", R_VENT,
+    [0, 15, 30, 50, 75], " km/h"),
+  prevue("rafales", "caRafales", "Rafales", null, "vent", "maintenant", "rafales", R_VENT, [0, 25, 50, 75, 100], " km/h"),
+  prevue("pluie24", "caPluie24", "Pluie sur 24 h", "Pluie 24 h", "goutte", "cumul prévu", "pluie24", R_PLUIE,
+    [0.3, 3, 10, 25, 50], " mm"),
+  prevue("neige24", "caNeige24", "Neige sur 24 h", "Neige 24 h", "neige", "cumul prévu", "neige24", R_NEIGE,
+    [0.2, 2, 10, 25, 50], " cm"),
+  prevue("limite", "caLimite", "Limite pluie-neige", "Limite neige", "neige", "au plus bas sur 24 h", "limite", R_LIMITE,
+    [0, 600, 1200, 2500, 3500], " m"),
+  prevue("pression", "caPression", "Pression", null, "jauge", "maintenant", "pression", R_PRESSION,
+    [985, 1000, 1013, 1025, 1040], " hPa", { isolignes: { pas: 4, base: 1012 } }),
+  prevue("gel", "caGel", "Gel de la nuit", "Gel nuit", "thermo", "minimum de 18 h à 10 h", "gel", R_GEL,
+    [-10, -4, 0, 4, 10], "°", { isolignes: { niveaux: [0] } }),
+  prevue("cielnuit", "caCielNuit", "Ciel de la nuit", "Ciel nuit", "lune", "couverture de 22 h à 2 h", "cielNuit", R_CIEL,
+    [0, 25, 50, 75, 100], " %"),
+  prevue("brouillard", "caBrouillard", "Brouillard du matin", "Brouillard", "brume", "visibilité de 5 h à 10 h", "brouillard",
+    R_BROUILLARD, [100, 500, 1000, 2000, 5000], " m"),
 ];
 
 /* Le document de la carte : les deux toiles, les repères, les outils, le

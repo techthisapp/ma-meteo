@@ -748,6 +748,24 @@ case "$N" in
   236) # Un nom vide ne rend plus le nom de la commune.
      perl -0pi -e 's/  const propre = n && n !== l\.commune \? n : null;/  const propre = n ?? l.nom;/' src/reglages.js
      ATTENDU="un lieu se renomme, sa commune restant écrite dessous, et un nom vide rend celui de la commune" ;;
+  237) # La nuit en cours compte jusqu'à 10 h.
+     perl -0pi -e 's/  if \(h\[0\] < 6\) \{/  if (h[0] < 10) {/' src/prevue.js
+     ATTENDU="les champs fixes se tirent des bonnes fenêtres" ;;
+  238) # Les isobares perdent leur pas.
+     perl -0pi -e 's/v <= mxv; v \+= regle\.pas\)/v <= mxv; v += regle.pas \/ 2)/' src/carte.js
+     ATTENDU="la pression se peint avec ses isobares tous les quatre hectopascals" ;;
+  239) # La grille prévue se relit à chaque nappe.
+     perl -0pi -e 's/  if \(garde && t < garde\.exp\) return garde\.d;\n  let d = null;\n  try \{\n    const r = await \(fetcheur/  let d = null;\n  try {\n    const r = await (fetcheur/' src/prevue.js
+     ATTENDU="le gel trace le zéro degré, et la pluie, la neige et le brouillard tombent où la grille les met" ;;
+  240) # La légende perd son unité.
+     perl -0pi -e 's/\$\{longue \? ` \(\$\{n\.unite\.trim\(\)\}\)` : ""\}/""/' src/vues/carte-legende.js
+     ATTENDU="la pression se peint avec ses isobares tous les quatre hectopascals" ;;
+  241) # La limite pluie-neige prend l'isotherme zéro.
+     perl -0pi -e 's/Math\.min\(\.\.\.xs\) - 300\)/Math.min(...xs))/' src/prevue.js
+     ATTENDU="les champs fixes se tirent des bonnes fenêtres" ;;
+  242) # Les réglages oublient les nappes prévues.
+     perl -0pi -e 's/export const NAPPES = \["temp", "uv", "air", "eau", "ventmoy",/export const NAPPES = ["temp", "uv", "air", "eau", "xventmoy",/' src/reglages.js
+     ATTENDU="toute nappe du panneau est gardée par les réglages" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

@@ -444,6 +444,34 @@ export const amorce = reglages => `{
    descend du sud au nord et monte vers l'est, ce qui donne une nappe dont
    l'ordre se vérifie ; le vent et l'indice ultraviolet suivent le même
    principe. */
+export function prevueCorps(u) {
+  const q = new URL(u).searchParams;
+  const lats = decodeURIComponent(q.get("latitude")).split(",").map(Number);
+  const lons = decodeURIComponent(q.get("longitude")).split(",").map(Number);
+  const t0 = Date.parse("2026-08-18T07:00:00Z") / 1000;
+  const time = Array.from({ length: 36 }, (_, k) => t0 + k * 3600);
+  const hp = k => (9 + k) % 24;
+  const nuit = k => hp(k) >= 20 || hp(k) < 7;
+  return lats.map((la, i) => {
+    const lo = lons[i];
+    const base = 32 - (la - 41) * 1.6 + lo * 0.25;
+    const vent = k => Math.round((6 + (la - 41) * 2.2 + k * 0.2) * 10) / 10;
+    return { latitude: la, longitude: lo, hourly: {
+      time,
+      temperature_2m: time.map((_, k) => Math.round((base - (nuit(k) ? 12 : 0) - (nuit(k) && la > 49 && lo > 5 ? 8 : 0)) * 10) / 10),
+      precipitation: time.map(() => (la > 48 && lo < 0 ? 1.2 : 0)),
+      snowfall: time.map(() => (la < 46 && lo > 6 ? 0.5 : 0)),
+      wind_speed_10m: time.map((_, k) => vent(k)),
+      wind_direction_10m: time.map(() => Math.round((200 + lo * 4) % 360)),
+      wind_gusts_10m: time.map((_, k) => Math.round(vent(k) * 18) / 10),
+      pressure_msl: time.map(() => Math.round((1000 + (la - 41) * 2.5) * 10) / 10),
+      cloud_cover: time.map(() => (lo < 2 ? 90 : 10)),
+      visibility: time.map((_, k) => (hp(k) >= 5 && hp(k) < 10 && la > 46 && la < 48 && lo > 2 && lo < 6 ? 300 : 20000)),
+      freezing_level_height: time.map(() => Math.round(3800 - (la - 41) * 150)),
+    } };
+  });
+}
+
 export function grilleCorps(u) {
   const q = new URL(u).searchParams;
   const lats = decodeURIComponent(q.get("latitude")).split(",").map(Number);
@@ -684,6 +712,16 @@ export const brancherFauxServices = async (c, etat) => {
       return;
     }
     if (u.includes("sunshine_duration")) { servirBeauTemps(u, route); return; }
+    /* La grille prévue de la carte, jalon 19, lot 5 : trente-six heures en
+       secondes Unix depuis 9 h, heure de Paris. De la pluie sur la Bretagne,
+       1,2 mm par heure ; de la neige sur les Alpes, 0,5 cm par heure ; du gel
+       la nuit dans le nord-est ; une pression qui monte de 1000 hPa au sud à
+       1026 au nord ; du brouillard au matin dans le centre-est. */
+    if (u.includes("timeformat=unixtime") && u.includes("hourly=temperature_2m%2Cprecipitation%2Csnowfall")) {
+      etat.appelsPrevue.push(u);
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(prevueCorps(u)) });
+      return;
+    }
     /* Le temps d'un point touché sur la carte, jalon 19, lot 4 : une seule
        latitude, et les rafales parmi les valeurs du moment. Une averse de
        0,6 mm, 21,4°, un vent de sud-ouest à 18 km/h et des rafales à 42. */
@@ -1062,6 +1100,7 @@ export const nouvelEtat = () => ({
   appelsVilles: [],
   appelsPoint: [],
   appelsGeo: [],
+  appelsPrevue: [],
   appelsHubeau: [],
   appelsLieux: [],
   archiveMuette: false,

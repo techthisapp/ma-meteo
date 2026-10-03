@@ -68,7 +68,7 @@ export function brancherPoint(E, rendre) {
   const valeurNappe = (lat, lon) => {
     const n = NAPPES_CARTE.find(x => x.cle === E.choisie && x.champ);
     if (!n) return "";
-    const grille = n.source === "air" ? E.mesuresAir : E.mesures;
+    const grille = E.grilleDe(n);
     const v = grille ? NappeCarte.valeurA(grille[n.champ], lat, lon) : null;
     return Number.isFinite(v) ? ligne(`${esc(n.nom)}, ${esc(n.porte)} : <b>${Math.round(v)}${n.unite}</b>`) : "";
   };
