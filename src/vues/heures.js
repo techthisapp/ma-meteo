@@ -47,7 +47,9 @@ export function vueTemps(ctx, rendre) {
        bandeau dit l'heure en cours, laquelle n'ouvre pas la série du ruban. */
     sousEcran: `${Math.round(s.t[ici])}° et ${tempsDe(s.code[ici])[1].toLowerCase()}`,
     cote: seg,
-    corps: `<div class="carte">${corps}</div>`,
+    /* La liste porte ses propres cartes, une par moment, depuis le jalon 20,
+       lot 4. */
+    corps: e === "liste" ? corps : `<div class="carte">${corps}</div>`,
     brancher(bloc) {
       for (const b of bloc.querySelectorAll("[data-ecriture]")) {
         b.addEventListener("click", () => { Reglages.poserEcriture(b.dataset.ecriture); rendre(); });

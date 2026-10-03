@@ -1168,14 +1168,14 @@ export default async T => {
     await pg.waitForTimeout(500);
     ok("les températures de la liste s'écrivent sans décimale", await pg.evaluate(() => {
       const fautes = [];
-      for (const tr of document.querySelectorAll(".hh tbody tr")) {
-        for (const td of [...tr.children].slice(2, 5)) {
-          if (/\d,\d°/.test(td.textContent)) fautes.push(td.textContent.trim());
-        }
+      /* Depuis le jalon 20, lot 4 : la température de la ligne, le ressenti
+         et la rosée du détail. */
+      for (const el of document.querySelectorAll(".hl-t, .hl-d dd")) {
+        if (/\d,\d°/.test(el.textContent)) fautes.push(el.textContent.trim());
       }
       return fautes.length ? fautes.slice(0, 4).join(" ") : "";
     }) === "", await pg.evaluate(() =>
-      document.querySelector(".hh tbody tr")?.textContent.trim().slice(0, 40)));
+      document.querySelector(".hl")?.textContent.trim().slice(0, 40)));
   });
 
   /* Le gel s'annonce au degré rond, et le mot s'accorde. */

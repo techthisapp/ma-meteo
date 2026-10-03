@@ -27,12 +27,30 @@ export default async T => {
   }, ));
   await pg.locator('[data-ecriture="liste"]').click();
   await pg.waitForTimeout(420);
-  ok("la liste porte treize colonnes", await pg.locator(".hh thead th").count() === 13,
-    String(await pg.locator(".hh thead th").count()));
-  ok("la liste porte vingt-quatre lignes", await pg.locator(".hh tbody tr").count() === 24,
-    String(await pg.locator(".hh tbody tr").count()));
-  const h1 = await pg.locator(".hh tbody tr").first().locator("td").first().innerText();
-  ok("la première ligne est l'heure en cours", h1.trim() === "09 h", h1);
+  /* Depuis le jalon 20, lot 4 : les heures se rangent par moment, une ligne
+     par heure, le détail en touchant la ligne. */
+  const groupes = await pg.locator(".hl-moment h2").allTextContents();
+  ok("la liste range ses heures par moment", groupes.join("/") === "Ce matin/Cet après-midi/Ce soir/Cette nuit/Demain matin",
+    groupes.join("/"));
+  ok("la liste porte vingt-quatre lignes", await pg.locator(".hl").count() === 24, String(await pg.locator(".hl").count()));
+  const h1 = await pg.locator(".hl .hl-h").first().innerText();
+  ok("la première ligne est l'heure en cours", h1.trim() === "Maint.", h1);
+  /* Une ligne dit l'heure, le ciel et la température ; la pluie seulement
+     quand il pleut ; le reste s'ouvre en la touchant. */
+  const lignes = await pg.evaluate(() => [...document.querySelectorAll(".hl")].map(d => ({
+    pluie: d.querySelector(".hl-p")?.textContent || "", t: d.querySelector(".hl-t")?.textContent || "",
+    ouvert: d.open, ic: !!d.querySelector("summary svg") })));
+  const pluvieuses = lignes.filter(l => l.pluie).length;
+  ok("chaque ligne porte le ciel et la température, la pluie seulement quand il pleut, et reste fermée",
+    lignes.every(l => /^-?\d+°$/.test(l.t) && l.ic && !l.ouvert) && pluvieuses > 0 && pluvieuses < 24
+    && lignes.filter(l => l.pluie).every(l => /^\d+(,\d)? mm$/.test(l.pluie)), JSON.stringify(lignes.slice(17, 21)));
+  await pg.locator(".hl summary").nth(3).click();
+  const detail = await pg.evaluate(() => {
+    const d = document.querySelectorAll(".hl")[3];
+    return { ouvert: d.open, noms: [...d.querySelectorAll(".hl-d dt")].map(x => x.textContent) };
+  });
+  ok("toucher une heure ouvre le ressenti, la rosée, le vent et l'humidité",
+    detail.ouvert && ["Ressenti", "Rosée", "Vent", "Rafales", "Humidité"].every(n => detail.noms.includes(n)), JSON.stringify(detail));
   await pg.locator('[data-ecriture="ruban"]').click();
   await pg.waitForTimeout(420);
 };

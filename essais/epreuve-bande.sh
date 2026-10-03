@@ -871,6 +871,15 @@ case "$N" in
   277) # La nuit des Étoiles perd la précision de ses cases.
      perl -0pi -e 's/<b>\$\{esc\(val\)\}<\/b><em>\$\{esc\(sous\)\}<\/em>/<b>\${esc(val)}<\/b>/' src/vues/etoiles.js
      ATTENDU="les trois indicateurs de la nuit des Étoiles" ;;
+  278) # La liste ne range plus ses heures par moment.
+     perl -0pi -e 's/\.map\(lot => `<div class="section hl-moment"><h2>\$\{esc\(lot\.titre\)\}<\/h2>`/.map(lot => `<div class="section hl-moment"><h2>Heures<\/h2>`/' src/ecritures.js
+     ATTENDU="la liste range ses heures par moment" ;;
+  279) # La pluie s'écrit à chaque ligne, même sèche.
+     perl -0pi -e 's/const pluie = h\.mm >= SEUIL_LAME \?/const pluie = true ?/' src/ecritures.js
+     ATTENDU="chaque ligne porte le ciel et la température, la pluie seulement quand il pleut" ;;
+  280) # Le détail perd le ressenti.
+     perl -0pi -e 's/  \["Ressenti", h => `\$\{Math\.round\(h\.res\)\}°`\],\n//' src/ecritures.js
+     ATTENDU="toucher une heure ouvre le ressenti" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
