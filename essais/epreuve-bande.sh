@@ -862,6 +862,15 @@ case "$N" in
   274) # « Plus de détails » s'ouvre d'office.
      perl -0pi -e 's/<details class="carte plus" id="eauPlus">/<details class="carte plus" id="eauPlus" open>/' src/vues/loisirs.js
      ATTENDU="la fenêtre de l'eau montre la restriction, la nappe et la rivière" ;;
+  275) # Les durées du Soleil retournent sous la course du jour.
+     perl -0pi -e 's/dedans: `<div class="carte ci-durees">\$\{mesures\}`/dedans: `<div class="section"><h2>Trajectoire<\/h2><\/div><div class="carte ci-durees">\${mesures}`/' src/vues/astres.js
+     ATTENDU="les durées du Soleil se lisent au-dessus de la trajectoire" ;;
+  276) # Les mesures de la Lune perdent leur carte de tête.
+     perl -0pi -e 's/dedans: `<div class="carte ci-durees">\$\{mesures\}<\/div>`/dedans: ``/' src/vues/astres.js
+     ATTENDU="les mesures de la Lune se lisent au-dessus de la trajectoire" ;;
+  277) # La nuit des Étoiles perd la précision de ses cases.
+     perl -0pi -e 's/<b>\$\{esc\(val\)\}<\/b><em>\$\{esc\(sous\)\}<\/em>/<b>\${esc(val)}<\/b>/' src/vues/etoiles.js
+     ATTENDU="les trois indicateurs de la nuit des Étoiles" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

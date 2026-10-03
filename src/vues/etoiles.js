@@ -330,14 +330,17 @@ function infosEtoiles(maintenant, g) {
   const lune = luneDeLaNuit(nuit, g);
   const essaim = prochainEssaim(maintenant);
   const jourMois = d => d.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
-  return `<div class="carte ci-nuit"><div class="carte-tete"><h3>Cette nuit</h3></div>`
-    + (nuit
-      ? rangeeCiel("Nuit noire", `jusqu'à ${hm(nuit.fin.getTime())}`, hm(nuit.debut.getTime()))
-      : rangeeCiel("Nuit noire", "le Soleil ne descend pas assez bas", "Aucune"))
-    + (ciel ? rangeeCiel("Nuages", ciel.sous, ciel.mot) : "")
-    + (lune ? rangeeCiel("Lune", lune.sous, `${lune.pct} %`, lune.gene ? "gêne" : "")
-      : "")
-    + `</div>`
+  /* Jalon 20, lot 3 : les trois indicateurs de la nuit au format des durées
+     du Soleil et de la Lune, un nom, une valeur, une précision. */
+  const case_ = (nom, val, sous, cls = "") => `<div${cls ? ` class="${cls}"` : ""}><i>${esc(nom)}</i>`
+    + `<b>${esc(val)}</b><em>${esc(sous)}</em></div>`;
+  return `<div class="carte ci-nuit"><div class="carte-tete"><h3>Cette nuit</h3></div><div class="tm">`
+    + (nuit ? case_("Nuit noire", hm(nuit.debut.getTime()), `jusqu'à ${hm(nuit.fin.getTime())}`)
+      : case_("Nuit noire", "aucune", "le Soleil ne descend pas assez bas"))
+    + case_("Nuages", ciel ? ciel.mot : "—", ciel ? ciel.sous : "prévision absente")
+    + (lune ? case_("Lune", `${lune.pct} %`, lune.gene ? `${lune.sous}, gêne` : lune.sous, lune.gene ? "tm-gene" : "")
+      : case_("Lune", "—", "position inconnue"))
+    + `</div></div>`
     + `<div class="carte ci-avoir"><div class="carte-tete"><h3>À voir ce soir</h3></div>`
     + `<div id="ciAVoir"><p class="note">Calcul en cours…</p></div></div>`
     + (essaim

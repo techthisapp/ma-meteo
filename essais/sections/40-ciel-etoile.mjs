@@ -297,8 +297,9 @@ export default async T => {
 
   ok("sous le bandeau, la nuit noire, les nuages et la Lune",
     await pgEt.evaluate(() => {
-      const t = [...document.querySelectorAll(".ci-nuit .rangee-txt b")].map(b => b.textContent);
-      return ["Nuit noire", "Lune"].every(n => t.includes(n)) ? "" : t.join(", ");
+      /* Depuis le jalon 20, lot 3, au format des durées du Soleil. */
+      const t = [...document.querySelectorAll(".ci-nuit .tm > div > i")].map(b => b.textContent);
+      return ["Nuit noire", "Nuages", "Lune"].every(n => t.includes(n)) ? "" : t.join(", ");
     }) === "");
 
   ok("à voir ce soir se remplit une fois le ciel chargé",

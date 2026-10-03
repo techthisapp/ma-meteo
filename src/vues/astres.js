@@ -550,18 +550,21 @@ export function vueSoleil() {
       + `data-chaud="${bdCiel.chaud.toFixed(3)}" aria-hidden="true"></canvas>`
       + `<span>${esc(etat)}</span></em></div></div>`,
 
-    dedans: `<div class="section"><h2>Trajectoire</h2>`
+    /* Jalon 20, lot 3 : les trois durées passent au-dessus de la trajectoire,
+       elles se lisent les premières. */
+    dedans: `<div class="carte ci-durees">${mesures}`
+      + (passage ? `<p class="note">La durée du jour ${esc(passage.sens)} dix heures `
+        + `le ${esc(jourLong(passage.date))}.</p>` : "")
+      + `</div>`
+
+      + `<div class="section"><h2>Trajectoire</h2>`
       + `<div class="carte"><div class="carte-tete"><h3>Hauteur dans le ciel</h3>`
       + `<em>Maintenant ${hm(maintenant.getTime())}</em></div>`
       + trajectoire(courbe, enMinutes(lever), enMinutes(coucher), minutes)
       + `</div></div>`
 
       + `<div class="section"><h2>Course du jour</h2>`
-      + `<div class="carte groupe-plat ch">${lignes}</div>`
-      + `<div class="carte">${mesures}`
-      + (passage ? `<p class="note">La durée du jour ${esc(passage.sens)} dix heures `
-        + `le ${esc(jourLong(passage.date))}.</p>` : "")
-      + `</div></div>`
+      + `<div class="carte groupe-plat ch">${lignes}</div></div>`
 
       + `<div class="section"><h2>Les crépuscules</h2>`
       + `<div class="carte"><div class="carte-tete"><h3>Du jour à la nuit noire</h3></div>`
@@ -690,7 +693,10 @@ export function vueLune() {
       + `data-eclairee="${p.eclairee.toFixed(3)}" aria-hidden="true"></canvas>`
       + `<span>${esc(etat)}</span></em></div></div>`,
 
-    dedans: `<div class="section"><h2>Trajectoire</h2>`
+    /* Jalon 20, lot 3 : les trois mesures au-dessus de la trajectoire. */
+    dedans: `<div class="carte ci-durees">${mesures}</div>`
+
+      + `<div class="section"><h2>Trajectoire</h2>`
       + `<div class="carte"><div class="carte-tete"><h3>Hauteur dans le ciel</h3>`
       + `<em>Maintenant ${hm(maintenant.getTime())}</em></div>`
       + trajectoire(courbe, e.lever ? enMinutes(e.lever.getTime()) : null,
@@ -701,8 +707,6 @@ export function vueLune() {
 
       + `<div class="section"><h2>Course du jour</h2>`
       + `<div class="carte groupe-plat ch ch-lune">${lignes}</div></div>`
-
-      + `<div class="carte">${mesures}</div>`
 
       + `<div class="section"><h2>Prochaines phases</h2>`
       /* Le calcul sur l'appareil se dit dans les sources des réglages,
