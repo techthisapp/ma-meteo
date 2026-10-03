@@ -396,6 +396,16 @@ export function poserNuagescarte(v) { poser({ nuagescarte: v === true }); }
    de l'année, et la couche serait vide le reste du temps. */
 export const feuxcarte = () => etat.feuxcarte === true;
 export function poserFeuxcarte(v) { poser({ feuxcarte: v === true }); }
+/* Le dernier cadrage de la carte, jalon 19, lot 7 : la carte rouvre où on
+   l'a laissée, même après un relancement de l'application. */
+export const vueCarte = () => {
+  const v = etat.vuecarte;
+  return v && [v.lat, v.lon, v.z].every(Number.isFinite) ? { lat: v.lat, lon: v.lon, z: v.z } : null;
+};
+export function poserVueCarte(v) {
+  poser({ vuecarte: v && [v.lat, v.lon, v.z].every(Number.isFinite)
+    ? { lat: Math.round(v.lat * 1000) / 1000, lon: Math.round(v.lon * 1000) / 1000, z: Math.round(v.z * 100) / 100 } : null });
+}
 export const previcarte = () => etat.previcarte === true;
 export function poserPrevicarte(v) { poser({ previcarte: v === true }); }
 export const plagecarte = () => etat.plagecarte === true;

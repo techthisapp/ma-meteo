@@ -108,7 +108,10 @@ export function brancherLegende(E) {
       const pas = 100 / ve.length;
       rampeEl.style.background = `linear-gradient(to right, ${ve.map((c, i) => `${c} ${(i * pas).toFixed(0)}% ${((i + 1) * pas).toFixed(0)}%`).join(", ")})`;
       titreLeg.textContent = `${n.nom}, ${n.porte}${E.modeZones ? ", par zone d'alerte" : ""}`;
-      grads.innerHTML = n.classes.map(v => `<span>${esc(v)}</span>`).join("");
+      /* Quatre classes ne tiennent pas sous la rampe : les deux bouts, relevé
+         sur le site le 3 octobre 2026. Le libellé lu garde les quatre. */
+      const classes = n.classes.join("").length > 18 ? [n.classes[0], n.classes[n.classes.length - 1]] : n.classes;
+      grads.innerHTML = classes.map(v => `<span>${esc(v)}</span>`).join("");
       legende.setAttribute("aria-label", `${n.nom} en vigueur, de la vigilance à la crise`);
     } else if (n) {
       const a = n.arrets;
@@ -126,7 +129,8 @@ export function brancherLegende(E) {
       const ecrits = a.map(v => `${String(v).replace(".", ",")}${longue ? "" : n.unite.trim()}`);
       const garder = ecrits.some(t => t.length >= 4) ? [0, Math.floor(ecrits.length / 2), ecrits.length - 1] : ecrits.map((_, k) => k);
       grads.innerHTML = n.etiquettes
-        ? n.etiquettes.map(t => `<span>${esc(t)}</span>`).join("")
+        ? (n.etiquettes.join("").length > 18 ? [n.etiquettes[0], n.etiquettes[n.etiquettes.length - 1]] : n.etiquettes)
+          .map(t => `<span>${esc(t)}</span>`).join("")
         : garder.map(k => `<span>${ecrits[k]}</span>`).join("");
       legende.setAttribute("aria-label",
         `Échelle de ${n.nom.toLowerCase()}, ${n.porte}, de ${a[0]} à ${a[a.length - 1]}`);

@@ -15,6 +15,7 @@
    mention, la légende ou les étiquettes, reposer le vent. */
 
 import { esc } from "../horloge.js";
+import { ico } from "../icones.js";
 import * as P from "../previsions.js";
 import * as Reglages from "../reglages.js";
 import * as Carte from "../carte.js";
@@ -51,7 +52,7 @@ export function vueCarte(ctx, rendre, majEtat) {
      qu'on appuie de nouveau dessus. La carte s'ouvre alors sur la France
      entière : elle sert d'abord à voir où il pleut, et la réponse est régionale
      avant d'être locale. Le bouton de retour ramène ensuite sur la commune. */
-  const vue = ctx.cadreCarte || (ctx.cadreCarte = { lat: g.lat, lon: g.lon, z: null });
+  const vue = ctx.cadreCarte || (ctx.cadreCarte = Reglages.vueCarte() || { lat: g.lat, lon: g.lon, z: null });
 
   return {
     titre: "La carte",
@@ -113,6 +114,9 @@ export function vueCarte(ctx, rendre, majEtat) {
           x: parseFloat(b.style.getPropertyValue("--rx")), y: parseFloat(b.style.getPropertyValue("--ry")), w: 30, h: 30 }));
         E.placerEtiquettes(pris, l, h);
         E.poserBulle?.();
+        /* Le cadrage se garde sur l'appareil, une fois la carte immobile. */
+        clearTimeout(E.minuteurVue);
+        E.minuteurVue = setTimeout(() => { if (vue.z !== null) Reglages.poserVueCarte(vue); }, 800);
         const e = Carte.echelleBarre(vue, cv.clientWidth);
         barre.style.setProperty("--eb", `${Math.round(e.px)}px`);
         barre.querySelector("span").textContent = `${e.km} km`;
@@ -250,6 +254,23 @@ export function vueCarte(ctx, rendre, majEtat) {
         montrer(panneau.hidden);
       });
       E.fermerPanneau = () => montrer(false);
+
+      /* Le plein écran, jalon 19, lot 7 : les barres du haut et du bas se
+         retirent, la carte prend tout l'écran. Le même bouton, ou Échap, les
+         ramène. */
+      const plein = bloc.querySelector("#caPlein");
+      const poserPlein = v => {
+        document.documentElement.classList.toggle("carte-plein", v);
+        plein.setAttribute("aria-pressed", v ? "true" : "false");
+        plein.setAttribute("aria-label", v ? "Quitter le plein écran" : "Carte en plein écran");
+        plein.innerHTML = ico(v ? "reduire" : "agrandir", "");
+        requestAnimationFrame(() => E.revoir());
+      };
+      poserPlein(document.documentElement.classList.contains("carte-plein"));
+      plein.addEventListener("click", e => { e.stopPropagation(); poserPlein(!document.documentElement.classList.contains("carte-plein")); });
+      bloc.addEventListener("keydown", ev => {
+        if (ev.key === "Escape" && document.documentElement.classList.contains("carte-plein")) poserPlein(false);
+      });
       panneau.addEventListener("click", e => e.stopPropagation());
       /* Un appui sur la carte referme le panneau : il couvre le coin de la vue,
          et le refermer par son propre bouton demanderait de viser deux fois. */

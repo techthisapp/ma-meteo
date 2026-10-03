@@ -268,8 +268,10 @@ export default async T => {
   });
   ok("la nappe des restrictions d'eau teinte les départements en restriction, et eux seuls",
     restrictionsDit.teinte && restrictionsDit.cantal && etat.appelsVigieau.length >= 1, JSON.stringify({ ...restrictionsDit, appels: etat.appelsVigieau.length }));
-  ok("sa légende nomme les quatre classes, et la mention cite VigiEau",
-    restrictionsDit.titre === "Restrictions d'eau, en vigueur" && restrictionsDit.grads === "Vigilance Alerte Renforcée Crise" && restrictionsDit.mention,
+  /* Les deux classes extrêmes depuis la version 153 : les quatre ne tenaient
+     pas sous la rampe. */
+  ok("sa légende nomme les classes extrêmes, et la mention cite VigiEau",
+    restrictionsDit.titre === "Restrictions d'eau, en vigueur" && restrictionsDit.grads === "Vigilance Crise" && restrictionsDit.mention,
     JSON.stringify(restrictionsDit));
 
   /* Jalon 18, lot 3 : les prévisions des villes sur la carte. Les étiquettes se

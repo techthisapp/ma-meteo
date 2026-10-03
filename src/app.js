@@ -1013,10 +1013,14 @@ function rendre() {
 function poserOnglet(nom) {
   if (!ONGLETS.some(o => o[0] === nom)) return;
   const change = nom !== onglet;
-  /* Un appui sur La carte efface le cadrage gardé, que l'onglet change ou qu'on
-     appuie de nouveau dessus. La carte s'ouvre alors sur la France entière. Sur
-     les autres écrans, l'appui répété n'a rien à défaire. */
-  if (nom === "carte") ctx.cadreCarte = null;
+  /* Un second appui sur La carte, déjà ouverte, efface le cadrage gardé : la
+     carte revient sur la France entière. Venir d'un autre onglet la rouvre où
+     on l'avait laissée, depuis la version 153, jalon 19, lot 7, demande de
+     Jérôme ; avant, tout appui la ramenait sur la France. Sur les autres
+     écrans, l'appui répété n'a rien à défaire. */
+  if (nom === "carte" && onglet === "carte") { ctx.cadreCarte = null; Reglages.poserVueCarte(null); }
+  /* Le plein écran de la carte ne survit pas au départ de la carte. */
+  if (nom !== "carte") document.documentElement.classList.remove("carte-plein");
   /* Toucher un onglet referme la page de détail, comme sur iPhone : l'onglet
      courant ramène à sa racine. Le pas d'historique que la page avait posé est
      retiré aussi : laissé en place, il décalait tout retour suivant d'un cran,

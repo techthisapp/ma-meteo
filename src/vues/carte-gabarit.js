@@ -151,6 +151,9 @@ export const gabaritCarte = g => `<div class="ca-cadre">`
   + `<button type="button" class="ca-o" id="caChercher" aria-expanded="false" `
   + `aria-controls="caRecherche" aria-label="Chercher une commune sur la carte">`
   + ico("loupe", "") + `</button>`
+  /* Le plein écran, jalon 19, lot 7. */
+  + `<button type="button" class="ca-o" id="caPlein" aria-pressed="false" aria-label="Carte en plein écran">`
+  + ico("agrandir", "") + `</button>`
   + `</div>`
   + `<div class="ca-recherche" id="caRecherche" hidden>`
   + `<input type="search" id="caRechercheChamp" placeholder="Chercher une commune" `

@@ -857,6 +857,8 @@ Demandé par Jérôme le 28 septembre 2026 : pousser le graphique et la liste de
 
 ## Jalon 19. La carte enrichie
 
+**Livré du 2 au 3 octobre 2026, versions 140 à 153.**
+
 Demandé par Jérôme le 2 octobre 2026 : « améliorer la carte ».
 
 **Constats de Jérôme sur le téléphone.** Les boutons du panneau sont mal placés ; les boutons de zoom sont inutiles, le pincement suffisant ; les textes, mentions des sources et légendes, prennent la place de la carte.
@@ -884,7 +886,7 @@ Demandé par Jérôme le 2 octobre 2026 : « améliorer la carte ».
 | 4 | Toucher un point : bulle du lieu, prévision en consultation, « Suivre ce lieu » ; recherche d'une commune sur la carte | livré, versions 144 à 146 |
 | 5 | Nappes nouvelles : vent et rafales, cumul de pluie, neige et limite pluie-neige, pression, gel de la nuit, ciel de la nuit, pollens, mer, brouillard ; pluie prévue douze heures ; toutes les nappes dans le temps | en trois parties : 5a, les nappes de la grille prévue, livré en version 149 ; 5b, pollens et mer, livré en version 150 ; 5c, la chronologie dans le temps, livré en version 151 |
 | 6 | Restrictions d'eau par zone d'alerte | livré, version 152 |
-| 7 | Carte plein écran et mémoire de la vue | à faire |
+| 7 | Carte plein écran et mémoire de la vue | livré, version 153 |
 
 ## Hors cadre
 
@@ -1083,3 +1085,4 @@ Les deux premières lignes se lèvent avec le même service dorsal minimal. Les 
 | 3 octobre 2026 | Version 151, jalon 19, lot 5c : douze heures prévues suivent les images du radar sur la piste. La pluie s'y peint d'après la grille prévue, sans s'arrêter au pays ; la température, le vent moyen, les rafales, la pression et les particules du vent suivent l'heure choisie, et la légende dit « prévue à 15 h ». Sans la pluie, une nappe horaire fait paraître la piste, de maintenant à douze heures. La grille prévue ne se lit qu'à la première heure prévue atteinte. Défaut trouvé en route : une nappe choisie sur une heure prévue se peignait sur la grille prévue et ne lisait pas sa grille du moment, et restait vide au retour à maintenant. Cinq contrôles nouveaux, deux adaptés à la piste plus longue, erreurs volontaires 248 à 253 vues |
 | 3 octobre 2026 | Version 152, jalon 19, lot 6 : à partir du zoom 7,5, les restrictions d'eau se peignent par zone d'alerte, d'après l'archive PMTiles de VigiEau lue par plages d'octets, `src/zones-eau.js`, sans bibliothèque ; les zones les plus graves passent devant, sur une toile à part posée d'une seule transparence ; les départements restent peints tant qu'aucune tuile n'est arrivée. La légende dit « par zone d'alerte », la bulle d'un point nomme sa zone. Le serveur de VigiEau entre dans la politique de sécurité. Défaut trouvé en route, sur la vraie archive : le saut d'un champ de longueur variable perdait un octet, et les zones sortaient sans nom ni niveau. Trois contrôles nouveaux sur une archive écrite à la main, erreurs volontaires 254 à 257 vues |
 | 3 octobre 2026 | Version 152, publication reprise : la suite sur GitHub a vu des étiquettes de la mer et de la neige empilées, placées seulement au tracé suivant depuis la version 143 ; elles se placent désormais tout de suite. Défaut de rythme, sans erreur volontaire possible sur le Mac |
+| 3 octobre 2026 | Version 153, jalon 19, lot 7 : la carte rouvre sur son dernier cadrage, gardé sur l'appareil, en revenant d'un autre onglet comme après un relancement ; un second appui sur l'onglet de la carte ramène la France. Un quatrième bouton met la carte en plein écran, sans les barres du haut et du bas ; le même bouton ou Échap les ramène, et quitter la carte en sort. La légende des restrictions d'eau et des pollens ne garde que les classes extrêmes quand les autres ne tiennent pas, relevé sur le site. Deux contrôles nouveaux, deux adaptés, erreurs volontaires 258 à 261 vues. Le jalon 19 est livré |

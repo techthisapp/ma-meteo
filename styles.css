@@ -1170,6 +1170,16 @@ button.rangee:active{background:var(--surface-2)}
   padding:calc(var(--haut) + var(--nav-haut) + var(--consult-haut)) 0 var(--onglets-mesure);
   gap:0;max-width:none;
 }
+/* La carte en plein écran, jalon 19, lot 7 : les deux barres se retirent, le
+   cadre prend toute la hauteur, et les commandes s'écartent de l'encoche et
+   du bas de l'écran. */
+:root.carte-plein .nav,:root.carte-plein .onglets{display:none}
+:root.carte-plein .ecran-carte{padding:0}
+:root.carte-plein .ca-cadre{height:100vh;height:100dvh}
+:root.carte-plein .ca-outils,:root.carte-plein .ca-panneau,:root.carte-plein .ca-recherche,
+:root.carte-plein .ca-mot{top:calc(var(--haut) + var(--espace-base))}
+:root.carte-plein .ca-moments{top:calc(var(--haut) + var(--espace-sm))}
+:root.carte-plein .ca-pied{bottom:calc(var(--bas) + var(--espace-base))}
 .ca-cadre{
   position:relative;overflow:hidden;
   height:calc(100vh - var(--haut) - var(--nav-haut) - var(--consult-haut) - var(--onglets-mesure));

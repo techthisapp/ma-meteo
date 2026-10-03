@@ -811,6 +811,18 @@ case "$N" in
   257) # Les tuiles de zones se relisent à chaque tracé.
      perl -0pi -e 's/        if \(zonesLues\.has\(cle\)\) \{ lues\+\+; zones\.push\(\.\.\.\(zonesLues\.get\(cle\) \|\| \[\]\)\); continue; \}\n        if \(zonesEnCours\.has\(cle\)\) continue;/        if (zonesEnCours.has(cle)) continue;/; s/  if \(tuiles\.has\(cle\)\) return tuiles\.get\(cle\);\n//' src/vues/carte-couches.js src/zones-eau.js
      ATTENDU="une tuile de zones déjà lue ne se relit pas" ;;
+  258) # Le plein écran ne retire plus les barres.
+     perl -0pi -e 's/:root\.carte-plein \.nav,:root\.carte-plein \.onglets\{display:none\}\n//' styles.css
+     ATTENDU="le plein écran retire les barres et donne toute la hauteur à la carte" ;;
+  259) # La carte oublie son cadrage au relancement.
+     perl -0pi -e 's/ctx\.cadreCarte = Reglages\.vueCarte\(\) \|\| \{/ctx.cadreCarte = {/' src/vues/carte.js
+     ATTENDU="la carte rouvre sur son dernier cadrage" ;;
+  260) # Revenir d'un autre onglet ramène la France.
+     perl -0pi -e 's/  if \(nom === "carte" && onglet === "carte"\) \{/  if (nom === "carte") {/' src/app.js
+     ATTENDU="la carte rouvre sur son dernier cadrage" ;;
+  261) # La légende de l'eau reprend ses quatre classes.
+     perl -0pi -e 's/const classes = n\.classes\.join\(""\)\.length > 18/const classes = n.classes.join("").length > 999/' src/vues/carte-legende.js
+     ATTENDU="sa légende nomme les classes extrêmes, et la mention cite VigiEau" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
