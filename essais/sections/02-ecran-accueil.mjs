@@ -198,8 +198,11 @@ export default async T => {
     }));
     const hum = v.find(x => x.nom === "Humidité");
     const pluie = v.find(x => x.nom === "Pluie");
-    // Humidité à 98 % et risque de pluie à 8 % dans le jeu figé : l'un signale, l'autre non.
-    return hum.classe === "v-eau" && pluie.classe === "";
+    const uv = v.find(x => x.nom === "Indice UV");
+    /* Depuis le 3 octobre 2026, les tuiles portent sur les heures à venir
+       jusqu'à minuit : dans le jeu figé, indice UV 7, humidité 89 %, risque de
+       pluie 8 %. Le premier signale, les deux autres non. */
+    return uv.classe === "v-chaud" && hum.classe === "" && pluie.classe === "";
   }));
   ok("le symbole d'un conseil porte la couleur de son sujet", await pg.evaluate(() => {
     const g = document.querySelector(".cj-l .icv-goutte");

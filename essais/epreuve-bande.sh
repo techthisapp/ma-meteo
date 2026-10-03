@@ -934,6 +934,21 @@ case "$N" in
   299) # Le glissement après un double appui ne zoome plus.
      perl -0pi -e 's/if \(zoomDoigt && points\.size === 1\) \{/if (false) {/' src/carte.js
      ATTENDU="un double appui suivi d'un glissement" ;;
+  300) # La tuile de la pluie reprend la journée civile.
+     perl -0pi -e 's/const pb = arrondi\(plus\("pb"\)\)/const pb = jh ? arrondi(jh.pb) : null/' src/app.js
+     ATTENDU="la tuile de la pluie dit le plus fort risque d'ici minuit" ;;
+  301) # La tuile de l'indice UV reprend son seuil propre.
+     perl -0pi -e 's/uv === null \? ICI : `\$\{P\.motUV\(uv\)\} \$\{ICI\}`/uv >= SEUILS.uv ? "élevé" : "au plus"/' src/app.js
+     ATTENDU="la tuile de l'indice UV et le ruban" ;;
+  302) # Le ruban écrit la pression du début de sa fenêtre.
+     perl -0pi -e 's/poser\("Pression", `\$\{Math\.round\(s\.pres\[kp\]\)\} hPa/poser("Pression", `\${Math.round(w.pres[0])} hPa/' src/ruban.js
+     ATTENDU="la tuile de la pression et le ruban" ;;
+  303) # Le tableau des heures dit les rafales dès 30 km/h.
+     perl -0pi -e 's/m\.raf >= SEUIL_RAFALE \?/m.raf >= 30 ?/' src/ecritures.js
+     ATTENDU="un seul seuil de rafale" ;;
+  304) # La porte de l'air relit l'indice de minuit.
+     perl -0pi -e 's/const air = Air\.alignerSur\(P\.serieHoraire\(0, 24 - new Date\(\)\.getHours\(\), 1\)\);/const air = Air.chargeCourante();/' src/app.js
+     ATTENDU="la porte de l'air dit l'indice de l'heure en cours" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

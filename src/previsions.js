@@ -178,6 +178,20 @@ const CODES_APAISABLES = new Set([51, 53, 55, 56, 57, 61, 80]);
 export const SEUIL_LAME = 0.1;
 export const SEUIL_RISQUE = 5;
 export const SEUIL_COUVERT = 60;
+/* La rafale qui se dit, la même partout depuis le 3 octobre 2026, décision
+   de Jérôme : la bande, le tableau des heures, la semaine, la carte et les
+   conseils l'écrivaient à 30, 40 ou 50 km/h selon l'écran. */
+export const SEUIL_RAFALE = 40;
+/* L'échelle de l'indice UV, la même pour la tuile et le ruban. */
+export const ECHELLE_UV = [[0, "faible"], [3, "modéré"], [6, "élevé"], [8, "très élevé"], [11, "extrême"]];
+export const motUV = v => ECHELLE_UV.reduce((m, [b, n]) => (v >= b ? n : m), ECHELLE_UV[0][1]);
+/* La tendance de la pression, la même pour la tuile et le ruban : l'écart sur
+   les six heures qui suivent l'heure `k`, à un hectopascal près. */
+export function tendancePression(pres, k) {
+  const a = pres?.[k], b = pres?.[Math.min(pres.length - 1, k + 6)];
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return "";
+  return b - a > 1 ? "en hausse" : b - a < -1 ? "en baisse" : "stable";
+}
 
 /* La borne du ciel dégagé n'appartient qu'à cette échelle : les codes 0, 2 et 3
    du ruban ne servent nulle part ailleurs. */

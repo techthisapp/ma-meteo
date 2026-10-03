@@ -485,13 +485,10 @@ function ecranAccueil() {
 
     /* Les quatre mesures que le grand chiffre ne peut pas tenir.
 
-       Elles portent sur la journée civile entière, non sur l'heure en cours ni
-       sur une fenêtre glissante. À dix heures du soir, « indice UV 0 » et « vent
-       11 km/h » ne disaient rien d'une journée montée à sept d'indice et à
-       quatre-vingts de rafale. Le maximum du jour est ce qu'on retient d'une
-       journée, et c'est ce que portent déjà le titre du bandeau, « 18° à 32°
-       aujourd'hui », et celui du bloc. Ce dernier dit le jour une fois pour
-       toutes : les tuiles se contentent de « au plus » et « de risque ».
+       Elles ont porté sur la journée civile entière jusqu'au 3 octobre 2026 ;
+       elles portent depuis sur les heures à venir jusqu'à minuit, et chaque
+       tuile l'écrit, décision de Jérôme : un maximum compté sur des heures
+       passées contredisait les autres écrans, qui parlent de ce qui vient.
 
        Le ressenti ne s'affichait que s'il s'écartait de la température, la
        probabilité de pluie prenant sinon sa place. Depuis les tuiles du
@@ -507,12 +504,6 @@ function ecranAccueil() {
     /* Une valeur absente de la journée reste absente et s'écrit « — ».
        Audit, constat 1.11. */
     const arrondi = v => (Number.isFinite(v) ? Math.round(v) : null);
-    const pb = jh ? arrondi(jh.pb) : null;
-    const uv = jh ? arrondi(jh.uv) : null;
-    const raf = jh ? arrondi(jh.raf) : null;
-    const vent = jh ? arrondi(jh.v) : null;
-    const hum = jh ? arrondi(jh.hum) : null;
-    const res = jh ? arrondi(jh.res) : null;
 
     /* Chaque mesure désigne la voie du ruban qui la déplie : un chiffre de
        l'accueil est une porte vers ses vingt-quatre heures. */
@@ -653,29 +644,45 @@ function ecranAccueil() {
        sert une seule fois : le parapluie pour la pluie, la goutte pour
        l'humidité, la brume pour l'air. La pastille prend la couleur des
        symboles de temps ; le libellé porte toujours l'information. */
+    /* Depuis le 3 octobre 2026, décision de Jérôme, les tuiles portent sur les
+       heures à venir jusqu'à minuit, et le disent. Elles prenaient la journée
+       civile entière : à 22 h, la tuile de l'indice UV disait « 7, élevé »
+       quand le ruban disait « nul », et la tuile de la pluie annonçait un
+       risque que la liste, pour l'heure en cours, ne donnait pas. */
     const serieJour = sJour || s;
-    const nuaMax = serieJour ? Math.round(Math.max(...serieJour.nua.filter(Number.isFinite))) : null;
+    /* Une grandeur absente de la source reste absente : la série comble les
+       trous d'une journée, et une journée sans aucune valeur s'y lit zéro.
+       La journée lue brute, `jh`, dit si la source a parlé. Audit, constat
+       1.11. */
+    const plus = (cle, brut = cle) => {
+      if (jh && !Number.isFinite(jh[brut])) return null;
+      const v = serieJour ? serieJour[cle].filter(Number.isFinite) : [];
+      return v.length ? Math.max(...v) : null;
+    };
+    const pb = arrondi(plus("pb")), uv = arrondi(plus("uv")), raf = arrondi(plus("raf"));
+    const vent = arrondi(plus("v")), hum = arrondi(plus("hum")), res = arrondi(plus("res"));
+    const mmJour = serieJour ? serieJour.mm.filter(Number.isFinite).reduce((a, b) => a + b, 0) : 0;
+    const nuaMax = arrondi(plus("nua"));
     const pres0 = serieJour && Number.isFinite(serieJour.pres[0]) ? serieJour.pres[0] : null;
-    const presFin = serieJour ? serieJour.pres[Math.min(serieJour.n - 1, 6)] : null;
-    const tendance = pres0 === null || !Number.isFinite(presFin) ? ""
-      : presFin - pres0 > 1 ? "en hausse" : presFin - pres0 < -1 ? "en baisse" : "stable";
+    const tendance = serieJour ? P.tendancePression(serieJour.pres, 0) : "";
+    const ICI = "d'ici minuit";
     const airJour = serieJour ? Air.pire(Air.alignerSur(serieJour)) : null;
     const tuiles = jh ? [
-      ["Ressenti", res === null ? "—" : `${res}°`, "au plus chaud",
+      ["Ressenti", res === null ? "—" : `${res}°`, `au plus chaud ${ICI}`,
         res === null ? "" : res >= SEUILS.chaleur ? "v-chaud" : res <= SEUILS.gel ? "v-froid" : "", "t", "thermo", "soleil"],
-      jh.mm >= SEUILS.lame
-        ? ["Pluie", `${nombreFr(jh.mm)} mm`, "aujourd'hui", jh.mm >= 5 ? "v-eau" : "", "mm", "parapluie", "pluie"]
-        : ["Pluie", pb === null ? "—" : `${pb} %`, pb === null ? "de risque" : pb === 0 ? "Aucun risque" : "de risque",
+      mmJour >= SEUILS.lame
+        ? ["Pluie", `${nombreFr(Math.round(mmJour * 10) / 10)} mm`, ICI, mmJour >= 5 ? "v-eau" : "", "mm", "parapluie", "pluie"]
+        : ["Pluie", pb === null ? "—" : `${pb} %`, `de risque ${ICI}`,
           pb >= 60 ? "v-eau" : "", "mm", "parapluie", "pluie"],
-      ["Vent", vent === null ? "—" : `${vent} km/h`, raf === null ? "rafales" : `rafales ${raf} km/h`,
+      ["Vent", vent === null ? "—" : `${vent} km/h`, raf === null ? ICI : `rafales ${raf} km/h ${ICI}`,
         raf >= SEUILS.rafale || vent >= SEUILS.ventMoyen ? "v-attention" : "", "v", "vent", "nuage"],
-      ["Ciel", nuaMax === null ? "—" : `${nuaMax} %`, "de nuages au plus", "", "nua", "nuage", "nuage"],
-      ["Humidité", hum === null ? "—" : `${hum} %`, "au plus", hum >= SEUILS.humidite ? "v-eau" : "", "hum", "goutte", "pluie"],
-      ["Indice UV", uv === null ? "—" : `${uv}`, uv >= SEUILS.uv ? "élevé" : "au plus",
+      ["Ciel", nuaMax === null ? "—" : `${nuaMax} %`, `de nuages au plus ${ICI}`, "", "nua", "nuage", "nuage"],
+      ["Humidité", hum === null ? "—" : `${hum} %`, `au plus ${ICI}`, hum >= SEUILS.humidite ? "v-eau" : "", "hum", "goutte", "pluie"],
+      ["Indice UV", uv === null ? "—" : `${uv}`, uv === null ? ICI : `${P.motUV(uv)} ${ICI}`,
         uv >= 8 ? "v-brulant" : uv >= SEUILS.uv ? "v-chaud" : uv >= 3 ? "v-attention" : "", "uv", "soleil", "soleil"],
       ["Pression", pres0 === null ? "—" : `${Math.round(pres0)} hPa`, tendance || "maintenant", "", "pres", "jauge", "nuage"],
       ["Air", airJour ? `${airJour.indice}` : "—",
-        airJour ? (Air.niveauDe(airJour.indice)?.nom || "indice européen") : "pas de mesure", "", null, "brume", "nuage", "air"],
+        airJour ? `${(Air.niveauDe(airJour.indice)?.nom || "indice européen").toLowerCase()} au pire ${ICI}` : "pas de mesure", "", null, "brume", "nuage", "air"],
       /* L'eau, jalon 18 : la restriction en grand, la nappe dessous ; elle
          ouvre la feuille de l'eau. */
       ...(Eau.tuileEau(ez) ? [["L'eau", Eau.tuileEau(ez).valeur, Eau.tuileEau(ez).sous, Eau.tuileEau(ez).classe,
@@ -942,8 +949,11 @@ function infosPortes(g) {
     || (a.cle === "linge" ? -1 : b.cle === "linge" ? 1 : 0));
   if (avec.length) out.activites = `${COURT[avec[0].cle] || avec[0].nom} : ${avec[0].quand}`;
 
-  const air = Air.chargeCourante();
-  if (air?.aqi?.length) {
+  /* L'air de l'heure en cours et les pollens d'ici minuit, alignés sur la
+     série comme la feuille de l'air, 3 octobre 2026 : la charge brute
+     commence à minuit, et la porte lisait l'indice de minuit. */
+  const air = Air.alignerSur(P.serieHoraire(0, 24 - new Date().getHours(), 1));
+  if (Number.isFinite(air?.aqi?.[0])) {
     const n = Air.niveauDe(air.aqi[0]);
     const pol = Air.enSaison(air)[0];
     out.air = `Air ${n ? n.nom : "mesuré"}`

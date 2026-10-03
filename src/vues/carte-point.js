@@ -15,7 +15,7 @@ import * as Reglages from "../reglages.js";
 import * as Vig from "../vigilance.js";
 import * as Point from "../point.js";
 import * as NappeCarte from "../nappe.js";
-import { cardinal } from "../previsions.js";
+import { cardinal, SEUIL_RAFALE } from "../previsions.js";
 import * as Carte from "../carte.js";
 import * as Fond from "../fond.js";
 import { NAPPES_CARTE } from "./carte-gabarit.js";
@@ -91,7 +91,7 @@ export function brancherPoint(E, rendre) {
       html += ligne(t.pluie > 0 ? `Pluie en ce moment : <b>${fr(Math.round(t.pluie * 10) / 10)} mm</b>` : "Pas de pluie en ce moment");
       if (t.vent !== null) {
         html += ligne(`Vent <b>${Math.round(t.vent)} km/h</b>${t.dir !== null ? ` du ${cardinal(t.dir)}` : ""}`
-          + (t.rafales !== null && t.rafales >= 40 ? `, rafales <b>${Math.round(t.rafales)} km/h</b>` : ""));
+          + (t.rafales !== null && t.rafales >= SEUIL_RAFALE ? `, rafales <b>${Math.round(t.rafales)} km/h</b>` : ""));
       }
     } else {
       html += ligne("Le temps de ce point n'a pas pu être lu.", "cb-manque");

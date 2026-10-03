@@ -177,14 +177,14 @@ export function vueSemaine() {
          nommaient pas. Audit du 1er octobre 2026, constat 4.4. */
       + `<span class="c">${icoTemps(icoCiel(code, true), "")}<span class="titre-lu">${esc(tempsDe(code)[1])}</span>`
       /* Les rafales fortes sur la ligne, jalon 12, lot 5, comme dans la bande :
-         seulement à 50 km/h et plus, là où les heures les donnent, la charge
+         seulement à 40 km/h et plus depuis le 3 octobre 2026, le seuil commun, là où les heures les donnent, la charge
          quotidienne n'en portant pas. Et seulement quand la pluie n'occupe
          pas déjà la ligne : trois lignes sous le symbole faisaient dépasser
          la rangée de sa hauteur de deux lignes. Quand les deux se
          rencontrent, les rafales restent dans le volet, où chaque moment les
          dit. */
       + (eau ? `<em>${esc(eau)}</em>`
-        : h?.raf >= 50 ? `<em class="sem-raf">raf. ${Math.round(h.raf)}</em>` : "") + `</span>`
+        : h?.raf >= P.SEUIL_RAFALE ? `<em class="sem-raf">raf. ${Math.round(h.raf)}</em>` : "") + `</span>`
       + `<span class="b"><span class="titre-lu">minimum</span><b class="sem-min">${tn === null ? "—" : `${Math.round(tn)}°`}</b>`
       + `<span class="sem-pc"><i class="sem-piste">`
       + (bornes ? `<s class="sem-plage${accord ? ` sem-${accord}` : ""}" `

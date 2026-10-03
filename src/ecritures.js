@@ -6,7 +6,7 @@
    série de vingt-quatre heures glissantes. */
 
 import { nombreFr, heureTxt, esc } from "./horloge.js";
-import { graviteCiel, cardinal, SEUIL_LAME, SEUIL_RISQUE } from "./previsions.js";
+import { graviteCiel, cardinal, SEUIL_LAME, SEUIL_RISQUE, SEUIL_RAFALE } from "./previsions.js";
 import { icoCiel, icoTemps, tempsDe } from "./icones.js";
 import { aide } from "./aide.js";
 
@@ -137,7 +137,7 @@ const plage = m => (Math.round(m.tn) === Math.round(m.tx) ? `<b>${Math.round(m.t
 const pluieCase = m => (m.mm >= SEUIL_LAME
   ? `<b>${nombreFr(Math.round(m.mm * 10) / 10)}</b><i>${m.pb >= SEUIL_RISQUE ? `${Math.round(m.pb)} %` : "mm"}</i>`
   : m.pb >= SEUIL_RISQUE ? `<i>${Math.round(m.pb)} %</i>` : null);
-const ventCase = m => `<b>${Math.round(m.v)}</b>${m.raf >= 30 ? `<i>raf. ${Math.round(m.raf)}</i>` : ""}`;
+const ventCase = m => `<b>${Math.round(m.v)}</b>${m.raf >= SEUIL_RAFALE ? `<i>raf. ${Math.round(m.raf)}</i>` : ""}`;
 
 const MESURES = [
   { nom: "Temp.", brut: true, lire: plage },

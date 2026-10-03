@@ -22,7 +22,7 @@
    que la section annonçait, sur le même écran. */
 
 import { nombreFr, heureTxt, esc } from "./horloge.js";
-import { plagesDe, divergencePluie, SEUIL_LAME, SEUIL_RISQUE, SEUIL_COUVERT }
+import { plagesDe, divergencePluie, SEUIL_LAME, SEUIL_RISQUE, SEUIL_COUVERT, SEUIL_RAFALE }
   from "./previsions.js";
 import { POLLENS, DEGRADE, niveauDe, etatPollen } from "./air.js";
 import { ico } from "./icones.js";
@@ -33,7 +33,7 @@ export const SEUILS = {
   lame: SEUIL_LAME,       // millimètres, seuil de mention unique
   risque: SEUIL_RISQUE,   // pour cent, seuil de mention unique
   gel: 1,                 // degrés
-  rafale: 40,             // kilomètres par heure
+  rafale: SEUIL_RAFALE,   // kilomètres par heure, repris de previsions.js
   ventMoyen: 25,          // kilomètres par heure
   chaleur: 30,            // degrés
   humidite: 90,           // pour cent
@@ -445,9 +445,12 @@ export function grandesLignes(jours) {
     dire("thermo", 8, `Chaleur jusqu'à ${Math.round(chaud.tx)}° ${chaud.nom}, `
       + (n > 1 ? `${n} jours à ${SEUILS.chaleur - 2}° et plus.` : `le jour le plus chaud.`));
   }
-  const venteux = jours.reduce((a, j) => ((j.vent ?? 0) > (a.vent ?? 0) ? j : a));
-  if ((venteux.vent ?? 0) >= SEUILS.rafale) {
-    dire("vent", 7, `Vent fort ${venteux.nom}, jusqu'à ${Math.round(venteux.vent)} km/h en moyenne.`);
+  /* Le vent fort se juge sur les rafales, au seuil des rafales, 3 octobre
+     2026 : le seuil des rafales appliqué au vent moyen appelait « fort » un
+     vent que le ruban dit modéré. */
+  const venteux = jours.reduce((a, j) => ((j.raf ?? 0) > (a.raf ?? 0) ? j : a));
+  if ((venteux.raf ?? 0) >= SEUILS.rafale) {
+    dire("vent", 7, `Vent fort ${venteux.nom}, rafales jusqu'à ${Math.round(venteux.raf)} km/h.`);
   }
   const pluvieux = jours.map((j, k) => ({ j, k })).filter(x => x.j.mm >= 1);
   if (!pluvieux.length) {

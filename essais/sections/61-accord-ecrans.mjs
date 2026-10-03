@@ -1,0 +1,89 @@
+/* L'accord des écrans. Section écrite le 3 octobre 2026 après le relevé des
+   incohérences, décisions de Jérôme : les tuiles portent sur les heures à
+   venir jusqu'à minuit et le disent, un seul seuil de rafale, une seule
+   échelle d'indice UV, une seule règle de tendance de la pression. Elle part
+   d'un état neuf préparé par essais/banc.mjs. */
+
+export const titre = "L'accord des écrans";
+export const avecPage = true;
+
+export default async T => {
+  const { pg, ok, onglet, ouvrirLeTemps, reposer, ctxReponse, etat, METEO_NUE } = T;
+  await onglet("accueil"); await reposer(pg, 2000);
+  const tuile = nom => pg.evaluate(n => {
+    const e = [...document.querySelectorAll(".bd-m")].find(x => x.querySelector("i")?.textContent.trim() === n);
+    return e ? { v: e.querySelector("b").textContent.replace(/[  ]/g, " ").trim(),
+      sous: e.querySelector("em")?.textContent.replace(/[  ]/g, " ").trim() } : null;
+  }, nom);
+
+  /* La tuile de la pluie dit le plus fort risque des heures à venir jusqu'à
+     minuit : celui que la série de ces heures porte. */
+  const attendu = await pg.evaluate(async () => {
+    const P = await import("/src/previsions.js");
+    const s = P.serieHoraire(0, 24 - new Date().getHours(), 1);
+    return { pb: Math.round(Math.max(...s.pb)), uv: Math.round(Math.max(...s.uv)), pres: Math.round(s.pres[0]),
+      tend: P.tendancePression(s.pres, 0) };
+  });
+  const pluie = await tuile("Pluie"), uv = await tuile("Indice UV"), pres = await tuile("Pression");
+  /* Un risque de 90 % à 3 h du matin, heure passée à 9 h : la tuile ne le
+     compte pas. */
+  const [ctxNuit, pgNuit] = await ctxReponse(() => {
+    const d = METEO_NUE();
+    d.hourly.time.forEach((t, k) => {
+      if (t.startsWith("2026-08-18T03")) { d.hourly.precipitation_probability[k] = 90; d.hourly.precipitation[k] = 0; }
+    });
+    return d;
+  });
+  await reposer(pgNuit, 2000);
+  const pluieNuit = await pgNuit.evaluate(() => [...document.querySelectorAll(".bd-m")]
+    .find(x => x.querySelector("i")?.textContent.trim() === "Pluie")?.querySelector("b")?.textContent.replace(/[\u00A0\u202F]/g, " "));
+  await ctxNuit.close();
+  ok("la tuile de la pluie dit le plus fort risque d'ici minuit, et le dit",
+    pluie.v === `${attendu.pb} %` && pluie.sous === "de risque d'ici minuit" && pluieNuit !== "90 %",
+    JSON.stringify({ pluie, attendu, pluieNuit }));
+
+  /* L'indice UV se nomme sur l'échelle du ruban, la pression et sa tendance
+     sont celles du ruban. */
+  await ouvrirLeTemps(pg); await reposer(pg, 1500);
+  const ruban = await pg.evaluate(() => Object.fromEntries([...document.querySelectorAll(".mg-v")]
+    .map(v => [v.dataset.cle, v.querySelector(".mg-r")?.textContent.replace(/[  ]/g, " ") || ""])));
+  const motUv = await pg.evaluate(async v => (await import("/src/previsions.js")).motUV(v), attendu.uv);
+  ok("la tuile de l'indice UV et le ruban emploient la même échelle de mots",
+    uv.sous === `${motUv} d'ici minuit` && ruban.uv.endsWith(motUv), JSON.stringify({ uv, ruban: ruban.uv, motUv }));
+  ok("la tuile de la pression et le ruban disent la même valeur et la même tendance",
+    pres.v === `${attendu.pres} hPa` && pres.sous === attendu.tend && ruban.pres === `${attendu.pres} hPa, ${attendu.tend}`,
+    JSON.stringify({ pres, ruban: ruban.pres, attendu }));
+
+  /* Un seul seuil de rafale : la bande, le tableau des heures et les conseils
+     la disent à partir de 40 km/h. */
+  const rafales = await pg.evaluate(async () => {
+    const B = await import("/src/bande.js"), C = await import("/src/conseils.js"), P = await import("/src/previsions.js");
+    const E = await import("/src/ecritures.js");
+    const h = Array.from({ length: 24 }, (_, k) => (13 + k) % 24);
+    const s = r => ({ n: 24, heure: h, jour: h.map((x, k) => (13 + k < 24 ? 0 : 1)), t: h.map(() => 20), mm: h.map(() => 0),
+      hum: h.map(() => 60), raf: h.map(() => r), v: h.map(() => 10), uv: h.map(() => 0), code: h.map(() => 1),
+      clair: h.map(() => 1), pb: h.map(() => 0) });
+    const tableau = r => /raf\. /.test(E.moments(s(r)));
+    const semaine = r => C.grandesLignes([{ nom: "samedi", tn: 10, tx: 20, mm: 0, raf: r, vent: 20 },
+      { nom: "dimanche", tn: 10, tx: 20, mm: 0, raf: 10, vent: 10 }]).some(l => /Vent fort/.test(l.t || l.texte || JSON.stringify(l)));
+    return { seuils: [B.SEUIL_RAFALES, C.SEUILS.rafale, P.SEUIL_RAFALE], t39: tableau(39), t41: tableau(41), s39: semaine(39), s41: semaine(41) };
+  });
+  ok("un seul seuil de rafale, 40 km/h, pour la bande, le tableau, la semaine et les conseils",
+    rafales.seuils.every(v => v === 40) && !rafales.t39 && rafales.t41 && !rafales.s39 && rafales.s41, JSON.stringify(rafales));
+
+  /* La porte de l'air dit l'indice de l'heure en cours, celui de la feuille :
+     un matin dégradé, l'air de minuit était bon. */
+  etat.profilAir = "matin";
+  const [ctxAir, pgAir] = await ctxReponse(() => METEO_NUE());
+  await reposer(pgAir, 2500);
+  const air = await pgAir.evaluate(async () => {
+    const A = await import("/src/air.js"), P = await import("/src/previsions.js");
+    const al = A.alignerSur(P.serieHoraire(0, 24 - new Date().getHours(), 1));
+    return { attendu: A.niveauDe(al.aqi[0])?.nom, minuit: A.niveauDe(A.chargeCourante()?.aqi?.[0])?.nom,
+      porte: document.querySelector('[data-info="air"]')?.textContent || "" };
+  });
+  await ctxAir.close();
+  etat.profilAir = "base";
+  ok("la porte de l'air dit l'indice de l'heure en cours", air.attendu && air.attendu !== air.minuit
+    && air.porte.startsWith(`Air ${air.attendu}`), JSON.stringify(air));
+};

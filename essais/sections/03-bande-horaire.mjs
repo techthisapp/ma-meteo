@@ -120,7 +120,9 @@ export default async T => {
     const E = await import("/src/ecritures.js");
     const heure = Array.from({ length: 24 }, (_, k) => (9 + k) % 24);
     const s = { n: 24, heure, mm: heure.map(h => h >= 3 && h <= 5 ? 1.8 : 0),
-      pb: heure.map(h => h >= 2 && h <= 7 ? 68 : 8), raf: heure.map(() => 40),
+      /* Des rafales sous le seuil commun de 40 km/h : la phrase ne parle que
+         de la pluie. */
+      pb: heure.map(h => h >= 2 && h <= 7 ? 68 : 8), raf: heure.map(() => 30),
       t: heure.map(() => 15), v: heure.map(() => 20), code: heure.map(() => 3), clair: heure.map(() => 1) };
     const h13 = Array.from({ length: 24 }, (_, k) => (13 + k) % 24);
     const m = { n: 24, heure: h13, jour: h13.map((h, k) => (13 + k < 24 ? 0 : 1)),

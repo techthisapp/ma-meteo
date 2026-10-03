@@ -17,7 +17,7 @@
 import { icoCiel, icoTemps, ico, tempsDe } from "./icones.js";
 import { esc } from "./horloge.js";
 import * as Astres from "./astres.js";
-import { plagesDe, SEUIL_LAME } from "./previsions.js";
+import { plagesDe, SEUIL_LAME, SEUIL_RAFALE } from "./previsions.js";
 import { flecheSVG } from "./fleche.js";
 
 export const HEURES = 24;
@@ -36,7 +36,8 @@ export const SEUIL_RISQUE_BANDE = 20;
    alors une pluie de 2 h à 8 h quand la suite de la page disait de 03 h à 06 h
    pour la même averse. La règle partagée rend l'accord certain. */
 export const SEUIL_MM = SEUIL_LAME;
-export const SEUIL_RAFALES = 50;
+/* La rafale qui se dit, la même partout depuis le 3 octobre 2026. */
+export const SEUIL_RAFALES = SEUIL_RAFALE;
 
 export const pluvieuse = (s, k) => (s.mm[k] ?? 0) >= SEUIL_LAME;
 

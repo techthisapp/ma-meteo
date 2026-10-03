@@ -46,7 +46,7 @@
 
 import { angleFleche, TRACE_FLECHE } from "./fleche.js";
 import { nombreFr, jourCourt, heureTxt, esc, cleJourLocal } from "./horloge.js";
-import { plagesDe, dCardinal, CARD_ABR, iCard, SEUIL_LAME, SEUIL_RISQUE } from "./previsions.js";
+import { plagesDe, dCardinal, CARD_ABR, iCard, SEUIL_LAME, SEUIL_RISQUE, ECHELLE_UV, tendancePression } from "./previsions.js";
 import { icoCiel, icoTemps, couleurT, couleurUV, tempsDe } from "./icones.js";
 import { alignerSur, LAME } from "./ensemble.js";
 
@@ -154,7 +154,8 @@ const bornes = (t, unite = "") =>
    à partir d'elle. Le mot sert deux fois : écrit dans le tracé sur sa ligne,
    et accolé au chiffre de tête pour dire ce que ce chiffre vaut. */
 export const ECHELLES = {
-  uv: [[0, "Faible"], [3, "Modéré"], [6, "Élevé"], [8, "Très élevé"], [11, "Extrême"]],
+  // L'échelle de l'indice UV est partagée avec la tuile de l'accueil.
+  uv: ECHELLE_UV.map(([b, n]) => [b, n.charAt(0).toUpperCase() + n.slice(1)]),
   v: [[0, "Calme"], [12, "Léger"], [30, "Modéré"], [50, "Fort"], [75, "Violent"]],
   hum: [[0, "Air sec"], [40, "Confortable"], [70, "Humide"], [90, "Saturé"]],
   mm: [[0, "Légère"], [2.5, "Modérée"], [7.5, "Forte"]],
@@ -963,17 +964,17 @@ export function dessiner(s) {
       d += bande(g, k => flecheTend(k === 0 ? 0 : s.pres[k] - s.pres[Math.max(0, k - 3)]));
     }
     if (g) d += valeurs(s.pres, v => Math.round(v), hs + 9);
-    /* « Stable » se disait sur la seule différence entre le premier et le dernier
-       point, ce qui manquait un creux au milieu. La tendance regarde l'écart le
-       plus large de la fenêtre. */
+    /* La pression de l'heure lue au repos, l'heure en cours ou midi du jour
+       choisi, et la tendance des six heures qui suivent, la règle de la tuile
+       de l'accueil depuis le 3 octobre 2026 : le ruban écrivait la valeur du
+       début de sa fenêtre, quatre heures avant maintenant, avec sa propre
+       règle, et contredisait la tuile. */
+    const kp = s.ici >= dec && s.ici < dec + FEN ? s.ici : Math.min(s.n - 1, dec + 12);
+    const tend = tendancePression(s.pres, kp) || "stable";
     const ecart = Math.max(...w.pres) - Math.min(...w.pres);
-    const sens = w.pres[w.n - 1] - w.pres[0];
-    const tend = ecart < 2 ? "stable"
-      : Math.abs(sens) < 1.5 ? "variable"
-      : sens > 0 ? "en hausse" : "en baisse";
-    poser("Pression", `${Math.round(w.pres[0])} hPa, ${tend}`, h, d,
-      tend === "stable"
-        ? `Stable autour de ${Math.round(w.pres[0])} hPa : pas de changement annoncé.`
+    poser("Pression", `${Math.round(s.pres[kp])} hPa, ${tend}`, h, d,
+      ecart < 2
+        ? `Stable autour de ${Math.round(s.pres[kp])} hPa sur la fenêtre : pas de changement annoncé.`
         : `${Math.round(ecart)} hPa d'écart sur la fenêtre, creux vers ${HJ(kn)}. `
           + `Une baisse marquée annonce une dégradation.`, cle);
   }

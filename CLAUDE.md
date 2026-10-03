@@ -80,7 +80,8 @@ prévision attend le délai demandé avant de réessayer un refus 429.
 Textes, depuis la version 156 : les écrans ne citent plus aucune source, toutes
 vivent dans la carte « Sources » des réglages, une fois chacune ; une
 explication d'écran se range derrière le bouton « i », `aide` de `src/aide.js`,
-un élément `details` natif. Une source nouvelle s'ajoute à cette carte.
+un élément `details` natif, que `ranger` place à droite du titre de sa carte
+depuis la version 164. Une source nouvelle s'ajoute à cette carte.
 
 Confidentialité, depuis la version 123 : en mode position, les services ne
 reçoivent que la position arrondie au centième de degré (`envoi` de
@@ -96,14 +97,14 @@ installe Playwright 1.63.0, puis `npx playwright install chromium`.
 
 | Commande | Effet |
 |---|---|
-| `bash essais/passe.sh 8137` | La suite complète, sur une copie du dépôt dans `/tmp/passe-<port>` ; trois minutes, 1104 contrôles à la version 164 |
+| `bash essais/passe.sh 8137` | La suite complète, sur une copie du dépôt dans `/tmp/passe-<port>` ; trois minutes, 1109 contrôles à la version 165 |
 | `SECTIONS="carte,vent" bash essais/passe.sh 8137` | Les seules sections dont le titre ou le nom de fichier contient l'un des motifs |
 | `JUSQUA="La bande horaire" bash essais/passe.sh 8137` | La suite jusqu'à la fin d'une section |
 | `PARALLELE=1 CHRONO=1 bash essais/passe.sh 8137` | Une section à la fois, avec le temps de chacune ; trois passent côte à côte par défaut |
 | `bash essais/epreuve-bande.sh <n>` | Une erreur volontaire : le script introduit l'erreur numéro n dans une copie, ne passe que la section qui porte le contrôle attendu, et vérifie qu'il échoue. Verdicts possibles : vue, non vue, non appliquée, ou épreuve interrompue |
 
 Les erreurs volontaires sont numérotées dans `essais/epreuve-bande.sh` ; la
-dernière porte le numéro 299. Tout contrôle nouveau a son erreur volontaire, et
+dernière porte le numéro 304. Tout contrôle nouveau a son erreur volontaire, et
 une erreur volontaire éprouvée pendant que son contrôle échoue déjà sur le bon
 code doit être repassée.
 
@@ -186,7 +187,7 @@ Les consignes détaillées du projet sont dans `docs/consignes/`.
 
 ## État au 3 octobre 2026
 
-Version 164, publiée depuis Claude Code. Jalons livrés : 1 à 4, 7 à 18, dont 14, la comparaison ; 15, les
+Version 165, publiée depuis Claude Code. Jalons livrés : 1 à 4, 7 à 18, dont 14, la comparaison ; 15, les
 plages ; 16, la neige ; 17, la semaine au plus loin ; 18, les couches de la
 carte et l'eau ; 19, la carte enrichie, livré
 en versions 140 à 153, repris en versions 154 et 155. Jalon 20, textes,
