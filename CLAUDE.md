@@ -179,7 +179,7 @@ de code et messages de commit, suit ces règles :
 
 Les consignes détaillées du projet sont dans `docs/consignes/`.
 
-## État au 2 octobre 2026
+## État au 3 octobre 2026
 
 Version 153, publiée depuis Claude Code. Jalons livrés : 1 à 4, 7 à 18, dont 14, la comparaison ; 15, les
 plages ; 16, la neige ; 17, la semaine au plus loin ; 18, les couches de la
