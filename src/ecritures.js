@@ -8,6 +8,7 @@
 import { nombreFr, heureTxt, jourCourt, esc } from "./horloge.js";
 import { graviteCiel, CARD_ABR, iCard, SEUIL_LAME, SEUIL_RISQUE } from "./previsions.js";
 import { icoCiel, icoTemps, tempsDe } from "./icones.js";
+import { aide } from "./aide.js";
 
 /* ---------- La liste ----------
 
@@ -54,8 +55,7 @@ export function liste(s) {
   return `<div class="hh-cadre"><table class="hh">`
     + `<thead><tr><th>Heure</th>${COLONNES.map(([n]) => `<th>${esc(n)}</th>`).join("")}</tr></thead>`
     + `<tbody>${lignes.join("")}</tbody></table></div>`
-    + `<p class="note">Températures en degrés, pluie en millimètres, vent et rafales en `
-    + `kilomètres par heure, pression en hectopascals.</p>`;
+    + aide("Températures en degrés, pluie en millimètres, vent et rafales en kilomètres par heure, pression en hectopascals.");
 }
 
 /* ---------- Les moments ----------
@@ -190,5 +190,5 @@ export function moments(s) {
 
   return `<div class="mt" style="grid-template-columns:62px repeat(${mo.length},1fr)">`
     + tete + ciel + corps + `</div>`
-    + `<p class="note">${unites.join(", ").replace(/^./, c => c.toUpperCase())}.</p>`;
+    + aide(`${unites.join(", ").replace(/^./, c => c.toUpperCase())}.`);
 }

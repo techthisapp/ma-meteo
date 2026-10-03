@@ -7,7 +7,7 @@ import { liste } from "../ecritures.js";
 import * as Reglages from "../reglages.js";
 import * as Astres from "../astres.js";
 import * as Ciel from "../ciel.js";
-import { hm, valeur } from "./communs.js";
+import { hm, valeur, aide } from "./communs.js";
 import { nuitCivile, nuitNoire, vueLune, vueSoleil } from "./astres.js";
 
 /* ---------- La destination Le ciel ---------- */
@@ -389,9 +389,7 @@ export function vueEtoiles() {
       + (quand ? `<i>${esc(libelle)}</i><b>${hm(quand.getTime())}</b>` : `<b>${esc(libelle)}</b>`)
       + `</div></div>`,
     dedans: infosEtoiles(maintenant, g)
-      + `<p class="note ci-mention">Le bandeau regarde vers le sud. `
-      + `Toucher le ciel pour l'ouvrir en plein écran. `
-      + `Étoiles du catalogue HYG, figures de d3-celestial.</p>`,
+      + aide("Le ciel est vu vers le sud. Le toucher l'ouvre en plein écran."),
     brancher(bloc) {
       const bandeau = bloc.querySelector("#ciBandeau");
       const cv = bloc.querySelector("#ciToile");

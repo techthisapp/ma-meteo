@@ -10,7 +10,7 @@ import * as Ensemble from "../ensemble.js";
 import * as Scenarios from "../scenarios.js";
 import { angleFleche, TRACE_FLECHE } from "../fleche.js";
 import { SEUILS, grandesLignes, conseilsHTML, tendanceSuivante } from "../conseils.js";
-import { valeur } from "./communs.js";
+import { valeur, aide } from "./communs.js";
 
 /* ---------- La table de la semaine ---------- */
 
@@ -233,10 +233,11 @@ export function vueSemaine() {
     corps: grapheSemaine(jours, boutonSemaine(plusDispo)) + grandesLignesHTML(jours)
       + `<div class="carte sem-carte"><div class="sem">${lignes.join("")}</div>`
       + etatTendance(g, tend) + boutonSemaine(plusDispo)
-      + `<p class="note">Chaque journée se résume de ses heures. Jusqu'à trois jours, `
-      + `la prévision est affinée par AROME ; au delà, elle vient du modèle `
-      + `global.${tend?.length ? " Au-delà de seize jours, tendance du modèle américain GFS : médiane de "
-        + `${tend[0].n} scénarios pour les températures, part des scénarios pluvieux pour la pluie.` : ""}</p></div>`,
+      /* Jalon 20 : l'explication derrière le « i », les modèles dans les
+         sources des réglages. */
+      + aide(`La prévision est la plus fine sur les trois premiers jours.${tend?.length
+        ? " Au-delà de seize jours, ce n'est qu'une tendance : la pluie y dit la part des scénarios pluvieux." : ""}`)
+      + `</div>`,
     brancher(bloc) { brancherSemaine(bloc); },
   };
 }
@@ -347,7 +348,7 @@ export function grapheSemaine(jours, basDeCarte = "") {
     + (defile ? ` width="${L}" height="${H}"` : "") + ` role="img" aria-label="${esc(resume)}">`
     + fonds + pluie + vent + ligne("tx", "sg-max") + ligne("tn", "sg-min")
     + points("tx", "sg-pmax", -7) + points("tn", "sg-pmin", 14) + noms
-    + `</svg>` + (defile ? `</div>` : "") + `<p class="note sg-note">${avecVent ? "Rafales en kilomètres par heure, pluie en millimètres." : "Pluie en millimètres."}</p>${basDeCarte}</div>`;
+    + `</svg>` + (defile ? `</div>` : "") + aide(avecVent ? "Rafales en kilomètres par heure, pluie en millimètres." : "Pluie en millimètres.") + `${basDeCarte}</div>`;
 }
 
 /* L'accord des scénarios sur une journée, écrit en toutes lettres sous ses

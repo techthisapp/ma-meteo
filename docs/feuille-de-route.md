@@ -888,6 +888,26 @@ Demandé par Jérôme le 2 octobre 2026 : « améliorer la carte ».
 | 6 | Restrictions d'eau par zone d'alerte | livré, version 152 |
 | 7 | Carte plein écran et mémoire de la vue | livré, version 153 |
 
+## Jalon 20. Textes, accueil, ciel et heures
+
+Demandé par Jérôme le 3 octobre 2026.
+
+**Décisions de Jérôme.**
+1. Les textes descriptifs de tous les onglets se simplifient et passent derrière un bouton « i » ; toutes les sources quittent les écrans pour une seule carte des réglages, sans doublon.
+2. L'accueil : tableau des vingt-quatre prochaines heures redessiné ; une information clé sur les boutons « Quand faire quoi », « Où est le beau temps », « L'air qu'on respire » et « Le climat d'ici » à la place du texte gris ; l'eau prend un robinet partout, l'humidité garde la goutte ; la fenêtre de l'eau garde la restriction, la nappe et la rivière, le reste passe derrière « Plus de détails ».
+3. Les réglages perdent la section du rappel automatique sur iPhone ; les autres sont reprises.
+4. Le ciel : les trois indicateurs du Soleil et de la Lune remontent au-dessus de la trajectoire ; ceux des étoiles prennent le même format.
+5. Heure par heure : heures regroupées par moment, une ligne par heure avec l'heure, le symbole, la température et la pluie quand il pleut ; le reste en touchant la ligne.
+
+**Lots.**
+
+| Lot | Contenu | État |
+|---|---|---|
+| 1 | Textes derrière « i », sources dans les réglages, réglages repris | livré, version 156 |
+| 2 | Accueil : tableau des 24 heures, boutons à information clé, robinet, fenêtre de l'eau | à faire |
+| 3 | Le ciel : indicateurs au-dessus de la trajectoire | à faire |
+| 4 | Heure par heure refait | à faire |
+
 ## Hors cadre
 
 | Fonction | Ce qu'elle exigerait |
@@ -1089,3 +1109,4 @@ Les deux premières lignes se lèvent avec le même service dorsal minimal. Les 
 | 3 octobre 2026 | Version 154, demandes de Jérôme après essai : les nappes vont par familles, une ligne chacune, son nom à gauche (eau, températures, vent et pression, neige et montagne, ciel, air, mer), « Aucune » dans la ligne du titre ; la bulle d'un point s'ouvre par un appui long d'une demi-seconde, le toucher bref l'ouvrant au début de chaque déplacement ; le fond s'adapte, les cours d'eau ne paraissant qu'avec la nappe des restrictions d'eau, la pluie sur 24 h ou la couche des cours d'eau, le relief qu'avec la neige sur 24 h, la limite pluie-neige ou la couche de la neige, les villes toujours. La couche de la pluie n'appelle pas les cours d'eau : allumée par défaut, elle les aurait fait paraître presque toujours. Trois contrôles nouveaux, quatre adaptés, erreurs volontaires 262 à 265 vues, 220 et 228 reciblées |
 | 3 octobre 2026 | Décisions de Jérôme sur la version 154 : l'appui long ouvre la bulle d'un point ; la couche de la pluie ne fait pas paraître les cours d'eau ; seules la neige sur 24 h, la limite pluie-neige et la couche de la neige font paraître le relief |
 | 3 octobre 2026 | Version 155, demande de Jérôme : la légende prenait trop de place avec plusieurs couches allumées. Une seule boîte, la nappe sur sa ligne, le vent, la foudre et les feux ensemble dessous en petit ; un appui la replie en une pastille « Légende », le choix se garde. Un contrôle nouveau, erreurs volontaires 266 et 267 vues, 218 reciblée |
+| 3 octobre 2026 | Version 156, jalon 20, lot 1 : une vingtaine d'explications raccourcies et rangées derrière un bouton « i », un élément natif ; les messages d'état restent visibles. Aucune source ne se cite plus sur les écrans, ni au pied de l'accueil, ni dans À venir, le ciel, l'air, le climat, la vigilance, la neige, les plages et l'eau : toutes vivent dans la carte « Sources » des réglages, une fois chacune, rangées par sujet. Les réglages perdent la section du rappel automatique sur iPhone ; leurs cartes se réordonnent, les heures d'alerte d'abord, les sources en dernier ; les coordonnées passent dans « Données de cet appareil ». Trois contrôles nouveaux, cinq adaptés, erreurs volontaires 268 à 270 vues |

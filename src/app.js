@@ -759,8 +759,9 @@ function ecranAccueil() {
     corps += `<div class="section" data-bloc="portes">${portesHTML}</div>`;
 
     const lecture = Vig.etatLecture();
-    corps += `<p class="pied">Source : Open-Meteo, modèle AROME de Météo-France. `
-      + `Mise à jour toutes les heures.</p>`
+    /* La source passe dans les réglages, jalon 20 ; le pied ne garde que la
+       vigilance muette. */
+    corps += ``
       /* La vigilance que le service ne rend plus, audit, constat 2.6 : une ligne
          discrète, près de la source, décision de Jérôme. */
       + (lecture.muette && Reglages.departementDu(g) ? `<p class="pied pied-vig">Vigilance Météo-France non lue`

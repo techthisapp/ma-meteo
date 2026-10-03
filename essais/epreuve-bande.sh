@@ -841,6 +841,15 @@ case "$N" in
   267) # La légende ne se replie plus.
      perl -0pi -e 's/\.ca-legendes\.replie \.ca-leg-corps\{display:none\}/.ca-legendes.replie .ca-leg-corps{display:flex}/' styles.css
      ATTENDU="les légendes tiennent dans une seule boîte basse" ;;
+  268) # La source revient au pied de l'accueil.
+     perl -0pi -e 's/    corps \+= ``\n/    corps += `<p class="pied">Source : Open-Meteo, modèle AROME de Météo-France.<\/p>`\n/' src/app.js
+     ATTENDU="aucun écran ne cite plus de source" ;;
+  269) # Les explications s'ouvrent d'office.
+     perl -0pi -e 's/<details class="aide">/<details class="aide" open>/' src/aide.js
+     ATTENDU="les explications attendent derrière le bouton" ;;
+  270) # La carte des sources oublie l'indice officiel de l'air.
+     perl -0pi -e 's/ ; indice officiel d.Atmo France"\]/"]/' src/vues/feuilles.js
+     ATTENDU="la carte des sources des réglages nomme toutes les sources" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

@@ -11,6 +11,7 @@ import { cleHeure } from "../horloge.js";
 import { angleFleche, TRACE_FLECHE } from "../fleche.js";
 import * as Vig from "../vigilance.js";
 import { conseilsHTML } from "../conseils.js";
+import { aide } from "./communs.js";
 
 /* La feuille de la neige, jalon 16, lot 3 : les stations à une heure de
    route, regroupées sous leur domaine, décidé par Jérôme le 30 septembre 2026.
@@ -70,9 +71,7 @@ export function vueNeige(ctx, rendre) {
     ...(notable ? [{ i: "neige", g: 6, t: notable.phrase }] : []),
     { i: "neige", g: 1, t: Neige.phraseNeige(nz.resumes) }])}</div></div>`;
   return { titre, sous, corps: tete + cartes.join("")
-    + `<p class="note">Stations : OpenSkiMap, © contributeurs OpenStreetMap, licence ODbL. `
-    + `Neige : prévision calculée à l'altitude du pied et du sommet de chaque station. `
-    + `Durées de route : OSRM.</p>` };
+    + aide("La neige se prévoit à l'altitude du pied et du sommet de chaque station.") };
 }
 
 /* La feuille de la plage, jalon 15, lot 3 : les plages à une heure de route,
@@ -130,11 +129,8 @@ export function vuePlage(ctx, rendre) {
     { i: "goutte", g: 1, t: Plage.phrasePlage(pz.resumes) },
     ...(creneau ? [{ i: "soleil", g: 1, t: creneau }] : [])])}</div></div>`;
   return { titre, sous, corps: tete + pz.resumes.map(carte).join("")
-    + `<p class="note">Plages et qualité de l'eau : eaux de baignade déclarées à la Commission européenne, `
-    + `classement de la saison ${Plage.SAISON} établi sur quatre saisons de prélèvements ; `
-    + `le drapeau du jour se voit sur place. Mer : Open-Meteo, `
-    + `modèle de vagues ; marées estimées d'après la hauteur de la mer, heure par heure, à quelques minutes près. `
-    + `Durées de route : OSRM.</p>` };
+    + aide(`La qualité de l'eau est le classement ${Plage.SAISON}, établi sur quatre saisons ; le drapeau du jour se voit sur place. `
+      + "Les marées sont estimées à quelques minutes près.") };
 }
 
 /* La rivière la plus proche : la hauteur en centimètres, ou en mètres au-delà
@@ -211,8 +207,5 @@ export function vueEau(ctx, rendre) {
     + `<div class="carte"><h3>Nappe phréatique</h3>${nappe}</div>`
     + `<div class="carte"><h3>Rivière</h3>${riviereHTML(ez.riviere)}${etiageHTML(ez.etiage, ez.temperature)}</div>`
     + `<div class="carte"><h3>Le sol et l'arrosage</h3>${solHTML(ez.sol, ez.restriction)}</div>`
-    + `<p class="note">Restrictions : VigiEau, pour les particuliers. Nappe, rivière, étiage observé par le réseau ONDE et température de l'eau : `
-    + `mesures des réseaux nationaux, Hub'eau. Sol : humidité et évaporation estimées par Open-Meteo ; `
-    + `l'état compare les trente derniers jours aux mêmes jours de chaque année depuis 1995, sur le principe de `
-    + `l'indicateur du BRGM.</p>` };
+    + aide("L'état du sol compare les trente derniers jours aux mêmes jours de chaque année depuis 1995.") };
 }

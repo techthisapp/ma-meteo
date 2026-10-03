@@ -7,6 +7,9 @@ import { ico } from "../icones.js";
 
 /* ---------- Fragments communs ---------- */
 
+/* Le bouton « i » des cartes, jalon 20 : `src/aide.js`. */
+export { aide } from "../aide.js";
+
 export const hm = ms => new Date(ms).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
 /* Les huit points cardinaux vivaient ici et dans `previsions.js`, à l'identique.

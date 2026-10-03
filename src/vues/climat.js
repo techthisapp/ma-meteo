@@ -8,7 +8,7 @@ import * as Reglages from "../reglages.js";
 import * as Comparaison from "../comparaison.js";
 import * as Climat from "../climat.js";
 import { conseilsHTML } from "../conseils.js";
-import { poserRedimension, valeur } from "./communs.js";
+import { poserRedimension, valeur, aide } from "./communs.js";
 
 /* ---------- Le climat de la commune ----------
 
@@ -97,9 +97,8 @@ function brancherComparaison(cmp, bloc, g, c, date) {
     cmp.innerHTML = tete() + (b
       ? grapheComparaison(cette, autre, anneeCourante, annee, date, periodeTemps)
         + `<div class="conseils">${conseilsHTML([{ i: "thermo", g: 1, t: b.phrase }])}</div>`
-        + `<p class="note">Trait plein : ${anneeCourante}, ${Comparaison.estPassee(periodeTemps)
-          ? "relevés de l'archive jusqu'à hier" : "prévision"}. `
-        + `Tirets : ${annee}, relevés de l'archive. Les barres de pluie vont par paires, ${anneeCourante} à gauche.</p>`
+        + aide(`Trait plein : ${anneeCourante}${Comparaison.estPassee(periodeTemps) ? "" : ", prévision comprise"} ; `
+          + `tirets : ${annee}. Les barres de pluie vont par paires, ${anneeCourante} à gauche.`)
       : `<p class="note">La comparaison a besoin du réseau.</p>`);
     brancher();
   };
@@ -172,8 +171,7 @@ function brancherLieux(carte, bloc, g, date) {
     const libelle = Comparaison.PERIODES.find(([v]) => v === periodeLieux)[1].toLowerCase();
     carte.innerHTML = tete() + puces() + grapheLieux(series, lieux, date) + tableau
       + `<div class="conseils">${conseilsHTML([{ i: "thermo", g: 1, t: b.phrase }])}</div>`
-      + `<p class="note">Maximums et minimums moyens des ${libelle}, ${Comparaison.estPassee(periodeLieux)
-        ? "relevés de l'archive jusqu'à hier" : "prévision"} ; tous les lieux viennent d'une même source.</p>`;
+      + aide(`Maximums et minimums moyens des ${libelle}${Comparaison.estPassee(periodeLieux) ? "" : ", prévision comprise"}.`);
     brancher();
   };
   montrer();
@@ -248,9 +246,7 @@ export function vueClimat(ctx, rendre, majEtat) {
       + `<div class="carte" id="clLieux" hidden></div>`
       + `<div class="carte" id="clRecords" hidden></div>`
       + `<div class="carte" id="clSaison" hidden></div>`
-      + `<div class="carte" id="clBandes" hidden></div>`
-      + `<p class="note" id="clSource">Réanalyse ERA5, servie par Open-Meteo. `
-      + `L'archive d'une commune se lit une fois et se garde sur l'appareil.</p>`,
+      + `<div class="carte" id="clBandes" hidden></div>`,
 
     brancher(bloc) {
       const jour = bloc.querySelector("#clJour");
@@ -354,8 +350,8 @@ export function vueClimat(ctx, rendre, majEtat) {
             + `<p class="note">La moyenne annuelle a `
             + `${b.montee.ecart >= 0 ? "monté" : "baissé"} de `
             + `${nombreFr(Math.abs(b.montee.ecart))}° des trente premières années aux `
-            + `trente dernières. Chaque bande dit l'écart de son année à la moyenne `
-            + `des trente premières.</p>`;
+            + `trente dernières.</p>`
+            + aide("Chaque bande dit l'écart de son année à la moyenne des trente premières.");
 
           const cv = band.querySelector("#clToile");
           const peindre = () => {

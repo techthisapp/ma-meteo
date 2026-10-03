@@ -9,6 +9,7 @@ import * as Reglages from "../reglages.js";
 import * as Astres from "../astres.js";
 import * as Temps from "../temps.js";
 import { cielDe } from "./astres.js";
+import { aide } from "./communs.js";
 
 /* ---------- Réglages et commune ---------- */
 
@@ -110,9 +111,8 @@ export function vueCommunes(ctx, rendre, majEtat) {
     action: `<button type="button" class="feuille-plus" data-feuille="ajout" `
       + `aria-label="Ajouter un lieu"${plein ? " disabled" : ""}>${ico("plus", "")}</button>`,
     corps: liste
-      + `<p class="note">Ma position suit l'appareil et se relève à chaque ouverture. `
-      + `Un appui long sur un lieu le déplace dans la liste. Glisser une rangée vers `
-      + `la gauche pour la renommer ou la retirer. Le lieu courant porte une coche.</p>`
+      + aide("Appui long sur un lieu pour le déplacer ; glisser une rangée vers la gauche "
+        + "pour la renommer ou la retirer. Ma position se relève à chaque ouverture.")
       + (plein ? `<p class="note">Dix lieux au plus. En retirer un pour en ajouter `
         + `un autre.</p>` : ""),
 
@@ -236,9 +236,7 @@ export function vueAjout(ctx, rendre, majEtat) {
       + `<p class="champ-erreur" id="rgErr"${plein ? "" : " hidden"}>`
       + (plein ? `Dix lieux au plus. En retirer un pour en ajouter un autre.` : "")
       + `</p>`
-      + `<div class="rg-res" id="rgRes"></div></div>`
-      + `<p class="note">La recherche interroge l'interface adresse de data.gouv.fr, `
-      + `sans compte ni clé.</p>`,
+      + `<div class="rg-res" id="rgRes"></div></div>`,
     brancher(bloc) {
       brancherRecherche(bloc, rendre, majEtat);
       // Le clavier s'ouvre sur le champ : la feuille n'existe que pour lui.

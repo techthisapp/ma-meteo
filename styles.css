@@ -457,6 +457,25 @@ main:focus{outline:none}
 .carte-tete em{font-style:normal;margin-left:auto;font-size:var(--texte-legende);color:var(--etiquette-3)}
 
 .note{font-size:var(--texte-legende);line-height:1.4;color:var(--etiquette-3);margin-top:var(--espace-md)}
+/* Le bouton « i » et son explication, jalon 20 : un petit rond au pied de la
+   carte, à droite, dans une cible de quarante-quatre points ; ouvert, il se
+   teinte et l'explication paraît dessous. */
+.aide{margin-top:var(--espace-xs)}
+.aide > summary{
+  list-style:none;display:flex;justify-content:flex-end;align-items:center;
+  min-height:var(--touche);margin:0 calc(var(--espace-sm) * -1) calc(var(--espace-sm) * -1) auto;
+  width:var(--touche);cursor:pointer;
+}
+.aide > summary::-webkit-details-marker{display:none}
+.aide-i{
+  width:22px;height:22px;margin:auto;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  border:1.5px solid var(--etiquette-3);color:var(--etiquette-2);
+  font-family:Georgia, "Times New Roman", serif;font-style:italic;font-weight:var(--graisse-semibold);
+  font-size:var(--texte-legende);line-height:1;
+}
+.aide[open] .aide-i{background:var(--accent);border-color:var(--accent);color:#fff}
+.aide-txt{margin-top:0}
 .pied{
   font-size:var(--texte-legende);color:var(--etiquette-3);
   text-align:center;padding:0 var(--espace-base);

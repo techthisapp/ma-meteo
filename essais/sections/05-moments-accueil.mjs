@@ -14,7 +14,9 @@ export default async T => {
   ok("les moments ferment le contenu de l'accueil", await pg.evaluate(() => {
     const mo = document.querySelector("#ecran .mt");
     const re = document.querySelector("#ecran .retenir");
-    const pied = document.querySelector("#ecran .pied");
+    /* La ligne des sources du pied est retirée au jalon 20 : les portes
+       ferment désormais l'accueil, et les moments viennent avant elles. */
+    const pied = document.querySelector("#ecran .portes");
     if (!mo || !re || !pied) return false;
     const apresRetenir = re.compareDocumentPosition(mo) & Node.DOCUMENT_POSITION_FOLLOWING;
     const avantPied = mo.compareDocumentPosition(pied) & Node.DOCUMENT_POSITION_FOLLOWING;

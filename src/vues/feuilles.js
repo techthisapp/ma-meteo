@@ -15,15 +15,14 @@ import * as Air from "../air.js";
 import * as Atmo from "../atmo.js";
 import * as Version from "../version.js";
 import * as Justesse from "../justesse.js";
-import { rangees, valeur } from "./communs.js";
+import { rangees, valeur, aide } from "./communs.js";
 
 function justesseHTML() {
   const b = Justesse.bilan(Justesse.lire().lignes);
   const fr = n => String(n).replace(".", ",");
   const tete = `<div class="carte"><div class="carte-tete"><h3>Justesse des prévisions</h3></div>`;
   if (!b.jours) {
-    return tete + `<p class="note">Le journal note chaque jour ce que la prévision annonçait, puis ce qui a `
-      + `été relevé. Aucun relevé n'est encore arrivé sur cet appareil.</p></div>`;
+    return tete + `<p class="note">Aucun relevé encore : la justesse se mesure jour après jour sur cet appareil.</p></div>`;
   }
   const lignes = b.paliers.filter(p => p.ecart !== undefined).map(p =>
     `<div class="rangee"><span class="rangee-txt"><b>${esc(Justesse.nomEcheance(p.e).replace(/^./, c => c.toUpperCase()))}</b>`
@@ -32,8 +31,7 @@ function justesseHTML() {
   /* Sans phrase sur le délai, retirée à la demande de Jérôme le 27 septembre
      2026 : la carte donne les chiffres et la façon de les lire. */
   return tete + lignes
-    + `<p class="note">L'écart est la distance moyenne entre la température annoncée et celle relevée, `
-    + `à 6 h et à 15 h, toutes communes confondues.</p></div>`;
+    + aide("Écart moyen entre la température annoncée et celle relevée, à 6 h et à 15 h.") + `</div>`;
 }
 
 /* ---------- Le rappel de parapluie ---------- */
@@ -102,17 +100,10 @@ export function vueParapluie(ctx, rendre, majEtat) {
         + `Poser les ${suite.length} rappels de l'horizon</button>` : "")
       + `<button type="button" class="bouton-borde" id="plPris">C'est pris</button>`
 
-      + `<p class="note">`
-      + (surAlerte
-        ? `Le rappel se pose à ${esc(Parapluie.heureDemie(depart))}, l'heure d'alerte `
-          + `de cette période, avec une alarme ${Parapluie.AVANCE} minutes avant : `
-          + `c'est en sortant qu'on prend un parapluie.`
-        : `L'heure d'alerte de cette période est passée. Le rappel se pose donc à `
-          + `${esc(Parapluie.heureDemie(depart))}, au début de la pluie, avec une alarme `
-          + `${Parapluie.AVANCE} minutes avant.`)
-      + ` Le fichier d'agenda est fabriqué sur cet appareil et remis à l'agenda du `
-      + `téléphone, sans compte ni service. « C'est pris » retire le rappel jusqu'à la `
-      + `prochaine période pluvieuse.</p>`,
+      + `<p class="note">Rappel à ${esc(Parapluie.heureDemie(depart))}, alarme ${Parapluie.AVANCE} minutes avant.</p>`
+      + aide((surAlerte ? "Le rappel tombe à l'heure d'alerte de cette période : c'est en sortant qu'on prend un parapluie."
+        : "L'heure d'alerte est passée : le rappel tombe au début de la pluie.")
+        + " « C'est pris » le retire jusqu'à la prochaine pluie."),
 
     brancher(bloc) {
       const poser = (lot, fichier, dit) => {
@@ -166,9 +157,7 @@ export function vueActivites() {
         + `<span>${esc(a.detail)}${a.partages ? ", scénarios partagés" : ""}</span></span>`
         + `<span class="rangee-val"><b>${esc(a.quand)}</b></span></div>`).join("")
       + `</div>`
-      + `<p class="note">Chaque activité rend le premier créneau qui lui convient, `
-      + `non le meilleur de la semaine : au delà de deux jours, les scénarios `
-      + `s'écartent déjà de cinq degrés.</p>`,
+      + aide("Chaque activité montre le premier créneau qui lui convient."),
   };
 }
 
@@ -198,10 +187,8 @@ function carteOfficielle(off) {
         + valeur(m ? majuscule(m.nom) : "—", { doux: v === null ? "" : String(v) })
         + `</div>`;
     }).join("")
-    + `<p class="note">Publié chaque jour par les associations agréées de `
-    + `surveillance de la qualité de l'air, réunies sous Atmo France. L'indice `
-    + `retenu est le plus mauvais des cinq, ce qui explique qu'il puisse être `
-    + `plus sévère que l'indice européen au-dessus.</p></div>`;
+    + aide("L'indice officiel retient le plus mauvais des cinq polluants : il peut être plus sévère que l'indice européen.")
+    + `</div>`;
 }
 
 /* Ce qui entre dans les poumons, que le temps qu'il fait ne dit pas. L'indice
@@ -270,8 +257,8 @@ export function vueAir(ctx, rendre, majEtat) {
         + `<span class="rangee-txt"><b>${esc(nom)}</b><span>${esc(court)}</span></span>`
         + valeur(air[cle][0] === null ? "—" : `${nombreFr(air[cle][0])}`,
           { doux: "µg/m³" }) + `</div>`).join("")
-      + `<p class="note">L'indice est celui du polluant le plus mal placé, non `
-      + `une moyenne : un seul suffit à faire la journée.</p></div>`
+      + aide(`L'indice suit le polluant le plus mal placé. Six niveaux par pas de vingt, de bon à extrêmement mauvais ; `
+        + `au-delà de ${Air.DEGRADE}, l'accueil le signale.`) + `</div>`
 
       + carteOfficielle(off)
 
@@ -282,20 +269,9 @@ export function vueAir(ctx, rendre, majEtat) {
           + `<span>${p.etat === "pic" ? `Au pic vers ${esc(heureDe(p.k))}` : "En saison"}`
           + `</span></span>`
           + valeur(nombreFr(p.valeur), { doux: "grains/m³" }) + `</div>`).join("")
-        : `<p class="note">Aucun pollen en saison sur les vingt-quatre heures qui `
-          + `viennent. Un taxon sous son seuil de saison ne s'écrit pas : une file `
-          + `de zéros occuperait la page pendant des mois.</p>`)
-      + `</div>`
-
-      + `<p class="note">Six niveaux, par pas de vingt : bon, moyen, dégradé, `
-      + `mauvais, très mauvais, extrêmement mauvais. Au delà de ${Air.DEGRADE}, `
-      + `l'air se dit sur l'accueil et les heures concernées cessent d'être des `
-      + `heures où l'on ouvre en grand.</p>`
-      + `<p class="note">Les seuils de saison et de pic viennent de la source `
-      + `elle-même : dix et cent grains par mètre cube pour l'aulne, le bouleau, `
-      + `l'olivier et l'armoise, trois et cinquante pour les graminées et `
-      + `l'ambroisie. Le profil des réglages décide de ce qui remonte sur `
-      + `l'accueil, non de ce que cette page montre.</p>`,
+        : `<p class="note">Aucun pollen en saison dans les vingt-quatre heures.</p>`)
+      + aide("En saison dès 10 grains par mètre cube, au pic à 100 ; pour les graminées et l'ambroisie, 3 et 50.")
+      + `</div>`,
   };
 }
 
@@ -347,13 +323,7 @@ export function vueBeauTemps(ctx, rendre, majEtat) {
       + `Chercher à ${S.rayon} km à la ronde</button>`
       + `<div class="carte" id="btGrille" hidden></div>`
 
-      + `<p class="note">Le classement suit l'ensoleillement de la journée, `
-      + `corrigé par la pluie et par l'écart à ${S.agreable} degrés. Sur ${S.rayon} km, `
-      + `c'est le soleil qui sépare deux lieux : d'un point à l'autre de la grille, `
-      + `il varie du simple au double quand la température maximale varie de `
-      + `quelques degrés.</p>`
-      + `<p class="note">La grille compte ${points.length} points espacés de `
-      + `${S.pas} km, lus en un seul appel de quatre kilooctets.</p>`,
+      + aide(`Classement selon le soleil de la journée, corrigé par la pluie et la température, autour de ${S.agreable}°.`),
 
     brancher(bloc) {
       let j = 0;                       // la journée montrée, 0 aujourd'hui, 1 demain
@@ -390,8 +360,7 @@ export function vueBeauTemps(ctx, rendre, majEtat) {
         carteLieux.innerHTML = tete("Mes lieux")
           + (cl.length ? cl.map(rangee).join("")
             : `<p class="note">La source n'a rien rendu pour ces lieux.</p>`)
-          + (lieux.length < 2 ? `<p class="note">Un seul lieu suivi. En ajouter `
-            + `d'autres donne une comparaison sans nouvel appel.</p>` : "");
+          + (lieux.length < 2 ? `<p class="note">Ajoutez des lieux pour les comparer.</p>` : "");
       };
 
       /* Les points nommés sont ceux qui sont montrés, non la grille entière :
@@ -486,17 +455,11 @@ export function vueRessenti(ctx, rendre, majEtat) {
       + `<button type="button" class="bouton-borde" data-biais="1">J'ai eu trop chaud</button>`
       + `<button type="button" class="bouton-borde" data-biais="-1">J'ai eu trop froid</button>`
       + `</div>`
-      + `<p class="note">Chaque appui déplace le conseil d'un degré, dans la limite `
-      + `de ${Reponse.BIAIS_MAX} degrés de part et d'autre. Sans borne, une suite `
-      + `d'appuis finirait par conseiller un manteau en juillet.</p>`
       + (b !== 0 ? `<button type="button" class="bouton-texte" id="rsZero">`
         + `Revenir à zéro</button>` : "")
-      + `</div>`
-
-      + `<p class="note">La correction déplace le conseil d'habillement, non les `
-      + `degrés écrits : ceux-ci viennent de la source, et « Heure par heure », la table des `
-      + `moments et « À venir » doivent s'accorder au degré. Elle reste sur cet `
-      + `appareil et n'entre dans aucune requête.</p>`,
+      + aide(`Chaque appui décale le conseil d'habillement d'un degré, jusqu'à ${Reponse.BIAIS_MAX} degrés. `
+        + "Les températures affichées ne changent pas.")
+      + `</div>`,
 
     brancher(bloc) {
       for (const x of bloc.querySelectorAll("[data-biais]")) {
@@ -530,15 +493,6 @@ const optionsHeure = (de, a, valeur) => {
   return o;
 };
 
-const RECETTE = [
-  "Ouvrir l'application Raccourcis, onglet Automatisation, puis Nouvelle automatisation.",
-  "Choisir Heure de la journée, régler la première heure d'alerte et la répétition quotidienne.",
-  "Décocher Demander avant d'exécuter, pour que le rappel parte seul.",
-  "Ajouter l'action Obtenir le contenu de l'URL et y coller l'adresse de Ma météo.",
-  "Ajouter l'action Ouvrir l'app et choisir Ma météo, pour lire le jeton du jour.",
-  "Enregistrer, puis refaire la même automatisation pour la seconde heure d'alerte.",
-];
-
 export function vueReglages(ctx, rendre, majEtat) {
   const g = Reglages.lire();
   const c = P.chargeCourante();
@@ -546,11 +500,13 @@ export function vueReglages(ctx, rendre, majEtat) {
   const per = Parapluie.periodes(al);
   const ALERTES = [["Première alerte", 0], ["Seconde alerte", 1]];
 
-  /* Tous les services qui reçoivent le lieu affiché. La carte n'en citait que
-     quatre et affirmait qu'aucune donnée n'était envoyée. Audit du
-     1er octobre 2026, constat 2.1. */
+  /* Toutes les sources, en un seul endroit depuis le jalon 20 : les écrans ne
+     les citent plus, décision de Jérôme du 3 octobre 2026. Chacune une fois,
+     rangée par sujet. Les services qui reçoivent le lieu affiché y sont tous,
+     audit du 1er octobre 2026, constat 2.1. */
   const sources = [
-    ["Prévision, air, pollens, mer, neige", "Open-Meteo, avec AROME de Météo-France sur les deux premiers jours et les analyses Copernicus pour l'air"],
+    ["Prévision", "Open-Meteo, avec AROME de Météo-France sur les deux premiers jours ; confiance par les "
+      + "scénarios d'ICON et d'ECMWF ; tendance au-delà de seize jours par GFS"],
     /* Un service muet le dit ici aussi, audit, constat 2.6. */
     ["Vigilance, pluie dans l'heure", (() => {
       const l = Vig.etatLecture();
@@ -558,25 +514,29 @@ export function vueReglages(ctx, rendre, majEtat) {
       return `Météo-France ; vigilance non lue${l.depuis ? ` depuis le ${l.depuis.toLocaleDateString("fr-FR",
         { day: "numeric", month: "long" })} à ${heureTxt(l.depuis.getHours())}` : ""}, le service ne répond pas`;
     })()],
-    ["Communes", "interfaces adresse et découpage administratif de data.gouv.fr"],
-    ["Indice officiel de l'air", "Atmo France"],
-    ["Eau", "VigiEau et Hub'eau"],
+    ["Climat d'ici", "réanalyse ERA5 de Copernicus, par Open-Meteo"],
+    ["Air et pollens", "Copernicus, par Open-Meteo ; indice officiel d'Atmo France"],
+    ["Eau", "restrictions VigiEau ; nappes, rivières, étiage ONDE et température de l'eau par Hub'eau ; "
+      + "sol estimé par Open-Meteo, sur le principe de l'indicateur du BRGM"],
+    ["Mer et plages", "mer par Open-Meteo, marées estimées ; eaux de baignade de l'Agence européenne de l'environnement"],
+    ["Neige", "stations OpenSkiMap, © contributeurs OpenStreetMap, licence ODbL ; neige par Open-Meteo"],
     ["Durées de route", "serveur public de démonstration OSRM"],
-    ["Couches de la carte", "RainViewer, EUMETSAT et le système européen d'information sur les feux de forêt"],
+    ["Communes", "interfaces adresse et découpage administratif de data.gouv.fr"],
+    ["Couches de la carte", "pluie RainViewer ; foudre et nuages EUMETSAT ; feux du système européen d'information sur les feux de forêt"],
     /* Le fond est embarqué : ces sources ne reçoivent rien, elles sont citées
        pour leurs licences. Jalon 19, lot 2. */
-    ["Fond de la carte, embarqué", "contours et cours d'eau de l'IGN, Natural Earth, relief d'après les altitudes Terrarium de Mapzen, villes de geo.api.gouv.fr"],
+    ["Fond de la carte", "contours et cours d'eau de l'IGN, Natural Earth, relief d'après les altitudes Terrarium de Mapzen, "
+      + "villes de geo.api.gouv.fr"],
+    ["Le ciel", "Soleil, Lune et étoiles calculés sur l'appareil ; étoiles du catalogue HYG, figures de d3-celestial"],
   ];
 
+  /* L'ordre des cartes, jalon 20 : les réglages qu'on touche d'abord, puis
+     l'application et les données, les sources en dernier. La section du
+     rappel automatique sur iPhone est retirée, décision de Jérôme. */
   return {
     titre: "Réglages",
     corps:
-      `<div class="carte"><div class="carte-tete"><h3>Écriture de la page « Heure par heure »</h3></div>`
-      + `<div class="seg">` + Reglages.ECRITURES.map(([k, n]) =>
-        `<button type="button" data-ecriture="${k}"${k === g.ecriture ? ' class="actif"' : ""}>${esc(n)}</button>`)
-        .join("") + `</div></div>`
-
-      + `<div class="carte"><div class="carte-tete"><h3>Heures d'alerte</h3></div>`
+      `<div class="carte"><div class="carte-tete"><h3>Heures d'alerte</h3></div>`
       + ALERTES.map(([n, i]) => `<div class="rangee">`
         /* La dernière période finit à minuit, non à « 24 h » : c'est ainsi
            qu'on dit la fin d'une journée. */
@@ -588,12 +548,13 @@ export function vueReglages(ctx, rendre, majEtat) {
         + `aria-label="${esc(n)} de la journée">`
         + optionsHeure(0, 23.5, al[i]) + `</select>`
         + `</span></div>`).join("")
-      + `<p class="note">Ce sont les moments où l'on veut être prévenu, non ceux où `
-      + `l'on cherche la pluie. Chaque alerte répond de la pluie attendue jusqu'à la `
-      + `suivante, la seconde jusqu'à minuit : celle du matin annonce donc une averse `
-      + `de quatorze heures. De minuit à la première alerte, rien ne s'annonce : on `
-      + `n'y sort pas, et prévenir n'y donne aucune occasion de prendre un `
-      + `parapluie.</p></div>`
+      + aide("Les moments où l'on veut être prévenu de la pluie. Chaque alerte annonce la pluie "
+        + "jusqu'à la suivante, la dernière jusqu'à minuit.") + `</div>`
+
+      + `<div class="carte"><div class="carte-tete"><h3>Heure par heure</h3></div>`
+      + `<div class="seg">` + Reglages.ECRITURES.map(([k, n]) =>
+        `<button type="button" data-ecriture="${k}"${k === g.ecriture ? ' class="actif"' : ""}>${esc(n)}</button>`)
+        .join("") + `</div></div>`
 
       + `<div class="carte"><div class="carte-tete"><h3>Pollens suivis</h3></div>`
       + Air.POLLENS.map(p => {
@@ -604,26 +565,7 @@ export function vueReglages(ctx, rendre, majEtat) {
           + `<span>saison à partir de ${p.saison} grains/m³</span></span>`
           + ico("coche", suivi ? "rg-coche" : "rg-coche rg-coche-vide") + `</button>`;
       }).join("")
-      + `<p class="note">Les six sont suivis au départ. Un pollen retiré ne remonte `
-      + `plus dans ce qui est à savoir ; la feuille de l'air continue de le montrer `
-      + `s'il est en saison. Ce réglage reste sur l'appareil et n'entre dans aucune `
-      + `requête : les six sont demandés à la source quoi qu'il arrive.</p></div>`
-
-      + `<div class="carte"><div class="carte-tete"><h3>Rappel automatique sur iPhone</h3></div>`
-      + `<p class="note">L'application ne peut pas envoyer de notification : elle n'a `
-      + `aucun service dorsal. Une automatisation de l'application Raccourcis ouvre `
-      + `Ma météo aux heures d'alerte, ce qui revient au même résultat. À construire `
-      + `une fois, à la main.</p>`
-      + `<ol class="rg-recette">` + RECETTE.map(e => `<li>${esc(e)}</li>`).join("") + `</ol>`
-      + `<p class="note">Le rappel posé dans l'agenda depuis le jeton du jour reste `
-      + `la voie la plus simple : il porte une alarme et ne demande aucun réglage.</p></div>`
-
-      + `<div class="carte"><div class="carte-tete"><h3>Sources</h3></div>`
-      + sources.map(([n, v]) => `<div class="rangee"><span class="rangee-txt">${esc(n)}</span>`
-        + `<span class="rangee-val">${esc(v)}</span></div>`).join("")
-      + (g.lat !== null ? `<div class="rangee"><span class="rangee-txt">Coordonnées</span>`
-        + `<span class="rangee-val">${esc(`${g.lat}, ${g.lon}`)}</span></div>` : "")
-      + `</div>`
+      + aide("Un pollen retiré ne s'annonce plus sur l'accueil ; la feuille de l'air le montre toujours.") + `</div>`
 
       /* La justesse des prévisions, jalon 6 préparé au jalon 12, lot 7 : ce que
          le journal a déjà mesuré, par échéance, avec le nombre de jours
@@ -639,12 +581,20 @@ export function vueReglages(ctx, rendre, majEtat) {
       + `</div>`
 
       + `<div class="carte"><div class="carte-tete"><h3>Données de cet appareil</h3></div>`
-      + `<p class="note" id="rgDonnees">Aucun compte, aucune base de données. Pour lire la météo, l'application `
-      + `envoie aux services de la carte « Sources » les coordonnées du lieu affiché ; en mode position, `
-      + `elles sont arrondies à un kilomètre environ. Les communes suivies partent ensemble dans une même `
-      + `requête. Les réglages, les lieux suivis et les données gardées restent sur cet appareil.</p>`
+      + `<p class="note" id="rgDonnees">Aucun compte. Les réglages, les lieux suivis et les données gardées `
+      + `restent sur cet appareil.</p>`
+      + (g.lat !== null ? `<div class="rangee"><span class="rangee-txt">Coordonnées du lieu</span>`
+        + `<span class="rangee-val">${esc(`${g.lat}, ${g.lon}`)}</span></div>` : "")
       + `<div class="rangee"><button type="button" class="bouton-borde" id="rgEffacer">`
-      + `Effacer les données de cet appareil</button></div></div>`,
+      + `Effacer les données de cet appareil</button></div>`
+      + aide("Pour lire la météo, les services de la carte « Sources » reçoivent les coordonnées du lieu "
+        + "affiché, arrondies à un kilomètre environ en mode position. Le fond de la carte et le ciel ne reçoivent rien.")
+      + `</div>`
+
+      + `<div class="carte"><div class="carte-tete"><h3>Sources</h3></div>`
+      + sources.map(([n, v]) => `<div class="rangee"><span class="rangee-txt">${esc(n)}</span>`
+        + `<span class="rangee-val">${esc(v)}</span></div>`).join("")
+      + `</div>`,
 
     brancher(bloc) {
       /* Efface tout ce que l'application garde sur l'appareil : réglages, lieux

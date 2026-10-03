@@ -248,9 +248,9 @@ export default async T => {
     await pgPluie.locator("#plAgenda").count() === 1
     && await pgPluie.locator("#plPris").count() === 1);
   ok("elle dit pourquoi le rappel ne se pose pas à l'heure d'alerte",
-    /heure d'alerte de cette période est passée/.test(
-      await pgPluie.locator(".feuille-corps").innerText()),
-    await pgPluie.locator(".feuille-corps").innerText());
+    /* Derrière le « i » depuis le jalon 20 : le texte entier, non le rendu. */
+    /heure d'alerte est passée/.test(await pgPluie.locator(".feuille-corps").textContent()),
+    await pgPluie.locator(".feuille-corps").textContent());
   await clic(pgPluie, "#plPris");
   await pgPluie.waitForTimeout(500);
   ok("le jeton disparaît après un appui", await pgPluie.locator("#navJeton").isHidden());
@@ -316,9 +316,11 @@ export default async T => {
     (await pgPluie.locator(".rg-fen").locator("xpath=../span[1]/span").first().innerText())
       === "couvre 07:30 à 20 h",
     await pgPluie.locator(".rg-fen").locator("xpath=../span[1]/span").first().innerText());
-  ok("la recette du raccourci se donne étape par étape",
-    await pgPluie.locator(".rg-recette li").count() === 6,
-    String(await pgPluie.locator(".rg-recette li").count()));
+  /* La section du rappel automatique sur iPhone est retirée, décision de
+     Jérôme du 3 octobre 2026. */
+  ok("les réglages n'ont plus de section du rappel automatique sur iPhone",
+    await pgPluie.locator(".rg-recette").count() === 0
+    && !(await pgPluie.locator("#feuille-corps").innerText()).includes("Rappel automatique"));
   await ctxPluie.close();
 
   /* Le vent. Un parapluie ne tient pas au delà du seuil de retournement, et

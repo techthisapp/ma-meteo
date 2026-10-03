@@ -285,10 +285,14 @@ export default async T => {
       return clairs > 300 ? "" : `${clairs} points clairs`;
     }) === "");
 
+  /* Les deux sources du ciel se nomment dans la carte des sources des
+     réglages depuis le jalon 20, et plus sur l'écran. */
   ok("la mention nomme les deux sources",
-    await pgEt.evaluate(() => {
-      const t = document.querySelector(".ci-mention")?.textContent || "";
-      return /HYG/.test(t) && /d3-celestial/.test(t);
+    await pgEt.evaluate(async () => {
+      const F = await import("/src/vues/feuilles.js");
+      const v = F.vueReglages({}, () => {}, () => {});
+      const ecran = document.getElementById("ecran").textContent;
+      return /HYG/.test(v.corps) && /d3-celestial/.test(v.corps) && !/HYG/.test(ecran);
     }));
 
   ok("sous le bandeau, la nuit noire, les nuages et la Lune",

@@ -40,7 +40,7 @@ const sortantes = envelopperNavigateur(nav);
 
 const FIGE = new Date(process.env.QUAND || "2026-08-18T09:00:00+02:00").getTime();
 const REGLAGES = { commune: "Fain-lès-Moutiers", codePostal: "21500",
-  lat: 47.5, lon: 4.3, ecriture: "ruban", poste: null,
+  lat: 47.5, lon: 4.3, ecriture: process.env.ECRITURE || "ruban", poste: null,
   /* Trois lieux suivis pour la feuille du beau temps, qui compare des lieux :
      avec le seul lieu courant, la capture ne montrerait qu'une rangée. */
   suivies: process.env.FEUILLE === "beautemps" ? [
@@ -330,6 +330,17 @@ for (const theme of ["light", "dark"]) {
       await pg.locator("#btLarge").click();
       await pg.waitForTimeout(1400);
     }
+  }
+  /* PLEINE : la page entière, ou la feuille ouverte dépliée, en une image. */
+  if (process.env.PLEINE) {
+    await pg.evaluate(() => {
+      const f = document.getElementById("feuille-corps");
+      if (f && !document.getElementById("feuille").hidden) {
+        f.style.maxHeight = "none"; f.style.height = "auto"; f.style.overflow = "visible";
+        const fe = document.getElementById("feuille"); fe.style.position = "absolute"; fe.style.maxHeight = "none"; fe.style.height = "auto";
+      }
+    });
+    await pg.screenshot({ path: path.join(SORTIE, `${cle}-pleine-${theme}.png`), fullPage: true });
   }
   await pg.screenshot({ path: path.join(SORTIE, `${cle}-haut-${theme}.png`) });
   /* Une feuille ouverte a son propre défilement : faire glisser la fenêtre

@@ -9,7 +9,7 @@ import * as Astres from "../astres.js";
 import * as Feu from "../feu.js";
 import * as Relief from "../relief.js";
 import * as Temps from "../temps.js";
-import { anglePhase, hm, rangeeAstre, valeur, versCardinal } from "./communs.js";
+import { anglePhase, hm, rangeeAstre, valeur, versCardinal, aide } from "./communs.js";
 
 /* ---------- Le soleil ---------- */
 
@@ -567,10 +567,9 @@ export function vueSoleil() {
       + `<div class="carte"><div class="carte-tete"><h3>Du jour à la nuit noire</h3></div>`
       + rubanLumiere(courbe, minutes)
       + creps
-      + `<p class="note">Les seuils tiennent à la hauteur du Soleil sous l'horizon : `
-      + `six degrés pour le civil, douze pour le nautique, dix-huit pour `
-      + `l'astronomique. Passé le dernier, plus aucune lueur solaire n'atteint le `
-      + `ciel.</p></div></div>`,
+      + aide("Le Soleil passe à 6° sous l'horizon pour le crépuscule civil, 12° pour le nautique, "
+        + "18° pour l'astronomique ; ensuite, la nuit est noire.")
+      + `</div></div>`,
 
     brancher(bloc) {
       Feu.vignette(bloc.querySelector("#ptSoleil"),
@@ -706,10 +705,9 @@ export function vueLune() {
       + `<div class="carte">${mesures}</div>`
 
       + `<div class="section"><h2>Prochaines phases</h2>`
-      + `<div class="carte">${bande}`
-      + `<p class="note">Positions calculées sur l'appareil, sans source distante. `
-      + `Écart de l'ordre de la minute sur les heures, de quelques minutes sur les `
-      + `instants de phase.</p></div></div>`,
+      /* Le calcul sur l'appareil se dit dans les sources des réglages,
+         jalon 20. */
+      + `<div class="carte">${bande}</div></div>`,
 
     brancher(bloc) {
       Relief.poser(bloc.querySelector("#ciLune"));

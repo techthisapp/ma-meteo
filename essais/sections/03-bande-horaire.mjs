@@ -42,7 +42,10 @@ export default async T => {
       portesEnBas: (() => {
         const p = ordre(document.querySelector(".portes"));
         const avant = document.querySelector('[data-bloc="suite"]') || document.querySelector('[data-bloc="h24"]');
-        return p > ordre(avant) && p < ordre(document.querySelector("#ecran .pied"));
+        /* La ligne des sources est retirée au jalon 20 : seul le pied de la
+           vigilance muette peut encore suivre les portes. */
+        const pied = document.querySelector("#ecran .pied");
+        return p > ordre(avant) && (!pied || p < ordre(pied));
       })(),
       portes: (() => {
         const b = [...document.querySelectorAll(".portes .porte")];
@@ -304,7 +307,8 @@ export default async T => {
      réglages portait encore l'ancien nom jusqu'à la version 119. */
   const titresReglages = await pg.evaluate(() => [...document.querySelectorAll("#feuille-corps .carte-tete h3")].map(h => h.textContent));
   ok("les réglages nomment l'écriture de la page « Heure par heure »",
-    titresReglages.includes("Écriture de la page « Heure par heure »") && !titresReglages.some(t => /Le temps/.test(t)),
+    /* La carte s'intitule « Heure par heure » depuis le jalon 20. */
+    titresReglages.includes("Heure par heure") && !titresReglages.some(t => /Le temps/.test(t)),
     JSON.stringify(titresReglages));
   await pg.evaluate(() => history.back());
   await pg.waitForTimeout(500);
@@ -918,7 +922,10 @@ export default async T => {
     cartes: document.querySelectorAll("#feuille-corps .ng-seule, #feuille-corps .ng-dom").length,
     domaine: [...document.querySelectorAll("#feuille-corps .ng-dom h3")].map(h => h.textContent).join(","),
     ensemble: [...document.querySelectorAll("#feuille-corps .ng-tete b")].filter(b => b.textContent === "Ensemble du domaine").length,
-    sources: /OpenSkiMap/.test(document.querySelector("#feuille-corps")?.textContent || ""),
+    /* Les sources passent dans les réglages depuis le jalon 20 : la feuille
+       n'en cite plus, et garde son explication derrière le « i ». */
+    sources: !/OpenSkiMap/.test(document.querySelector("#feuille-corps")?.textContent || "")
+      && !!document.querySelector("#feuille-corps details.aide"),
   }));
   /* Le retour ne se fait que si la feuille s'est ouverte : sans elle, il
      quitterait l'application et interromprait la suite. */

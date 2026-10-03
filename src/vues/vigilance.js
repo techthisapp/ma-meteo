@@ -5,6 +5,7 @@ import { esc, heureJour } from "../horloge.js";
 import { ico } from "../icones.js";
 import * as Reglages from "../reglages.js";
 import * as Vig from "../vigilance.js";
+import { aide } from "./communs.js";
 
 /* ---------- Vigilance ----------
 
@@ -78,11 +79,9 @@ export function vueVigilance(ctx) {
       + (lignesDemain ? `<div class="section"><h2>Annoncé pour demain</h2>`
         + `<div class="carte groupe-plat">${lignesDemain}</div></div>` : "")
 
-      + `<div class="carte"><div class="carte-tete"><h3>Source</h3></div>`
-      + `<p class="prose-2">Bulletin de Météo-France, lu sur le service qui alimente son `
-      + `site et son application, sans compte ni clé`
-      + (v.maj ? `. Dernière révision ${esc(heureJour(v.maj))}` : "")
-      + `. Le détail par phénomène, les conséquences possibles et les conseils de `
-      + `comportement se lisent sur Météo-France, qui fait foi.</p></div>`,
+      /* La source passe dans les réglages, jalon 20 ; restent l'heure de la
+         dernière révision et le renvoi vers Météo-France, derrière le « i ». */
+      + aide(`${v.maj ? `Bulletin révisé à ${esc(heureJour(v.maj))}. ` : ""}`
+        + "Le détail, les conséquences et les conseils se lisent sur Météo-France, qui fait foi."),
   };
 }
