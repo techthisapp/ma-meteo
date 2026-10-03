@@ -186,12 +186,12 @@ export default async T => {
   ok("sur un temps calme, le reste de l'accueil tient",
     await pgCalme.locator("#ecran .bd-mesures").count() === 1
     && await pgCalme.locator("#ecran .mt").count() === 1);
-  /* Sans pluie, sans risque et sans rafale, ces trois lignes n'ont rien à dire :
-     elles ne paraissent pas. Le profil de la journée, lui, tient toujours. */
-  ok("sur un temps calme, le tableau ne garde que ses lignes utiles",
-    (await pgCalme.locator("#ecran .mt-l").allInnerTexts())
-      .map(t => t.trim()).filter(Boolean).join("/") === "Temp./Vent/Humidité/UV",
-    (await pgCalme.locator("#ecran .mt-l").allInnerTexts()).map(t => t.trim()).filter(Boolean).join("/"));
+  /* Sans pluie ni risque, la ligne de la pluie n'a rien à dire : elle ne
+     paraît pas. Depuis le jalon 20, lot 2, le tableau n'a plus que quatre
+     lignes, et l'humidité n'en est plus. Les noms se lisent par leur texte :
+     la feuille de style les écrit en capitales. */
+  const lignesCalme = (await pgCalme.locator("#ecran .mt-l").allTextContents()).map(t => t.trim()).filter(Boolean).join("/");
+  ok("sur un temps calme, le tableau ne garde que ses lignes utiles", lignesCalme === "Temp./Vent/UV", lignesCalme);
   await ctxCalme.close();
 
   /* Heures écourtées : la source s'arrête au milieu du troisième jour annoncé.

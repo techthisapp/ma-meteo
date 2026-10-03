@@ -61,7 +61,7 @@ export const FAMILLES = [["eau", "Eau"], ["temp", "Températures"], ["vent", "Ve
 export const NAPPES_CARTE = [
   /* Les restrictions d'eau, VigiEau, jalon 18 : une nappe par départements, sans
      grille de valeurs ; la légende nomme ses quatre classes. */
-  { cle: "eau", famille: "eau", id: "caEau", nom: "Restrictions d'eau", tuile: "Eau", ico: "goutte", porte: "en vigueur",
+  { cle: "eau", famille: "eau", id: "caEau", nom: "Restrictions d'eau", tuile: "Eau", ico: "robinet", porte: "en vigueur",
     departements: true, classes: ["Vigilance", "Alerte", "Renforcée", "Crise"] },
   { cle: "temp", famille: "temp", id: "caTemp", nom: "Température", ico: "thermo", porte: "maintenant",
     champ: "temp", parHeure: true, teinte: teinteT, sat: 0.54, clarte: 0.47,

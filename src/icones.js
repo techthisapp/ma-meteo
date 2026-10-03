@@ -120,6 +120,10 @@ const D = {
   couches: '<path d="M12 3.4 3 8l9 4.6L21 8z" stroke-linejoin="round"/>'
     + '<path d="M3 12.4 12 17l9-4.6"/><path d="M3 16.6 12 21.2l9-4.6"/>',
   /* Le cercle barré : aucune nappe. */
+  /* Le robinet, jalon 20, lot 2 : l'eau du robinet et des restrictions, que
+     la goutte de la pluie et de l'humidité ne doit plus dire. */
+  robinet: '<path d="M3 8.5v6"/><path d="M3 10h9.5a4.5 4.5 0 0 1 4.5 4.5V16h-4.5v-1.5a2 2 0 0 0-2-2H3"/>'
+    + '<path d="M9.5 5.5h5M12 5.5V10"/><path d="M14.8 18.6c0 .6-.5 1-1 1s-1-.4-1-1c0-.6 1-1.8 1-1.8s1 1.2 1 1.8z"/>',
   agrandir: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
   reduire: '<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>',
   loupe: '<circle cx="10.6" cy="10.6" r="6.2"/><path d="M15.2 15.2 20.4 20.4"/>',

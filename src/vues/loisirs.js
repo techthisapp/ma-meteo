@@ -126,7 +126,7 @@ export function vuePlage(ctx, rendre) {
   };
   const creneau = Plage.phraseCreneau(pz.resumes[0].creneau);
   const tete = `<div class="carte retenir"><div class="conseils">${conseilsHTML([
-    { i: "goutte", g: 1, t: Plage.phrasePlage(pz.resumes) },
+    { i: "vague", g: 1, t: Plage.phrasePlage(pz.resumes) },
     ...(creneau ? [{ i: "soleil", g: 1, t: creneau }] : [])])}</div></div>`;
   return { titre, sous, corps: tete + pz.resumes.map(carte).join("")
     + aide(`La qualité de l'eau est le classement ${Plage.SAISON}, établi sur quatre saisons ; le drapeau du jour se voit sur place. `
@@ -201,11 +201,15 @@ export function vueEau(ctx, rendre) {
     : `<dl class="ng-val"><dt>État</dt><dd>${esc(n.classe)}</dd><dt>Tendance sur une semaine</dt><dd>${esc(n.tendance)}</dd></dl>`
       + `<p class="pl-lieu">Plus haute que ${n.plusBasses} des ${n.annees} années comparables, au ${new Date(`${n.fin}T12:00`)
         .toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}. Piézomètre ${esc(n.station)}, à ${n.km} km.</p>`;
-  const conseil = r && r.rang ? [{ i: "goutte", g: r.rang >= 2 ? 4 : 1, t: `Restriction d'eau : ${r.niveau.toLowerCase()}.` }] : [];
+  const conseil = r && r.rang ? [{ i: "robinet", g: r.rang >= 2 ? 4 : 1, t: `Restriction d'eau : ${r.niveau.toLowerCase()}.` }] : [];
   return { titre, sous, corps: (conseil.length ? `<div class="carte retenir"><div class="conseils">${conseilsHTML(conseil)}</div></div>` : "")
     + `<div class="carte"><h3>Restrictions</h3>${restr}</div>`
     + `<div class="carte"><h3>Nappe phréatique</h3>${nappe}</div>`
-    + `<div class="carte"><h3>Rivière</h3>${riviereHTML(ez.riviere)}${etiageHTML(ez.etiage, ez.temperature)}</div>`
-    + `<div class="carte"><h3>Le sol et l'arrosage</h3>${solHTML(ez.sol, ez.restriction)}</div>`
-    + aide("L'état du sol compare les trente derniers jours aux mêmes jours de chaque année depuis 1995.") };
+    + `<div class="carte"><h3>Rivière</h3>${riviereHTML(ez.riviere)}</div>`
+    /* Jalon 20, lot 2 : l'étiage, la température de l'eau, le sol et
+       l'arrosage passent derrière « Plus de détails », replié par défaut. */
+    + `<details class="carte plus" id="eauPlus"><summary>Plus de détails</summary>`
+    + (ez.etiage || ez.temperature ? `<h3>Étiage et température de l'eau</h3>${etiageHTML(ez.etiage, ez.temperature)}` : "")
+    + `<h3>Le sol et l'arrosage</h3>${solHTML(ez.sol, ez.restriction)}`
+    + aide("L'état du sol compare les trente derniers jours aux mêmes jours de chaque année depuis 1995.") + `</details>` };
 }

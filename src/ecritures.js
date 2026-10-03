@@ -98,17 +98,23 @@ const nomTranche = h => TRANCHES[Math.floor(h / 6)];
 /* Les deux bornes de température se séparent par une espace, non par un trait.
    « 13-15° » se lit encore, « -3--1° » ne se lit plus. La borne basse prend
    l'encre secondaire, ce qui dit laquelle est laquelle sans un mot de plus. */
-const plage = m => (m.tn === m.tx ? `${Math.round(m.tx)}°`
-  : `<i>${Math.round(m.tn)}</i> ${Math.round(m.tx)}°`);
+/* Le tableau des vingt-quatre prochaines heures, redessiné au jalon 20,
+   lot 2, demande de Jérôme du 3 octobre 2026 : quatre lignes au lieu de
+   sept. Le maximum en gras au-dessus du minimum ; la pluie et son risque dans
+   une case ; le vent et ses rafales dans une autre ; l'humidité, qui a sa
+   tuile, quitte le tableau ; l'indice UV ne paraît qu'à partir de trois. */
+const plage = m => (Math.round(m.tn) === Math.round(m.tx) ? `<b>${Math.round(m.tx)}°</b>`
+  : `<b>${Math.round(m.tx)}°</b><i>${Math.round(m.tn)}°</i>`);
+const pluieCase = m => (m.mm >= SEUIL_LAME
+  ? `<b>${nombreFr(Math.round(m.mm * 10) / 10)}</b><i>${m.pb >= SEUIL_RISQUE ? `${Math.round(m.pb)} %` : "mm"}</i>`
+  : m.pb >= SEUIL_RISQUE ? `<i>${Math.round(m.pb)} %</i>` : null);
+const ventCase = m => `<b>${Math.round(m.v)}</b>${m.raf >= 30 ? `<i>raf. ${Math.round(m.raf)}</i>` : ""}`;
 
 const MESURES = [
   { nom: "Temp.", brut: true, lire: plage },
-  { nom: "Pluie", seuil: m => m.mm >= SEUIL_LAME, lire: m => (m.mm >= SEUIL_LAME ? nombreFr(m.mm) : null) },
-  { nom: "Risque", seuil: m => m.pb >= SEUIL_RISQUE, lire: m => (m.pb >= SEUIL_RISQUE ? `${Math.round(m.pb)} %` : null) },
-  { nom: "Vent", lire: m => `${Math.round(m.v)}` },
-  { nom: "Rafales", seuil: m => m.raf >= 30, lire: m => `${Math.round(m.raf)}` },
-  { nom: "Humidité", lire: m => `${Math.round(m.hum)} %` },
-  { nom: "UV", seuil: m => m.uv >= 0.5, lire: m => (m.uv >= 0.5 ? nombreFr(m.uv) : null) },
+  { nom: "Pluie", brut: true, seuil: m => m.mm >= SEUIL_LAME || m.pb >= SEUIL_RISQUE, lire: pluieCase },
+  { nom: "Vent", brut: true, lire: ventCase },
+  { nom: "UV", seuil: m => m.uv >= 3, lire: m => (m.uv >= 3 ? nombreFr(Math.round(m.uv)) : null) },
 ];
 
 export function moments(s) {
@@ -165,27 +171,29 @@ export function moments(s) {
   /* Les moments en colonnes, les mesures en lignes. Le libellé s'écrit une
      fois : le répéter à chaque moment allongeait la carte de moitié sans rien
      apprendre, et les retours à la ligne tombaient chaque fois ailleurs. */
-  const tete = `<span></span>` + mo.map(x =>
-    `<span class="mt-t"><b>${esc(x.titre)}</b>${deux(x.h0)}-${deux(x.h1)} h</span>`).join("");
+  /* Le moment présent se distingue, la nuit se teinte : la colonne se lit
+     d'un coup d'œil. */
+  const col = (x, k) => (k === 0 ? " mt-ici" : "") + (x.clair ? "" : " mt-nuit");
+  const tete = `<span></span>` + mo.map((x, k) =>
+    `<span class="mt-t${col(x, k)}"><b>${esc(x.titre)}</b>${deux(x.h0)}-${deux(x.h1)} h</span>`).join("");
 
-  const ciel = `<span class="mt-l"></span>` + mo.map(x =>
-    `<span class="mt-c">${icoTemps(icoCiel(x.code, x.clair), "")}</span>`).join("");
+  const ciel = `<span class="mt-l"></span>` + mo.map((x, k) =>
+    `<span class="mt-c${col(x, k)}">${icoTemps(icoCiel(x.code, x.clair), "")}</span>`).join("");
 
   const gardees = MESURES.filter(r => !r.seuil || mo.some(r.seuil));
   const corps = gardees.map(r => `<span class="mt-l">${esc(r.nom)}</span>`
-    + mo.map(x => {
+    + mo.map((x, k) => {
       const v = r.lire(x);
       return v === null
-        ? `<span class="mt-v mt-creux">—</span>`
-        : `<span class="mt-v">${r.brut ? v : esc(v)}</span>`;
+        ? `<span class="mt-v mt-creux${col(x, k)}">—</span>`
+        : `<span class="mt-v${col(x, k)}">${r.brut ? v : esc(v)}</span>`;
     }).join("")).join("");
 
   // Les unités des lignes retenues, et d'elles seules.
   const tenue = n => gardees.some(r => r.nom === n);
   const unites = [
-    tenue("Pluie") ? "pluie en millimètres" : null,
-    tenue("Rafales") ? "vent et rafales en kilomètres par heure"
-      : "vent en kilomètres par heure",
+    tenue("Pluie") ? "pluie en millimètres, avec le risque en pour cent" : null,
+    "vent et rafales en kilomètres par heure",
   ].filter(Boolean);
 
   return `<div class="mt" style="grid-template-columns:62px repeat(${mo.length},1fr)">`

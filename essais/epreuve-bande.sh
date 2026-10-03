@@ -850,6 +850,18 @@ case "$N" in
   270) # La carte des sources oublie l'indice officiel de l'air.
      perl -0pi -e 's/ ; indice officiel d.Atmo France"\]/"]/' src/vues/feuilles.js
      ATTENDU="la carte des sources des réglages nomme toutes les sources" ;;
+  271) # L'humidité revient dans le tableau des heures.
+     perl -0pi -e 's/(  \{ nom: "UV", seuil)/  { nom: "Humidité", lire: m => `\${Math.round(m.hum)} %` },\n$1/' src/ecritures.js
+     ATTENDU="le tableau des heures tient en quatre lignes au plus" ;;
+  272) # La porte des activités reprend sa description.
+     perl -0pi -e 's/if \(avec\.length\) out\.activites =/if (false) out.activites =/' src/app.js
+     ATTENDU="les quatre portes portent une information clé" ;;
+  273) # La tuile de l'eau reprend la goutte.
+     perl -0pi -e 's/null, "robinet", "pluie", "eau"/null, "goutte", "pluie", "eau"/' src/app.js
+     ATTENDU="la tuile de l'eau porte le robinet" ;;
+  274) # « Plus de détails » s'ouvre d'office.
+     perl -0pi -e 's/<details class="carte plus" id="eauPlus">/<details class="carte plus" id="eauPlus" open>/' src/vues/loisirs.js
+     ATTENDU="la fenêtre de l'eau montre la restriction, la nappe et la rivière" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

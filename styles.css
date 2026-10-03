@@ -461,6 +461,9 @@ main:focus{outline:none}
    carte, à droite, dans une cible de quarante-quatre points ; ouvert, il se
    teinte et l'explication paraît dessous. */
 .aide{margin-top:var(--espace-xs)}
+/* L'information clé d'une porte de l'accueil, jalon 20 : elle se lit, elle ne
+   décrit plus la porte, et prend donc la couleur du texte. */
+.porte .porte-info{color:var(--etiquette);font-weight:var(--graisse-medium)}
 .aide > summary{
   list-style:none;display:flex;justify-content:flex-end;align-items:center;
   min-height:var(--touche);margin:0 calc(var(--espace-sm) * -1) calc(var(--espace-sm) * -1) auto;
@@ -476,6 +479,18 @@ main:focus{outline:none}
 }
 .aide[open] .aide-i{background:var(--accent);border-color:var(--accent);color:#fff}
 .aide-txt{margin-top:0}
+/* « Plus de détails », jalon 20 : une carte repliée dont le titre se touche. */
+.plus > summary{
+  list-style:none;display:flex;align-items:center;justify-content:space-between;
+  min-height:var(--touche);margin:calc(var(--espace-sm) * -1) 0;cursor:pointer;
+  font-weight:var(--graisse-semibold);color:var(--accent);
+}
+.plus > summary::-webkit-details-marker{display:none}
+.plus > summary::after{content:"";width:8px;height:8px;border:solid currentColor;border-width:0 2px 2px 0;
+  transform:rotate(45deg);margin-right:4px;transition:transform .2s}
+.plus[open] > summary::after{transform:rotate(-135deg)}
+.plus[open] > summary{margin-bottom:var(--espace-sm)}
+.plus > h3:not(:first-of-type){margin-top:var(--espace-base)}
 .pied{
   font-size:var(--texte-legende);color:var(--etiquette-3);
   text-align:center;padding:0 var(--espace-base);
@@ -934,26 +949,33 @@ button.rangee:active{background:var(--surface-2)}
    « Température » ; le libellé écrit une fois en tête de ligne les ramène à la
    moitié, et une mesure se lit alors en travers de la journée. */
 
-.mt{display:grid;column-gap:var(--espace-xs);align-items:center}
-.mt > *{padding:5px 0}
+/* Le tableau des vingt-quatre prochaines heures, redessiné au jalon 20 : des
+   colonnes plutôt que des lignes, le moment présent teinté d'accent, la nuit
+   d'un gris bleu ; dans chaque case, la valeur en gras et sa précision
+   dessous, en petit ; pas de filet entre les lignes. */
+.mt{display:grid;column-gap:3px;row-gap:0;align-items:stretch}
+.mt > *{padding:6px 0;display:flex;flex-direction:column;align-items:center;justify-content:center}
 .mt-t{
   font-size:var(--texte-legende2);color:var(--etiquette-2);
   text-align:center;line-height:1.25;font-variant-numeric:tabular-nums;
+  border-radius:var(--rayon-sm) var(--rayon-sm) 0 0;padding-top:8px !important;
 }
-.mt-t b{display:block;font-weight:var(--graisse-medium);color:var(--etiquette)}
+.mt-t b{display:block;font-weight:var(--graisse-semibold);color:var(--etiquette)}
 .mt-l{
-  font-size:var(--texte-legende);color:var(--etiquette-2);
-  box-shadow:inset 0 1px 0 var(--filet-clair);
+  align-items:flex-start !important;
+  font-size:var(--texte-legende2);color:var(--etiquette-3);text-transform:uppercase;letter-spacing:.03em;
 }
-.mt-v{
-  font-size:var(--texte-sous);text-align:center;font-variant-numeric:tabular-nums;
-  box-shadow:inset 0 1px 0 var(--filet-clair);
-}
-.mt-c{text-align:center;box-shadow:inset 0 1px 0 var(--filet-clair)}
-.mt-c svg{width:22px;height:22px;display:block;margin:0 auto}
-.mt-v i{font-style:normal;color:var(--etiquette-2)}
+.mt-v{font-size:var(--texte-sous);text-align:center;font-variant-numeric:tabular-nums;line-height:1.15}
+.mt-v b{font-weight:var(--graisse-semibold);color:var(--etiquette)}
+.mt-v i{font-style:normal;font-size:var(--texte-legende2);color:var(--etiquette-2)}
+.mt-c{text-align:center}
+.mt-c svg{width:28px;height:28px;display:block;margin:0 auto}
 /* Le tiret dit ce qui n'existe pas : il s'efface, il ne se lit pas. */
 .mt-creux{color:var(--etiquette-3)}
+.mt-ici{background:color-mix(in srgb, var(--accent) 9%, transparent)}
+.mt-ici.mt-t b{color:var(--accent)}
+.mt-nuit{background:color-mix(in srgb, #2a3b5c 7%, transparent)}
+.mt-ici.mt-nuit{background:color-mix(in srgb, var(--accent) 12%, transparent)}
 
 /* ---------- 12. Semaine ---------- */
 

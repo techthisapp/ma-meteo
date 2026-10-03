@@ -46,6 +46,9 @@ import * as Plage from "./plage.js";
 import * as Eau from "./eau.js";
 import * as Deplacement from "./deplacement.js";
 import * as Radar from "./radar.js";
+import * as Activites from "./activites.js";
+import * as BeauTemps from "./beautemps.js";
+import * as Climat from "./climat.js";
 
 const $ = id => document.getElementById(id);
 
@@ -610,7 +613,7 @@ function ecranAccueil() {
        conseils du jour, et mène à la feuille de l'eau. */
     const ez = Eau.etatEau(Reglages.lire());
     const rEau = ez?.restriction;
-    if (rEau && rEau.rang >= 2) lJour.push({ i: "goutte", g: 4, d: "feuille:eau",
+    if (rEau && rEau.rang >= 2) lJour.push({ i: "robinet", g: 4, d: "feuille:eau",
       t: `Restriction d'eau : ${rEau.niveau.toLowerCase()}, usages de l'eau encadrés par arrêté.` });
     /* Les conseils de la neige et de l'eau s'ajoutent après le calcul du jour :
        ils reprennent leur rang de gravité, et le bloc garde ses trois lignes au
@@ -675,7 +678,7 @@ function ecranAccueil() {
       /* L'eau, jalon 18 : la restriction en grand, la nappe dessous ; elle
          ouvre la feuille de l'eau. */
       ...(Eau.tuileEau(ez) ? [["L'eau", Eau.tuileEau(ez).valeur, Eau.tuileEau(ez).sous, Eau.tuileEau(ez).classe,
-        null, "goutte", "pluie", "eau"]] : []),
+        null, "robinet", "pluie", "eau"]] : []),
     ] : [];
 
     /* Les quatre portes, en grille de deux sur deux. Jérôme les a voulues tout
@@ -685,12 +688,17 @@ function ecranAccueil() {
        sans dérouler la page ; la bande et le tableau disent désormais
        l'essentiel avant elles. Sans titre, elles ne s'ajoutent pas aux trois
        blocs de temps. */
+    /* Une information clé sous chaque porte, à la place de la description
+       grise, jalon 20, lot 2, demande de Jérôme du 3 octobre 2026. Chacune se
+       calcule de ce qui est déjà lu ; le beau temps des lieux suivis se lit
+       une fois, en arrière-plan, et se pose à son arrivée. */
+    const info = infosPortes(g);
     const portesHTML = ""
       + (saisonNeige ? `<button type="button" class="carte rangee porte porte-large" data-feuille="neige">`
         + ico("neige", "") + `<span class="rangee-txt"><b>La neige</b>`
         + `<span>${esc(Neige.phraseNeige(nz.resumes))}</span></span>` + chevron + `</button>` : "")
       + (saisonPlage ? `<button type="button" class="carte rangee porte porte-large" data-feuille="plage">`
-        + ico("goutte", "") + `<span class="rangee-txt"><b>La plage</b>`
+        + ico("vague", "") + `<span class="rangee-txt"><b>La plage</b>`
         + `<span>${esc(Plage.phrasePlage(pz.resumes))}</span></span>` + chevron + `</button>` : "")
       + `<div class="portes">`
         /* L'écran de questions s'ouvre d'ici.
@@ -701,23 +709,23 @@ function ecranAccueil() {
            chevron. */
         + (s ? `<button type="button" class="carte rangee porte" data-feuille="activites">`
           + ico("horloge", "") + `<span class="rangee-txt"><b>Quand faire quoi</b>`
-          + `<span>Courir, étendre, aérer, arroser, laver</span></span>`
+          + `<span class="porte-info" data-info="activites">${esc(info.activites)}</span></span>`
           + chevron + `</button>` : "")
         + `<button type="button" class="carte rangee porte" data-feuille="beautemps">`
         + ico("lieu", "") + `<span class="rangee-txt"><b>Où est le beau temps</b>`
-        + `<span>Mes lieux, et cent kilomètres à la ronde</span></span>`
+        + `<span class="porte-info" data-info="beau">${esc(info.beau)}</span></span>`
         + chevron + `</button>`
         /* La troisième porte : ce qui entre dans les poumons, que le temps
            qu'il fait ne dit pas. */
         + `<button type="button" class="carte rangee porte" data-feuille="air">`
         + ico("brume", "") + `<span class="rangee-txt"><b>L'air qu'on respire</b>`
-        + `<span>Indice européen, polluants et pollens</span></span>`
+        + `<span class="porte-info" data-info="air">${esc(info.air)}</span></span>`
         + chevron + `</button>`
         /* La quatrième porte : la même journée, mais replacée dans
            quatre-vingts ans de relevés au même endroit. */
         + `<button type="button" class="carte rangee porte" data-feuille="climat">`
         + ico("jauge", "") + `<span class="rangee-txt"><b>Le climat d'ici</b>`
-        + `<span>Records, normales et réchauffement</span></span>`
+        + `<span class="porte-info" data-info="climat">${esc(info.climat)}</span></span>`
         + chevron + `</button>`
         + `</div>`
       ;
@@ -911,6 +919,66 @@ function garderFocus(racine, remplacer) {
   if (!cle) return;
   const b = racine.querySelector(cle);
   if (b && document.activeElement !== b) b.focus({ preventScroll: true });
+}
+
+/* Les informations des portes de l'accueil, jalon 20, lot 2.
+   - Quand faire quoi : l'activité dont le créneau commence le plus tôt.
+   - Où est le beau temps : le lieu suivi le plus ensoleillé aujourd'hui s'il
+     vaut le déplacement, sinon le soleil d'ici ; lu une fois par lieu et par
+     jour, en arrière-plan, puis posé à son arrivée.
+   - L'air : son niveau et le pollen le plus fort en saison ; l'indice a déjà
+     sa tuile.
+   - Le climat : la journée replacée dans les relevés, si l'archive de la
+     commune est déjà sur l'appareil ; la lire d'ici coûterait trop au quota. */
+const COURT = { courir: "Courir", velo: "Vélo", linge: "Linge", aerer: "Aérer", arroser: "Arroser", voiture: "Voiture" };
+let beauLu = null;
+function infosPortes(g) {
+  const out = { activites: "Courir, étendre, aérer, arroser", beau: "Mes lieux et alentours",
+    air: "Polluants et pollens", climat: "Records et normales" };
+  const s = P.serieHoraire(0, Activites.FENETRE, 8);
+  const r = s ? Activites.repondre(s, P.bilanEau(Activites.SEUILS_ACT.arrosageJours)) : [];
+  const avec = r.filter(x => x.creneau).sort((a, b) => a.creneau[0] - b.creneau[0]
+    || (a.cle === "linge" ? -1 : b.cle === "linge" ? 1 : 0));
+  if (avec.length) out.activites = `${COURT[avec[0].cle] || avec[0].nom} : ${avec[0].quand}`;
+
+  const air = Air.chargeCourante();
+  if (air?.aqi?.length) {
+    const n = Air.niveauDe(air.aqi[0]);
+    const pol = Air.enSaison(air)[0];
+    out.air = `Air ${n ? n.nom : "mesuré"}`
+      + (pol ? `, ${pol.nom.toLowerCase()} ${pol.etat === "pic" ? "au pic" : "en saison"}` : ", sans pollen en saison");
+  }
+
+  if (Number.isFinite(g.lat)) {
+    const jour = cleHeure().slice(0, 10);
+    const d = Climat.garde(Climat.cle(g.lat, g.lon));
+    const k = P.iJour();
+    const tmax = k >= 0 ? P.chargeCourante()?.daily?.temperature_2m_max?.[k] : null;
+    const b = d ? Climat.bilan({ base: d, enCours: null, annee: +jour.slice(0, 4) }, jour, tmax) : null;
+    if (b?.mot) out.climat = b.mot.charAt(0).toUpperCase() + b.mot.slice(1);
+
+    const cle = `${g.lat},${g.lon}|${jour}`;
+    if (beauLu?.cle === cle) { if (beauLu.texte) out.beau = beauLu.texte; }
+    else {
+      beauLu = { cle, texte: null };
+      const ici = { nom: Reglages.nomAffiche(g) || "Ici", lat: g.lat, lon: g.lon, ici: true };
+      const lieux = [ici, ...Reglages.suivies().filter(l => l.lat !== g.lat || l.lon !== g.lon)
+        .map(l => ({ nom: Reglages.nomAffiche(l) || "Commune", lat: l.lat, lon: l.lon, ici: false }))]
+        .map(l => ({ ...l, km: BeauTemps.km(ici, l), cap: BeauTemps.azimut(ici, l) }));
+      P.journees(lieux).then(({ liste }) => {
+        const cl = BeauTemps.classer(lieux, liste, 0);
+        const iciC = BeauTemps.iciDans(cl);
+        const mieux = BeauTemps.mieuxQuIci(cl, iciC);
+        const texte = mieux ? `${mieux.nom} : ${BeauTemps.soleilTxt(Math.round(mieux.soleil))} de soleil`
+          : iciC && Number.isFinite(iciC.soleil) ? `Ici : ${BeauTemps.soleilTxt(Math.round(iciC.soleil))} de soleil` : null;
+        if (beauLu?.cle !== cle || !texte) return;
+        beauLu.texte = texte;
+        const el = document.querySelector('[data-info="beau"]');
+        if (el) el.textContent = texte;
+      }).catch(() => {});
+    }
+  }
+  return out;
 }
 
 function rendre() {

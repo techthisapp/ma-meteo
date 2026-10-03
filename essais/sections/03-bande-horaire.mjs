@@ -128,8 +128,10 @@ export default async T => {
       v: h13.map(() => 10), uv: h13.map(() => 0), code: h13.map(() => 3), clair: h13.map(() => 1),
       pb: h13.map(h => ({ 13: 10, 14: 20, 15: 80, 16: 90, 17: 90 })[h] ?? 5) };
     const html = E.moments(m);
-    const ligne = html.split('<span class="mt-l">Risque</span>')[1]?.split('<span class="mt-l">')[0] || "";
-    const risques = [...ligne.matchAll(/class="mt-v">(\d+) %</g)].map(x => Number(x[1]));
+    /* Depuis le jalon 20, lot 2, le risque se lit sous la pluie, dans la
+       ligne « Pluie ». */
+    const ligne = html.split('<span class="mt-l">Pluie</span>')[1]?.split('<span class="mt-l">')[0] || "";
+    const risques = [...ligne.matchAll(/(\d+) %<\/i>/g)].map(x => Number(x[1]));
     return { phrase: B.phraseBande(s), plages: JSON.stringify(B.plagesDePluie(s)), apresMidi: risques[0] };
   });
   ok("la bande dit les mêmes heures de pluie que la suite de la page",
@@ -1249,11 +1251,13 @@ export default async T => {
   await tuileEau.first().click();
   await pg.waitForFunction(() => { const c = [...document.querySelectorAll("#feuille-corps .carte")].find(x => /Le sol et l'arrosage/.test(x.textContent));
     return c && !/Lecture du sol/.test(c.textContent); }, null, { timeout: 15000 }).catch(() => {});
+  /* Depuis le jalon 20, lot 2, le sol suit l'étiage dans « Plus de détails » :
+     le conseil est le dernier paragraphe de la carte. */
   const solFeuille = await pg.evaluate(() => {
     const c = [...document.querySelectorAll("#feuille-corps .carte")].find(x => /Le sol et l'arrosage/.test(x.textContent));
     const dd = t => [...(c?.querySelectorAll("dt") || [])].find(x => x.textContent.replace(/[\u00A0\u202F]/g, " ") === t)?.nextElementSibling?.textContent || "";
     return { humidite: dd("Humidité du sol, 9 à 27 cm"), semaine: dd("Sept derniers jours"), attendue: dd("Pluie attendue d'ici après-demain"),
-      conseil: c?.querySelector(".pl-lieu")?.textContent || "" };
+      conseil: [...(c?.querySelectorAll(".pl-lieu") || [])].pop()?.textContent || "" };
   });
   await pg.evaluate(() => history.back()); await pg.waitForTimeout(400);
   ok("la feuille de l'eau dit l'humidité du sol, la semaine écoulée, la pluie attendue et le conseil d'arrosage",
