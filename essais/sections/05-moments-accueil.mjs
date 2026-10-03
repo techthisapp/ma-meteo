@@ -42,7 +42,8 @@ export default async T => {
   // Les heures situent la tranche, sous son nom, dans la même colonne.
   ok("chaque moment porte ses heures", await pg.evaluate(() => {
     const e = [...document.querySelectorAll("#ecran .mt-t")];
-    return e.length >= 3 && e.every(x => /\d\d-\d\d\s?h/.test(x.textContent));
+    // « 12 h à 18 h » depuis le 3 octobre 2026 : une plage sans trait.
+    return e.length >= 3 && e.every(x => /\d\d\s?h à \d\d\s?h/.test(x.textContent.replace(/[\u00A0\u202F]/g, " ")));
   }));
 
   /* Le libellé s'écrit une fois. C'était le défaut du bloc par moment : quatre

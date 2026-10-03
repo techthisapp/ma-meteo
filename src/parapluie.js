@@ -48,9 +48,9 @@ export function periodes(alertes) {
    seconde moitié est devant soi. */
 const chevauche = (h, h0, h1) => h + 1 > h0 && h < h1;
 
-// « 07:30 » quand la demie est prise, « 09 h » sinon.
+// « 07 h 30 » quand la demie est prise, « 09 h » sinon.
 export const heureDemie = h => (h % 1
-  ? `${String(Math.floor(h)).padStart(2, "0")}:${String(Math.round((h % 1) * 60)).padStart(2, "0")}`
+  ? `${String(Math.floor(h)).padStart(2, "0")} h ${String(Math.round((h % 1) * 60)).padStart(2, "0")}`
   : heureTxt(h));
 
 export const fenetreTxt = (h0, h1) => `${heureDemie(h0)} à ${heureDemie(h1)}`;

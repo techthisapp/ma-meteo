@@ -6,7 +6,7 @@
    série de vingt-quatre heures glissantes. */
 
 import { nombreFr, heureTxt, esc } from "./horloge.js";
-import { graviteCiel, cardinal, SEUIL_LAME, SEUIL_RISQUE, SEUIL_RAFALE } from "./previsions.js";
+import { graviteCiel, duCardinal, SEUIL_LAME, SEUIL_RISQUE, SEUIL_RAFALE } from "./previsions.js";
 import { icoCiel, icoTemps, tempsDe } from "./icones.js";
 import { aide } from "./aide.js";
 
@@ -42,15 +42,12 @@ function titresMoments(s) {
 }
 
 /* La provenance du vent comme on la dit, demande de Jérôme du 3 octobre
-   2026 : « du nord », « de l'est », « du sud-ouest », « de l'ouest ». La
-   tournure des bulletins, « de nord », se lisait mal. */
-const duCardinal = d => {
-  const c = cardinal(d);
-  return c[0] === "e" || c[0] === "o" ? `de l'${c}` : `du ${c}`;
-};
-
+   2026 : « du nord », « de l'est », « du sud-ouest », « de l'ouest », par
+   `duCardinal` de src/previsions.js, la même partout. */
 const LIGNES_DETAIL = [
   ["Ressenti", h => `${Math.round(h.res)}°`],
+  // La pluie de l'heure, nulle comprise, comme dans la bulle du ruban.
+  ["Pluie", h => (h.mm >= SEUIL_LAME ? `${nombreFr(h.mm)} mm` : "0 mm")],
   ["Rosée", h => `${Math.round(h.ros)}°`],
   ["Vent", h => `${Math.round(h.v)} km/h, ${duCardinal(h.dir)}`],
   ["Rafales", h => `${Math.round(h.raf)} km/h`],
@@ -204,7 +201,8 @@ export function moments(s) {
      d'un coup d'œil. */
   const col = (x, k) => (k === 0 ? " mt-ici" : "") + (x.clair ? "" : " mt-nuit");
   const tete = `<span></span>` + mo.map((x, k) =>
-    `<span class="mt-t${col(x, k)}"><b>${esc(x.titre)}</b>${deux(x.h0)}-${deux(x.h1)} h</span>`).join("");
+    /* La plage s'écrit « 12 h à 18 h », sans trait, 3 octobre 2026. */
+    `<span class="mt-t${col(x, k)}"><b>${esc(x.titre)}</b>${deux(x.h0)} h à ${deux(x.h1)} h</span>`).join("");
 
   const ciel = `<span class="mt-l"></span>` + mo.map((x, k) =>
     `<span class="mt-c${col(x, k)}">${icoTemps(icoCiel(x.code, x.clair), "")}</span>`).join("");

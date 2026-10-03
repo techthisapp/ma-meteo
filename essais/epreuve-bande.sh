@@ -958,6 +958,18 @@ case "$N" in
   307) # La bulle de la carte relit le point au lieu affiché.
      perl -0pi -e 's/const s0 = pres \? P\.serieHoraire\(0, 1, 1\) : null;/const s0 = null;/' src/vues/carte-point.js
      ATTENDU="la bulle de la carte, au lieu affiché" ;;
+  308) # L'heure à la minute reprend les deux points.
+     perl -0pi -e 's/export const heureMinute = d => \(d\.getMinutes\(\) \? `\$\{deux\(d\.getHours\(\)\)\} h \$\{deux\(d\.getMinutes\(\)\)\}`/export const heureMinute = d => (d.getMinutes() ? `\${deux(d.getHours())}:\${deux(d.getMinutes())}`/' src/horloge.js
+     ATTENDU="aucune heure ne s'écrit plus avec deux points" ;;
+  309) # Le tableau des heures reprend le trait.
+     perl -0pi -e 's/\$\{deux\(x\.h0\)\} h à \$\{deux\(x\.h1\)\} h/\${deux(x.h0)}-\${deux(x.h1)} h/' src/ecritures.js
+     ATTENDU="le tableau des heures écrit ses plages" ;;
+  310) # La bulle du ruban reprend l'abréviation de la direction.
+     perl -0pi -e 's/\["Vent", `\$\{Math\.round\(s\.v\[k\]\)\} km\/h`, duCardinal\(s\.dir\[k\]\)\]/["Vent", `\${Math.round(s.v[k])} km\/h`, "SO"]/' src/ruban.js
+     ATTENDU="la bulle du ruban dit la direction du vent" ;;
+  311) # La page ne se place plus sur la voie désignée.
+     perl -0pi -e 's/v\.scrollIntoView\(\{ block: "center", behavior: "instant" \}\);//' src/app.js
+     ATTENDU="la page s'est placée sur la voie" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

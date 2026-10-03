@@ -1,7 +1,7 @@
 /* Les petites aides partagées par plusieurs écrans. Découpé de src/vues.js le 2 octobre 2026,
    docs/plan-decoupage-vues.md. */
 
-import { esc } from "../horloge.js";
+import { esc, heureMinute } from "../horloge.js";
 import * as P from "../previsions.js";
 import { ico } from "../icones.js";
 
@@ -10,7 +10,8 @@ import { ico } from "../icones.js";
 /* Le bouton « i » des cartes, jalon 20 : `src/aide.js`. */
 export { aide } from "../aide.js";
 
-export const hm = ms => new Date(ms).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+/* L'heure à la minute, « 13 h 50 », depuis le 3 octobre 2026. */
+export const hm = ms => heureMinute(new Date(ms));
 
 /* Les huit points cardinaux vivaient ici et dans `previsions.js`, à l'identique.
    Deux listes pour une même rose finiraient par ne plus dire la même chose. */

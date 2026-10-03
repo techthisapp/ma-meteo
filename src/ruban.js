@@ -46,7 +46,7 @@
 
 import { angleFleche, TRACE_FLECHE } from "./fleche.js";
 import { nombreFr, jourCourt, heureTxt, esc, cleJourLocal } from "./horloge.js";
-import { plagesDe, dCardinal, CARD_ABR, iCard, SEUIL_LAME, SEUIL_RISQUE, ECHELLE_UV, tendancePression } from "./previsions.js";
+import { plagesDe, duCardinal, SEUIL_LAME, SEUIL_RISQUE, ECHELLE_UV, tendancePression } from "./previsions.js";
 import { icoCiel, icoTemps, couleurT, couleurUV, tempsDe } from "./icones.js";
 import { alignerSur, LAME } from "./ensemble.js";
 
@@ -211,17 +211,20 @@ function bulle(s, k) {
   const cases = [
     ["Ressenti", `${Math.round(s.res[k])}°`],
     ["Pluie", s.mm[k] >= SEUIL_LAME ? `${nombreFr(s.mm[k])} mm` : "0 mm"],
-    ["Risque", `${Math.round(s.pb[k])} %`],
-    ["Vent", `${Math.round(s.v[k])} km/h ${CARD_ABR[iCard(s.dir[k])]}`],
+    ["Risque de pluie", `${Math.round(s.pb[k])} %`],
+    /* La direction dite en toutes lettres, « du sud-ouest », sous la vitesse,
+       3 octobre 2026 : « SO » ne s'écrivait qu'ici. */
+    ["Vent", `${Math.round(s.v[k])} km/h`, duCardinal(s.dir[k])],
     ["Rafales", `${Math.round(s.raf[k])} km/h`],
-    ["UV", s.uv[k] >= 0.5 ? nombreFr(s.uv[k]) : "0"],
+    ["Indice UV", s.uv[k] >= 0.5 ? nombreFr(s.uv[k]) : "0"],
     ["Humidité", `${Math.round(s.hum[k])} %`],
     ["Pression", `${Math.round(s.pres[k])} hPa`],
   ];
   return `<div class="mg-lu-t"><span class="mg-lu-h">${esc(quand.charAt(0).toUpperCase() + quand.slice(1))}</span>`
     + `<span class="mg-lu-c">${icoTemps(icoCiel(s.code[k], s.clair[k]), "mg-lu-ic")}<b>${Math.round(s.t[k])}°</b></span>`
     + `<span class="mg-lu-m">${esc(tempsDe(s.code[k])[1])}</span></div>`
-    + `<dl class="mg-lu-g">${cases.map(([n, v]) => `<div><dt>${esc(n)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>`;
+    + `<dl class="mg-lu-g">${cases.map(([n, v, sous]) => `<div><dt>${esc(n)}</dt><dd>${esc(v)}`
+      + `${sous ? `<small>${esc(sous)}</small>` : ""}</dd></div>`).join("")}</dl>`;
 }
 
 export function dessiner(s) {
@@ -876,8 +879,8 @@ export function dessiner(s) {
     poser("Vent", `${bornes(w.v)} km/h, ${motDe("v", Math.max(...w.v))}`, h, d,
       (fortes.length
         ? `Rafales au-dessus de quarante ${dire(fortes)}, jusqu'à ${rafMax} km/h. `
-          + `Vent ${dCardinal(w.dir[0])} en début de fenêtre.`
-        : `Vent ${dCardinal(w.dir[0])} en début de fenêtre, rafales jusqu'à ${rafMax} km/h `
+          + `Vent ${duCardinal(w.dir[0])} en début de fenêtre.`
+        : `Vent ${duCardinal(w.dir[0])} en début de fenêtre, rafales jusqu'à ${rafMax} km/h `
           + `vers ${HJ(kr)}. Les flèches montrent où va le vent.`)
       + phraseOmbre("raf", "km/h", "km/h"), cle);
   }

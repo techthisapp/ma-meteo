@@ -1655,6 +1655,14 @@ function allerAuDetail(cle, heure = null) {
         rendre();
       }
     }
+    /* La voie désignée se place dans l'écran, sous l'axe collant, 3 octobre
+       2026 : la page remontait en haut, et une voie basse, l'indice UV ou la
+       pression, restait sous le bord de l'écran. Celles du haut ne bougent
+       pas. */
+    const v = document.querySelector(`.mg-v[data-cle="${cle}"]`);
+    if (v && v.getBoundingClientRect().bottom > window.innerHeight) {
+      v.scrollIntoView({ block: "center", behavior: "instant" });
+    }
   }
 }
 

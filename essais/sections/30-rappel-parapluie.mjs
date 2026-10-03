@@ -314,7 +314,7 @@ export default async T => {
     await pgPluie.locator("#navJeton").isVisible());
   ok("et la feuille dit aussitôt la période nouvelle",
     (await pgPluie.locator(".rg-fen").locator("xpath=../span[1]/span").first().innerText())
-      === "couvre 07:30 à 20 h",
+      === "couvre 07 h 30 à 20 h",
     await pgPluie.locator(".rg-fen").locator("xpath=../span[1]/span").first().innerText());
   /* La section du rappel automatique sur iPhone est retirée, décision de
      Jérôme du 3 octobre 2026. */

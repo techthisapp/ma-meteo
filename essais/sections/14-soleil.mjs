@@ -191,7 +191,7 @@ export default async T => {
   ok("aucun grand titre ne double celui du ciel",
     await pg.locator("#ecran .titre-ecran").count() === 0);
   ok("le ciel porte le prochain évènement et son heure",
-    /\d\d:\d\d/.test(await txt(".plein-titre b")), await txt(".plein-titre b"));
+    /^\d\d h( \d\d)?$/.test(await txt(".plein-titre b")), await txt(".plein-titre b"));
 
   /* Le grand chiffre est le même sur les trois bandeaux : la température de
      l'accueil, l'heure du soleil, l'heure de la lune. Deux traitements pour un

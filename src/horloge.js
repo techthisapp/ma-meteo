@@ -65,6 +65,11 @@ export const jourLong = t =>
   new Date(`${t}T12:00`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
 
 export const heureTxt = h => `${deux(h)} h`;
+/* Une heure à la minute, « 19 h 25 », la seule écriture de l'application
+   depuis le 3 octobre 2026, décision de Jérôme : la bande écrivait
+   « 19:25 », les conseils « 19 h 25 », le parapluie « 07:30 ». Une heure
+   ronde garde « 19 h ». */
+export const heureMinute = d => (d.getMinutes() ? `${deux(d.getHours())} h ${deux(d.getMinutes())}` : `${deux(d.getHours())} h`);
 
 // Distance à vol d'oiseau entre deux points, en kilomètres.
 export const distanceKm = (la, lo, lb, ob) => {
@@ -178,11 +183,10 @@ export function heuresDeParis(date) {
 }
 
 /* Un instant, dit comme on le dirait : « 14 h » quand l'heure est ronde,
-   « 14:30 » sinon, et le jour devant quand ce n'est pas aujourd'hui. Sans le
-   jour, « jusqu'à 06 h » se lirait comme dans une heure. */
+   « 14 h 30 » sinon, et le jour devant quand ce n'est pas aujourd'hui. Sans
+   le jour, « jusqu'à 06 h » se lirait comme dans une heure. */
 export const heureJour = d => {
-  const h = d.getMinutes() ? `${deux(d.getHours())}:${deux(d.getMinutes())}`
-    : `${deux(d.getHours())} h`;
+  const h = heureMinute(d);
   const n = new Date();
   const jours = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate())
     - new Date(n.getFullYear(), n.getMonth(), n.getDate())) / 86400000);

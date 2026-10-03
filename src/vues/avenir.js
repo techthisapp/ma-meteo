@@ -409,7 +409,8 @@ function volet(moments, aujourdhui, heureCourante) {
        risque, le volet ne peut pas se taire dessus. */
     const eau = m.mm >= SEUILS.lame ? `${nombreFr(m.mm)} mm`
       : m.pb >= SEUILS.risque ? `${Math.round(m.pb)} %` : "";
-    const vent = m.raf >= SEUILS.rafale ? `${Math.round(m.raf)} km/h` : "";
+    // « raf. », comme la rangée et le tableau, 3 octobre 2026.
+    const vent = m.raf >= SEUILS.rafale ? `raf. ${Math.round(m.raf)}` : "";
     return `<div${passe ? ' class="passe"' : ""}>`
       + `<i>${esc(TRANCHES[m.q][4])}</i>`
       + icoTemps(icoCiel(m.code, m.clair), "")

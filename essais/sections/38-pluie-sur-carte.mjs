@@ -224,7 +224,7 @@ export default async T => {
       await new Promise(r => setTimeout(r, 300));
       if (!p.classList.contains("ca-piste-futur")) return "l'extrapolation ne se dit pas";
       if (!h.classList.contains("ca-heure-futur")) return "l'heure ne porte pas la marque";
-      return h.textContent === "09:20" ? "" : `heure ${h.textContent}`;
+      return h.textContent.replace(/[\u00A0\u202F]/g, " ") === "09 h 20" ? "" : `heure ${h.textContent}`;
     });
   ok("une image extrapolée se distingue d'une observation", extrapoleDit === "", extrapoleDit);
 

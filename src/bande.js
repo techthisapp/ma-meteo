@@ -15,7 +15,7 @@
    températures dès l'écriture, sans mesurer la page après coup. */
 
 import { icoCiel, icoTemps, ico, tempsDe } from "./icones.js";
-import { esc, nombreFr } from "./horloge.js";
+import { esc, nombreFr, heureMinute } from "./horloge.js";
 import * as Astres from "./astres.js";
 import { plagesDe, SEUIL_LAME, SEUIL_RAFALE } from "./previsions.js";
 import { flecheSVG } from "./fleche.js";
@@ -96,7 +96,8 @@ export function soleilDansBande(s, g, depart, n = Math.min(HEURES, s.n)) {
   return out.sort((a, b) => a.date - b.date);
 }
 
-const hm = d => d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+// L'heure à la minute, « 19 h 25 », comme partout depuis le 3 octobre 2026.
+const hm = d => heureMinute(d);
 
 /* La bande, écrite d'un seul tenant. Le départ est le début de l'heure en
    cours, premier rang de la série. */

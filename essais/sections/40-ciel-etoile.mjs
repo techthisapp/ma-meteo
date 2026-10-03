@@ -136,7 +136,7 @@ export default async T => {
 
   /* Une plage dégagée se dit de sa première heure à la fin de sa dernière. */
   ok("les nuages disent la plus longue éclaircie de la nuit noire",
-    infosDit.eclaircie?.mot === "Dégagé" && infosDit.eclaircie?.sous === "de 01:00 à 04:00"
+    infosDit.eclaircie?.mot === "Dégagé" && infosDit.eclaircie?.sous.replace(/[\u00A0\u202F]/g, " ") === "de 01 h à 04 h"
     && infosDit.couvert?.mot === "Couvert",
     `${JSON.stringify(infosDit.eclaircie)} ${JSON.stringify(infosDit.couvert)}`);
 
@@ -321,7 +321,7 @@ export default async T => {
       const t = document.querySelector(".plein-titre");
       const i = t?.querySelector("i")?.textContent || "";
       const b = t?.querySelector("b")?.textContent || "";
-      return /^Nuit noire$/.test(i) && /\d{2}:\d{2}/.test(b) ? "" : `« ${i} » « ${b} »`;
+      return /^Nuit noire$/.test(i) && /^\d{2}\s?h(\s?\d{2})?$/.test(b) ? "" : `« ${i} » « ${b} »`;
     }) === "");
 
   ok("la visée se dit par une direction, et au zénith à la verticale",

@@ -851,6 +851,8 @@ button.rangee:active{background:var(--surface-2)}
 .mg-lu-g div{min-width:0}
 .mg-lu-g dt{font-size:var(--texte-legende2);color:var(--etiquette-3);white-space:nowrap}
 .mg-lu-g dd{margin:0;font-size:var(--texte-legende);font-weight:var(--graisse-medium);white-space:nowrap;font-variant-numeric:tabular-nums}
+.mg-lu-g dd small{display:block;font-size:var(--texte-legende2);font-weight:var(--graisse-regular);color:var(--etiquette-2)}
+.mg-lu-g dt{white-space:normal}
 .mg-aide{margin-top:0}
 
 .mg{display:flex;flex-direction:column}
