@@ -396,6 +396,10 @@ export function poserNuagescarte(v) { poser({ nuagescarte: v === true }); }
    de l'année, et la couche serait vide le reste du temps. */
 export const feuxcarte = () => etat.feuxcarte === true;
 export function poserFeuxcarte(v) { poser({ feuxcarte: v === true }); }
+/* La légende de la carte repliée, version 155. */
+export const legendeRepliee = () => etat.legenderepliee === true;
+export function poserLegendeRepliee(v) { poser({ legenderepliee: v === true }); }
+
 /* Le dernier cadrage de la carte, jalon 19, lot 7 : la carte rouvre où on
    l'a laissée, même après un relancement de l'application. */
 export const vueCarte = () => {

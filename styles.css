@@ -1423,27 +1423,35 @@ button.rangee:active{background:var(--surface-2)}
   font-size:var(--texte-note);color:var(--etiquette-2);
 }
 
-/* Les légendes, resserrées en version 140 : elles prenaient le pied de la
-   carte, demande de Jérôme. Le titre et la rampe tiennent sur une ligne, les
-   graduations dessous en petit, sur un fond translucide. */
-.ca-legendes{display:flex;flex-direction:column;gap:3px;align-items:flex-start}
-.ca-legende{
-  max-width:240px;
-  padding:3px var(--espace-sm);
-  border-radius:var(--rayon-sm);
+/* Les légendes réunies, version 155 : une seule boîte, la nappe sur sa ligne,
+   le vent, la foudre et les feux ensemble dessous, en petit. Repliée, la
+   boîte n'est plus qu'une pastille « Légende ». */
+.ca-legendes{
+  pointer-events:auto;align-self:flex-start;max-width:min(330px,100%);
+  display:flex;flex-direction:column;gap:3px;
+  padding:4px var(--espace-sm);border-radius:var(--rayon-sm);
   background:color-mix(in srgb, var(--surface) 78%, transparent);
   -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
-  box-shadow:0 1px 3px rgba(0,0,0,.14);
+  box-shadow:0 1px 3px rgba(0,0,0,.14);cursor:pointer;
 }
+.ca-legendes[hidden]{display:none}
+.ca-leg-pastille{display:none;font-size:var(--texte-note);color:var(--etiquette-2);font-weight:var(--graisse-medium)}
+.ca-legendes.replie .ca-leg-pastille{display:block}
+.ca-legendes.replie .ca-leg-corps{display:none}
+.ca-leg-corps{display:flex;flex-direction:column;gap:3px}
+.ca-legende{max-width:none}
 #caLegende{
-  max-width:none;display:grid;grid-template-columns:auto 116px;align-items:center;column-gap:var(--espace-sm);
+  display:grid;grid-template-columns:auto 116px;align-items:center;column-gap:var(--espace-sm);
 }
 #caLegende[hidden]{display:none}
 #caLegende .ca-graduations{grid-column:2}
-.ca-lv{display:flex;gap:var(--espace-md);max-width:none}
+.ca-lv-ligne{display:flex;flex-wrap:wrap;gap:2px var(--espace-md)}
+.ca-lv-ligne:not(:has(> :not([hidden]))){display:none}
+.ca-lv{display:flex;gap:var(--espace-sm)}
+.ca-lv[hidden]{display:none}
 .ca-lv-r{
-  display:flex;align-items:center;gap:5px;
-  font-size:var(--texte-note);color:var(--etiquette-2);
+  display:flex;align-items:center;gap:4px;
+  font-size:11px;color:var(--etiquette-2);
 }
 .ca-lv-r i{flex:none;height:1.6px;background:var(--ca-vent);border-radius:var(--rayon-plein)}
 .ca-l-titre{display:block;font-size:var(--texte-note);font-weight:var(--graisse-medium);color:var(--etiquette-2);white-space:nowrap}

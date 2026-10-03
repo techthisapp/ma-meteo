@@ -54,4 +54,28 @@ export default async T => {
   ok("la carte rouvre sur son dernier cadrage, même relancée, et un second appui sur l'onglet ramène la France",
     pres !== france && retour === pres && relance === pres && remis === france,
     JSON.stringify({ france, pres, retour, relance, remis }));
+
+  /* La légende réunie, version 155 : la nappe, le vent, la foudre et les feux
+     dans une seule boîte basse ; un appui la replie en une pastille, le choix
+     se garde, un autre appui la déplie. */
+  const [, q] = await ouvrirCarte({ ...FAIN, nappe: "temp", ventcarte: true, foudrecarte: true, feuxcarte: true,
+    pluiecarte: false, vigicarte: false }, 0, { sansFond: true });
+  await reposer(q, 1500);
+  const boite = () => q.evaluate(async () => {
+    const b = document.getElementById("caLegendes");
+    return { boites: [...document.querySelectorAll(".ca-legendes")].length, haut: Math.round(b.getBoundingClientRect().height),
+      vus: ["caLegende", "caLegVent", "caLegFoudre", "caLegFeux"].filter(id => !document.getElementById(id).hidden).length,
+      replie: (await import("/src/reglages.js")).legendeRepliee() };
+  });
+  const ouverte = await boite();
+  await q.locator("#caLegendes").click();
+  await q.waitForTimeout(300);
+  const repliee = await boite();
+  await q.locator("#caLegendes").click();
+  await q.waitForTimeout(300);
+  const rouverte = await boite();
+  ok("les légendes tiennent dans une seule boîte basse, qu'un appui replie et déplie",
+    ouverte.boites === 1 && ouverte.vus === 4 && ouverte.haut <= 80 && !ouverte.replie
+    && repliee.haut <= 32 && repliee.replie && rouverte.haut === ouverte.haut && !rouverte.replie,
+    JSON.stringify({ ouverte, repliee, rouverte }));
 };

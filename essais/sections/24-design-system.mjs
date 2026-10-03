@@ -48,7 +48,7 @@ export default async T => {
         const f = s.backdropFilter || s.webkitBackdropFilter || "none";
         return f !== "none" && f !== "";
       });
-      return flous.every(e => e.closest(".nav, .onglets, .ca-panneau, .ca-legende, .ca-src") || e.matches(".pt-rep"));
+      return flous.every(e => e.closest(".nav, .onglets, .ca-panneau, .ca-legendes, .ca-src") || e.matches(".pt-rep"));
     }));
 
   const horsEchelle = await pg.evaluate(() => {

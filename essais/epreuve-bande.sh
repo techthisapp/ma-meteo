@@ -692,7 +692,7 @@ case "$N" in
      perl -0pi -e 's/  background:color-mix\(in srgb, var\(--surface\) 50%, transparent\);/  background:color-mix(in srgb, var(--surface) 72%, transparent);/' styles.css
      ATTENDU="le panneau laisse libre la colonne des commandes et son fond est à moitié transparent" ;;
   218) # La légende reprend trois lignes.
-     perl -0pi -e 's/  max-width:none;display:grid;grid-template-columns:auto 116px;/  max-width:none;display:block;grid-template-columns:auto 116px;/' styles.css
+     perl -0pi -e 's/#caLegende\{\n  display:grid;grid-template-columns:auto 116px;/#caLegende{\n  display:block;grid-template-columns:auto 116px;/' styles.css
      ATTENDU="la légende de la nappe est basse, son titre sur la ligne de la rampe" ;;
   219) # Le vent reprend une seule couleur.
      perl -0pi -e 's/ctx\.strokeStyle = PALIERS\[k\]\[1\];/ctx.strokeStyle = "#5b6a7c";/' src/vent.js
@@ -835,6 +835,12 @@ case "$N" in
   265) # Les familles ne tiennent plus sur une ligne.
      perl -0pi -e 's/\.ca-fam\{display:grid;grid-template-columns:70px repeat\(3,minmax\(0,1fr\)\);/.ca-fam{display:block;/' styles.css
      ATTENDU="toutes les tuiles du panneau se voient d.un coup" ;;
+  266) # Les légendes reprennent une boîte chacune.
+     perl -0pi -e 's/\.ca-legende\{max-width:none\}/.ca-legende{max-width:none;padding:6px 8px;margin:4px 0;box-shadow:0 1px 4px rgba(0,0,0,.2);display:block}/' styles.css
+     ATTENDU="les légendes tiennent dans une seule boîte basse" ;;
+  267) # La légende ne se replie plus.
+     perl -0pi -e 's/\.ca-legendes\.replie \.ca-leg-corps\{display:none\}/.ca-legendes.replie .ca-leg-corps{display:flex}/' styles.css
+     ATTENDU="les légendes tiennent dans une seule boîte basse" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

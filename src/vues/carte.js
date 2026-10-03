@@ -146,7 +146,7 @@ export function vueCarte(ctx, rendre, majEtat) {
         /* Les commandes posées sur la carte : boutons, légendes, échelle,
            chronologie. Un nom passé dessous ne se lirait pas. */
         const base = cv.getBoundingClientRect();
-        bloc.querySelectorAll(".ca-outils, .ca-legende:not([hidden]), .ca-bas, .ca-temps:not([hidden]), .ca-moments:not([hidden])").forEach(el => {
+        bloc.querySelectorAll(".ca-outils, .ca-legendes:not([hidden]), .ca-bas, .ca-temps:not([hidden]), .ca-moments:not([hidden])").forEach(el => {
           const b = el.getBoundingClientRect();
           if (!b.width) return;
           out.push({ x: b.left - base.left + b.width / 2, y: b.top - base.top + b.height / 2, w: b.width + 4, h: b.height + 4 });

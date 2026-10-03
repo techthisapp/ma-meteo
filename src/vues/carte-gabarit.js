@@ -229,22 +229,30 @@ export const gabaritCarte = g => `<div class="ca-cadre">`
   + `</div>`
   + `<p class="ca-mot" id="caMot" role="status" hidden></p>`
   + `<div class="ca-pied">`
-  + `<div class="ca-legendes" id="caLegendes">`
+  /* Les légendes réunies, version 155, demande de Jérôme du 3 octobre 2026 :
+     une boîte au lieu d'une par couche, la nappe sur sa ligne, le vent, la
+     foudre et les feux ensemble dessous. Un appui la replie en une pastille,
+     un autre la déplie ; le choix se garde. */
+  + `<div class="ca-legendes${Reglages.legendeRepliee() ? " replie" : ""}" id="caLegendes" role="button" tabindex="0" `
+  + `aria-expanded="${Reglages.legendeRepliee() ? "false" : "true"}" aria-label="Légende de la carte, appuyer pour la replier ou la déplier">`
+  + `<span class="ca-leg-pastille" aria-hidden="true">Légende</span>`
+  + `<div class="ca-leg-corps">`
   + `<div class="ca-legende" id="caLegende" hidden>`
   + `<b class="ca-l-titre" id="caLegTitre"></b>`
   + `<i class="ca-rampe" id="caRampe"></i>`
   + `<div class="ca-graduations" id="caGrads"></div>`
   + `</div>`
+  + `<div class="ca-lv-ligne">`
   + `<div class="ca-legende ca-lv" id="caLegVent" hidden></div>`
   + `<div class="ca-legende ca-lv ca-lx" id="caLegFeux" hidden `
   + `aria-label="Foyers vus par satellite sur les deux derniers jours">`
-  + `<span class="ca-lv-r"><i class="ca-pastille-feu"></i>Foyers vus par satellite, 48 h</span>`
+  + `<span class="ca-lv-r"><i class="ca-pastille-feu"></i>Foyers satellite, 48 h</span>`
   + `</div>`
   + `<div class="ca-legende ca-lv ca-lf" id="caLegFoudre" hidden `
   + `aria-label="Foudre des trente dernières minutes, du jaune pour un éclair au rouge sombre pour vingt et plus">`
   + `<span class="ca-lv-r"><i class="ca-rampe-foudre"></i>Foudre, 30 min</span>`
   + `</div>`
-  + `</div>`
+  + `</div></div></div>`
   /* Les sources ne s'affichent plus en permanence, version 140, demande de
      Jérôme : elles se lisent derrière un bouton, et en entier dans la carte
      « Sources » des réglages. Le bouton reste sur la carte parce que les

@@ -7,6 +7,7 @@ import { ECHELLES } from "../ruban.js";
 import * as Vent from "../vent.js";
 import * as NappeCarte from "../nappe.js";
 import { NAPPES_CARTE } from "./carte-gabarit.js";
+import * as Reglages from "../reglages.js";
 
 export function brancherLegende(E) {
   const { bloc, cv } = E;
@@ -99,6 +100,17 @@ export function brancherLegende(E) {
   const legVent = bloc.querySelector("#caLegVent");
   const legFoudre = bloc.querySelector("#caLegFoudre");
   const legFeux = bloc.querySelector("#caLegFeux");
+  /* La boîte des légendes se replie et se déplie d'un appui, version 155. */
+  const boite = bloc.querySelector("#caLegendes");
+  const plier = () => {
+    const v = !boite.classList.contains("replie");
+    boite.classList.toggle("replie", v);
+    boite.setAttribute("aria-expanded", v ? "false" : "true");
+    Reglages.poserLegendeRepliee(v);
+    E.revoir?.();
+  };
+  boite.addEventListener("click", e => { e.stopPropagation(); plier(); });
+  boite.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); plier(); } });
   E.poserLegende = () => {
     const n = NAPPES_CARTE.find(x => x.cle === E.choisie && (x.champ || x.departements));
     legende.hidden = !n;
@@ -141,6 +153,8 @@ export function brancherLegende(E) {
     legFeux.hidden = !E.feuxAllume;
     legFoudre.hidden = !E.foudreAllume;
     legVent.hidden = !E.ventAllume;
+    /* La boîte se cache quand elle n'a rien à dire. */
+    boite.hidden = legende.hidden && legFeux.hidden && legFoudre.hidden && legVent.hidden;
     if (legVent.hidden) return;
     const rep = ECHELLES.v.filter(([v]) => v === 12 || v === 30 || v === 50);
     /* La traînée de la légende prend la couleur de sa vitesse, comme sur la
