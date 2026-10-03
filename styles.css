@@ -935,8 +935,11 @@ button.rangee:active{background:var(--surface-2)}
 .hl-carte{padding-top:0;padding-bottom:0}
 .hl + .hl{border-top:1px solid var(--filet-clair)}
 .hl > summary{
-  list-style:none;display:grid;grid-template-columns:4.2em 28px 1fr auto 12px;align-items:center;
-  gap:var(--espace-md);min-height:var(--touche);padding:var(--espace-xs) 0;cursor:pointer;
+  list-style:none;display:grid;grid-template-columns:4.2em 24px 1fr auto 12px;align-items:center;
+  /* Resserrée le 3 octobre 2026, demande de Jérôme : trente-six points par
+     heure au lieu de quarante-cinq, les vingt-quatre heures tiennent sur
+     deux écrans et demi au lieu de trois. La ligne entière reste la cible. */
+  gap:var(--espace-md);min-height:36px;padding:2px 0;cursor:pointer;
 }
 .hl > summary::-webkit-details-marker{display:none}
 .hl > summary::after{content:"";width:7px;height:7px;border:solid var(--etiquette-3);border-width:0 2px 2px 0;
@@ -944,9 +947,11 @@ button.rangee:active{background:var(--surface-2)}
 .hl[open] > summary::after{transform:rotate(-135deg)}
 .hl-h{font-weight:var(--graisse-semibold);color:var(--etiquette-2);font-variant-numeric:tabular-nums}
 .hl-ici .hl-h{color:var(--accent)}
-.hl .ic{width:28px;height:28px;display:flex}
-.hl .ic svg{width:28px;height:28px}
-.hl-t{font-size:var(--texte-titre2);font-weight:var(--graisse-semibold);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.hl .ic{width:24px;height:24px;display:flex}
+.hl .ic svg{width:24px;height:24px}
+.hl-aide{margin:calc(var(--espace-sm) * -1) 0 calc(var(--espace-xs) * -1)}
+.hl-aide .aide{margin-top:0}
+.hl-t{font-size:var(--texte-titre3);font-weight:var(--graisse-semibold);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .hl-nuit .hl-t{color:var(--etiquette-2)}
 .hl-p{grid-column:4;color:var(--pluie-texte);font-weight:var(--graisse-semibold);font-size:var(--texte-note)}
 .hl-d{display:grid;grid-template-columns:auto 1fr;gap:var(--espace-xs) var(--espace-base);

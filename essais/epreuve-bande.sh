@@ -913,6 +913,15 @@ case "$N" in
   291) # La bulle nomme le jour autrement que l'axe.
      perl -0pi -e 's/: j === "Aujourd.hui" \? heureTxt\(s\.heure\[k\]\) : `\$\{j\}, \$\{heureTxt\(s\.heure\[k\]\)\}`;/: `\${nomJour(s, s.jour[k])}\${heureTxt(s.heure[k])}`;/' src/ruban.js
      ATTENDU="au delà de demain, le jour se nomme en entier" ;;
+  292) # Le vent reprend la tournure des bulletins.
+     perl -0pi -e 's/`\$\{Math\.round\(h\.v\)\} km\/h, \$\{duCardinal\(h\.dir\)\}`/`\${Math.round(h.v)} km\/h de \${cardinal(h.dir)}`/' src/ecritures.js
+     ATTENDU="le vent du détail dit sa provenance" ;;
+  293) # Les lignes de la liste reprennent leur hauteur de touche.
+     perl -0pi -e 's/gap:var\(--espace-md\);min-height:36px;padding:2px 0;/gap:var(--espace-md);min-height:var(--touche);padding:var(--espace-xs) 0;/' styles.css
+     ATTENDU="les lignes sont resserrées" ;;
+  294) # Le « i » de la liste retourne au pied.
+     perl -0pi -e 's/return `<div class="hl-aide">` \+ aide\(/return `<div class="hl-pied">` + aide(/' src/ecritures.js
+     ATTENDU="les lignes sont resserrées" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

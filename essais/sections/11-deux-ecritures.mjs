@@ -47,8 +47,22 @@ export default async T => {
   await pg.locator(".hl summary").nth(3).click();
   const detail = await pg.evaluate(() => {
     const d = document.querySelectorAll(".hl")[3];
-    return { ouvert: d.open, noms: [...d.querySelectorAll(".hl-d dt")].map(x => x.textContent) };
+    const dd = [...d.querySelectorAll(".hl-d dt")].find(x => x.textContent === "Vent")?.nextElementSibling;
+    return { ouvert: d.open, noms: [...d.querySelectorAll(".hl-d dt")].map(x => x.textContent),
+      vent: (dd?.textContent || "").replace(/[\u00A0\u202F]/g, " ") };
   });
+  /* Le vent dit sa provenance comme on la dit, depuis le 3 octobre 2026. */
+  ok("le vent du détail dit sa provenance « du nord » ou « de l'ouest »",
+    /^\d+ km\/h, (du (nord|sud)(-(est|ouest))?|de l'(est|ouest))$/.test(detail.vent), detail.vent);
+  /* Resserrée le 3 octobre 2026 : une ligne fermée tient en quarante points
+     au plus, et le « i » se tient avant le premier moment. */
+  const forme = await pg.evaluate(() => {
+    const h = [...document.querySelectorAll(".hl:not([open]) > summary")].map(x => x.getBoundingClientRect().height);
+    const i = document.querySelector(".hl-aide details.aide"), g = document.querySelector(".hl-moment");
+    return { haut: Math.max(...h), iAvant: !!(i && g && (i.compareDocumentPosition(g) & Node.DOCUMENT_POSITION_FOLLOWING)) };
+  });
+  ok("les lignes sont resserrées et l'explication se tient en tête de la liste",
+    forme.haut <= 40 && forme.iAvant, JSON.stringify(forme));
   ok("toucher une heure ouvre le ressenti, la rosée, le vent et l'humidité",
     detail.ouvert && ["Ressenti", "Rosée", "Vent", "Rafales", "Humidité"].every(n => detail.noms.includes(n)), JSON.stringify(detail));
   await pg.locator('[data-ecriture="ruban"]').click();

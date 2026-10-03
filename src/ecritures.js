@@ -6,7 +6,7 @@
    série de vingt-quatre heures glissantes. */
 
 import { nombreFr, heureTxt, esc } from "./horloge.js";
-import { graviteCiel, dCardinal, SEUIL_LAME, SEUIL_RISQUE } from "./previsions.js";
+import { graviteCiel, cardinal, SEUIL_LAME, SEUIL_RISQUE } from "./previsions.js";
 import { icoCiel, icoTemps, tempsDe } from "./icones.js";
 import { aide } from "./aide.js";
 
@@ -41,10 +41,18 @@ function titresMoments(s) {
   return lots;
 }
 
+/* La provenance du vent comme on la dit, demande de Jérôme du 3 octobre
+   2026 : « du nord », « de l'est », « du sud-ouest », « de l'ouest ». La
+   tournure des bulletins, « de nord », se lisait mal. */
+const duCardinal = d => {
+  const c = cardinal(d);
+  return c[0] === "e" || c[0] === "o" ? `de l'${c}` : `du ${c}`;
+};
+
 const LIGNES_DETAIL = [
   ["Ressenti", h => `${Math.round(h.res)}°`],
   ["Rosée", h => `${Math.round(h.ros)}°`],
-  ["Vent", h => `${Math.round(h.v)} km/h ${dCardinal(h.dir)}`],
+  ["Vent", h => `${Math.round(h.v)} km/h, ${duCardinal(h.dir)}`],
   ["Rafales", h => `${Math.round(h.raf)} km/h`],
   ["Humidité", h => `${Math.round(h.hum)} %`],
   ["Risque de pluie", h => `${Math.round(h.pb)} %`],
@@ -70,10 +78,13 @@ export function liste(s) {
       + `<b class="hl-t">${Math.round(h.t)}°</b>${pluie}`
       + `</summary><dl class="hl-d">${detail}</dl></details>`;
   };
-  return titresMoments(s).map(lot => `<div class="section hl-moment"><h2>${esc(lot.titre)}</h2>`
-    + `<div class="carte hl-carte">${lot.idx.map(ligne).join("")}</div></div>`).join("")
-    + aide("Touchez une heure pour lire le ressenti, la rosée, le vent, l'humidité, le risque de pluie, l'indice UV "
-      + "et la pression. Températures en degrés, pluie en millimètres, vent en kilomètres par heure.");
+  /* L'explication se tient en tête, demande de Jérôme du 3 octobre 2026 :
+     au pied de la dernière carte, le « i » restait seul, trois écrans plus
+     bas. */
+  return `<div class="hl-aide">` + aide("Touchez une heure pour lire le ressenti, la rosée, le vent, l'humidité, le risque de pluie, l'indice UV "
+      + "et la pression. Températures en degrés, pluie en millimètres, vent en kilomètres par heure.") + `</div>`
+    + titresMoments(s).map(lot => `<div class="section hl-moment"><h2>${esc(lot.titre)}</h2>`
+      + `<div class="carte hl-carte">${lot.idx.map(ligne).join("")}</div></div>`).join("");
 }
 
 /* ---------- Les moments ----------
