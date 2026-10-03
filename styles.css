@@ -1961,6 +1961,13 @@ button.rangee:active{background:var(--surface-2)}
   background:var(--erreur);color:var(--sur-accent);
   font-size:var(--texte-sous);font-weight:var(--graisse-medium);
 }
+/* Renommer, à gauche de Retirer, version 147. */
+.co-r{
+  position:absolute;top:0;right:104px;bottom:0;width:104px;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--accent);color:var(--sur-accent);
+  font-size:var(--texte-sous);font-weight:var(--graisse-medium);
+}
 .co-hors,.titre-lu{
   position:absolute;width:1px;height:1px;overflow:hidden;
   clip-path:inset(50%);white-space:nowrap;

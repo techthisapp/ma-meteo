@@ -965,7 +965,7 @@ function rendre() {
       : consulte.commune ? `Revenir à ${consulte.commune}` : "Revenir";
   }
   $("navLieuNom").textContent = enPos
-    ? (g.commune || "Ma position") : (g.commune || "Ma météo");
+    ? (g.commune || "Ma position") : (Reglages.nomAffiche(g) || "Ma météo");
   $("navPos").hidden = !enPos;
   /* Le département sous la commune, d'après la troisième maquette : il lève
      l'ambiguïté des homonymes. Il se déduit du code postal, et son nom vient

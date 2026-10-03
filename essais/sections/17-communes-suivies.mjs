@@ -170,6 +170,36 @@ export default async T => {
     (await txt("#navLieuNom")).includes("Fain"), await txt("#navLieuNom"));
   ok("la bascule ferme la feuille", await pg.locator("#feuille:visible").count() === 0);
 
+  /* Renommer, version 147, demande de Jérôme : le nom choisi remplace la
+     commune dans la barre de tête et la liste, la commune reste écrite
+     dessous ; un nom vide rend le nom de la commune. La saisie passe par la
+     boîte du système, remplacée ici. */
+  await pg.locator("#navLieu").click();
+  await pg.waitForTimeout(900);
+  const renommer = async v => {
+    await pg.evaluate(v => { window.prompt = () => v; }, v);
+    const cle = await pg.evaluate(() => [...document.querySelectorAll(".co:not(.co-pos)")]
+      .find(e => /Fain|Maison/.test(e.querySelector(".co-t b").textContent))?.dataset.cle);
+    await pg.locator(`.co[data-cle="${cle}"] .co-r`).focus();
+    await pg.keyboard.press("Enter");
+    await reposer(pg, 1200);
+    return pg.evaluate(async () => {
+      const R = await import("/src/reglages.js");
+      const co = [...document.querySelectorAll(".co:not(.co-pos)")].find(e => /Fain|Maison/.test(e.querySelector(".co-t b").textContent));
+      return { tete: document.getElementById("navLieuNom").textContent, rangee: co?.querySelector(".co-t b").textContent,
+        sous: co?.querySelector(".co-t em").textContent, nom: R.lire().nom, suivie: R.suivies().find(l => /Fain/.test(l.commune))?.nom };
+    });
+  };
+  const renomme = await renommer("  Maison  ");
+  const rendu = await renommer("");
+  await pg.locator("#feuille-fermer").click();
+  await pg.waitForTimeout(500);
+  ok("un lieu se renomme, sa commune restant écrite dessous, et un nom vide rend celui de la commune",
+    renomme.tete === "Maison" && renomme.rangee === "Maison" && /Fain-lès-Moutiers/.test(renomme.sous)
+    && renomme.nom === "Maison" && renomme.suivie === "Maison"
+    && rendu.tete === "Fain-lès-Moutiers" && rendu.rangee === "Fain-lès-Moutiers" && rendu.suivie === null,
+    JSON.stringify({ renomme, rendu }));
+
   // Retrait : le bouton reste atteignable au clavier, sous la rangée.
   await pg.locator("#navLieu").click();
   await pg.waitForTimeout(900);

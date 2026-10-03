@@ -66,7 +66,9 @@ export function vueCommunes(ctx, rendre, majEtat) {
   const rangee = (l, k) => {
     const c = Reglages.cleLieu(l);
     const ici = c === courante;
-    const nom = l.commune || "Commune";
+    const nom = Reglages.nomAffiche(l) || "Commune";
+    /* Un lieu renommé garde sa commune écrite dessous. */
+    const sous = l.nom ? [l.commune, l.codePostal].filter(Boolean).join(" ") : (l.codePostal || "");
     /* Monter et descendre sont là pour le clavier et la synthèse vocale : au
        doigt, l'appui long suffit. Les boutons ne se voient qu'au focus, mais ils
        gardent leur taille de cible. */
@@ -80,12 +82,16 @@ export function vueCommunes(ctx, rendre, majEtat) {
       + (ici ? ` aria-current="true"` : "")
       + `><span class="co-ic" data-ic></span>`
       + `<span class="co-t"><b>${esc(nom)}</b>`
-      + `<em data-bornes>${esc(l.codePostal || "")}</em></span>`
+      + `<em data-bornes>${esc(sous)}</em></span>`
       + `<span class="co-d" data-deg><i class="ossature">00°</i></span>`
       /* La coche garde sa place sur toutes les rangées : sans quoi la colonne
          des températures se décalerait d'une rangée à l'autre. */
       + ico("coche", ici ? "co-coche" : "co-coche co-coche-vide")
       + `</button>`
+      /* Renommer, version 147 : découvert par le même glissement que
+         Retirer, à sa gauche. */
+      + `<button type="button" class="co-r" data-renommer="${esc(c)}">`
+      + `Renommer<span class="co-hors"> ${esc(nom)}</span></button>`
       + `<button type="button" class="co-x" data-retirer="${esc(c)}">`
       + `Retirer<span class="co-hors">${esc(nom)} des lieux suivis</span></button>`
       + `</div>`;
@@ -139,7 +145,7 @@ export function vueCommunes(ctx, rendre, majEtat) {
             /* Sur Ma position, la commune relevée passe avant le code postal :
                c'est elle qui dit où l'appareil se trouve. */
             const tete = el.classList.contains("co-pos")
-              ? (l.commune || "") : (l.codePostal || "");
+              ? (l.commune || "") : l.nom ? [l.commune, l.codePostal].filter(Boolean).join(" ") : (l.codePostal || "");
             bornes.textContent = a.tn === null ? tete
               : `${tete ? `${tete} · ` : ""}${Math.round(a.tn)}° à ${Math.round(a.tx)}°`;
           }
@@ -187,6 +193,17 @@ export function vueCommunes(ctx, rendre, majEtat) {
       brancherGlissement(bloc, cle => {
         const { change } = Reglages.retirerSuivie(cle);
         rendre(change ? { recharger: true } : {});
+      }, cle => {
+        /* Le nom se saisit dans la boîte du système : sur iPhone, elle porte
+           le clavier et la dictée, sans champ de plus dans la rangée. Un nom
+           vide rend le nom de la commune. */
+        const l = suivies.find(x => Reglages.cleLieu(x) === cle);
+        if (!l) return;
+        const v = window.prompt(`Nom de ce lieu (${l.commune}). Laisser vide pour reprendre le nom de la commune.`,
+          l.nom || l.commune || "");
+        if (v === null) return;
+        Reglages.renommerSuivie(cle, v);
+        rendre({ dessous: true });
       });
 
       brancherOrdre(bloc, cles => { Reglages.reordonnerSuivies(cles); rendre(); });
@@ -235,8 +252,9 @@ export function vueAjout(ctx, rendre, majEtat) {
    Le menu contextuel, appui long ou clic droit, découvre la même action : le
    glissement n'est pas atteignable au clavier. Le bouton reste dans l'ordre de
    tabulation, et le focus ouvre la rangée. */
-function brancherGlissement(bloc, retirer) {
-  const LARGE = 104;
+function brancherGlissement(bloc, retirer, renommer) {
+  /* Deux actions sous la rangée depuis la version 147 : Renommer et Retirer. */
+  const LARGE = 208;
 
   // Ma position ne se retire pas : sa rangée n'a pas de bouton, donc pas de glissement.
   for (const el of bloc.querySelectorAll(".co:not(.co-pos)")) {
@@ -279,9 +297,12 @@ function brancherGlissement(bloc, retirer) {
     l.addEventListener("click", ev => { if (glisse) { ev.preventDefault(); ev.stopPropagation(); } }, true);
 
     el.addEventListener("contextmenu", ev => { ev.preventDefault(); poser(!ouvert); });
-    el.querySelector(".co-x").addEventListener("focus", () => poser(true));
-    el.querySelector(".co-x").addEventListener("blur", () => poser(false));
+    for (const b of el.querySelectorAll(".co-x, .co-r")) {
+      b.addEventListener("focus", () => poser(true));
+      b.addEventListener("blur", () => poser(false));
+    }
     el.querySelector(".co-x").addEventListener("click", () => retirer(el.dataset.cle));
+    el.querySelector(".co-r").addEventListener("click", () => { poser(false); renommer(el.dataset.cle); });
   }
 }
 

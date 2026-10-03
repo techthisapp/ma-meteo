@@ -742,6 +742,12 @@ case "$N" in
   234) # Le nom du point ne vient plus que du service d'adresses.
      perl -0pi -e 's/    communeDu\(lat, lon, fetcheur === chercher \? chercherEn\(5000\) : fetcheur\)/    communeDe(lat, lon)/' src/point.js
      ATTENDU="le nom du point vient de la commune qui le contient, au millième de degré" ;;
+  235) # La barre de tête ignore le nom donné au lieu.
+     perl -0pi -e 's/\(Reglages\.nomAffiche\(g\) \|\| "Ma météo"\)/(g.commune || "Ma météo")/' src/app.js
+     ATTENDU="un lieu se renomme, sa commune restant écrite dessous, et un nom vide rend celui de la commune" ;;
+  236) # Un nom vide ne rend plus le nom de la commune.
+     perl -0pi -e 's/  const propre = n && n !== l\.commune \? n : null;/  const propre = n ?? l.nom;/' src/reglages.js
+     ATTENDU="un lieu se renomme, sa commune restant écrite dessous, et un nom vide rend celui de la commune" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

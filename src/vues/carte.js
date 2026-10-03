@@ -39,9 +39,9 @@ export function vueCarte(ctx, rendre, majEtat) {
   }
 
   const suivies = Reglages.suivies();
-  const lieux = [{ nom: g.commune || "Ici", lat: g.lat, lon: g.lon, ici: true },
+  const lieux = [{ nom: Reglages.nomAffiche(g) || "Ici", lat: g.lat, lon: g.lon, ici: true },
     ...suivies.filter(l => l.lat !== g.lat || l.lon !== g.lon)
-      .map(l => ({ nom: l.commune || "Commune", lat: l.lat, lon: l.lon, ici: false }))];
+      .map(l => ({ nom: Reglages.nomAffiche(l) || "Commune", lat: l.lat, lon: l.lon, ici: false }))];
 
   /* Le cadrage vit dans le contexte et survit aux rendus. Chaque source qui
      arrive déclenche un rendu, et sans cette mémoire la carte reviendrait à son

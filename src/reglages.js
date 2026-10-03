@@ -67,10 +67,15 @@ export const envoi = v => Math.round(v * 100) / 100;
 export const cleLieu = l => (l && l.lat !== null && l.lon !== null)
   ? `${Number(l.lat).toFixed(4)},${Number(l.lon).toFixed(4)}` : null;
 
+/* `nom` est le nom donné au lieu par l'utilisateur, depuis la version 147,
+   demande de Jérôme du 3 octobre 2026 : « Maison » plutôt que la commune. Il
+   s'affiche à la place de la commune ; la commune reste écrite dessous. */
 const nu = l => ({
   commune: l.commune, codePostal: l.codePostal ?? null, departement: l.departement ?? null,
-  lat: l.lat, lon: l.lon,
+  lat: l.lat, lon: l.lon, nom: l.nom || null,
 });
+/* Le nom à afficher d'un lieu : celui qu'on lui a donné, sinon sa commune. */
+export const nomAffiche = l => (l && (l.nom || l.commune)) || null;
 
 /* Le département d'une commune, tel que le service d'adresses le donne en tête
    de son contexte, « 74, Haute-Savoie, Auvergne-Rhône-Alpes ». Le code postal
@@ -158,7 +163,7 @@ export function poserLieu(l) {
    liste des lieux ; le lieu d'avant est gardé dans `retour`, que « Revenir »
    rétablit et que « Suivre ce lieu » oublie après avoir ajouté le lieu à la
    liste. Choisir une commune ou sa position met fin à la consultation. */
-const CHAMPS_LIEU = ["commune", "codePostal", "departement", "lat", "lon", "poste", "auto"];
+const CHAMPS_LIEU = ["commune", "codePostal", "departement", "lat", "lon", "nom", "poste", "auto"];
 export const consultation = () => (etat.retour ? { ...etat.retour } : null);
 export function consulter(l) {
   if (!l || !Number.isFinite(l.lat) || !Number.isFinite(l.lon)) return lire();
@@ -218,7 +223,7 @@ export function poserPosition(p) {
     : (proche ? etat.position?.departement ?? null : null);
   const lat = envoi(releve.lat), lon = envoi(releve.lon);
   const pos = { commune, codePostal, departement, lat, lon, t: Date.now() };
-  etat = { ...etat, auto: true, position: pos, releve, commune, codePostal, departement, lat, lon, poste: null, retour: null };
+  etat = { ...etat, auto: true, position: pos, releve, commune, codePostal, departement, lat, lon, nom: null, poste: null, retour: null };
   ecrire();
   return lire();
 }
@@ -276,6 +281,23 @@ export function deplacerSuivie(cle, pas) {
   return { lire: lire(), change: true };
 }
 
+/* Renommer un lieu suivi. Un nom vide rend au lieu le nom de sa commune. Le
+   lieu courant prend le nouveau nom aussitôt. */
+export const NOM_MAX = 40;
+export function renommerSuivie(cle, nom) {
+  const n = String(nom ?? "").trim().replace(/\s+/g, " ").slice(0, NOM_MAX) || null;
+  const i = etat.suivies.findIndex(l => cleLieu(l) === cle);
+  if (i < 0) return lire();
+  const l = etat.suivies[i];
+  const propre = n && n !== l.commune ? n : null;
+  const out = [...etat.suivies];
+  out[i] = { ...l, nom: propre };
+  etat = { ...etat, suivies: out };
+  if (!etat.auto && cleLieu(etat) === cle) etat.nom = propre;
+  ecrire();
+  return lire();
+}
+
 export function retirerSuivie(cle) {
   const liste = etat.suivies.filter(x => cleLieu(x) !== cle);
   if (liste.length === etat.suivies.length) return { lire: lire(), change: false };
@@ -287,7 +309,7 @@ export function retirerSuivie(cle) {
        relevé garde son horodatage, sans quoi il passerait pour frais. */
     if (!liste.length && etat.position) {
       const p = etat.position;
-      etat = { ...etat, auto: true, commune: p.commune, codePostal: p.codePostal,
+      etat = { ...etat, auto: true, nom: null, commune: p.commune, codePostal: p.codePostal,
         departement: p.departement ?? null, lat: p.lat, lon: p.lon, poste: null };
       ecrire();
       return { lire: lire(), change: true };
