@@ -7,6 +7,9 @@ export const avecPage = true;
 
 export default async T => {
   const { ctx, etat, ok, onglet, reposer } = T;
+  /* La pluie de la charge couvre toute la vue, tuile de la mesure comprise :
+     le contrôle de l'ordre des nuages et de la pluie compte sur elle. */
+  etat.radarFondPlein = true;
   /* Les cartes de cette section s'ouvrent sans le fond enrichi : leurs
      contrôles lisent la couleur des nappes en des points précis. */
   const ouvrirCarte = (r, f) => T.ouvrirCarte(r, f, { sansFond: true });

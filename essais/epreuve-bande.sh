@@ -1024,6 +1024,27 @@ case "$N" in
   329) # Le modèle reprend la main dans l'heure couverte par le radar.
      perl -0pi -e 's/  if \(d && d\.dispo\) \{\n    d\.voisins/  if (d \&\& d.dispo \&\& !modele) {\n    d.voisins/' src/pluieproche.js
      ATTENDU="avec couverture radar, le modèle ne sert qu.au-delà de l.heure" ;;
+  330) # L'accord des deux méthodes s'élargit à une demi-heure.
+     perl -0pi -e 's/export const ACCORD = 10 \* 60000;/export const ACCORD = 30 * 60000;/' src/pluieproche.js
+     ATTENDU="deux méthodes qui s.écartent donnent une plage" ;;
+  331) # Le déplacement croise aussi le repli.
+     perl -0pi -e 's/  const ev = l\.source === "meteofrance"\n/  const ev = true\n/' src/app.js
+     ATTENDU="la seconde méthode ne croise pas le repli" ;;
+  332) # L'approche ne s'arrête plus au bord de la tuile.
+     perl -0pi -e 's/    if \(x < 0 \|\| y < 0 \|\| x >= n \|\| y >= n\) return \{ t: null, jusqua: tImage \+ tau \* 60000 \};\n//' src/deplacement.js
+     ATTENDU="l.approche pousse la dernière image du déplacement et s.arrête au bord" ;;
+  333) # La confirmation ne se dit plus.
+     perl -0pi -e 's/ev\.confirme \? " Heure confirmée par le déplacement des averses\."/ev.confirme ? ""/' src/pluieproche.js
+     ATTENDU="deux méthodes d.accord confirment l.heure" ;;
+  334) # Une pluie qu'aucune averse n'apporte n'est plus signalée.
+     perl -0pi -e 's/approche\.jusqua >= ev\.t \+ ACCORD \? \{ \.\.\.ev, nonVue: true \} : ev/ev/' src/pluieproche.js
+     ATTENDU="la seconde méthode confirme, élargit ou signale selon l.écart" ;;
+  335) # L'approche lit l'aval au lieu de l'amont.
+     perl -0pi -e 's/const x = Math\.round\(px - vx \* tau\), y = Math\.round\(py - vy \* tau\);/const x = Math.round(px + vx * tau), y = Math.round(py + vy * tau);/' src/deplacement.js
+     ATTENDU="l.approche pousse la dernière image du déplacement et s.arrête au bord" ;;
+  336) # Un écart de plus d'une demi-heure donne encore une plage.
+     perl -0pi -e 's/  if \(ecart > ECART_MAX\) return \{ \.\.\.ev, nonVue: true \};\n//' src/pluieproche.js
+     ATTENDU="la seconde méthode confirme, élargit ou signale selon l.écart" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

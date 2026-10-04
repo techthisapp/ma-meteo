@@ -143,7 +143,7 @@ export default async T => {
      du quart d'heure. Sans ce repli, la Corse et les reliefs n'ont aucun compte à
      rebours. Mesuré le 7 septembre 2026 : 247 octets pour huit pas. */
 
-  const avecRepli = async (profil, mf = "indispo", quand = FIGE) => {
+  const avecRepli = async (profil, mf = "indispo", quand = FIGE, images = false) => {
     etat.profilPluie = mf;
     etat.profilRepli = profil;
     etat.appelsRepli.length = 0;
@@ -153,9 +153,12 @@ export default async T => {
     });
     await c.addInitScript(amorceGardee(FAIN, quand));
     await brancherRoutes(c);
+    /* Le radar d'images se tait, sauf demande : la seconde méthode a ses
+       propres contrôles plus bas. */
+    if (!images) await c.route(/api\.rainviewer\.com/, r => r.abort());
     const p = await c.newPage();
     await ouvrirPage(p);
-    await p.waitForTimeout(800);
+    await (images ? reposer(p, 2100) : p.waitForTimeout(800));
     const dit = await p.evaluate(() => {
       const e = document.querySelector(".pp");
       if (!e) return null;
@@ -292,6 +295,97 @@ export default async T => {
       && document.querySelector(".bd-deg") !== null
       && document.querySelector('[data-bloc="jour"]') !== null));
   await ctxPPmuet.close();
+
+  /* ---------- La seconde méthode, version 170 ----------
+
+     La dernière image, poussée du déplacement mesuré, donne une heure
+     d'arrivée indépendante. Sur la charge d'essai, la tache la plus proche de
+     la commune l'atteint vers 9 h 40. Météo-France annonce 9 h 20 au profil
+     « debut » : vingt minutes d'écart, au delà des dix de l'accord et en
+     deçà des trente au delà desquels la pluie n'est plus celle qui approche,
+     l'heure devient une plage. Au profil « accord », elle annonce 9 h 40 : l'heure
+     est confirmée. */
+  const avecMethode = async profil => {
+    etat.profilPluie = profil;
+    const c = await nav.newContext({
+      viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+      locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+    });
+    await c.addInitScript(amorceGardee(FAIN, FIGE));
+    await brancherRoutes(c);
+    const p = await c.newPage();
+    await ouvrirPage(p);
+    await reposer(p, 2100);
+    const dit = await p.evaluate(() => {
+      const e = document.querySelector(".pp");
+      return e ? { phrase: e.querySelector(".pp-tete b").textContent,
+        delai: e.querySelector(".pp-delai")?.textContent || "",
+        sous: e.querySelector(".pp-sous")?.textContent || "" } : null;
+    });
+    await c.close();
+    etat.profilPluie = "sec";
+    return dit;
+  };
+  const mPlage = await avecMethode("debut");
+  ok("deux méthodes qui s'écartent donnent une plage",
+    mPlage && mPlage.phrase === "Pluie modérée entre 09 h 20 et 09 h 40"
+    && mPlage.delai === "dans 20 à 40 min" && /Heure incertaine selon le déplacement des averses\./.test(mPlage.sous),
+    mPlage && `${mPlage.phrase} | ${mPlage.delai} | ${mPlage.sous}`);
+  const mAccord = await avecMethode("accord");
+  ok("deux méthodes d'accord confirment l'heure",
+    mAccord && mAccord.phrase === "Pluie modérée vers 09 h 40"
+    && /Heure confirmée par le déplacement des averses\./.test(mAccord.sous),
+    mAccord && `${mAccord.phrase} | ${mAccord.sous}`);
+
+  /* Le repli est un modèle : le déplacement mesuré ne le croise pas. */
+  const mRepli = await avecRepli("debut", "indispo", FIGE, true);
+  ok("la seconde méthode ne croise pas le repli",
+    mRepli.dit && mRepli.dit.phrase === "Pluie modérée vers 09 h 30"
+    && !/déplacement des averses/.test(mRepli.dit.sous),
+    mRepli.dit && `${mRepli.dit.phrase} | ${mRepli.dit.sous}`);
+
+  const [ctxMeth, pgMeth] = await ctxReponse(METEO_NUE, FAIN);
+  /* L'approche sur une tuile fabriquée : une bande de pluie de x = 40 à 60,
+     un déplacement de dix points vers l'est en dix minutes. Le point à x = 100
+     la voit arriver dans quarante minutes ; le point à x = 250, dont l'amont
+     sort de la tuile après six minutes, n'en sait rien au delà. */
+  ok("l'approche pousse la dernière image du déplacement et s'arrête au bord",
+    await pgMeth.evaluate(async () => {
+      const D = await import("/src/deplacement.js");
+      const n = 256, d = new Uint8ClampedArray(n * n * 4);
+      for (let y = 0; y < n; y++) for (let x = 40; x <= 60; x++) d[(y * n + x) * 4 + 3] = 200;
+      const t0 = 1e12;
+      const a = D.approcheDe(d, 100, 100, 10, 0, 10, t0, n);
+      if (a.t !== t0 + 40 * 60000) return `arrivée à ${(a.t - t0) / 60000} minutes au lieu de 40`;
+      const b = D.approcheDe(d, 250, 100, -10, 0, 10, t0, n);
+      if (b.t !== null || b.jusqua !== t0 + 6 * 60000) return `bord : ${b.t} jusqu'à ${(b.jusqua - t0) / 60000} minutes`;
+      const c = D.approcheDe(d, 100, 100, 0, 0, 10, t0, n);
+      if (c.t !== null || c.jusqua !== t0 + D.HORIZON_APPROCHE * 60000) return "une pluie immobile à côté est arrivée";
+      return "";
+    }) === "");
+  ok("la seconde méthode confirme, élargit ou signale selon l'écart",
+    await pgMeth.evaluate(async () => {
+      const M = await import("/src/pluieproche.js");
+      // Les échéances du radar tombent sur le pas de cinq minutes.
+      const t0 = Math.floor(Date.now() / 300000) * 300000;
+      const ev = { genre: "debut", force: 3, t: t0 + 20 * 60000, fin: null };
+      const a = M.croiser(ev, { t: t0 + 25 * 60000, jusqua: t0 + 25 * 60000 }, t0);
+      if (!a.confirme || a.plage) return "un écart de cinq minutes n'est pas confirmé";
+      const b = M.croiser(ev, { t: t0 + 45 * 60000, jusqua: t0 + 45 * 60000 }, t0);
+      if (!b.plage || b.plage[0] !== ev.t || b.plage[1] !== t0 + 45 * 60000) return "un écart de vingt-cinq minutes ne donne pas la plage";
+      const loin = M.croiser(ev, { t: t0 + 60 * 60000, jusqua: t0 + 60 * 60000 }, t0);
+      if (!loin.nonVue || loin.plage) return "un écart de quarante minutes a donné une plage";
+      const c = M.croiser(ev, { t: null, jusqua: t0 + 90 * 60000 }, t0);
+      if (!c.nonVue) return "une pluie qu'aucune averse n'apporte n'est pas signalée";
+      const d = M.croiser(ev, { t: null, jusqua: t0 + 10 * 60000 }, t0);
+      if (d.nonVue || d.plage || d.confirme) return "le bord de la tuile a fait conclure";
+      const e = M.croiser({ ...ev, genre: "fin" }, { t: t0, jusqua: t0 }, t0);
+      if (e.plage || e.confirme) return "une fin de pluie a été croisée";
+      const f = M.croiser({ ...ev, modele: true }, { t: t0 + 45 * 60000, jusqua: t0 }, t0);
+      if (f.plage) return "une pluie du modèle a été croisée";
+      return "";
+    }) === "");
+  await ctxMeth.close();
 
   /* Le délai s'arrondit au pas de cinq minutes, celui de la source. Écrire « dans
      23 minutes » donnerait à un radar une précision de chronomètre.

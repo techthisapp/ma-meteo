@@ -364,11 +364,19 @@ export function lignes(ev, maintenant = Date.now(), pas = PAS_MF) {
   const duree = ev.fin === null ? null
     : Math.max(pas, Math.round((ev.fin - ev.t) / 60000 / pas) * pas);
   /* Une pluie lue sur le modèle le dit : elle est moins sûre que le radar. */
-  const sous = ev.modele
+  const methode = ev.confirme ? " Heure confirmée par le déplacement des averses."
+    : ev.nonVue ? " Aucune averse observée en approche."
+      : ev.plage ? " Heure incertaine selon le déplacement des averses." : "";
+  const sous = (ev.modele
     ? (duree ? `Pendant ${duree} minutes environ, d'après le modèle.` : "D'après le modèle.")
-    : (duree ? `Pendant ${duree} minutes environ.` : "");
-  return m <= 0 ? { titre: `${nom} à l'instant`, delai: "", sous }
-    : { titre: `${nom} vers ${quand(ev.t)}`, delai: `dans ${delaiCourt(m)}`, sous };
+    : (duree ? `Pendant ${duree} minutes environ.` : "")) + methode;
+  if (ev.plage) {
+    const [a, b] = ev.plage.map(x => minutesJusqua(x, maintenant, pas));
+    const delai = b < 60 ? `dans ${a} à ${b} min` : `dans ${delaiCourt(a)} à ${delaiCourt(b)}`;
+    return { titre: `${nom} entre ${quand(ev.plage[0])} et ${quand(ev.plage[1])}`, delai, sous: sous.trim() };
+  }
+  return m <= 0 ? { titre: `${nom} à l'instant`, delai: "", sous: sous.trim() }
+    : { titre: `${nom} vers ${quand(ev.t)}`, delai: `dans ${delaiCourt(m)}`, sous: sous.trim() };
 }
 
 /* Jusqu'à quand le point est connu au sec, pour accorder le rappel de
@@ -386,4 +394,29 @@ export function secJusqua(l, maintenant = Date.now()) {
   for (const x of pas) if (x.i !== 1) return x.t;
   const n = pas.length;
   return pas[n - 1].t + (pas[n - 1].t - pas[n - 2].t);
+}
+
+/* La seconde méthode, version 170, demande de Jérôme du 4 octobre 2026. La
+   dernière image radar, poussée du déplacement mesuré, donne une heure
+   d'arrivée indépendante de celle de Météo-France. Elle ne s'affiche pas
+   seule : elle confirme l'heure du produit quand les deux s'accordent à
+   `ACCORD` près, la change en plage quand elles s'écartent, et signale une
+   pluie que les averses observées ne montrent pas en approche. Elle ne porte
+   que sur une pluie qui commence dans l'heure du radar. */
+export const ACCORD = 10 * 60000;
+/* Au delà d'une demi-heure d'écart, une plage serait trop large pour servir :
+   la pluie annoncée n'est alors pas celle que les averses observées
+   apportent, et elle se signale comme telle. */
+export const ECART_MAX = 30 * 60000;
+export function croiser(ev, approche, maintenant = Date.now()) {
+  if (!ev || ev.genre !== "debut" || ev.modele || !approche) return ev;
+  if (approche.t === null) {
+    /* Le bord de la tuile atteint avant l'heure : on ne sait rien. */
+    return approche.jusqua >= ev.t + ACCORD ? { ...ev, nonVue: true } : ev;
+  }
+  const t = Math.max(maintenant, Math.round(approche.t / 300000) * 300000);
+  const ecart = Math.abs(t - ev.t);
+  if (ecart <= ACCORD) return { ...ev, confirme: true };
+  if (ecart > ECART_MAX) return { ...ev, nonVue: true };
+  return { ...ev, plage: [Math.min(t, ev.t), Math.max(t, ev.t)] };
 }

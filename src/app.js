@@ -365,7 +365,11 @@ function panneauPluieProche() {
   const l = pluieProche;
   if (!l || !l.dispo) return "";
   const maintenant = Date.now();
-  const ev = Pluie.annonce(l, maintenant);
+  /* La seconde méthode ne vaut que pour le radar de Météo-France : le repli est
+     un modèle, et le déplacement mesuré ne dit rien de lui. */
+  const ev = l.source === "meteofrance"
+    ? Pluie.croiser(Pluie.annonce(l, maintenant), deplacement && deplacement.approche, maintenant)
+    : Pluie.annonce(l, maintenant);
   const dit = Pluie.lignes(ev, maintenant, l.pasMinutes);
   if (!dit) return "";
 
@@ -445,7 +449,7 @@ function panneauPluieProche() {
 
   return `<div class="section pp">`
     + `<div class="carte pp-c">`
-    + `<p class="pp-tete">${ico("goutte", "pp-ic")}<b>${esc(dit.titre).replace(/(\d\d h(?: \d\d)?)$/, '<span class="pp-heure">$1</span>')}</b>`
+    + `<p class="pp-tete">${ico("goutte", "pp-ic")}<b>${esc(dit.titre).replace(/\d\d h(?: \d\d)?/g, '<span class="pp-heure">$&</span>')}</b>`
     + (dit.delai ? `<span class="pp-delai">${esc(dit.delai)}</span>` : "") + `</p>`
     + (sous.length ? `<p class="pp-sous">${sous.join(" ")}</p>` : "")
     + `<div class="pp-g" role="img" aria-label="${esc(resumeGraphe(pas, autour, suite))}">${ruban}`

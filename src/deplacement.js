@@ -8,9 +8,14 @@
    Le partage des rôles est net. Météo-France dit quand la pluie arrive et à
    quelle force, avec un vrai produit de prévision immédiate qui assimile le
    radar. Cette mesure dit d'où elle vient et à quelle vitesse, ce que ce produit
-   ne donne pas. Aucune heure d'arrivée n'est calculée ici : elle contredirait le
-   panneau, et deux réponses à la même question sont le défaut que ce dépôt
-   connaît le mieux.
+   ne donne pas.
+
+   Depuis la version 170, demande de Jérôme du 4 octobre 2026, la mesure donne
+   aussi une heure d'arrivée, `approche`, en poussant la dernière image du
+   déplacement trouvé. Cette heure ne s'affiche jamais seule : elle sert de
+   seconde méthode, qui confirme l'heure de Météo-France ou la change en plage
+   quand les deux s'écartent. Deux réponses à la même question restent ainsi
+   une seule.
 
    Mesuré le 8 septembre 2026 à 22 h 50 UTC, sur une France arrosée à trente-cinq
    pour cent :
@@ -147,6 +152,23 @@ export function depuisDecalage(dx, dy, minutes, lat) {
   return { kmh, provenance, dx, dy };
 }
 
+/* L'approche, version 170. La pluie qui passera sur le point dans `tau`
+   minutes est celle qui se trouve, sur la dernière image, à `tau` fois la
+   vitesse en amont. La lecture remonte minute par minute jusqu'à `HORIZON_APPROCHE`
+   après la prise de l'image, et s'arrête au bord de la tuile : au delà, on ne
+   sait rien. Un pixel est mouillé quand son opacité dépasse celle que la
+   corrélation retient déjà. */
+export const HORIZON_APPROCHE = 90;
+export function approcheDe(donnees, px, py, dx, dy, minutes, tImage, n = TAILLE) {
+  const vx = dx / minutes, vy = dy / minutes;
+  for (let tau = 0; tau <= HORIZON_APPROCHE; tau++) {
+    const x = Math.round(px - vx * tau), y = Math.round(py - vy * tau);
+    if (x < 0 || y < 0 || x >= n || y >= n) return { t: null, jusqua: tImage + tau * 60000 };
+    if (donnees[(y * n + x) * 4 + 3] >= 16) return { t: tImage + tau * 60000, jusqua: tImage + tau * 60000 };
+  }
+  return { t: null, jusqua: tImage + HORIZON_APPROCHE * 60000 };
+}
+
 /* La mesure complète. `images` est la liste des observations de l'index, la plus
    récente en dernier. Rien n'est rendu si les conditions de lecture ne sont pas
    réunies : une direction inventée serait pire que pas de direction. */
@@ -171,7 +193,10 @@ export async function mesurer(lat, lon, hote, images, charge = chargerTuile) {
   if (nul !== null && bon.s - nul < GAIN_MIN) return null;
   const minutes = (derniere.t - avant.t) / 60000;
   if (!(minutes > 0)) return null;
-  return { ...depuisDecalage(bon.dx, bon.dy, minutes, lat), score: bon.s, minutes };
+  const n2 = Math.pow(2, t.z);
+  const px = (mx(lon) * n2 - t.x) * TAILLE, py = (my(lat) * n2 - t.y) * TAILLE;
+  return { ...depuisDecalage(bon.dx, bon.dy, minutes, lat), score: bon.s, minutes,
+    approche: approcheDe(db, px, py, bon.dx, bon.dy, minutes, derniere.t) };
 }
 
 /* Le chargement d'une tuile en champ de pixels. Le service sert ses images avec

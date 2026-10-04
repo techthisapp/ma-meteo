@@ -22,6 +22,10 @@ export default async T => {
     });
     await c.addInitScript(amorceGardee(FAIN, FIGE));
     await brancherRoutes(c);
+    /* Le déplacement des averses, seconde méthode depuis la version 170, se
+       contrôle dans la section du sens d'arrivée : ici le radar d'images se
+       tait, et l'heure de Météo-France reste seule. */
+    await c.route(/api\.rainviewer\.com/, r => r.abort());
     const p = await c.newPage();
     await ouvrirPage(p);
     await p.waitForTimeout(700);
@@ -281,6 +285,7 @@ export default async T => {
   });
   await ctxLien.addInitScript(amorceGardee({ ...FAIN, pluiecarte: false }, FIGE));
   await brancherRoutes(ctxLien);
+  await ctxLien.route(/api\.rainviewer\.com/, r => r.abort());
   const pgLien = await ctxLien.newPage();
   await ouvrirPage(pgLien);
   await pgLien.waitForTimeout(700);
@@ -314,6 +319,10 @@ export default async T => {
     });
     await c.addInitScript(amorceGardee(FAIN, FIGE));
     await brancherRoutes(c);
+    /* Le déplacement des averses, seconde méthode depuis la version 170, se
+       contrôle dans la section du sens d'arrivée : ici le radar d'images se
+       tait, et l'heure de Météo-France reste seule. */
+    await c.route(/api\.rainviewer\.com/, r => r.abort());
     await c.route(/api\.open-meteo\.com/, route => {
       const u = route.request().url();
       if (new URL(u).host !== "api.open-meteo.com" || !u.includes("hourly=")

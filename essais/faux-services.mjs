@@ -260,7 +260,7 @@ export function enPng(brut, n) {
 export const TACHES = [[40, 60], [150, 90], [90, 180], [200, 200], [60, 120], [180, 40]];
 export const DEP_PAS = { dx: 2, dy: -1 };
 
-export const pngMotif = (r, g, b, a, rang, n = 256) => {
+export const pngMotif = (r, g, b, a, rang, n = 256, fond = 0) => {
   const brut = Buffer.alloc(n * (n * 4 + 1));
   const dx = DEP_PAS.dx * rang, dy = DEP_PAS.dy * rang;
   for (let y = 0; y < n; y++) {
@@ -271,10 +271,15 @@ export const pngMotif = (r, g, b, a, rang, n = 256) => {
       for (const [tx, ty] of TACHES) {
         if (Math.hypot(x - (tx + dx), y - (ty + dy)) < 26) { tache = true; break; }
       }
+      /* Le fond est transparent depuis la version 170, comme sur les vraies
+         images où le temps sec ne se peint pas : l'approche lit la pluie à
+         l'opacité, et un fond opaque mouillerait toute la tuile. Les
+         contrôles de la carte qui veulent une pluie couvrant toute la vue
+         le demandent par `radarFondPlein`. */
       brut[p] = tache ? 250 : r;
       brut[p + 1] = tache ? 40 : g;
       brut[p + 2] = tache ? 30 : b;
-      brut[p + 3] = a;
+      brut[p + 3] = tache ? a : fond;
     }
   }
   return enPng(brut, n);
@@ -334,6 +339,10 @@ export const PLUIE_PROFILS = {
   /* Un trou entre le sec et la pluie : la source ne dit rien de ce qui se passe
      entre les deux, et ce qu'il y a derrière le trou ne s'annonce donc pas. */
   secmuet:  { dispo: 1, i: [1, 1, 0, 0, 2, 3, 1, 1, 1] },
+  /* Une pluie modérée à 9 h 40, l'heure où la tache d'essai la plus proche,
+     poussée de son déplacement, atteint la commune : les deux méthodes
+     s'accordent. */
+  accord:   { dispo: 1, i: [1, 1, 1, 1, 1, 1, 3, 3, 1] },
 };
 /* Le repli, servi par Open-Meteo là où le radar de Météo-France ne couvre pas.
    Les valeurs sont des lames d'eau en millimètres par quart d'heure. */
@@ -1171,12 +1180,14 @@ export const brancherFauxServices = async (c, etat) => {
     const mesure = z && z[1] === "5" && z[2] === "16" && z[3] === "11";
     r.fulfill({ status: 200, contentType: "image/png",
       headers: { "Access-Control-Allow-Origin": "*" },
-      body: mesure ? pngMotif(t.r, t.g, t.b, 230, t.rang) : pngUni(t.r, t.g, t.b, 230) });
+      body: mesure ? pngMotif(t.r, t.g, t.b, 230, t.rang, 256, etat.radarFondPlein ? 230 : 0)
+        : pngUni(t.r, t.g, t.b, 230) });
   });
 };
 
 export const nouvelEtat = () => ({
   radarFutur: 0,
+  radarFondPlein: false,
   appelsRadar: [],
   appelsFoudre: [],
   appelsAtmo: [],
