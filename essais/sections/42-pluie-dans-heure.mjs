@@ -119,12 +119,15 @@ export default async T => {
      la modérée de 9 h 25 jusqu'à 9 h 40, l'échéance sèche suivante. Les
      échéances ne sont pas également espacées, cinq minutes puis dix, et des
      morceaux à intervalle constant mentiraient sur la durée. */
+  /* La tolérance vaut une douzaine de secondes : l'horloge de la page avance
+     pendant le chargement, d'une seconde environ sur les machines de GitHub. */
   const pc = m => Math.round((m / 70) * 10000) / 100;
+  const proche = (a, b) => Math.abs(a - b) < 0.3;
   const eau = ppDebut ? ppDebut.morceaux.filter(m => m.genre === "eau") : [];
   ok("le ruban pose chaque morceau de pluie à son heure, de maintenant au bout de l'heure couverte",
     eau.length === 2
-    && Math.abs(eau[0].de - pc(20)) < 0.02 && Math.abs(eau[0].l - pc(5)) < 0.02
-    && Math.abs(eau[1].de - pc(25)) < 0.02 && Math.abs(eau[1].l - pc(15)) < 0.02
+    && proche(eau[0].de, pc(20)) && proche(eau[0].l, pc(5))
+    && proche(eau[1].de, pc(25)) && proche(eau[1].l, pc(15))
     && ppDebut.axe[0] === "maint." && ppDebut.axe[ppDebut.axe.length - 1] === "10 h 10",
     ppDebut && `${eau.map(m => `${m.de}+${m.l}`).join(" ")} | ${ppDebut.axe.join(" ")}`);
 
