@@ -22,7 +22,7 @@ application.
 
 ## État au 4 octobre 2026
 
-Version 170. Le projet est passé de claude.ai à Claude Code le 1er octobre
+Version 171. Le projet est passé de claude.ai à Claude Code le 1er octobre
 2026, à la version 118. Un audit complet de la version 120 a été mené le même
 jour, `docs/audit-2026-10-01.md`, avec le suivi de chaque lot en fin de
 document.

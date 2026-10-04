@@ -73,11 +73,20 @@ const cle = (lat, lon) => `${lat.toFixed(3)},${lon.toFixed(3)}`;
 
 /* La lecture de la réponse.
 
-   Le drapeau `rain_product_available` fait foi. Mesuré le 6 septembre : Ajaccio,
+   Le drapeau `rain_product_available`. Mesuré le 6 septembre : Ajaccio,
    Briançon et Gaillard rendent neuf échéances toutes à « Temps sec » avec le
-   drapeau à zéro, le radar ne couvrant pas ces reliefs. Lire ces neuf échéances
-   sans regarder le drapeau ferait annoncer une heure au sec là où l'on ne sait
-   rien. */
+   drapeau à zéro, et l'on en avait conclu que le radar ne couvrait pas ces
+   reliefs. Relevé le 4 octobre 2026 à 21 h, un soir de pluie dans l'Hérault :
+   Pignan, Fabrègues, Lavérune, Saint-Georges-d'Orques et Nîmes ont le drapeau
+   à zéro, Montpellier, Marseille, Paris et Lyon à un, et les quatre premiers
+   rendent de la pluie faible à modérée sur toute l'heure. Le drapeau ne dit
+   donc pas la couverture du radar.
+
+   La règle depuis la version 171 : un drapeau à zéro laisse un doute sur une
+   heure toute sèche, un sec par défaut ne se distinguant pas d'un sec mesuré,
+   et la lecture passe alors au repli comme avant. Une pluie annoncée, elle,
+   ne vient d'aucune valeur par défaut : elle se lit. Pignan restait sans
+   encart sous la pluie, le repli du modèle ne voyant rien. */
 export function lire(d) {
   const p = d && d.properties;
   if (!p || !Array.isArray(p.forecast)) return null;
@@ -87,7 +96,8 @@ export function lire(d) {
     .sort((a, b) => a.t - b.t);
   if (!pas.length) return null;
   return {
-    dispo: p.rain_product_available === 1,
+    dispo: p.rain_product_available === 1 || pas.some(x => estPluie(x.i)),
+    drapeau: p.rain_product_available === 1,
     nom: p.name || null,
     maj: Date.parse(d.update_time) || null,
     pas,

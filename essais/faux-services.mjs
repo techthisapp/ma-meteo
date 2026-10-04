@@ -334,6 +334,9 @@ export const PLUIE_PROFILS = {
   encours:  { dispo: 1, i: [2, 2, 1, 1, 1, 1, 1, 1, 1] },
   sansfin:  { dispo: 1, i: [2, 2, 3, 3, 3, 2, 2, 2, 2] },
   indispo:  { dispo: 0, i: [1, 1, 1, 1, 1, 1, 1, 1, 1] },
+  /* Le drapeau à zéro et de la pluie sur toute l'heure : le cas de Pignan,
+     relevé le 4 octobre 2026 à 21 h. */
+  indispluie: { dispo: 0, i: [2, 2, 2, 2, 2, 2, 2, 2, 3] },
   // Une averse suivie d'échéances muettes : la fin n'est pas connue.
   muet:     { dispo: 1, i: [2, 2, 0, 0, 0, 0, 0, 0, 0] },
   /* Un trou entre le sec et la pluie : la source ne dit rien de ce qui se passe

@@ -1045,6 +1045,9 @@ case "$N" in
   336) # Un écart de plus d'une demi-heure donne encore une plage.
      perl -0pi -e 's/  if \(ecart > ECART_MAX\) return \{ \.\.\.ev, nonVue: true \};\n//' src/pluieproche.js
      ATTENDU="la seconde méthode confirme, élargit ou signale selon l.écart" ;;
+  337) # Le drapeau à zéro fait de nouveau taire toute pluie.
+     perl -0pi -e 's/    dispo: p\.rain_product_available === 1 \|\| pas\.some\(x => estPluie\(x\.i\)\),/    dispo: p.rain_product_available === 1,/' src/pluieproche.js
+     ATTENDU="une pluie annoncée se lit même sous un drapeau à zéro" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

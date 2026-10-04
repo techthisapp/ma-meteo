@@ -218,21 +218,27 @@ export default async T => {
     ppSansFin && ppSansFin.phrase === "Pluie modérée, sans accalmie dans l'heure",
     ppSansFin && ppSansFin.phrase);
 
-  /* Le drapeau de disponibilité fait foi. Mesuré le 6 septembre 2026 : Ajaccio,
+  /* Le drapeau de disponibilité. Mesuré le 6 septembre 2026 : Ajaccio,
      Briançon et Gaillard rendent neuf échéances toutes à « Temps sec » avec le
-     drapeau à zéro, le radar ne couvrant pas ces reliefs.
+     drapeau à zéro. Depuis la version 171, une heure toute sèche sous un
+     drapeau à zéro reste un doute, et une pluie annoncée se lit : relevé le
+     4 octobre 2026, le drapeau valait zéro à Pignan sous la pluie.
 
-     La garde se lit sur la fonction et non sur l'écran, et c'est voulu. Un produit
-     indisponible rend du temps sec, l'encart se tait sur une heure sèche, et une
-     faute qui ignorerait le drapeau ne changerait donc rien de visible sur les cas
-     observés. Ce que le drapeau protège est le contrat du module : ne rien
-     conclure d'une lecture qu'il ne couvre pas, quelles que soient les valeurs
-     qu'elle porte. Une charge indisponible portant de la pluie n'a pas été
-     observée et ne se fabrique donc pas en réponse de service ; elle se pose ici,
-     directement sur la fonction, là où elle ne prétend rien de la source. */
+     La garde du champ `dispo` se lit aussi sur la fonction : ce que le module
+     ne tient pas pour disponible ne conclut rien, quelles que soient les
+     valeurs qu'il porte. */
   const ppIndispo = await avecPluie("indispo");
   ok("un produit indisponible ne dit rien à l'écran", ppIndispo === null,
     ppIndispo && ppIndispo.phrase);
+
+  /* Le drapeau ne dit pas la couverture : relevé le 4 octobre 2026, Pignan
+     l'avait à zéro sous une pluie que le produit annonçait. Une pluie annoncée
+     se lit, quel que soit le drapeau ; une heure toute sèche sous un drapeau à
+     zéro reste un doute, contrôlé juste au-dessus. */
+  const ppDrapeauPluie = await avecPluie("indispluie");
+  ok("une pluie annoncée se lit même sous un drapeau à zéro",
+    ppDrapeauPluie && ppDrapeauPluie.phrase === "Pluie modérée, sans accalmie dans l'heure",
+    ppDrapeauPluie && ppDrapeauPluie.phrase);
 
   const [ctxDrapeau, pgDrapeau] = await ctxReponse(METEO_NUE, FAIN);
   ok("une lecture non couverte ne conclut rien, quelles que soient ses valeurs",
