@@ -35,6 +35,12 @@ const SERVICE = "https://webservice.meteofrance.com/v3/nowcast/rain";
    reliefs n'ont aucun compte à rebours. */
 const REPLI = "https://api.open-meteo.com/v1/forecast";
 const REPLI_PAS = 5;          // cinq pas de quinze minutes couvrent l'heure
+/* Les trois heures, depuis la version 169, demande de Jérôme du 4 octobre
+   2026. Le radar s'arrête à l'heure ; la suite vient du même modèle au quart
+   d'heure, treize pas de maintenant à trois heures et quart. La colonne est
+   lue en même temps que le radar, quelques centaines d'octets. */
+const SUITE_PAS = 13;
+export const HORIZON = 3 * 3600000;
 export const PAS_MF = 5;      // minutes, pas de la source de Météo-France
 export const PAS_REPLI = 15;  // minutes, pas du repli
 
@@ -110,15 +116,29 @@ export function lireRepli(d) {
   return { dispo: true, nom: null, maj: null, pas, source: "repli", pasMinutes: PAS_REPLI };
 }
 
-async function chargerRepli(lat, lon, fetcheur) {
+async function chargerModele(lat, lon, fetcheur) {
   const u = `${REPLI}?latitude=${lat}&longitude=${lon}`
     + `&timezone=${encodeURIComponent("Europe/Paris")}`
-    + `&minutely_15=precipitation&forecast_minutely_15=${REPLI_PAS}`;
+    + `&minutely_15=precipitation&forecast_minutely_15=${SUITE_PAS}`;
   try {
     const r = await fetcheur(u);
     if (!r.ok) return null;
     return lireRepli(recaler(await r.json()));
   } catch { return null; }
+}
+
+/* La fin de l'heure que couvre une lecture : sa dernière échéance, plus le
+   pas qui la précède. */
+export const finDe = pas => (pas.length < 2 ? null
+  : pas[pas.length - 1].t + (pas[pas.length - 1].t - pas[pas.length - 2].t));
+
+/* Le modèle se partage entre l'heure et sa suite. Sans radar, ses cinq
+   premiers pas tiennent l'heure, comme avant la version 169, et le reste en
+   est la suite. Avec le radar, la suite commence au pas du modèle qui couvre
+   la fin de l'heure du radar. */
+function suiteDe(modele, fin) {
+  if (!modele || !Number.isFinite(fin)) return [];
+  return modele.pas.filter(x => x.t + PAS_REPLI * 60000 > fin);
 }
 
 /* Le voisinage, depuis la version 168, demande de Jérôme du 4 octobre 2026.
@@ -154,11 +174,19 @@ export async function charger(lat, lon, fetcheur = chercher) {
   const k = cle(lat, lon);
   const g = gardes.get(k);
   if (g && Date.now() < g.exp) return g.d;
-  const [centre, ...autour] = await Promise.all([[lat, lon], ...voisinsDe(lat, lon)]
-    .map(([a, b]) => lireProduit(a, b, fetcheur)));
+  const [modele, centre, ...autour] = await Promise.all([
+    chargerModele(lat, lon, fetcheur),
+    ...[[lat, lon], ...voisinsDe(lat, lon)].map(([a, b]) => lireProduit(a, b, fetcheur)),
+  ]);
   let d = centre;
-  if (d && d.dispo) d.voisins = autour.filter(v => v && v.dispo);
-  else d = await chargerRepli(lat, lon, fetcheur);
+  if (d && d.dispo) {
+    d.voisins = autour.filter(v => v && v.dispo);
+    d.suite = suiteDe(modele, finDe(d.pas));
+  } else if (modele) {
+    d = { ...modele, pas: modele.pas.slice(0, REPLI_PAS) };
+    d.suite = suiteDe(modele, finDe(d.pas));
+    if (d.pas.length < 2) d = null;
+  } else d = null;
   gardes.set(k, { d, exp: Date.now() + GARDE });
   return d;
 }
@@ -283,9 +311,34 @@ export function proximite(l, maintenant = Date.now()) {
   return { genre: "proche", force: Math.max(...autour.map(e => e.force)), t, fin: null };
 }
 
-// Ce que l'encart annonce : la pluie sur le point, sinon la pluie autour.
+/* La pluie plus tard, version 169 : rien dans l'heure, ni sur le point ni
+   autour, mais le modèle en voit dans les deux heures qui suivent. Elle ne se
+   dit que si toute l'heure est connue au sec : une échéance muette arrête la
+   lecture, comme dans l'heure. */
+export function plusTard(l, maintenant = Date.now()) {
+  if (!l || !l.dispo || !l.suite || !l.suite.length) return null;
+  const marge = (l.pasMinutes || PAS_MF) * 60000;
+  const ici = l.pas.filter(x => x.t >= maintenant - marge);
+  if (ici.length < 2 || ici.some(x => x.i !== 1)) return null;
+  const fin = finDe(l.pas);
+  const borne = maintenant + HORIZON;
+  const s = l.suite.filter(x => x.t < borne);
+  const k = s.findIndex(x => estPluie(x.i));
+  if (k < 0) return null;
+  let apres = s.findIndex((x, j) => j > k && !estPluie(x.i));
+  const bout = apres < 0 ? s.length : apres;
+  return { genre: "debut", force: Math.max(...s.slice(k, bout).map(x => x.i)),
+    t: Math.max(s[k].t, fin), fin: apres < 0 ? null : s[apres].t, modele: true };
+}
+
+/* Ce que l'encart annonce : la pluie sur le point dans l'heure, sinon la pluie
+   autour, sinon la pluie que le modèle voit plus tard. */
 export const annonce = (l, maintenant = Date.now()) =>
-  evenement(l, maintenant) || proximite(l, maintenant);
+  evenement(l, maintenant) || proximite(l, maintenant) || plusTard(l, maintenant);
+
+/* Un délai, « 20 min » ou « 2 h 15 ». */
+export const delaiCourt = m => (m < 60 ? `${m} min`
+  : `${Math.floor(m / 60)} h${m % 60 ? ` ${String(m % 60).padStart(2, "0")}` : ""}`);
 
 /* Le titre de l'encart, son délai et sa ligne de suite, depuis la version 168.
    Le titre dit l'heure, que l'on compare à sa montre ; le délai se lit à
@@ -302,16 +355,20 @@ export function lignes(ev, maintenant = Date.now(), pas = PAS_MF) {
   if (ev.genre === "encore") {
     return { titre: `${nom}, sans accalmie dans l'heure`, delai: "", sous: "" };
   }
+  if (ev.modele) pas = PAS_REPLI;
   const m = minutesJusqua(ev.t, maintenant, pas);
   if (ev.genre === "fin") {
     return m <= 0 ? { titre: `${nom}, qui s'arrête à l'instant`, delai: "", sous: "" }
-      : { titre: `${nom} jusque vers ${quand(ev.t)}`, delai: `encore ${m} min`, sous: "" };
+      : { titre: `${nom} jusque vers ${quand(ev.t)}`, delai: `encore ${delaiCourt(m)}`, sous: "" };
   }
   const duree = ev.fin === null ? null
     : Math.max(pas, Math.round((ev.fin - ev.t) / 60000 / pas) * pas);
-  const sous = duree ? `Pendant ${duree} minutes environ.` : "";
+  /* Une pluie lue sur le modèle le dit : elle est moins sûre que le radar. */
+  const sous = ev.modele
+    ? (duree ? `Pendant ${duree} minutes environ, d'après le modèle.` : "D'après le modèle.")
+    : (duree ? `Pendant ${duree} minutes environ.` : "");
   return m <= 0 ? { titre: `${nom} à l'instant`, delai: "", sous }
-    : { titre: `${nom} vers ${quand(ev.t)}`, delai: `dans ${m} min`, sous };
+    : { titre: `${nom} vers ${quand(ev.t)}`, delai: `dans ${delaiCourt(m)}`, sous };
 }
 
 /* Jusqu'à quand le point est connu au sec, pour accorder le rappel de

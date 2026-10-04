@@ -970,15 +970,15 @@ case "$N" in
   311) # La page ne se place plus sur la voie désignée.
      perl -0pi -e 's/v\.scrollIntoView\(\{ block: "center", behavior: "instant" \}\);//' src/app.js
      ATTENDU="la page s'est placée sur la voie" ;;
-  312) # Le ruban finit sur la dernière échéance au lieu du bout de l'heure.
-     perl -0pi -e 's/const t1 = pas\[n - 1\]\.t \+ \(pas\[n - 1\]\.t - pas\[n - 2\]\.t\);/const t1 = pas[n - 1].t;/' src/app.js
-     ATTENDU="le ruban pose chaque morceau de pluie à son heure" ;;
+  312) # Chaque échéance ne couvre plus que cinq minutes, quel que soit son pas.
+     perl -0pi -e 's/const de = place\(pas\[k\]\.t\), a = place\(k \+ 1 < n \? pas\[k \+ 1\]\.t : finHeure\);/const de = place(pas[k].t), a = place(pas[k].t + 5 * 60000);/' src/app.js
+     ATTENDU="le ruban pose chaque morceau de pluie à son heure, de maintenant à trois heures" ;;
   313) # Toute pluie prend la nuance de la pluie faible.
      perl -0pi -e 's/else if \(Pluie\.estPluie\(x\.i\)\) ajouter\("eau", x\.i, k\);/else if (Pluie.estPluie(x.i)) ajouter("eau", 2, k);/' src/app.js
      ATTENDU="seules les échéances mouillées portent l.eau, dans la nuance de leur force" ;;
   314) # Les repères passent à la demi-heure.
-     perl -0pi -e 's/t < t1; t \+= 900000\)/t < t1; t += 1800000)/' src/app.js
-     ATTENDU="l.axe du ruban porte les quarts d.heure" ;;
+     perl -0pi -e 's/const cran = t1 - t0 > 90 \* 60000 \? 3600000 : 900000;/const cran = t1 - t0 > 90 * 60000 ? 1800000 : 900000;/' src/app.js
+     ATTENDU="l.axe du ruban porte les heures rondes sur trois heures" ;;
   315) # Les voisins partent sans arrondi.
      perl -0pi -e 's/\.map\(\(\[a, b\]\) => \[centieme\(lat \+ a\), centieme\(lon \+ b\)\]\);/.map(([a, b]) => [lat + a, lon + b]);/' src/pluieproche.js
      ATTENDU="le voisinage lit quatre points à trois kilomètres" ;;
@@ -1006,6 +1006,24 @@ case "$N" in
   323) # Le repli accorde aussi le rappel.
      perl -0pi -e 's/  if \(!l \|\| !l\.dispo \|\| l\.source !== "meteofrance"\) return null;/  if (!l || !l.dispo) return null;/' src/pluieproche.js
      ATTENDU="le repli n.accorde pas le rappel de parapluie" ;;
+  324) # Le modèle ne prolonge plus l'heure.
+     perl -0pi -e 's/  evenement\(l, maintenant\) \|\| proximite\(l, maintenant\) \|\| plusTard\(l, maintenant\);/  evenement(l, maintenant) || proximite(l, maintenant);/' src/pluieproche.js
+     ATTENDU="la pluie que le modèle voit plus tard se dit avec son heure et sa source" ;;
+  325) # La part du modèle se peint comme celle du radar.
+     perl -0pi -e 's/const genre = radar \? "modele" : "eau";/const genre = "eau";/' src/app.js
+     ATTENDU="la part du modèle se distingue de celle du radar" ;;
+  326) # Une échéance muette n'arrête plus la lecture du modèle.
+     perl -0pi -e 's/  if \(ici\.length < 2 \|\| ici\.some\(x => x\.i !== 1\)\) return null;\n  const fin = finDe/  if (ici.length < 2) return null;\n  const fin = finDe/' src/pluieproche.js
+     ATTENDU="une échéance muette dans l.heure n.annonce pas la pluie du modèle" ;;
+  327) # Le délai long s'écrit en minutes.
+     perl -0pi -e 's/export const delaiCourt = m => \(m < 60 \?/export const delaiCourt = m => (m < 600 ?/' src/pluieproche.js
+     ATTENDU="un délai au-delà de l.heure s.écrit en heures et minutes" ;;
+  328) # Le ruban s'arrête au bout de l'heure du radar.
+     perl -0pi -e 's/const t1 = suite\.length \? t0 \+ Pluie\.HORIZON : finHeure;/const t1 = finHeure;/' src/app.js
+     ATTENDU="le ruban du repli va jusqu.à trois heures d.ici" ;;
+  329) # Le modèle reprend la main dans l'heure couverte par le radar.
+     perl -0pi -e 's/  if \(d && d\.dispo\) \{\n    d\.voisins/  if (d \&\& d.dispo \&\& !modele) {\n    d.voisins/' src/pluieproche.js
+     ATTENDU="avec couverture radar, le modèle ne sert qu.au-delà de l.heure" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

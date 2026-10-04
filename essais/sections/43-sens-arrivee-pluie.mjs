@@ -192,11 +192,10 @@ export default async T => {
     repliDecale.dit && repliDecale.dit.delai === "dans 30 min",
     repliDecale.dit && repliDecale.dit.delai);
 
-  /* Cinq pas de quinze minutes, contre neuf échéances pour le radar. Le ruban
-     porte ce que la source donne : il finit un quart d'heure après la
-     cinquième. */
-  ok("le ruban du repli finit au bout de ses cinq pas",
-    repliDebut.dit && repliDebut.dit.axe[repliDebut.dit.axe.length - 1] === "10 h 15",
+  /* Cinq pas de quinze minutes tiennent l'heure, la suite du même modèle va
+     jusqu'à trois heures d'ici depuis la version 169. */
+  ok("le ruban du repli va jusqu'à trois heures d'ici",
+    repliDebut.dit && repliDebut.dit.axe[repliDebut.dit.axe.length - 1] === "12 h",
     repliDebut.dit && repliDebut.dit.axe.join(" "));
 
   /* La lame d'eau devient le même rang ordinal que celui de Météo-France : la
@@ -217,11 +216,12 @@ export default async T => {
     }) === "");
   await ctxRang.close();
 
-  /* Le repli ne part que là où le radar manque. Ailleurs, il coûterait une requête
-     pour rien. */
+  /* Le modèle est lu partout depuis la version 169, pour la suite des trois
+     heures. Là où le radar couvre, il ne parle qu'au delà de l'heure : la pluie
+     qu'il voit à 9 h 30 ne remplace pas celle que le radar voit à 9 h 20. */
   const repliInutile = await avecRepli("debut", "debut");
-  ok("avec couverture radar, le repli ne part pas",
-    repliInutile.appels === 0 && repliInutile.dit
+  ok("avec couverture radar, le modèle ne sert qu'au-delà de l'heure",
+    repliInutile.appels === 1 && repliInutile.dit
     && repliInutile.dit.phrase === "Pluie modérée vers 09 h 20",
     `${repliInutile.appels} appels, phrase « ${repliInutile.dit && repliInutile.dit.phrase} »`);
 

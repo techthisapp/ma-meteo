@@ -116,7 +116,10 @@ for (const theme of ["light", "dark"]) {
   await ctx.addInitScript(amorceA(REGLAGES, FIGE));
   /* Les faux services des contrôles, l'air au profil de l'ambroisie, puis les
      charges propres aux captures, posées après pour passer devant. */
-  await brancherFauxServices(ctx, Object.assign(nouvelEtat(), { profilAir: "ambroisie" }));
+  await brancherFauxServices(ctx, Object.assign(nouvelEtat(), { profilAir: "ambroisie",
+    /* REPLI choisit la colonne du modèle au quart d'heure, « tard » pour la
+       pluie de 11 h que montre la suite des trois heures. */
+    ...(process.env.REPLI ? { profilRepli: process.env.REPLI } : {}) }));
   /* De la pluie posée l'après-midi du 18 août, pour les vues qui montrent le
      rappel de parapluie. La charge d'essai est sèche ce jour-là. Seule la
      prévision horaire est retouchée ; les autres demandes au même hôte vont aux

@@ -379,7 +379,13 @@ function panneauPluieProche() {
      part de maintenant et finit au bout de l'heure couverte. */
   const n = pas.length;
   const t0 = maintenant;
-  const t1 = pas[n - 1].t + (pas[n - 1].t - pas[n - 2].t);
+  const finHeure = pas[n - 1].t + (pas[n - 1].t - pas[n - 2].t);
+  /* Les trois heures, version 169 : au delà de l'heure couverte, le ruban
+     continue sur le modèle au quart d'heure jusqu'à trois heures d'ici. Avec
+     le radar, la part du modèle se distingue, plus pâle et passé un trait. */
+  const suite = (l.suite || []).filter(x => x.t < t0 + Pluie.HORIZON);
+  const t1 = suite.length ? t0 + Pluie.HORIZON : finHeure;
+  const radar = l.source === "meteofrance";
   const etendue = Math.max(1, t1 - t0);
   const place = t => Math.max(0, Math.min(100, ((t - t0) / etendue) * 100));
   const autour = Pluie.alentour(l, pas);
@@ -390,7 +396,7 @@ function panneauPluieProche() {
      point est au sec. */
   const morceaux = [];
   const ajouter = (genre, rang, k) => {
-    const de = place(pas[k].t), a = place(k + 1 < n ? pas[k + 1].t : t1);
+    const de = place(pas[k].t), a = place(k + 1 < n ? pas[k + 1].t : finHeure);
     if (a <= de) return;
     const der = morceaux[morceaux.length - 1];
     if (der && der.genre === genre && der.rang === rang && Math.abs(der.a - de) < 0.01) der.a = a;
@@ -401,20 +407,32 @@ function panneauPluieProche() {
     else if (Pluie.estPluie(x.i)) ajouter("eau", x.i, k);
     else if (Pluie.estPluie(autour[k])) ajouter("autour", autour[k], k);
   });
-  const ruban = morceaux.map(m => `<i class="pp-s pp-${m.genre}${m.genre === "eau" ? ` pp-r${m.rang}` : ""}" `
+  suite.forEach((x, k) => {
+    if (!Pluie.estPluie(x.i)) return;
+    const de = place(Math.max(x.t, finHeure));
+    const a = place(Math.min(k + 1 < suite.length ? suite[k + 1].t : x.t + Pluie.PAS_REPLI * 60000, t1));
+    if (a <= de) return;
+    const genre = radar ? "modele" : "eau";
+    const der = morceaux[morceaux.length - 1];
+    if (der && der.genre === genre && der.rang === x.i && Math.abs(der.a - de) < 0.01) der.a = a;
+    else morceaux.push({ genre, rang: x.i, de, a });
+  });
+  const ruban = morceaux.map(m => `<i class="pp-s pp-${m.genre}${m.genre === "eau" || m.genre === "modele" ? ` pp-r${m.rang}` : ""}" `
     + `data-rang="${m.rang}" data-genre="${m.genre}" `
     + `style="--de:${m.de.toFixed(2)}%;--l:${(m.a - m.de).toFixed(2)}%"></i>`).join("");
 
   /* Les repères : les quarts d'heure entiers, sauf trop près des deux bouts où
      « maint. » et l'heure de fin sont déjà écrits. */
+  /* Sur trois heures, les repères passent aux heures rondes. */
   const reperes = [];
-  for (let t = Math.ceil(t0 / 900000) * 900000; t < t1; t += 900000) {
+  const cran = t1 - t0 > 90 * 60000 ? 3600000 : 900000;
+  for (let t = Math.ceil(t0 / cran) * cran; t < t1; t += cran) {
     const x = place(t);
     if (x > 16 && x < 84) reperes.push(`<span class="pp-rep" style="--x:${x.toFixed(2)}%">${esc(heureJour(new Date(t)))}</span>`);
   }
 
   /* La légende ne dit que ce que le ruban montre. */
-  const rangs = [...new Set(morceaux.filter(m => m.genre === "eau").map(m => m.rang))].sort();
+  const rangs = [...new Set(morceaux.filter(m => m.genre === "eau" || m.genre === "modele").map(m => m.rang))].sort();
   const legende = rangs.map(r => `<span class="pp-leg"><i class="pp-r${r}"></i>${esc(Pluie.nomDe(r).replace(/^Pluie /, ""))}</span>`)
     .concat(morceaux.some(m => m.genre === "autour") ? [`<span class="pp-leg"><i class="pp-autour"></i>alentour</span>`] : [])
     .join("");
@@ -430,7 +448,12 @@ function panneauPluieProche() {
     + `<p class="pp-tete">${ico("goutte", "pp-ic")}<b>${esc(dit.titre).replace(/(\d\d h(?: \d\d)?)$/, '<span class="pp-heure">$1</span>')}</b>`
     + (dit.delai ? `<span class="pp-delai">${esc(dit.delai)}</span>` : "") + `</p>`
     + (sous.length ? `<p class="pp-sous">${sous.join(" ")}</p>` : "")
-    + `<div class="pp-g" role="img" aria-label="${esc(resumeGraphe(pas, autour))}">${ruban}<i class="pp-maint"></i></div>`
+    + `<div class="pp-g" role="img" aria-label="${esc(resumeGraphe(pas, autour, suite))}">${ruban}`
+    /* Le trait marque la fin de l'heure du radar ; la part qui suit se nomme
+       dans le ruban même, la légende tenant ainsi sur une ligne. */
+    + (radar && suite.length ? `<i class="pp-limite" style="--x:${place(finHeure).toFixed(2)}%"></i>`
+      + `<span class="pp-zone" style="--x:${place(finHeure).toFixed(2)}%">modèle</span>` : "")
+    + `<i class="pp-maint"></i></div>`
     + `<p class="pp-axe"><span>maint.</span>${reperes.join("")}<span>${esc(heureJour(new Date(t1)))}</span></p>`
     /* Le repli vient d'un modèle et non du radar : il le dit. Audit, constat
        2.6, le service du radar pouvant aussi se taire. */
@@ -446,7 +469,13 @@ const estPluieRang = i => Pluie.estPluie(i);
 
 /* Le graphe se lit aussi sans le voir : la description dit les épisodes, non les
    neuf valeurs, une liste de neuf intensités ne s'écoutant pas. */
-function resumeGraphe(pas, autour = []) {
+function resumeGraphe(pas, autour = [], suite = []) {
+  const avant = resumeHeure(pas, autour);
+  const eau = suite.find(x => Pluie.estPluie(x.i));
+  return eau ? `${avant}. Ensuite, d'après le modèle, de la pluie vers ${heureJour(new Date(eau.t))}` : avant;
+}
+
+function resumeHeure(pas, autour = []) {
   const bouts = [];
   let debut = null;
   for (let k = 0; k < pas.length; k++) {

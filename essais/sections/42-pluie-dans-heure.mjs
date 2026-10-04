@@ -11,8 +11,9 @@ export default async T => {
      déjà la vigilance. Il devait être l'extrapolation de RainViewer, lue au pixel
      dans les tuiles ; ce champ était vide aux trois relevés des 5 et 6 septembre,
      et une fonction ne se bâtit pas sur ce qu'une source ne sert pas. */
-  const avecPluie = async (profil, voisins = null) => {
+  const avecPluie = async (profil, voisins = null, repli = "sec") => {
     etat.profilPluie = profil;
+    etat.profilRepli = repli;
     etat.profilVoisins = voisins;
     etat.appelsVoisins.length = 0;
     const c = await nav.newContext({
@@ -37,8 +38,13 @@ export default async T => {
           genre: b.dataset.genre, rang: Number(b.dataset.rang),
         })),
         legende: [...e.querySelectorAll(".pp-leg")].map(x => x.textContent.trim()),
+        zone: e.querySelector(".pp-zone")?.textContent.trim() || "",
         axe: [...e.querySelectorAll(".pp-axe > span")].map(x => x.textContent.trim()),
         carte: !!e.querySelector("[data-pluie-carte]"),
+        limite: (() => {
+          const x = e.querySelector(".pp-limite");
+          return x ? parseFloat(x.style.getPropertyValue("--x")) : null;
+        })(),
         lu: e.querySelector(".pp-g").getAttribute("aria-label"),
         /* Ce qui reste dans la première vue quand la vigilance et la pluie
            proche paraissent ensemble. */
@@ -74,6 +80,7 @@ export default async T => {
     await c.close();
     etat.profilPluie = "sec";
     etat.profilVoisins = null;
+    etat.profilRepli = "sec";
     return dit && { ...dit, voisinsLus };
   };
 
@@ -112,23 +119,24 @@ export default async T => {
     ppDebut && ppDebut.apres === "vigilance" && ppDebut.avant === "jour",
     ppDebut && `précédé de ${ppDebut.apres}, suivi de ${ppDebut.avant}`);
 
-  /* Le ruban, version 168. Il part de maintenant, 9 h, et finit au bout de
-     l'heure couverte : la dernière échéance, 10 h, vaut autant que la
-     précédente, soit 10 h 10, soixante-dix minutes. Chaque échéance couvre le
+  /* Le ruban, version 168. Il part de maintenant, 9 h, et va jusqu'à trois
+     heures d'ici depuis la version 169, la suite du modèle prenant le relais
+     au bout de l'heure du radar : la dernière échéance, 10 h, vaut autant que
+     la précédente, soit 10 h 10. Chaque échéance couvre le
      temps jusqu'à la suivante : la pluie faible de 9 h 20 tient jusqu'à 9 h 25,
      la modérée de 9 h 25 jusqu'à 9 h 40, l'échéance sèche suivante. Les
      échéances ne sont pas également espacées, cinq minutes puis dix, et des
      morceaux à intervalle constant mentiraient sur la durée. */
   /* La tolérance vaut une douzaine de secondes : l'horloge de la page avance
      pendant le chargement, d'une seconde environ sur les machines de GitHub. */
-  const pc = m => Math.round((m / 70) * 10000) / 100;
+  const pc = m => Math.round((m / 180) * 10000) / 100;
   const proche = (a, b) => Math.abs(a - b) < 0.3;
   const eau = ppDebut ? ppDebut.morceaux.filter(m => m.genre === "eau") : [];
-  ok("le ruban pose chaque morceau de pluie à son heure, de maintenant au bout de l'heure couverte",
+  ok("le ruban pose chaque morceau de pluie à son heure, de maintenant à trois heures d'ici",
     eau.length === 2
     && proche(eau[0].de, pc(20)) && proche(eau[0].l, pc(5))
     && proche(eau[1].de, pc(25)) && proche(eau[1].l, pc(15))
-    && ppDebut.axe[0] === "maint." && ppDebut.axe[ppDebut.axe.length - 1] === "10 h 10",
+    && ppDebut.axe[0] === "maint." && ppDebut.axe[ppDebut.axe.length - 1] === "12 h",
     ppDebut && `${eau.map(m => `${m.de}+${m.l}`).join(" ")} | ${ppDebut.axe.join(" ")}`);
 
   ok("seules les échéances mouillées portent l'eau, dans la nuance de leur force",
@@ -136,10 +144,36 @@ export default async T => {
     && ppDebut.legende.join(" ") === "faible modérée",
     ppDebut && `${ppDebut.morceaux.map(m => `${m.genre}${m.rang}`).join(" ")} | ${ppDebut.legende.join(" ")}`);
 
-  /* Les repères de l'axe tombent sur les quarts d'heure, loin des deux bouts. */
-  ok("l'axe du ruban porte les quarts d'heure entre maintenant et la fin",
-    ppDebut && ppDebut.axe.join(" ") === "maint. 09 h 15 09 h 30 09 h 45 10 h 10",
+  /* Sur trois heures, les repères de l'axe tombent sur les heures rondes, loin
+     des deux bouts. */
+  ok("l'axe du ruban porte les heures rondes sur trois heures",
+    ppDebut && ppDebut.axe.join(" ") === "maint. 10 h 11 h 12 h",
     ppDebut && ppDebut.axe.join(" "));
+
+  /* La suite du modèle, version 169. Rien dans l'heure, de la pluie faible de
+     11 h à 11 h 30 : l'encart le dit, avec son délai et sa source. */
+  const ppTard = await avecPluie("sec", null, "tard");
+  ok("la pluie que le modèle voit plus tard se dit avec son heure et sa source",
+    ppTard && ppTard.phrase === "Pluie faible vers 11 h" && ppTard.delai === "dans 2 h"
+    && ppTard.sous.startsWith("Pendant 30 minutes environ, d'après le modèle."),
+    ppTard && `${ppTard.phrase} | ${ppTard.delai} | ${ppTard.sous}`);
+
+  /* Avec le radar, la part du modèle se distingue : plus pâle, nommée dans le
+     ruban, passé un trait au bout de l'heure du radar, 10 h 10. */
+  const ppSuite = await avecPluie("debut", null, "tard");
+  const modele = ppSuite ? ppSuite.morceaux.filter(m => m.genre === "modele") : [];
+  ok("la part du modèle se distingue de celle du radar",
+    ppSuite && ppSuite.phrase === "Pluie modérée vers 09 h 20"
+    && modele.length === 1 && proche(modele[0].de, pc(120)) && proche(modele[0].l, pc(30))
+    && ppSuite.zone === "modèle" && proche(ppSuite.limite, pc(70)),
+    ppSuite && `${ppSuite.phrase} | ${modele.map(m => `${m.de}+${m.l}`).join(" ")} | `
+      + `« ${ppSuite.zone} » | trait ${ppSuite.limite}`);
+
+  /* Une échéance muette dans l'heure arrête la lecture : la pluie du modèle,
+     derrière elle, ne s'annonce pas. */
+  const ppMuetTard = await avecPluie("secmuet", null, "tard");
+  ok("une échéance muette dans l'heure n'annonce pas la pluie du modèle",
+    ppMuetTard === null, ppMuetTard && ppMuetTard.phrase);
 
   /* Le voisinage, version 168. Quatre points à trois kilomètres, arrondis au
      centième comme le point lui-même. */
@@ -347,6 +381,11 @@ export default async T => {
       if (c !== t0 + 70 * 60000) return `heure sèche jusqu'à ${(c - t0) / 60000} minutes au lieu de 70`;
       return "";
     }) === "");
+  ok("un délai au-delà de l'heure s'écrit en heures et minutes",
+    await pgAcc.evaluate(async () => {
+      const M = await import("/src/pluieproche.js");
+      return [45, 60, 120, 135].map(M.delaiCourt).join("|");
+    }) === "45 min|1 h|2 h|2 h 15");
   /* Le repli est un modèle : il ne corrige pas la série horaire. */
   ok("le repli n'accorde pas le rappel de parapluie",
     await pgAcc.evaluate(async () => {

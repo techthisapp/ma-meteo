@@ -341,6 +341,8 @@ export const REPLI_PROFILS = {
   sec:     [0, 0, 0, 0, 0],
   debut:   [0, 0, 0.9, 1.4, 0],
   encours: [0.5, 0, 0, 0, 0],
+  // Rien dans l'heure, de la pluie faible de 11 h à 11 h 30 : la suite du modèle.
+  tard:    [0, 0, 0, 0, 0, 0, 0, 0, 0.3, 0.4, 0, 0, 0],
 };
 /* La vigilance de tout le pays. Trois teintes et un vert, plus un massif et une
    zone côtière que la carte ne dessine pas. */

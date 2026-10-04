@@ -119,7 +119,7 @@
      le ciel, ils ne cherchent pas l'attention. */
   --ic-nuage:#7B8A99;
   --ic-soleil:#D79A28;
-  --ic-pluie:#3B82C4;--pp-fort:#0B2A4A;
+  --ic-pluie:#3B82C4;--pp-fort:#0B2A4A;--pp-modele:.55;--pp-faible:45%;
   /* Le bleu de la pluie écrit en texte : 3,7 de contraste sur le fond clair,
      il passe à 5,0. Les icônes gardent le bleu d'origine. */
   --pluie-texte:#2C6BA6;
@@ -174,7 +174,7 @@
 
     --ic-nuage:#93A3B2;
     --ic-soleil:#E7B754;
-    --ic-pluie:#6BA8DC;--pp-fort:#FFFFFF;
+    --ic-pluie:#6BA8DC;--pp-fort:#FFFFFF;--pp-modele:.8;--pp-faible:62%;
     --pluie-texte:#6BA8DC;
     --pluie-fond:#1D2B3A;
     --ic-neige:#8FC4E6;
@@ -1145,7 +1145,7 @@ button.rangee:active{background:var(--surface-2)}
    couverte : vide par temps sec, bleue sous la pluie en trois nuances, de la
    faible à la forte. La valeur inconnue se hachure en gris, la pluie des
    voisins en bleu. Le trait de gauche marque maintenant. */
-.pp{--pp1:color-mix(in srgb,var(--ic-pluie) 45%,var(--surface));
+.pp{--pp1:color-mix(in srgb,var(--ic-pluie) var(--pp-faible),var(--surface));
   --pp2:color-mix(in srgb,var(--ic-pluie) 80%,var(--surface));
   --pp3:color-mix(in srgb,var(--ic-pluie) 70%,var(--pp-fort))}
 .pp-g{
@@ -1160,6 +1160,14 @@ button.rangee:active{background:var(--surface-2)}
 .pp-r4{background:var(--pp3)}
 .pp-inconnu{background:repeating-linear-gradient(135deg,var(--filet) 0 3px,transparent 3px 7px)}
 .pp-autour{background:repeating-linear-gradient(135deg,var(--pp1) 0 3px,transparent 3px 7px)}
+/* La part du modèle, version 169 : plus pâle, passé un trait pointillé. */
+.pp-modele{opacity:var(--pp-modele)}
+.pp-limite{position:absolute;top:0;bottom:0;left:var(--x);border-left:1px dashed var(--etiquette-3)}
+.pp-zone{
+  position:absolute;top:0;bottom:0;left:var(--x);right:0;
+  display:flex;align-items:center;justify-content:flex-end;padding-right:var(--espace-sm);
+  font-size:var(--texte-legende2);color:var(--etiquette-3);pointer-events:none;
+}
 .pp-maint{position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--etiquette)}
 .pp-axe{
   position:relative;display:flex;justify-content:space-between;
