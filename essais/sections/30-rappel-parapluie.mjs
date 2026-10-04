@@ -10,6 +10,10 @@ export const avecPage = true;
 
 export default async T => {
   const { nav, etat, ok, brancherRoutes, ouvrirPage, ouvrirLeTemps, txtDe, onglet, reposer } = T;
+  /* Le radar de la pluie dans l'heure accorde le jeton depuis la version 168 :
+     sec par défaut dans les faux services, il retarderait toute pluie de 10 h
+     posée ici. La section éprouve la série horaire seule, le radar s'y tait. */
+  etat.profilPluie = "indispo";
   /* Les heures réglées disent quand prévenir, non où chercher la pluie. Chaque
      alerte répond de la pluie attendue jusqu'à la suivante, la dernière jusqu'à
      minuit ; la tranche qui va de minuit à la première alerte n'est couverte par

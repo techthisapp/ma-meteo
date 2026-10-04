@@ -21,7 +21,7 @@
    horaire, qui vient d'un autre modèle et les contredirait. */
 
 import { JETON } from "./vigilance.js";
-import { recaler, chercher, instantParis } from "./horloge.js";
+import { recaler, chercher, instantParis, heureJour } from "./horloge.js";
 import { SEUIL_LAME } from "./previsions.js";
 
 const SERVICE = "https://webservice.meteofrance.com/v3/nowcast/rain";
@@ -121,19 +121,44 @@ async function chargerRepli(lat, lon, fetcheur) {
   } catch { return null; }
 }
 
+/* Le voisinage, depuis la version 168, demande de Jérôme du 4 octobre 2026.
+   Le produit répond pour un point, et une averse qui passe à deux kilomètres
+   change toute la réponse. Quatre points de plus, à trois kilomètres environ au
+   nord, à l'est, au sud et à l'ouest, disent si la pluie rôde autour : mille
+   deux cents octets chacun, lus en même temps que le point lui-même.
+
+   Les quatre points se déduisent du point déjà arrondi au centième de degré et
+   s'arrondissent de même : le service n'en apprend pas davantage sur le lieu. */
+export const ECART_VOISIN = 0.03;   // degrés de latitude, 3,3 kilomètres
+const centieme = v => Math.round(v * 100) / 100;
+export function voisinsDe(lat, lon) {
+  const dLon = ECART_VOISIN / Math.cos(lat * Math.PI / 180);
+  return [[ECART_VOISIN, 0], [0, dLon], [-ECART_VOISIN, 0], [0, -dLon]]
+    .map(([a, b]) => [centieme(lat + a), centieme(lon + b)]);
+}
+
+async function lireProduit(lat, lon, fetcheur) {
+  try {
+    const r = await fetcheur(`${SERVICE}?lat=${lat}&lon=${lon}&token=${JETON}`);
+    return r.ok ? lire(await r.json()) : null;
+  } catch { return null; }
+}
+
 /* Le produit de Météo-France d'abord, le repli ensuite. Le repli part quand le
-   radar ne couvre pas le point, et quand le service reste muet. */
+   radar ne couvre pas le point, et quand le service reste muet. Les voisins se
+   lisent en même temps que le point, pour ne rien ajouter à l'attente ; le
+   repli n'en tient pas compte, sa maille de modèle étant déjà plus large
+   qu'eux. */
 export async function charger(lat, lon, fetcheur = chercher) {
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
   const k = cle(lat, lon);
   const g = gardes.get(k);
   if (g && Date.now() < g.exp) return g.d;
-  let d = null;
-  try {
-    const r = await fetcheur(`${SERVICE}?lat=${lat}&lon=${lon}&token=${JETON}`);
-    if (r.ok) d = lire(await r.json());
-  } catch { d = null; }
-  if (!d || !d.dispo) d = await chargerRepli(lat, lon, fetcheur);
+  const [centre, ...autour] = await Promise.all([[lat, lon], ...voisinsDe(lat, lon)]
+    .map(([a, b]) => lireProduit(a, b, fetcheur)));
+  let d = centre;
+  if (d && d.dispo) d.voisins = autour.filter(v => v && v.dispo);
+  else d = await chargerRepli(lat, lon, fetcheur);
   gardes.set(k, { d, exp: Date.now() + GARDE });
   return d;
 }
@@ -226,4 +251,82 @@ export function phrase(ev, maintenant = Date.now(), pas = PAS_MF) {
   if (ev.fin === null) return `${debut}.`;
   const duree = Math.max(pas, Math.round((ev.fin - ev.t) / 60000 / pas) * pas);
   return `${debut}, pendant ${duree} minutes environ.`;
+}
+
+/* La pluie autour, échéance par échéance : le rang le plus fort que portent les
+   voisins au même instant que le point. Zéro quand aucun voisin ne sait. */
+export function alentour(l, pas) {
+  const v = (l && l.voisins) || [];
+  return pas.map(x => {
+    let m = 0;
+    for (const w of v) {
+      const y = w.pas.find(z => Math.abs(z.t - x.t) < 60000);
+      if (y && y.i > m) m = y.i;
+    }
+    return m;
+  });
+}
+
+/* La pluie qui passe tout près sans être prévue sur le point. Elle ne se dit
+   que si le point lui-même est connu au sec maintenant : un point muet ne
+   permet de rien conclure. L'heure retenue est la plus proche des voisins, la
+   force la plus forte. */
+export function proximite(l, maintenant = Date.now()) {
+  if (!l || !l.dispo || !l.voisins || !l.voisins.length) return null;
+  if (evenement(l, maintenant)) return null;
+  const marge = (l.pasMinutes || PAS_MF) * 60000;
+  const ici = l.pas.filter(x => x.t >= maintenant - marge);
+  if (!ici.length || ici[0].i !== 1) return null;
+  const autour = l.voisins.map(v => evenement(v, maintenant)).filter(Boolean);
+  if (!autour.length) return null;
+  const t = Math.min(...autour.map(e => (e.genre === "debut" ? e.t : maintenant)));
+  return { genre: "proche", force: Math.max(...autour.map(e => e.force)), t, fin: null };
+}
+
+// Ce que l'encart annonce : la pluie sur le point, sinon la pluie autour.
+export const annonce = (l, maintenant = Date.now()) =>
+  evenement(l, maintenant) || proximite(l, maintenant);
+
+/* Le titre de l'encart, son délai et sa ligne de suite, depuis la version 168.
+   Le titre dit l'heure, que l'on compare à sa montre ; le délai se lit à
+   droite, en plus petit. Les heures et les minutes s'arrondissent au pas de la
+   source, comme la phrase. */
+export function lignes(ev, maintenant = Date.now(), pas = PAS_MF) {
+  if (!ev) return null;
+  const nom = nomDe(ev.force);
+  const quand = t => heureJour(new Date(t));
+  if (ev.genre === "proche") {
+    return { titre: `${nom} à quelques kilomètres`, delai: "",
+      sous: "Rien de prévu ici dans l'heure, une averse passe tout près." };
+  }
+  if (ev.genre === "encore") {
+    return { titre: `${nom}, sans accalmie dans l'heure`, delai: "", sous: "" };
+  }
+  const m = minutesJusqua(ev.t, maintenant, pas);
+  if (ev.genre === "fin") {
+    return m <= 0 ? { titre: `${nom}, qui s'arrête à l'instant`, delai: "", sous: "" }
+      : { titre: `${nom} jusque vers ${quand(ev.t)}`, delai: `encore ${m} min`, sous: "" };
+  }
+  const duree = ev.fin === null ? null
+    : Math.max(pas, Math.round((ev.fin - ev.t) / 60000 / pas) * pas);
+  const sous = duree ? `Pendant ${duree} minutes environ.` : "";
+  return m <= 0 ? { titre: `${nom} à l'instant`, delai: "", sous }
+    : { titre: `${nom} vers ${quand(ev.t)}`, delai: `dans ${m} min`, sous };
+}
+
+/* Jusqu'à quand le point est connu au sec, pour accorder le rappel de
+   parapluie au radar. `null` quand le point n'est pas sec maintenant ou que la
+   source ne sait rien : le rappel garde alors sa propre heure. Le sec court
+   jusqu'à la première échéance mouillée ou muette, sinon jusqu'au bout de
+   l'heure couverte. Seul le radar de Météo-France compte : le repli est un
+   modèle, et il ne vaut pas mieux que la série horaire qu'il viendrait
+   corriger. */
+export function secJusqua(l, maintenant = Date.now()) {
+  if (!l || !l.dispo || l.source !== "meteofrance") return null;
+  const marge = (l.pasMinutes || PAS_MF) * 60000;
+  const pas = l.pas.filter(x => x.t >= maintenant - marge);
+  if (pas.length < 2 || pas[0].i !== 1) return null;
+  for (const x of pas) if (x.i !== 1) return x.t;
+  const n = pas.length;
+  return pas[n - 1].t + (pas[n - 1].t - pas[n - 2].t);
 }

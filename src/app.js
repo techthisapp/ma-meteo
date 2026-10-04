@@ -47,6 +47,7 @@ import * as Plage from "./plage.js";
 import * as Eau from "./eau.js";
 import * as Deplacement from "./deplacement.js";
 import * as Radar from "./radar.js";
+import { ZDEFAUT } from "./projection.js";
 import * as Activites from "./activites.js";
 import * as BeauTemps from "./beautemps.js";
 import * as Climat from "./climat.js";
@@ -363,43 +364,81 @@ function panneauVigilance() {
 function panneauPluieProche() {
   const l = pluieProche;
   if (!l || !l.dispo) return "";
-  const ev = Pluie.evenement(l);
-  if (!ev) return "";
-  const dit = Pluie.phrase(ev, Date.now(), l.pasMinutes);
+  const maintenant = Date.now();
+  const ev = Pluie.annonce(l, maintenant);
+  const dit = Pluie.lignes(ev, maintenant, l.pasMinutes);
   if (!dit) return "";
 
-  const pas = l.pas.filter(x => x.t >= Date.now() - (l.pasMinutes || 5) * 60000);
+  const pas = l.pas.filter(x => x.t >= maintenant - (l.pasMinutes || 5) * 60000);
   if (pas.length < 2) return "";
-  const t0 = pas[0].t, t1 = pas[pas.length - 1].t;
+  /* Le ruban, depuis la version 168, demande de Jérôme du 4 octobre 2026. Il
+     remplace les neuf barres : posées chacune à son heure, elles laissaient la
+     seconde demi-heure, au pas de dix minutes, presque vide, et la hauteur
+     d'une barre ne se lisait pas. Chaque échéance couvre le temps qui la
+     sépare de la suivante, la dernière autant que la précédente ; le ruban
+     part de maintenant et finit au bout de l'heure couverte. */
+  const n = pas.length;
+  const t0 = maintenant;
+  const t1 = pas[n - 1].t + (pas[n - 1].t - pas[n - 2].t);
   const etendue = Math.max(1, t1 - t0);
+  const place = t => Math.max(0, Math.min(100, ((t - t0) / etendue) * 100));
+  const autour = Pluie.alentour(l, pas);
 
-  /* Chaque échéance porte sa hauteur et sa place, la place venant de l'heure et
-     non du rang : les pas ne sont pas égaux, et les ranger à intervalle constant
-     mentirait sur la durée. */
-  const barres = pas.map(x => {
-    /* Une échéance sèche garde un talon visible : le graphe porte neuf moments,
-       et un moment sans pluie doit se voir comme un moment, non comme un trou.
-       L'échéance sans valeur, elle, reste au ras : elle n'est pas un moment sec,
-       elle est un moment qu'on ne connaît pas. */
-    const h = [4, 20, 48, 74, 100][Math.max(0, Math.min(4, x.i))];
-    return `<i class="pp-b${estPluieRang(x.i) ? " pp-b-eau" : ""}" `
-      + `style="--x:${(((x.t - t0) / etendue) * 100).toFixed(2)}%;--h:${h}%"></i>`;
-  }).join("");
+  /* Les morceaux de même nature se fondent : trois échéances faibles de suite
+     font un seul trait. Le rang zéro, la valeur inconnue, se hachure ; le sec
+     reste vide. La pluie des voisins se hachure en bleu, là seulement où le
+     point est au sec. */
+  const morceaux = [];
+  const ajouter = (genre, rang, k) => {
+    const de = place(pas[k].t), a = place(k + 1 < n ? pas[k + 1].t : t1);
+    if (a <= de) return;
+    const der = morceaux[morceaux.length - 1];
+    if (der && der.genre === genre && der.rang === rang && Math.abs(der.a - de) < 0.01) der.a = a;
+    else morceaux.push({ genre, rang, de, a });
+  };
+  pas.forEach((x, k) => {
+    if (x.i === 0) ajouter("inconnu", 0, k);
+    else if (Pluie.estPluie(x.i)) ajouter("eau", x.i, k);
+    else if (Pluie.estPluie(autour[k])) ajouter("autour", autour[k], k);
+  });
+  const ruban = morceaux.map(m => `<i class="pp-s pp-${m.genre}${m.genre === "eau" ? ` pp-r${m.rang}` : ""}" `
+    + `data-rang="${m.rang}" data-genre="${m.genre}" `
+    + `style="--de:${m.de.toFixed(2)}%;--l:${(m.a - m.de).toFixed(2)}%"></i>`).join("");
 
-  const finPlage = heureJour(new Date(t1));
-  /* Le sens d'arrivée, quand la mesure a abouti. Il tient sous la phrase, en
-     ligne effacée : il précise ce que la phrase annonce, il ne l'annonce pas. */
+  /* Les repères : les quarts d'heure entiers, sauf trop près des deux bouts où
+     « maint. » et l'heure de fin sont déjà écrits. */
+  const reperes = [];
+  for (let t = Math.ceil(t0 / 900000) * 900000; t < t1; t += 900000) {
+    const x = place(t);
+    if (x > 16 && x < 84) reperes.push(`<span class="pp-rep" style="--x:${x.toFixed(2)}%">${esc(heureJour(new Date(t)))}</span>`);
+  }
+
+  /* La légende ne dit que ce que le ruban montre. */
+  const rangs = [...new Set(morceaux.filter(m => m.genre === "eau").map(m => m.rang))].sort();
+  const legende = rangs.map(r => `<span class="pp-leg"><i class="pp-r${r}"></i>${esc(Pluie.nomDe(r).replace(/^Pluie /, ""))}</span>`)
+    .concat(morceaux.some(m => m.genre === "autour") ? [`<span class="pp-leg"><i class="pp-autour"></i>alentour</span>`] : [])
+    .join("");
+
+  /* Le sens d'arrivée, quand la mesure a abouti. Il suit la ligne de durée, en
+     ligne effacée : il précise ce que le titre annonce, il ne l'annonce pas. */
   const venue = Deplacement.phrase(deplacement);
+  const sous = [dit.sous ? esc(dit.sous) : "", venue ? `<span class="pp-venue">${esc(venue)}</span>` : ""]
+    .filter(Boolean);
 
   return `<div class="section pp">`
     + `<div class="carte pp-c">`
-    + `<p class="pp-tete">${ico("goutte", "pp-ic")}<b>${esc(dit)}</b></p>`
-    + (venue ? `<p class="pp-venue">${esc(venue)}</p>` : "")
-    + `<div class="pp-g" role="img" aria-label="${esc(resumeGraphe(pas))}">${barres}</div>`
-    + `<p class="pp-axe"><span>maintenant</span><span>${esc(finPlage)}</span></p>`
+    + `<p class="pp-tete">${ico("goutte", "pp-ic")}<b>${esc(dit.titre).replace(/(\d\d h(?: \d\d)?)$/, '<span class="pp-heure">$1</span>')}</b>`
+    + (dit.delai ? `<span class="pp-delai">${esc(dit.delai)}</span>` : "") + `</p>`
+    + (sous.length ? `<p class="pp-sous">${sous.join(" ")}</p>` : "")
+    + `<div class="pp-g" role="img" aria-label="${esc(resumeGraphe(pas, autour))}">${ruban}<i class="pp-maint"></i></div>`
+    + `<p class="pp-axe"><span>maint.</span>${reperes.join("")}<span>${esc(heureJour(new Date(t1)))}</span></p>`
     /* Le repli vient d'un modèle et non du radar : il le dit. Audit, constat
        2.6, le service du radar pouvant aussi se taire. */
-    + (l.source === "repli" ? `<p class="pp-venue pp-repli">Estimation d'un modèle, au quart d'heure.</p>` : "")
+    + (l.source === "repli" ? `<p class="pp-sous pp-repli">Estimation d'un modèle, au quart d'heure.</p>` : "")
+    /* La carte, couche de pluie allumée, demande de Jérôme du 4 octobre 2026 :
+       la pluie qui arrive se regarde autour de soi. */
+    + `<p class="pp-pied"><span class="pp-legende">${legende}</span>`
+    + `<button type="button" class="pp-carte" data-pluie-carte>${ico("carte", "")}<span>Voir sur la carte</span>${ico("chevron", "")}</button></p>`
     + `</div></div>`;
 }
 
@@ -407,7 +446,7 @@ const estPluieRang = i => Pluie.estPluie(i);
 
 /* Le graphe se lit aussi sans le voir : la description dit les épisodes, non les
    neuf valeurs, une liste de neuf intensités ne s'écoutant pas. */
-function resumeGraphe(pas) {
+function resumeGraphe(pas, autour = []) {
   const bouts = [];
   let debut = null;
   for (let k = 0; k < pas.length; k++) {
@@ -416,7 +455,11 @@ function resumeGraphe(pas) {
     if (!eau && debut !== null) { bouts.push([debut, k - 1]); debut = null; }
   }
   if (debut !== null) bouts.push([debut, pas.length - 1]);
-  if (!bouts.length) return "Aucune pluie dans l'heure";
+  if (!bouts.length) {
+    return autour.some(i => Pluie.estPluie(i))
+      ? "Aucune pluie prévue ici dans l'heure, de la pluie à quelques kilomètres"
+      : "Aucune pluie dans l'heure";
+  }
   return enumerer(bouts.map(([a, b]) => {
     const nom = Pluie.nomDe(Math.max(...pas.slice(a, b + 1).map(x => x.i))).toLowerCase();
     return a === b ? `${nom} vers ${heureJour(new Date(pas[a].t))}`
@@ -888,7 +931,8 @@ function ecranVue(nom) {
 function poserJeton() {
   const bouton = $("navJeton");
   const j = charge === "pret"
-    ? Parapluie.jeton(P.serieHorizon(), Reglages.alertes(Parapluie.ALERTES_DEFAUT))
+    ? Parapluie.accorder(Parapluie.jeton(P.serieHorizon(), Reglages.alertes(Parapluie.ALERTES_DEFAUT)),
+      Pluie.secJusqua(pluieProche))
     : null;
   ctx.jeton = j;
   const lieu = Reglages.lire();
@@ -1541,7 +1585,7 @@ async function lirePluieProche(g) {
    même question finiraient par se contredire. */
 async function lireDeplacement(g) {
   deplacement = null;
-  if (!pluieProche || !pluieProche.dispo || !Pluie.evenement(pluieProche)) return;
+  if (!pluieProche || !pluieProche.dispo || !Pluie.annonce(pluieProche)) return;
   const mien = generation;
   try {
     const idx = await Radar.charger();
@@ -1685,6 +1729,16 @@ $("ecran").addEventListener("click", ev => {
   const d = ev.target.closest("[data-detail]");
   if (d) {
     allerAuDetail(d.dataset.detail, d.dataset.heure != null ? Number(d.dataset.heure) : null);
+    return;
+  }
+  /* Le lien de l'encart de pluie : la carte, couche de pluie allumée, cadrée
+     sur le lieu au zoom de la commune, celui du bouton de retour de la carte. */
+  if (ev.target.closest("[data-pluie-carte]")) {
+    const g = Reglages.lire();
+    Reglages.poserPluiecarte(true);
+    if (Number.isFinite(g.lat) && Number.isFinite(g.lon)) ctx.cadreCarte = { lat: g.lat, lon: g.lon, z: ZDEFAUT };
+    poserOnglet("carte");
+    window.scrollTo({ top: 0, behavior: "instant" });
     return;
   }
   const a = ev.target.closest('[data-action="geo"]');

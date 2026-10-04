@@ -1044,9 +1044,17 @@ export const brancherFauxServices = async (c, etat) => {
      après elle : Playwright essaie la dernière route posée en premier, et celle
      de la vigilance happerait ce chemin. */
   await c.route(/webservice\.meteofrance\.com\/v3\/nowcast\/rain/, r => {
-    etat.appelsPluie.push(r.request().url());
+    const u = new URL(r.request().url());
+    /* Le point lui-même suit `profilPluie` ; ses quatre voisins, depuis la
+       version 168, suivent `profilVoisins` quand il est posé, le même profil
+       sinon. Seuls les appels du point se comptent dans `appelsPluie`. */
+    const ici = Math.abs(Number(u.searchParams.get("lat")) - FAIN.lat) < 1e-6
+      && Math.abs(Number(u.searchParams.get("lon")) - FAIN.lon) < 1e-6;
+    if (ici) etat.appelsPluie.push(r.request().url());
+    else etat.appelsVoisins.push(r.request().url());
+    const profil = ici ? etat.profilPluie : (etat.profilVoisins || etat.profilPluie);
     r.fulfill({ status: 200, contentType: "application/json",
-      body: JSON.stringify(pluieCorps(etat.profilPluie, FIGE)) });
+      body: JSON.stringify(pluieCorps(profil, FIGE)) });
   });
   // L'index du radar et ses tuiles, sur deux domaines distincts.
   await c.route(/api\.rainviewer\.com/, r => {
@@ -1179,6 +1187,8 @@ export const nouvelEtat = () => ({
   foudreTeinte: false,
   profilPluie: "sec",
   appelsPluie: [],
+  profilVoisins: null,
+  appelsVoisins: [],
   profilRepli: "sec",
   appelsRepli: [],
   appelsPays: [],

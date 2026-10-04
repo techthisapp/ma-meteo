@@ -160,7 +160,9 @@ export default async T => {
       const e = document.querySelector(".pp");
       if (!e) return null;
       return { phrase: e.querySelector(".pp-tete b").textContent,
-        barres: [...e.querySelectorAll(".pp-b")].length };
+        delai: e.querySelector(".pp-delai")?.textContent || "",
+        sous: e.querySelector(".pp-sous")?.textContent || "",
+        axe: [...e.querySelectorAll(".pp-axe > span")].map(x => x.textContent.trim()) };
     });
     const appels = etat.appelsRepli.length;
     await c.close();
@@ -174,8 +176,9 @@ export default async T => {
     `${repliDebut.appels} appels au repli, panneau ${repliDebut.dit ? "présent" : "absent"}`);
 
   ok("le repli dit ce qui arrive",
-    repliDebut.dit && repliDebut.dit.phrase === "Pluie modérée dans 30 minutes, pendant 30 minutes environ.",
-    repliDebut.dit && repliDebut.dit.phrase);
+    repliDebut.dit && repliDebut.dit.phrase === "Pluie modérée vers 09 h 30" && repliDebut.dit.delai === "dans 30 min"
+    && /^Pendant 30 minutes environ\./.test(repliDebut.dit.sous),
+    repliDebut.dit && `${repliDebut.dit.phrase} | ${repliDebut.dit.delai} | ${repliDebut.dit.sous}`);
 
   /* Le repli travaille au quart d'heure. Écrire « dans 25 minutes » sur une source
      qui ne sait rien de plus fin qu'un quart d'heure donnerait une précision
@@ -186,14 +189,15 @@ export default async T => {
      de quinze, et les deux arrondis donnent le même chiffre. */
   const repliDecale = await avecRepli("debut", "indispo", FIGE + 7 * 60000);
   ok("le repli annonce au pas du quart d'heure",
-    repliDecale.dit && /dans 30 minutes/.test(repliDecale.dit.phrase),
-    repliDecale.dit && repliDecale.dit.phrase);
+    repliDecale.dit && repliDecale.dit.delai === "dans 30 min",
+    repliDecale.dit && repliDecale.dit.delai);
 
-  /* Cinq pas de quinze minutes couvrent l'heure, contre neuf échéances pour le
-     radar. Le graphe porte ce que la source donne. */
-  ok("le graphe du repli porte ses cinq pas",
-    repliDebut.dit && repliDebut.dit.barres === 5,
-    repliDebut.dit && `${repliDebut.dit.barres} barres`);
+  /* Cinq pas de quinze minutes, contre neuf échéances pour le radar. Le ruban
+     porte ce que la source donne : il finit un quart d'heure après la
+     cinquième. */
+  ok("le ruban du repli finit au bout de ses cinq pas",
+    repliDebut.dit && repliDebut.dit.axe[repliDebut.dit.axe.length - 1] === "10 h 15",
+    repliDebut.dit && repliDebut.dit.axe.join(" "));
 
   /* La lame d'eau devient le même rang ordinal que celui de Météo-France : la
      classification usuelle place la pluie modérée entre 2,5 et 7,6 millimètres par
@@ -218,7 +222,7 @@ export default async T => {
   const repliInutile = await avecRepli("debut", "debut");
   ok("avec couverture radar, le repli ne part pas",
     repliInutile.appels === 0 && repliInutile.dit
-    && repliInutile.dit.phrase === "Pluie modérée dans 20 minutes, pendant 20 minutes environ.",
+    && repliInutile.dit.phrase === "Pluie modérée vers 09 h 20",
     `${repliInutile.appels} appels, phrase « ${repliInutile.dit && repliInutile.dit.phrase} »`);
 
   /* Une heure sèche reste muette, quelle que soit la source qui l'a lue. */

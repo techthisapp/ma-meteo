@@ -8,7 +8,7 @@
    Le silence est l'état par défaut. Une journée sèche ne produit ni jeton, ni
    proposition d'agenda. */
 
-import { heureTxt } from "./horloge.js";
+import { heureTxt, heureDecimaleParis } from "./horloge.js";
 import { SEUILS } from "./conseils.js";
 
 /* La gêne. Une bruine à un dixième de millimètre par heure ne trempe personne,
@@ -131,6 +131,26 @@ export function periodesPluvieuses(serie, alertes, maintenant = new Date()) {
 export function jeton(serie, alertes, maintenant = new Date()) {
   const jour = cleJour(maintenant);
   return periodesPluvieuses(serie, alertes, maintenant).find(p => p.jour === jour) || null;
+}
+
+/* Le jeton accordé au radar, depuis la version 168, demande de Jérôme du
+   4 octobre 2026. Le jeton vient de la série horaire, qui annonçait « 09 h à
+   13 h » quand le radar voyait le sec jusqu'à 9 h 55 : deux heures pour la
+   même pluie sur le même écran. Dans l'heure que le radar couvre, il prime.
+
+   Le radar ne fait que retarder le début : il ne voit pas au delà de son heure,
+   et une pluie qu'il ne voit pas encore peut venir ensuite. Une salve
+   entièrement comprise dans le sec qu'il voit tombe ; un jeton sans salve
+   disparaît. `sec` est l'instant jusqu'où le point est connu au sec, arrondi
+   à cinq minutes vers le bas. */
+export function accorder(j, sec) {
+  if (!j || !Number.isFinite(sec)) return j;
+  const s = heureDecimaleParis(sec);
+  if (s.jour !== j.jour) return j;
+  const h = Math.floor(s.h * 12 + 1e-6) / 12;
+  const salves = j.salves.map(([a, b]) => [Math.max(a, h), b]).filter(([a, b]) => a < b);
+  if (!salves.length) return null;
+  return { ...j, salves, h0: salves[0][0], h1: salves[0][1] };
 }
 
 // Les heures de pluie d'une période, écrites comme on les dirait.

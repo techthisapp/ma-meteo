@@ -970,6 +970,42 @@ case "$N" in
   311) # La page ne se place plus sur la voie désignée.
      perl -0pi -e 's/v\.scrollIntoView\(\{ block: "center", behavior: "instant" \}\);//' src/app.js
      ATTENDU="la page s'est placée sur la voie" ;;
+  312) # Le ruban finit sur la dernière échéance au lieu du bout de l'heure.
+     perl -0pi -e 's/const t1 = pas\[n - 1\]\.t \+ \(pas\[n - 1\]\.t - pas\[n - 2\]\.t\);/const t1 = pas[n - 1].t;/' src/app.js
+     ATTENDU="le ruban pose chaque morceau de pluie à son heure" ;;
+  313) # Toute pluie prend la nuance de la pluie faible.
+     perl -0pi -e 's/else if \(Pluie\.estPluie\(x\.i\)\) ajouter\("eau", x\.i, k\);/else if (Pluie.estPluie(x.i)) ajouter("eau", 2, k);/' src/app.js
+     ATTENDU="seules les échéances mouillées portent l.eau, dans la nuance de leur force" ;;
+  314) # Les repères passent à la demi-heure.
+     perl -0pi -e 's/t < t1; t \+= 900000\)/t < t1; t += 1800000)/' src/app.js
+     ATTENDU="l.axe du ruban porte les quarts d.heure" ;;
+  315) # Les voisins partent sans arrondi.
+     perl -0pi -e 's/\.map\(\(\[a, b\]\) => \[centieme\(lat \+ a\), centieme\(lon \+ b\)\]\);/.map(([a, b]) => [lat + a, lon + b]);/' src/pluieproche.js
+     ATTENDU="le voisinage lit quatre points à trois kilomètres" ;;
+  316) # L'encart ne dit plus la pluie des voisins.
+     perl -0pi -e 's/evenement\(l, maintenant\) \|\| proximite\(l, maintenant\);/evenement(l, maintenant);/' src/pluieproche.js
+     ATTENDU="une averse autour d.un point sec se dit à quelques kilomètres" ;;
+  317) # Les voisins hachurent aussi par-dessus la pluie du point.
+     perl -0pi -e 's/    else if \(Pluie\.estPluie\(autour\[k\]\)\) ajouter\("autour", autour\[k\], k\);/    if (Pluie.estPluie(autour[k])) ajouter("autour", autour[k], k);/' src/app.js
+     ATTENDU="autour d.une pluie annoncée, les voisins ne hachurent que le sec" ;;
+  318) # Le lien de l'encart n'allume plus la pluie.
+     perl -0pi -e 's/    Reglages\.poserPluiecarte\(true\);\n//' src/app.js
+     ATTENDU="le lien de l.encart ouvre la carte, la pluie allumée" ;;
+  319) # Le radar n'accorde plus le rappel.
+     perl -0pi -e 's/\.map\(\(\[a, b\]\) => \[Math\.max\(a, h\), b\]\)/.map(([a, b]) => [a, b])/' src/parapluie.js
+     ATTENDU="le rappel de parapluie prend le début que le radar voit" ;;
+  320) # Le sec d'une heure entière s'arrête à la dernière échéance.
+     perl -0pi -e 's/  return pas\[n - 1\]\.t \+ \(pas\[n - 1\]\.t - pas\[n - 2\]\.t\);/  return pas[n - 1].t;/' src/pluieproche.js
+     ATTENDU="le radar dit jusqu.à quand le point est sec" ;;
+  321) # La pastille ignore le radar.
+     perl -0pi -e 's/      Pluie\.secJusqua\(pluieProche\)\)/      null)/' src/app.js
+     ATTENDU="la pastille du parapluie suit le radar dans l.heure" ;;
+  322) # L'encart perd son lien vers la carte.
+     perl -0pi -e 's/<button type="button" class="pp-carte" data-pluie-carte>/<button type="button" class="pp-carte">/' src/app.js
+     ATTENDU="l.encart mène à la carte" ;;
+  323) # Le repli accorde aussi le rappel.
+     perl -0pi -e 's/  if \(!l \|\| !l\.dispo \|\| l\.source !== "meteofrance"\) return null;/  if (!l || !l.dispo) return null;/' src/pluieproche.js
+     ATTENDU="le repli n.accorde pas le rappel de parapluie" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

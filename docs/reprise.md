@@ -20,9 +20,9 @@ décisions est dans `docs/feuille-de-route.md`. L'ancien document de reprise,
 Ne jamais lire, modifier ni pousser `techthisapp/mon-jardin`, une autre
 application.
 
-## État au 2 octobre 2026
+## État au 4 octobre 2026
 
-Version 167. Le projet est passé de claude.ai à Claude Code le 1er octobre
+Version 168. Le projet est passé de claude.ai à Claude Code le 1er octobre
 2026, à la version 118. Un audit complet de la version 120 a été mené le même
 jour, `docs/audit-2026-10-01.md`, avec le suivi de chaque lot en fin de
 document.
@@ -41,7 +41,9 @@ Jalons de la feuille de route : 1 à 4 et 7 à 18 livrés. Le jalon 19, la carte
 enrichie, ouvert le 2 octobre 2026, est livré en versions 140 à 153 et repris en versions 154 et 155, détail dans
 la feuille de route. Reste aussi le jalon 6, la
 justesse des prévisions publiée, vers la fin octobre, quand soixante jours de
-relevés seront réunis. Le jalon 5, la 3D, est écarté pour le moment.
+relevés seront réunis. Le jalon 5, la 3D, est écarté pour le moment. Le jalon 22, la pluie dans l'heure
+reprise, ouvert le 4 octobre 2026 : lot 1 livré en version 168, le lot 2, une
+seconde méthode qui confirme l'heure d'arrivée, reste à faire.
 
 ## Points ouverts
 

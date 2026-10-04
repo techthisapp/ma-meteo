@@ -141,6 +141,13 @@ const PARIS = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Paris", year:
   day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 const aParis = ms => PARIS.format(ms).replace(" ", "T");
 
+// L'heure d'un instant à Paris, en heures décimales, et son jour : 9 h 55 vaut 9,9167.
+export const heureDecimaleParis = ms => {
+  const [jour, hm] = aParis(ms).split("T");
+  const [h, mn] = hm.split(":").map(Number);
+  return { jour, h: h + mn / 60 };
+};
+
 export const enHeureDeParis = (t, decalage) => {
   const [a, m, j, h, mn] = t.split(/[-T:]/).map(Number);
   return aParis(Date.UTC(a, m - 1, j, h || 0, mn || 0) - decalage * 1000);

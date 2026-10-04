@@ -920,6 +920,23 @@ glissement de côté.
 | 1 | Défauts : sélection de texte à l'appui long, trait de minuit sur les titres, libellés coupés de l'axe du haut, deux axes écrits autrement | livré, version 160 |
 | 2 | Lecture au toucher bref, bulle de lecture unique, choix du jour par boutons sans glissement, voies allégées | livré, version 161 |
 
+## Jalon 22. La pluie dans l'heure reprise
+
+Demande de Jérôme du 4 octobre 2026 : un encart plus soigné et plus simple à
+lire, et une prévision plus fiable. Trois maquettes proposées, ruban continu,
+courbe en paliers, compte à rebours ; Jérôme retient le ruban. Pour la
+fiabilité, il retient le voisinage et l'accord avec la pastille du parapluie,
+puis une seconde méthode indépendante. Il demande en cours de route un lien
+vers la carte, la couche de pluie allumée.
+
+| Lot | Contenu | État |
+|---|---|---|
+| 1 | Ruban continu en trois nuances, titre à l'heure, délai à droite ; quatre voisins à trois kilomètres ; pastille du parapluie accordée au radar ; lien vers la carte | livré, version 168 |
+| 2 | Seconde méthode : la dernière image radar décalée du déplacement mesuré, qui confirme l'heure de Météo-France ou la change en plage | à faire |
+
+Écartés : la mesure de la justesse de l'encart, rattachée au jalon 6 ; un
+rafraîchissement automatique toutes les cinq minutes, non demandé.
+
 ## Hors cadre
 
 | Fonction | Ce qu'elle exigerait |
@@ -1134,3 +1151,4 @@ Les deux premières lignes se lèvent avec le même service dorsal minimal. Les 
 | 3 octobre 2026 | Version 165, accord des écrans, premier lot, décisions de Jérôme après le relevé des incohérences : les tuiles de l'accueil portent sur les heures à venir jusqu'à minuit et l'écrivent ; la pression du ruban est celle de l'heure lue, avec la tendance de la tuile ; l'indice UV se nomme sur l'échelle du ruban ; un seul seuil de rafale, 40 km/h, pour la bande, le tableau des heures, la semaine, la carte et les conseils ; le vent fort de la semaine se juge sur les rafales ; la porte de l'air lit l'indice de l'heure en cours. Une section nouvelle de cinq contrôles, quatre contrôles adaptés, erreurs volontaires 300 à 304 vues. Passe complète verte, 1109 contrôles |
 | 3 octobre 2026 | Version 166, accord des écrans, second lot : le graphique d'À venir lit le vent et les rafales sur les heures, comme la rangée ; la porte du climat prend le maximum des heures, comme sa feuille ; la bande écrit le cumul de pluie par `nombreFr` ; la bulle de la carte, à moins de deux kilomètres du lieu affiché, reprend la prévision de l'accueil, et dit la pluie au seuil d'un dixième de millimètre. Le parapluie garde son seuil d'un demi-millimètre, qui dit la pluie gênante et non la pluie. Trois contrôles nouveaux, erreurs volontaires 305 à 307 vues. Passe complète verte, 1112 contrôles |
 | 3 octobre 2026 | Version 167, une seule écriture, décisions de Jérôme : la direction du vent s'écrit « du nord », « de l'est » partout, `duCardinal` de src/previsions.js, dans la liste, la bulle et la phrase du ruban et la bulle de la carte, qui écrivait « du est » ; une heure à la minute s'écrit « 19 h 25 », `heureMinute` de src/horloge.js, une heure ronde « 19 h » ; le tableau des heures écrit « 12 h à 18 h » ; la bulle du ruban nomme « Risque de pluie » et « Indice UV » comme la liste, qui gagne la pluie de l'heure ; le volet de la semaine écrit « raf. ». « Maint. » reste là où la place manque. Défaut trouvé : une voie désignée depuis l'accueil n'était visible que par hasard ; la page s'y place désormais. Une section nouvelle de trois contrôles, sept contrôles adaptés, erreurs volontaires 308 à 311 vues. Passe complète verte, 1115 contrôles |
+| 4 octobre 2026 | Version 168, jalon 22, lot 1 : l'encart de la pluie dans l'heure passe des neuf barres à un ruban continu, de maintenant au bout de l'heure couverte, vide par temps sec, bleu en trois nuances de la pluie faible à la forte, la valeur inconnue hachurée ; l'axe porte les quarts d'heure et la légende ne dit que ce que le ruban montre. Le titre dit l'heure, « Pluie modérée vers 09 h 20 », le délai se lit à droite, la durée et le sens d'arrivée dessous. Quatre voisins à trois kilomètres, arrondis au centième, sont lus avec le point : une averse autour d'un point sec se dit « à quelques kilomètres », et la pluie des voisins se hachure là où le point est sec. La pastille et la réponse du matin suivent le radar dans l'heure qu'il couvre : il retarde le début, ne l'avance jamais, et retire une salve qu'il voit sèche ; le repli d'Open-Meteo, un modèle, n'accorde rien. Défaut trouvé en route : la section du rappel de parapluie lisait le faux radar, sec par défaut, qui retardait sa pluie de 10 h ; le radar s'y tait désormais. Un lien mène à la carte, cadrée sur le lieu, la couche de pluie allumée. En mode sombre, la pluie forte est la plus claire. Dix contrôles nouveaux, sept adaptés, erreurs volontaires 312 à 323 vues. Passe complète verte, 1125 contrôles |

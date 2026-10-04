@@ -87,7 +87,8 @@ Confidentialité, depuis la version 123 : en mode position, les services ne
 reçoivent que la position arrondie au centième de degré (`envoi` de
 `src/reglages.js`), le service d'adresses un point au millième ; le relevé
 précis reste sur l'appareil, dans `releve`, et ne sert qu'à mesurer un
-déplacement. Tout service nouveau qui reçoit le lieu s'ajoute à la carte
+déplacement. Les quatre voisins de la pluie dans l'heure, depuis la version
+168, se déduisent du point arrondi et s'arrondissent au centième. Tout service nouveau qui reçoit le lieu s'ajoute à la carte
 « Sources » des réglages.
 
 ## Contrôles
@@ -97,14 +98,14 @@ installe Playwright 1.63.0, puis `npx playwright install chromium`.
 
 | Commande | Effet |
 |---|---|
-| `bash essais/passe.sh 8137` | La suite complète, sur une copie du dépôt dans `/tmp/passe-<port>` ; trois minutes, 1115 contrôles à la version 167 |
+| `bash essais/passe.sh 8137` | La suite complète, sur une copie du dépôt dans `/tmp/passe-<port>` ; trois minutes, 1125 contrôles à la version 168 |
 | `SECTIONS="carte,vent" bash essais/passe.sh 8137` | Les seules sections dont le titre ou le nom de fichier contient l'un des motifs |
 | `JUSQUA="La bande horaire" bash essais/passe.sh 8137` | La suite jusqu'à la fin d'une section |
 | `PARALLELE=1 CHRONO=1 bash essais/passe.sh 8137` | Une section à la fois, avec le temps de chacune ; trois passent côte à côte par défaut |
 | `bash essais/epreuve-bande.sh <n>` | Une erreur volontaire : le script introduit l'erreur numéro n dans une copie, ne passe que la section qui porte le contrôle attendu, et vérifie qu'il échoue. Verdicts possibles : vue, non vue, non appliquée, ou épreuve interrompue |
 
 Les erreurs volontaires sont numérotées dans `essais/epreuve-bande.sh` ; la
-dernière porte le numéro 311. Tout contrôle nouveau a son erreur volontaire, et
+dernière porte le numéro 323. Tout contrôle nouveau a son erreur volontaire, et
 une erreur volontaire éprouvée pendant que son contrôle échoue déjà sur le bon
 code doit être repassée.
 
@@ -185,13 +186,13 @@ de code et messages de commit, suit ces règles :
 
 Les consignes détaillées du projet sont dans `docs/consignes/`.
 
-## État au 3 octobre 2026
+## État au 4 octobre 2026
 
-Version 167, publiée depuis Claude Code. Jalons livrés : 1 à 4, 7 à 18, dont 14, la comparaison ; 15, les
+Version 168, publiée depuis Claude Code. Jalons livrés : 1 à 4, 7 à 18, dont 14, la comparaison ; 15, les
 plages ; 16, la neige ; 17, la semaine au plus loin ; 18, les couches de la
 carte et l'eau ; 19, la carte enrichie, livré
 en versions 140 à 153, repris en versions 154 et 155. Jalon 20, textes,
-accueil, ciel et heures, livré en versions 156 à 159. Jalon 21, le ruban repris, livré en versions 160 à 163. Jalons restants : 6, la justesse des prévisions publiée, vers
+accueil, ciel et heures, livré en versions 156 à 159. Jalon 21, le ruban repris, livré en versions 160 à 163. Jalon 22, la pluie dans l'heure reprise, lot 1 livré en version 168 ; lot 2, une seconde méthode qui confirme l'heure d'arrivée, à faire. Jalons restants : 6, la justesse des prévisions publiée, vers
 la fin octobre ; 5, la 3D, écartée pour le moment.
 
 Points connus à reprendre :
