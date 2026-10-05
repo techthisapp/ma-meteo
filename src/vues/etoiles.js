@@ -60,6 +60,10 @@ export const viseeDe = (az, haut) => haut > 80 ? "Au zénith" : haut < -80 ? "So
 /* Les bornes du regard et du champ, version 176 : la vue descend jusque sous
    les pieds et monte jusqu'au zénith, et le champ va de vingt à cent degrés. */
 export const HAUT_MIN = -89, HAUT_MAX = 89, CHAMP_MIN = 20, CHAMP_MAX = 100;
+/* Le pincement agit à la puissance 0,7 de l'écart des doigts : proportionnel,
+   un geste moyen menait d'un coup de 60 à 20 degrés, vu dans le simulateur le
+   6 octobre 2026. */
+export const PINCE = 0.7;
 
 /* La recherche d'une constellation, en deux groupes : les visibles, de la plus
    haute à la plus basse, puis celles sous l'horizon, par ordre alphabétique.
@@ -278,7 +282,7 @@ export function vueEtoiles() {
       if (!cv || !bandeau) return;
       const fixe = { az: 180, haut: 40, champ: 60 };
       const tracerBandeau = () => {
-        if (cv.isConnected) peindreCiel(cv, fixe, g, { cardinaux: false });
+        if (cv.isConnected) peindreCiel(cv, fixe, g, { cardinaux: false, sousHorizon: false });
       };
 
       const ouvrir = () => {
@@ -325,9 +329,14 @@ export function vueEtoiles() {
           + icone('<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 20 20"/>') + `</button>`
           + `<button type="button" class="ci-rond" id="ciRouge" aria-pressed="false" aria-label="Lumière rouge, pour garder les yeux habitués à la nuit">`
           + icone('<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" fill="#E0565B" stroke="#E0565B"/>') + `</button>`
+          + `<button type="button" class="ci-rond" id="ciVoile" aria-pressed="${Reglages.voileCiel()}" aria-label="Voile des nuages prévus">`
+          + icone('<path d="M7 18h10a4 4 0 0 0 .5-7.97A6 6 0 0 0 6.1 9.6 4.2 4.2 0 0 0 7 18z"/>') + `</button>`
           + `<button type="button" class="ci-rond ci-sources" id="ciSources" aria-label="Sources">`
           + icone('<circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><circle cx="12" cy="7.5" r=".6" fill="currentColor"/>') + `</button>`
-          + `<button type="button" class="ci-bouton ci-fermer" id="ciFermer">Fermer</button>`
+          /* Une croix plutôt que « Fermer » : la visée garde sa place, version
+             177. */
+          + `<button type="button" class="ci-rond ci-fermer" id="ciFermer" aria-label="Fermer">`
+          + icone('<path d="M6 6l12 12M18 6 6 18"/>') + `</button>`
           + `</div>`
           + `<div class="ci-dirs" id="ciDirs" role="group" aria-label="Tourner le regard">`
           + [["N", "Nord"], ["E", "Est"], ["S", "Sud"], ["O", "Ouest"], ["+", "Plus haut"], ["-", "Plus bas"]]
@@ -434,7 +443,8 @@ export function vueEtoiles() {
            scintillement, la respiration de la constellation cherchée et la
            flèche ; elle ne tourne pas sous mouvement réduit. */
         const image = t => {
-          const pos = peindreCiel(pe, vue, g, { t, calme, nuages: nuagesA(vue.instant || new Date()) || 0 });
+          const pos = peindreCiel(pe, vue, g, { t, calme,
+            nuages: Reglages.voileCiel() ? nuagesA(vue.instant || new Date()) || 0 : 0 });
           fleche(t, pos);
           majObjets();
         };
@@ -464,6 +474,16 @@ export function vueEtoiles() {
           borner(); majVisee(); redessiner();
         };
         const zoomer = facteur => { vue.champ *= facteur; borner(); majVisee(true); redessiner(); };
+        /* Recaler la vue pour que le point du ciel `ancre` tombe en (mx, my),
+           en unités de projection : trois pas de correction suffisent. */
+        const ancrer = (ancre, mx, my) => {
+          for (let k = 0; k < 3; k++) {
+            const ici = Voute.depuisEcran(mx, my, vue.az, vue.haut, vue.champ);
+            vue.az += ((ancre.azimut - ici.azimut + 540) % 360) - 180;
+            vue.haut += ancre.hauteur - ici.hauteur;
+            borner();
+          }
+        };
         for (const b of fe.querySelectorAll("[data-dir]")) {
           b.addEventListener("click", () => {
             const d = b.dataset.dir;
@@ -493,7 +513,12 @@ export function vueEtoiles() {
           if (doigts.size === 1) depart = { x: ev.clientX, y: ev.clientY, az: vue.az, haut: vue.haut };
           if (doigts.size === 2) {
             const [a, b] = [...doigts.values()];
-            pince = { d: Math.hypot(a.x - b.x, a.y - b.y), champ: vue.champ };
+            /* Le ciel sous le milieu des doigts reste sous eux pendant le
+               pincement. */
+            const r = pe.getBoundingClientRect(), unite = Math.min(r.width, r.height) / 2;
+            const mx = ((a.x + b.x) / 2 - r.left - r.width / 2) / unite, my = ((a.y + b.y) / 2 - r.top - r.height / 2) / unite;
+            pince = { d: Math.hypot(a.x - b.x, a.y - b.y), champ: vue.champ, mx, my,
+              ancre: Voute.depuisEcran(mx, my, vue.az, vue.haut, vue.champ) };
             depart = null;
           }
         });
@@ -502,8 +527,10 @@ export function vueEtoiles() {
           doigts.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
           if (pince && doigts.size === 2) {
             const [a, b] = [...doigts.values()];
-            vue.champ = pince.champ * pince.d / Math.max(10, Math.hypot(a.x - b.x, a.y - b.y));
-            borner(); majVisee(true); redessiner();
+            vue.champ = pince.champ * (pince.d / Math.max(10, Math.hypot(a.x - b.x, a.y - b.y))) ** PINCE;
+            borner();
+            ancrer(pince.ancre, pince.mx, pince.my);
+            majVisee(true); redessiner();
             return;
           }
           if (!depart) return;
@@ -658,6 +685,12 @@ export function vueEtoiles() {
           requestAnimationFrame(pas1);
         });
 
+        fe.querySelector("#ciVoile").addEventListener("click", ev => {
+          const on = ev.currentTarget.getAttribute("aria-pressed") !== "true";
+          ev.currentTarget.setAttribute("aria-pressed", String(on));
+          Reglages.poserVoileCiel(on);
+          redessiner();
+        });
         /* La lumière rouge garde les yeux habitués à l'obscurité. */
         fe.querySelector("#ciRouge").addEventListener("click", ev => {
           const on = ev.currentTarget.getAttribute("aria-pressed") !== "true";

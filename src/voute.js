@@ -144,6 +144,82 @@ export function placeur(ctx) {
   };
 }
 
+/* ---------- L'horizon ----------
+
+   La projection stéréographique, prolongée au delà de quatre-vingt-dix degrés
+   du centre, jusqu'à cent soixante-dix : l'horizon entier s'y trace d'un seul
+   tenant, ce que `projeter` de ciel.js, borné à l'hémisphère visé, ne permet
+   pas. */
+export function projeterLarge(az, haut, azCentre, hautCentre, champ = 60) {
+  const a = az * R, h = haut * R, a0 = azCentre * R, h0 = hautCentre * R;
+  const cosC = Math.sin(h0) * Math.sin(h) + Math.cos(h0) * Math.cos(h) * Math.cos(a - a0);
+  if (cosC <= -0.985) return null;
+  const k = 2 / (1 + cosC);
+  const x = k * Math.cos(h) * Math.sin(a - a0);
+  const y = k * (Math.cos(h0) * Math.sin(h) - Math.sin(h0) * Math.cos(h) * Math.cos(a - a0));
+  const r = 2 * Math.sin(champ * R) / (1 + Math.cos(champ * R));
+  return { x: x / r, y: -y / r };
+}
+
+/* L'inverse : le point du ciel sous une position d'écran, en unités de
+   projection. Sert à garder sous les doigts le ciel pincé. */
+export function depuisEcran(ux, uy, azCentre, hautCentre, champ = 60) {
+  const r = 2 * Math.sin(champ * R) / (1 + Math.cos(champ * R));
+  const x = ux * r, y = -uy * r;
+  const rho = Math.hypot(x, y);
+  const h0 = hautCentre * R;
+  if (rho < 1e-9) return { azimut: azCentre, hauteur: hautCentre };
+  const c = 2 * Math.atan(rho / 2);
+  const h = Math.asin(Math.max(-1, Math.min(1, Math.cos(c) * Math.sin(h0) + (y * Math.sin(c) * Math.cos(h0)) / rho)));
+  const a = azCentre * R + Math.atan2(x * Math.sin(c), rho * Math.cos(h0) * Math.cos(c) - y * Math.sin(h0) * Math.sin(c));
+  return { azimut: ((a / R) % 360 + 360) % 360, hauteur: h / R };
+}
+
+const dansPolygone = (p, pts) => {
+  let dedans = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const [xi, yi] = pts[i], [xj, yj] = pts[j];
+    if ((yi > p[1]) !== (yj > p[1]) && p[0] < ((xj - xi) * (p[1] - yi)) / (yj - yi) + xi) dedans = !dedans;
+  }
+  return dedans;
+};
+
+/* Le côté d'une courbe d'altitude constante qui contient le point sous les
+   pieds, en chemin à remplir selon la règle pair-impair. Une courbe fermée,
+   vue haut ou bas, borne un disque : l'eau est le disque s'il contient le
+   nadir, le reste de l'écran sinon. Une courbe ouverte, vue près de
+   l'horizon, se ferme loin du côté du nadir. `info.haut` reçoit le point le
+   plus haut de la courbe à l'écran. */
+export function cote(point, ecranDe, pn, W, H, info = {}) {
+  const pts = [];
+  let trou = -1;
+  for (let az = 0; az < 360; az += 2) {
+    const p = point(az);
+    if (!p) { trou = pts.length; continue; }
+    pts.push(ecranDe(p));
+  }
+  if (pts.length < 3) return null;
+  for (const [x, y] of pts) if (x > -W && x < 2 * W) info.haut = Math.min(info.haut ?? Infinity, y);
+  const chemin = new Path2D();
+  if (trou < 0) {
+    pts.forEach(([x, y], i) => (i ? chemin.lineTo(x, y) : chemin.moveTo(x, y)));
+    chemin.closePath();
+    if (!pn || !dansPolygone(pn, pts)) chemin.rect(-10, -10, W + 20, H + 20);
+    return chemin;
+  }
+  /* Ouverte : la courbe reprend après le trou, et se ferme par un point lointain
+     dans la direction du nadir. */
+  const suite = [...pts.slice(trou), ...pts.slice(0, trou)];
+  const cx = W / 2, cy = H / 2;
+  const dx = pn ? pn[0] - cx : 0, dy = pn ? pn[1] - cy : 1;
+  const n = Math.hypot(dx, dy) || 1;
+  const loin = [cx + dx / n * 1e5, cy + dy / n * 1e5];
+  suite.forEach(([x, y], i) => (i ? chemin.lineTo(x, y) : chemin.moveTo(x, y)));
+  chemin.lineTo(...loin);
+  chemin.closePath();
+  return chemin;
+}
+
 /* ---------- La peinture ---------- */
 
 const POLICE = "-apple-system, system-ui, sans-serif";
@@ -242,9 +318,13 @@ export function peindre(cv, vue, g, options = {}) {
   /* Les figures : un fil discret. La constellation cherchée ou désignée
      s'illumine d'un double trait, un voile large et une ligne nette, qui
      respire. */
+  /* Le bandeau ne montre rien sous l'eau : sous son titre, des noms pâles
+     se mêlaient au grand chiffre. Vu dans le simulateur le 6 octobre 2026. */
+  const sousEau = options.sousHorizon !== false;
   const respire = calme ? 1 : 0.8 + 0.2 * Math.sin(t / 500);
   const vive = s => s && (s === vue.cible || s === vue.sel);
   for (const f of figures) {
+    if (f.sous && !sousEau) continue;
     if (vive(f.sigle)) {
       trait(f, `rgba(255,236,190,${(0.22 * respire).toFixed(3)})`, 7);
       trait(f, f.sous ? "rgba(255,240,210,.55)" : "rgba(255,248,230,.95)", 1.6);
@@ -264,6 +344,7 @@ export function peindre(cv, vue, g, options = {}) {
     const eclat = Math.max(0, Math.min(1, (6.2 - e.mag) / 7.2));
     const halo = M.halos[Ciel.couleur(e.ci)] || M.halos["#e6eefc"];
     if (e.sous) {
+      if (!sousEau) continue;
       const r = (2 + 7 * eclat ** 1.5) * echelle;
       ctx.globalAlpha = 0.28 + 0.4 * eclat;
       ctx.drawImage(halo, x - r, y - r, 2 * r, 2 * r);
@@ -336,6 +417,7 @@ export function peindre(cv, vue, g, options = {}) {
     if (sigle === vue.cible) cible = { x, y };
     if (!dedans([x, y])) continue;
     const sous = hauteur < 0, vif = vive(sigle);
+    if (sous && !sousEau) continue;
     noms.push({ texte: nom.toLocaleUpperCase("fr"), x, y, espace: true,
       police: `${vif ? "600 14px" : "400 11px"} ${POLICE}`,
       couleur: vif ? "rgba(255,250,236,1)" : sous ? "rgba(185,200,240,.42)" : "rgba(222,230,250,.78)", prio: vif });
@@ -355,38 +437,39 @@ export function peindre(cv, vue, g, options = {}) {
   }
   if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
 
-  /* L'eau, calme, et la crête en silhouette. */
-  const bord = [], crt = [];
-  for (let az = 0; az <= 360; az += 2) {
-    const p = proj(az, 0); if (p) bord.push(ecranDe(p));
-    const q = proj(az, crete(az)); if (q) crt.push(ecranDe(q));
-  }
-  if (bord.length > 1) {
-    bord.sort((a, b) => a[0] - b[0]); crt.sort((a, b) => a[0] - b[0]);
-    const surface = Math.max(0, Math.min(...bord.map(p => p[1])));
-    const eau = new Path2D(); eau.moveTo(-10, H + 10);
-    for (const [x, y] of bord) eau.lineTo(x, y);
-    eau.lineTo(W + 10, H + 10); eau.closePath();
-    const prof = ctx.createLinearGradient(0, surface, 0, H);
+  /* L'eau, calme, et la crête en silhouette.
+
+     L'horizon projeté est une droite quand on regarde l'horizon, un cercle
+     quand on regarde haut ou bas. Il se trace donc dans l'ordre des azimuts,
+     avec une projection qui va au delà de quatre-vingt-dix degrés, et l'eau
+     est le côté qui contient le point sous les pieds. Trié de gauche à droite,
+     comme avant la version 177, le cercle se brisait en bandes verticales vu
+     vers le zénith. */
+  const large = (az, h) => projeterLarge(az, h, vue.az, vue.haut, vue.champ);
+  const nadir = large(vue.az, -90);
+  const pn = nadir ? ecranDe(nadir) : null;
+  const surface = { haut: Infinity };
+  const eau = cote(az => large(az, 0), ecranDe, pn, W, H, surface);
+  const sol = cote(az => large(az, crete(az)), ecranDe, pn, W, H);
+  if (eau) {
+    const debut = Math.max(0, Math.min(H, surface.haut));
+    const prof = ctx.createLinearGradient(0, debut, 0, Math.max(debut + 1, H));
     prof.addColorStop(0, "rgba(14,22,72,.62)"); prof.addColorStop(0.35, "rgba(8,12,48,.78)"); prof.addColorStop(1, "rgba(4,6,26,.9)");
-    ctx.fillStyle = prof; ctx.fill(eau);
-    ctx.save(); ctx.clip(eau);
-    const reflet = ctx.createLinearGradient(0, surface, 0, surface + 70);
+    ctx.fillStyle = prof; ctx.fill(eau, "evenodd");
+    ctx.save(); ctx.clip(eau, "evenodd");
+    const reflet = ctx.createLinearGradient(0, debut, 0, debut + 70);
     reflet.addColorStop(0, `rgba(${Math.round(70 + 120 * lueur)},${Math.round(90 + 50 * lueur)},170,.22)`);
     reflet.addColorStop(1, "rgba(60,80,160,0)");
-    ctx.fillStyle = reflet; ctx.fillRect(0, surface, W, 70);
+    ctx.fillStyle = reflet; ctx.fillRect(0, debut, W, 70);
     ctx.restore();
-    if (crt.length > 1) {
-      const sil = new Path2D(); sil.moveTo(-10, bord[0][1] + 2);
-      for (const [x, y] of crt) sil.lineTo(x, y);
-      for (let i = bord.length - 1; i >= 0; i--) sil.lineTo(bord[i][0], bord[i][1] + 1.5);
-      sil.closePath();
-      ctx.fillStyle = "#04061c"; ctx.fill(sil);
-      ctx.beginPath();
-      crt.forEach(([x, y], i) => { if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
-      ctx.strokeStyle = "rgba(120,140,210,.35)"; ctx.lineWidth = 0.8; ctx.stroke();
+    if (sol) {
+      /* La crête est la bande entre sa ligne et l'horizon. */
+      const bande = new Path2D();
+      bande.addPath(sol); bande.addPath(eau);
+      ctx.fillStyle = "#04061c"; ctx.fill(bande, "evenodd");
     }
   }
+
   if (options.cardinaux !== false) {
     for (let az = 0; az < 360; az += 15) {
       const p = proj(az, 0); if (!p || Math.abs(p.x) > 1.2) continue;

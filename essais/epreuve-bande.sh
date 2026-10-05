@@ -1144,6 +1144,24 @@ case "$N" in
   369) # La voûte reprend la densité entière de l'écran.
      perl -0pi -e 's/const dpr = Math\.min\(2, window\.devicePixelRatio \|\| 1\);/const dpr = window.devicePixelRatio || 1;/' src/voute.js
      ATTENDU="toute toile plafonne sa densité à 2" ;;
+  370) # L'eau ne tient plus compte du nadir.
+     perl -0pi -e 's/    if \(!pn \|\| !dansPolygone\(pn, pts\)\) chemin\.rect\(-10, -10, W \+ 20, H \+ 20\);\n//' src/voute.js
+     ATTENDU="l.eau est le côté de l.horizon qui contient le nadir" ;;
+  371) # L'inverse de la projection se trompe de sens.
+     perl -0pi -e 's/  const x = ux \* r, y = -uy \* r;/  const x = ux * r, y = uy * r;/' src/voute.js
+     ATTENDU="l.inverse de la projection rend le point du ciel sous les doigts" ;;
+  372) # Le plein écran laisse de nouveau zoomer la page.
+     perl -0pi -e 's/background:#070a2c;touch-action:none\}/background:#070a2c}/' styles.css
+     ATTENDU="le plein écran ne laisse au navigateur ni pincement ni double toucher" ;;
+  373) # Le voile des nuages ne se garde plus.
+     perl -0pi -e 's/export function poserVoileCiel\(v\) \{ poser\(\{ voileCiel: v === true \}\); \}/export function poserVoileCiel(v) {}/' src/reglages.js
+     ATTENDU="le voile des nuages se coupe d.un bouton et le choix se garde" ;;
+  374) # Le pincement redevient proportionnel.
+     perl -0pi -e 's/export const PINCE = 0\.7;/export const PINCE = 1;/' src/vues/etoiles.js
+     ATTENDU="le pincement est adouci" ;;
+  375) # Le bandeau peint de nouveau sous l'eau.
+     perl -0pi -e 's/  const sousEau = options\.sousHorizon !== false;/  const sousEau = true;/' src/voute.js
+     ATTENDU="le bandeau ne peint rien sous l.eau" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

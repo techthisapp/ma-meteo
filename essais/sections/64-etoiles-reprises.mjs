@@ -133,4 +133,84 @@ export default async T => {
   const apres = await pg.locator("#ciCurseur").inputValue();
   ok("la lecture fait défiler la nuit", Number(apres) > Number(avant) + 2, `${avant} puis ${apres}`);
   await pg.locator("#ciFermer").click();
+
+  /* Version 177, vérifications dans le simulateur du 6 octobre 2026. */
+
+  /* L'eau est le côté de l'horizon qui contient le nadir, quelle que soit la
+     visée : vers le zénith, l'horizon est un cercle et l'eau l'entoure ; vers
+     le bas, l'eau est sous les pieds. Triée de gauche à droite, la courbe se
+     brisait en bandes vue vers le haut. */
+  const eau = await pg.evaluate(async () => {
+    const V = await import("/src/voute.js");
+    const W = 390, H = 844, unite = W / 2;
+    const ctx = document.createElement("canvas").getContext("2d");
+    const ecranDe = p => [W / 2 + p.x * unite, H / 2 + p.y * unite];
+    const dans = (haut, x, y) => {
+      const large = (az, h) => V.projeterLarge(az, h, 180, haut, 60);
+      const n = large(180, -90);
+      const c = V.cote(az => large(az, 0), ecranDe, n ? ecranDe(n) : null, W, H);
+      return c ? ctx.isPointInPath(c, x, y, "evenodd") : null;
+    };
+    return [dans(85, W / 2, H / 2), dans(85, 5, H - 5), dans(-60, W / 2, H / 2), dans(-60, 5, 5),
+      dans(3, W / 2, 30), dans(3, W / 2, H - 30)].join(",");
+  });
+  ok("l'eau est le côté de l'horizon qui contient le nadir, vers le zénith comme vers le bas",
+    eau === "false,true,true,false,false,true", eau);
+
+  /* Le point sous les doigts : l'inverse de la projection rend le point
+     projeté, ce qui garde le ciel pincé sous les doigts. */
+  const inverse = await pg.evaluate(async () => {
+    const V = await import("/src/voute.js");
+    const C = await import("/src/ciel.js");
+    let pire = 0;
+    for (const [az, h, az0, h0, ch] of [[200, 30, 180, 40, 60], [10, 70, 350, 85, 25], [120, -20, 140, -50, 90]]) {
+      const p = C.projeter(az, h, az0, h0, ch);
+      const r = V.depuisEcran(p.x, p.y, az0, h0, ch);
+      pire = Math.max(pire, Math.abs(((r.azimut - az + 540) % 360) - 180) * Math.cos(h * Math.PI / 180), Math.abs(r.hauteur - h));
+    }
+    return pire;
+  });
+  ok("l'inverse de la projection rend le point du ciel sous les doigts", inverse < 0.01, `écart ${inverse}`);
+
+  /* Aucun geste du navigateur sur le plein écran : un pincement ou un double
+     toucher sur un bouton zoomait toute la page. */
+  await pg.locator("#ciBandeau").click();
+  await pg.waitForTimeout(600);
+  const gestes = await pg.evaluate(() => [getComputedStyle(document.getElementById("ciPleinEcran")).touchAction,
+    getComputedStyle(document.getElementById("ciPlus")).touchAction].join(","));
+  ok("le plein écran ne laisse au navigateur ni pincement ni double toucher", gestes === "none,manipulation", gestes);
+
+  /* Le voile des nuages se coupe, et le choix se garde. */
+  await pg.locator("#ciVoile").click();
+  await pg.waitForTimeout(150);
+  const voile = await pg.evaluate(() => ({ bouton: document.getElementById("ciVoile").getAttribute("aria-pressed"),
+    garde: JSON.parse(localStorage.getItem("mameteo.reglages.v1") || "{}").voileCiel }));
+  await pg.locator("#ciVoile").click();
+  ok("le voile des nuages se coupe d'un bouton et le choix se garde",
+    voile.bouton === "false" && voile.garde === false, JSON.stringify(voile));
+
+  /* Le pincement est adouci : un écart des doigts multiplié par trois divise
+     le champ par moins de trois. */
+  const pince = await pg.evaluate(async () => (await import("/src/vues/etoiles.js")).PINCE);
+  ok("le pincement est adouci", pince > 0.5 && pince < 1, String(pince));
+  await pg.locator("#ciFermer").click();
+
+  /* Le bandeau ne peint rien sous l'eau : une vue tournée vers le bas n'y
+     garde que l'eau. */
+  const bandeau = await pg.evaluate(async () => {
+    const V = await import("/src/voute.js");
+    const compte = sous => {
+      const cv = document.createElement("canvas");
+      cv.style.cssText = "position:fixed;left:0;top:0;width:390px;height:300px";
+      document.body.appendChild(cv);
+      V.peindre(cv, { az: 180, haut: -40, champ: 60 }, { lat: 47.5, lon: 4.3 }, { sousHorizon: sous, calme: true, cardinaux: false });
+      const d = cv.getContext("2d").getImageData(0, Math.round(cv.height * 0.6), cv.width, Math.round(cv.height * 0.35)).data;
+      cv.remove();
+      let n = 0;
+      for (let k = 0; k < d.length; k += 4) if (d[k] + d[k + 1] + d[k + 2] > 150) n++;
+      return n;
+    };
+    return { avec: compte(true), sans: compte(false) };
+  });
+  ok("le bandeau ne peint rien sous l'eau", bandeau.avec > 50 && bandeau.sans < bandeau.avec / 10, JSON.stringify(bandeau));
 };

@@ -316,6 +316,16 @@ for (const theme of ["light", "dark"]) {
     }
   }
 
+  /* TOUCHES tourne le regard du ciel plein écran au clavier, « ArrowUp*5 »
+     pour cinq crans vers le haut, plusieurs suites séparées par une virgule. */
+  if (process.env.TOUCHES) {
+    await pg.locator("#ciMoins").focus();
+    for (const t of process.env.TOUCHES.split(",")) {
+      const [cle, n] = t.split("*");
+      for (let k = 0; k < Number(n || 1); k++) await pg.keyboard.press(cle);
+    }
+    await pg.waitForTimeout(900);
+  }
   /* Le panneau des couches, ouvert pour la capture qui le montre. */
   if (process.env.PANNEAU) {
     await pg.locator("#caCouches").click();

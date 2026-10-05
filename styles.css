@@ -2228,7 +2228,12 @@ button.rangee:active{background:var(--surface-2)}
   margin:0;color:rgba(220,230,245,.8);font-size:var(--texte-note);
 }
 .ci-etat[hidden]{display:none}
-.ci-plein-ecran{position:fixed;inset:0;z-index:1000;background:#070a2c}
+/* Aucun geste du navigateur sur le plein écran, version 177 : un pincement
+   ou un double toucher sur un bouton zoomait toute la page dans Safari, vu
+   dans le simulateur le 6 octobre 2026. Le zoom est celui de la carte. */
+.ci-plein-ecran{position:fixed;inset:0;z-index:1000;background:#070a2c;touch-action:none}
+.ci-plein-ecran button,.ci-plein-ecran input{touch-action:manipulation}
+.ci-plein-ecran .ci-recherche ul{touch-action:pan-y}
 /* La lumière rouge, version 176 : tout le plein écran passe au rouge sombre,
    qui garde les yeux habitués à l'obscurité. */
 .ci-plein-ecran.ci-rouge{filter:grayscale(1) sepia(1) saturate(7) hue-rotate(-38deg) brightness(.62) contrast(1.1)}
@@ -2291,7 +2296,7 @@ button.rangee:active{background:var(--surface-2)}
   padding:6px 14px;border-radius:var(--rayon-plein);
   background:rgba(255,255,255,.14);color:#e6ecf5;font-size:13px;
 }
-.ci-fermer,.ci-cible .ci-bouton,.ci-curseur .ci-bouton{
+.ci-cible .ci-bouton,.ci-curseur .ci-bouton{
   min-height:44px;padding:0 14px;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
 }
 .ci-ligne .ci-choix{margin-right:auto}

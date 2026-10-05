@@ -578,6 +578,12 @@ export function geolocaliser() {
    la carte entière étant trop dense pour se lire. Le choix se garde d'une
    visite à l'autre et vaut pour le bandeau comme pour le plein écran. */
 export const AFFICHAGES_CIEL = ["visibles", "toutes", "constellations"];
+/* Le voile des nuages prévus sur la carte du ciel, version 177, demande de
+   Jérôme du 6 octobre 2026 : allumé au départ, il se coupe d'un bouton et le
+   choix se garde. */
+export const voileCiel = () => etat.voileCiel !== false;
+export function poserVoileCiel(v) { poser({ voileCiel: v === true }); }
+
 export const affichageCiel = () =>
   AFFICHAGES_CIEL.includes(etat.affichageCiel) ? etat.affichageCiel : "visibles";
 export function poserAffichageCiel(v) {
