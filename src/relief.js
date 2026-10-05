@@ -11,6 +11,8 @@
 
 const COTE = 320;
 const RAYON = 150;
+// Le bord du disque dans la toile, en part du demi-côté où la texture se pose.
+const BORD_DISQUE = (RAYON - 0.6) / (COTE / 2);
 
 /* ---------- La carte du disque visible ---------- */
 
@@ -210,8 +212,12 @@ function eclairer(angleI, angle, eclairee, clarte = 0) {
         const bord = Math.min(1, mu0 / 0.06);
         e = cendree + (1 - cendree) * Math.min(1, l * 2) * bord;
       }
-      // La part cendrée est plus froide que la part éclairée.
-      const froid = mu0 <= 0 ? 1.12 : 1;
+      /* La part cendrée est plus froide que la part éclairée. Le passage de
+         l'une à l'autre se fait sur une bande étroite autour du terminateur :
+         tranché net, il dessinait un escalier sur le disque agrandi du plein
+         ciel, version 173. */
+      const ombre = mu0 <= -0.03 ? 1 : mu0 >= 0.03 ? 0 : (0.03 - mu0) / 0.06;
+      const froid = 1 + 0.12 * ombre;
       out.data[k] = Math.min(255, src.data[k] * e);
       out.data[k + 1] = Math.min(255, src.data[k + 1] * e);
       out.data[k + 2] = Math.min(255, src.data[k + 2] * e * froid);
@@ -226,8 +232,8 @@ function eclairer(angleI, angle, eclairee, clarte = 0) {
          plancher d'opacité et l'éclaircissement de la part sombre suivent la
          clarté du ciel. */
       const garde = Math.max(0.42, Math.min(1, (e - 0.12) / 0.38));
-      if (clarte > 0.02 && mu0 <= 0) {
-        const p = 0.55 * clarte;
+      if (clarte > 0.02 && ombre > 0) {
+        const p = 0.55 * clarte * ombre;
         out.data[k] = out.data[k] * (1 - p) + 210 * p;
         out.data[k + 1] = out.data[k + 1] * (1 - p) + 216 * p;
         out.data[k + 2] = out.data[k + 2] * (1 - p) + 228 * p;
@@ -304,8 +310,17 @@ export function dessiner(cv, t) {
     x.restore();
   }
 
-  // 2. Le disque peint.
+  /* 2. Le disque peint. La texture fait 320 points pour un disque de 150 de
+        rayon : le bord du disque tombe à 150 / 160 du demi-côté. Agrandie
+        dans le plein ciel, version 173, elle montrait un bord en escalier.
+        Le disque se borne donc par un cercle lissé posé juste en dedans de
+        ce bord, et l'agrandissement se demande de la meilleure qualité. */
+  x.save();
+  x.beginPath(); x.arc(c, c, R * BORD_DISQUE, 0, Math.PI * 2); x.clip();
+  x.imageSmoothingEnabled = true;
+  x.imageSmoothingQuality = "high";
   x.drawImage(disque(angleI, angle, eclairee, clarte), c - R, c - R, R * 2, R * 2);
+  x.restore();
 
   // 3. Basse sur l'horizon, l'atmosphère la rougit, comme le Soleil.
   if (chaud > 0.02) {
