@@ -341,19 +341,41 @@ export default async T => {
     const bas = T.anime();
     window.scrollTo(0, 0); await attendre(500);
     const retour = T.anime();
-    const raf = window.requestAnimationFrame;
-    let n = 0;
-    window.requestAnimationFrame = f => { n++; return raf(f); };
-    await attendre(600); const avant = n; n = 0;
+    /* Le compte des images demandées dépendait de la vitesse de la machine :
+       le 5 octobre 2026, une machine de GitHub chargée en a compté 18 avant
+       et 30 après, sans aucune boucle doublée. La mesure compte désormais,
+       pour chaque fonction de boucle, combien de demandes sont en attente à
+       la fois : une boucle seule n'en a jamais plus d'une, une boucle doublée
+       en a deux, quelle que soit la cadence. */
+    const raf = window.requestAnimationFrame, caf = window.cancelAnimationFrame;
+    const enAttente = new Map(), parId = new Map();
+    let n = 0, pire = 0;
+    const moins = f => enAttente.set(f, enAttente.get(f) - 1);
+    window.requestAnimationFrame = f => {
+      n++;
+      const c = (enAttente.get(f) || 0) + 1;
+      enAttente.set(f, c);
+      pire = Math.max(pire, c);
+      const id = raf(t => { parId.delete(id); moins(f); f(t); });
+      parId.set(id, f);
+      return id;
+    };
+    // Une demande annulée n'est plus en attente : un nouveau rendu en annule.
+    window.cancelAnimationFrame = id => {
+      if (parId.has(id)) { moins(parId.get(id)); parId.delete(id); }
+      return caf(id);
+    };
+    await attendre(600); const avant = n; const pireAvant = pire; pire = 0;
     for (let k = 0; k < 3; k++) document.dispatchEvent(new Event("visibilitychange"));
-    await attendre(600); const apres = n;
+    await attendre(600); const apres = pire;
     window.requestAnimationFrame = raf;
-    return { haut, bas, retour, avant, apres };
+    window.cancelAnimationFrame = caf;
+    return { haut, bas, retour, avant, pireAvant, apres };
   });
   ok("le ciel animé s'arrête hors de l'écran et reprend à son retour",
     animeDit.haut && !animeDit.bas && animeDit.retour, JSON.stringify(animeDit));
   ok("un retour au premier plan ne lance pas de seconde boucle d'animation",
-    animeDit.avant > 0 && animeDit.apres < animeDit.avant * 1.5, JSON.stringify(animeDit));
+    animeDit.avant > 0 && animeDit.apres === 1, JSON.stringify(animeDit));
 
   /* Constat 5.8 : la série de secours écrite sur l'appareil ne garde que les
      trois colonnes qu'on relit. */
