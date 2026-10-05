@@ -1048,6 +1048,45 @@ case "$N" in
   337) # Le drapeau à zéro fait de nouveau taire toute pluie.
      perl -0pi -e 's/    dispo: p\.rain_product_available === 1 \|\| pas\.some\(x => estPluie\(x\.i\)\),/    dispo: p.rain_product_available === 1,/' src/pluieproche.js
      ATTENDU="une pluie annoncée se lit même sous un drapeau à zéro" ;;
+  338) # Le disque ne se reconnaît plus au toucher.
+     perl -0pi -e 's/<= rayon \* 1\.3\) \{/<= rayon * 0) {/' src/vues/plein-ciel.js
+     ATTENDU="un toucher sur le Soleil de l.écran Le ciel l.ouvre en plein ciel" ;;
+  339) # L'astre ouvert reste au milieu de l'écran.
+     perl -0pi -e 's/export const PART_VISIBLE = 0\.42;/export const PART_VISIBLE = 0.9;/' src/vues/plein-ciel.js
+     ATTENDU="l.astre ouvert est celui de l.application, grandi sur le bord gauche" ;;
+  340) # Les heures du Soleil ne se rangent plus dans l'ordre où elles se vivent.
+     perl -0pi -e 's/\]\.filter\(l => l\[2\]\)\.sort\(\(a, b\) => a\[2\] - b\[2\]\),/].filter(l => l[2]),/' src/vues/plein-ciel.js
+     ATTENDU="le plein ciel dit la hauteur, la journée et les heures du Soleil dans leur ordre" ;;
+  341) # L'heure dorée prend dix degrés.
+     perl -0pi -e 's/export const DOREE = 6;/export const DOREE = 10;/' src/vues/plein-ciel.js
+     ATTENDU="l.heure dorée et l.heure bleue tombent à leur hauteur" ;;
+  342) # La croix ne referme plus.
+     perl -0pi -e 's/  cadre\.querySelector\("\.pc-fermer"\)\.addEventListener\("click", ev => \{ ev\.stopPropagation\(\); fermer\(\); \}\);\n//' src/vues/plein-ciel.js
+     ATTENDU="la croix referme et rend le Soleil à sa place" ;;
+  343) # Le glissement vers le bas ne referme plus.
+     perl -0pi -e 's/if \(\(dy > 80 && dy > Math\.abs\(dx\)\) \|\| /if (/' src/vues/plein-ciel.js
+     ATTENDU="un glissement vers le bas referme" ;;
+  344) # Échap ne referme plus.
+     perl -0pi -e 's/window\.addEventListener\("keydown", ev => \{ if \(ev\.key === "Escape" && ouvert\) fermer\(\); \}\);//' src/vues/plein-ciel.js
+     ATTENDU="la touche Échap referme" ;;
+  345) # Tout le ciel ouvre le Soleil.
+     perl -0pi -e 's/<= rayon \* 1\.3\) \{/<= rayon * 100) {/' src/vues/plein-ciel.js
+     ATTENDU="un toucher dans le ciel loin de l.astre n.ouvre rien" ;;
+  346) # La vignette n'ouvre plus rien.
+     perl -0pi -e 's/  if \(vignette\) return \{ cv: vignette, sorte: vignette\.id === "ptLune" \? "lune" : "soleil" \};\n//' src/vues/plein-ciel.js
+     ATTENDU="la vignette de la sous-ligne ouvre aussi le Soleil" ;;
+  347) # Le bouton caché n'ouvre plus rien.
+     perl -0pi -e 's/  const bouton = cible\.closest\("\[data-plein-ciel\]"\);/  const bouton = null;/' src/vues/plein-ciel.js
+     ATTENDU="le bouton caché ouvre le Soleil au clavier" ;;
+  348) # Le ciel de l'accueil n'ouvre plus le Soleil.
+     perl -0pi -e 's/if \(!cv \|\| !cv\.closest\("#ecran"\)\) continue;/if (!cv || !cv.closest("#ecran") || cv.closest(".plein-accueil")) continue;/' src/vues/plein-ciel.js
+     ATTENDU="le Soleil du ciel de l.accueil s.ouvre aussi" ;;
+  349) # La Lune ouverte dit sa part éclairée en dixièmes.
+     perl -0pi -e 's/grand: `\$\{Math\.round\(ph\.eclairee \* 100\)\}`,/grand: `\${Math.round(ph.eclairee * 10)}`,/' src/vues/plein-ciel.js
+     ATTENDU="la Lune s.ouvre en plein ciel avec sa part éclairée, son passage et ses phases" ;;
+  350) # Le Soleil ouvert se dessine à pleine densité.
+     perl -0pi -e 's/ data-dpr-max="1\.5"//' src/vues/plein-ciel.js
+     ATTENDU="le Soleil ouvert se dessine à densité bornée" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

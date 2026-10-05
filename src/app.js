@@ -18,6 +18,7 @@ import { ico, icoTemps, icoCiel, tempsDe } from "./icones.js";
 import { conseils, conseilsHTML, titreJours, LIGNES_MAX, SEUILS } from "./conseils.js";
 import * as Ruban from "./ruban.js";
 import * as Feu from "./feu.js";
+import * as PleinCiel from "./vues/plein-ciel.js";
 import * as Relief from "./relief.js";
 import * as Temps from "./temps.js";
 /* Les écrans viennent chacun de son fichier. La carte et le ciel n'en font pas
@@ -1744,6 +1745,11 @@ function allerAuDetail(cle, heure = null) {
 }
 
 $("ecran").addEventListener("click", ev => {
+  /* Le Soleil ou la Lune touchés s'ouvrent en plein ciel, version 172. Le
+     disque se reconnaît à la distance du toucher à son centre ; un bouton
+     posé dessus passe devant. */
+  const astre = PleinCiel.astreTouche(ev);
+  if (astre) { PleinCiel.ouvrir(astre.cv, astre.sorte); return; }
   const f = ev.target.closest("[data-feuille]");
   if (f) { ouvrirFeuille(f.dataset.feuille); return; }
   if (ev.target.closest("[data-temps]")) { ouvrirLeTemps(); return; }

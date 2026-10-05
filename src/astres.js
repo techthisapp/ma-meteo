@@ -337,27 +337,48 @@ export function evenements(corps, date, lat, lon) {
   };
 }
 
+/* Les deux instants de la journée où le Soleil passe une hauteur donnée, le
+   matin en montant et le soir en descendant. Rend `null` pour un passage qui
+   n'a pas lieu. Sert aux crépuscules, et depuis la version 172 à l'heure dorée,
+   le Soleil à six degrés au-dessus de l'horizon, et à l'heure bleue, de quatre
+   à huit degrés au-dessous. */
+/* `fin` affine l'instant par dichotomie jusqu'à la seconde. Les crépuscules
+   gardent le milieu de l'intervalle de dix minutes, leur écriture n'ayant
+   jamais demandé mieux ; l'heure dorée l'affine, le Soleil y parcourant près
+   d'un degré en dix minutes. */
+export function passages(date, lat, lon, seuil, fin = false) {
+  const [jj0, jj1] = borneJour(date);
+  const pas = 10 / 1440;
+  const h = jj => horizon(soleil(enTT(jj)), jj, lat, lon).hauteur - seuil;
+  const affiner = (a, b) => {
+    if (!fin) return (a + b) / 2;
+    let ha = h(a);
+    for (let k = 0; k < 30 && b - a > 1 / 86400; k++) {
+      const m = (a + b) / 2, hm = h(m);
+      if ((ha < 0) === (hm < 0)) { a = m; ha = hm; } else b = m;
+    }
+    return (a + b) / 2;
+  };
+  let soir = null, matin = null;
+  let precJj = jj0, precH = h(jj0);
+  for (let jj = jj0 + pas; jj <= jj1 + 1e-9; jj += pas) {
+    const hh = h(jj);
+    if (precH >= 0 && hh < 0 && soir === null) soir = affiner(precJj, jj);
+    if (precH < 0 && hh >= 0 && matin === null) matin = affiner(precJj, jj);
+    precJj = jj; precH = hh;
+  }
+  return {
+    matin: matin === null ? null : dateDe(matin),
+    soir: soir === null ? null : dateDe(soir),
+  };
+}
+
 /* Heures des crépuscules : civil à six degrés sous l'horizon, nautique à douze,
    astronomique à dix-huit. Rend `null` quand le Soleil ne descend pas si bas. */
 export function crepuscules(date, lat, lon) {
-  const [jj0, jj1] = borneJour(date);
-  const pas = 10 / 1440;
   const out = {};
-
   for (const [nom, seuil] of [["civil", -6], ["nautique", -12], ["astronomique", -18]]) {
-    const h = jj => horizon(soleil(enTT(jj)), jj, lat, lon).hauteur - seuil;
-    let soir = null, matin = null;
-    let precJj = jj0, precH = h(jj0);
-    for (let jj = jj0 + pas; jj <= jj1 + 1e-9; jj += pas) {
-      const hh = h(jj);
-      if (precH >= 0 && hh < 0 && soir === null) soir = (precJj + jj) / 2;
-      if (precH < 0 && hh >= 0 && matin === null) matin = (precJj + jj) / 2;
-      precJj = jj; precH = hh;
-    }
-    out[nom] = {
-      matin: matin === null ? null : dateDe(matin),
-      soir: soir === null ? null : dateDe(soir),
-    };
+    out[nom] = passages(date, lat, lon, seuil);
   }
   return out;
 }

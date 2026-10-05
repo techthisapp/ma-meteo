@@ -330,7 +330,10 @@ export function vignette(cv, chaud = 0) {
    teinte tirée de la hauteur du Soleil. */
 export function dessiner(cv, t, chaud) {
   const cote = cv.clientWidth || 300;
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  /* Le plein ciel, version 172, pose une toile de près de mille points : sa
+     densité se borne par `data-dpr-max`, sans quoi chaque image coûterait
+     trois millions et demi de pixels. */
+  const dpr = Math.min(2, window.devicePixelRatio || 1, Number(cv.dataset.dprMax) || 2);
   const px = Math.round(cote * dpr);
   if (!px) return;
   if (cv.width !== px) { cv.width = px; cv.height = px; }

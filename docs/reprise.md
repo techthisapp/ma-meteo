@@ -22,7 +22,7 @@ application.
 
 ## État au 4 octobre 2026
 
-Version 171. Le projet est passé de claude.ai à Claude Code le 1er octobre
+Version 172. Le projet est passé de claude.ai à Claude Code le 1er octobre
 2026, à la version 118. Un audit complet de la version 120 a été mené le même
 jour, `docs/audit-2026-10-01.md`, avec le suivi de chaque lot en fin de
 document.
@@ -44,7 +44,8 @@ justesse des prévisions publiée, vers la fin octobre, quand soixante jours de
 relevés seront réunis. Le jalon 5, la 3D, est écarté pour le moment. Le jalon 22, la pluie dans l'heure
 reprise, ouvert le 4 octobre 2026 : livré en versions 168 à 170 : ruban sur
 trois heures, voisinage, pastille accordée au radar, seconde méthode par le
-déplacement des averses.
+déplacement des averses. Le jalon 23, le plein ciel du Soleil et
+de la Lune, est livré en version 172.
 
 ## Points ouverts
 

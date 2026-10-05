@@ -268,7 +268,8 @@ export function disque(angleI, angle, eclairee, clarte = 0) {
    pâleur du jour, qui la mange, et le rougissement près de l'horizon. */
 export function dessiner(cv, t) {
   const cote = cv.clientWidth || 300;
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  // La densité se borne pour le plein ciel, comme celle du Soleil.
+  const dpr = Math.min(2, window.devicePixelRatio || 1, Number(cv.dataset.dprMax) || 2);
   const px = Math.round(cote * dpr);
   if (!px) return;
   if (cv.width !== px) { cv.width = px; cv.height = px; }

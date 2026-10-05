@@ -293,6 +293,18 @@ for (const theme of ["light", "dark"]) {
     await pg.waitForTimeout(200);
   }
 
+  /* PLEINCIEL touche le disque du Soleil ou de la Lune en son centre et
+     attend la fin du passage en plein ciel, version 172. */
+  if (process.env.PLEINCIEL) {
+    await pg.waitForTimeout(800);
+    const id = process.env.PLEINCIEL === "lune" ? "#ciLune" : "#ciFeu";
+    const r = await pg.locator(id).boundingBox();
+    /* Le haut du disque : sur l'accueil, le grand chiffre peut couvrir son
+       centre, et un bouton passe devant l'astre. */
+    const rayon = r.width * (process.env.PLEINCIEL === "lune" ? 0.155 : 0.19);
+    await pg.mouse.click(r.x + r.width / 2, r.y + r.height / 2 - rayon * 0.7);
+    await pg.waitForTimeout(Number(process.env.ATTENTE || 1800));
+  }
   /* Un toucher avant la capture, sur l'élément que CLIQUER désigne : le ciel
      en plein écran s'ouvre ainsi, depuis son bandeau. */
   if (process.env.CLIQUER) {

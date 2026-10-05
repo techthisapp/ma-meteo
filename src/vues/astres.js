@@ -159,9 +159,12 @@ const SOUS_HORIZON = -6;
 
 export const soleilVu = hauteur => hauteur > SOUS_HORIZON;
 
+/* Chaque astre porte un bouton caché à l'œil, pour VoiceOver et le clavier :
+   le toucher du disque, lui, se reconnaît à sa distance au centre. */
 const corpsSoleil = c =>
   `<canvas class="ci-feu" id="ciFeu" data-chaud="${c.chaud.toFixed(3)}" `
-  + `role="img" aria-label="Le Soleil dans le ciel"></canvas>`;
+  + `role="img" aria-label="Le Soleil dans le ciel"></canvas>`
+  + `<button type="button" class="ci-ouvrir" data-plein-ciel="soleil">Ouvrir le Soleil en plein écran</button>`;
 
 const corpsLune = (c, ph, pl, maintenant, g) =>
   `<canvas class="ci-lune" id="ciLune" `
@@ -169,7 +172,8 @@ const corpsLune = (c, ph, pl, maintenant, g) =>
   + `data-angle="${Astres.angleLimbe(maintenant, g.lat, g.lon).toFixed(4)}" `
   + `data-eclairee="${ph.eclairee.toFixed(3)}" data-clarte="${c.clarte.toFixed(3)}" `
   + `data-chaud="${Math.max(0, Math.min(1, (12 - pl.hauteur) / 20)).toFixed(3)}" `
-  + `role="img" aria-label="La Lune dans le ciel"></canvas>`;
+  + `role="img" aria-label="La Lune dans le ciel"></canvas>`
+  + `<button type="button" class="ci-ouvrir" data-plein-ciel="lune">Ouvrir la Lune en plein écran</button>`;
 
 function bandeauCiel(g, maintenant, meridien) {
   const p = Astres.position("soleil", maintenant, g.lat, g.lon);
