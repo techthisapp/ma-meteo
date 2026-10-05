@@ -1162,6 +1162,9 @@ case "$N" in
   375) # Le bandeau peint de nouveau sous l'eau.
      perl -0pi -e 's/  const sousEau = options\.sousHorizon !== false;/  const sousEau = true;/' src/voute.js
      ATTENDU="le bandeau ne peint rien sous l.eau" ;;
+  376) # Le reflet de l'eau redevient une bande horizontale.
+     perl -0pi -e 's/      surface\.ligne\.forEach\(\(\[x, y\], i\) => \(i \? ctx\.lineTo\(x, y\) : ctx\.moveTo\(x, y\)\)\);/      ctx.moveTo(-10, surface.haut + 30); ctx.lineTo(1e4, surface.haut + 30);/' src/voute.js
+     ATTENDU="vers le zénith, le reflet de l.eau suit l.horizon sans faire de bande" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

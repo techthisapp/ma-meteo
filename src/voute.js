@@ -200,6 +200,7 @@ export function cote(point, ecranDe, pn, W, H, info = {}) {
   }
   if (pts.length < 3) return null;
   for (const [x, y] of pts) if (x > -W && x < 2 * W) info.haut = Math.min(info.haut ?? Infinity, y);
+  info.ligne = trou < 0 ? [...pts, pts[0]] : [...pts.slice(trou), ...pts.slice(0, trou)];
   const chemin = new Path2D();
   if (trou < 0) {
     pts.forEach(([x, y], i) => (i ? chemin.lineTo(x, y) : chemin.moveTo(x, y)));
@@ -452,15 +453,22 @@ export function peindre(cv, vue, g, options = {}) {
   const eau = cote(az => large(az, 0), ecranDe, pn, W, H, surface);
   const sol = cote(az => large(az, crete(az)), ecranDe, pn, W, H);
   if (eau) {
-    const debut = Math.max(0, Math.min(H, surface.haut));
-    const prof = ctx.createLinearGradient(0, debut, 0, Math.max(debut + 1, H));
-    prof.addColorStop(0, "rgba(14,22,72,.62)"); prof.addColorStop(0.35, "rgba(8,12,48,.78)"); prof.addColorStop(1, "rgba(4,6,26,.9)");
-    ctx.fillStyle = prof; ctx.fill(eau, "evenodd");
+    /* L'eau est d'un bleu uniforme, plus sombre que tout le ciel : en dégradé
+       vertical, elle passait plus claire que le haut du ciel quand l'horizon
+       entoure la vue, et faisait une bande en haut de l'écran vers le zénith,
+       vu dans le simulateur le 6 octobre 2026. */
+    ctx.fillStyle = "rgba(5,10,48,.78)"; ctx.fill(eau, "evenodd");
+    /* Le reflet suit la ligne d'horizon elle-même, en traits larges et pâles
+       coupés à l'eau : posé en bande horizontale, il dessinait une bande à
+       travers l'écran quand l'horizon entoure la vue. */
     ctx.save(); ctx.clip(eau, "evenodd");
-    const reflet = ctx.createLinearGradient(0, debut, 0, debut + 70);
-    reflet.addColorStop(0, `rgba(${Math.round(70 + 120 * lueur)},${Math.round(90 + 50 * lueur)},170,.22)`);
-    reflet.addColorStop(1, "rgba(60,80,160,0)");
-    ctx.fillStyle = reflet; ctx.fillRect(0, debut, W, 70);
+    ctx.lineJoin = "round"; ctx.lineCap = "round";
+    const teinte = `${Math.round(70 + 120 * lueur)},${Math.round(90 + 50 * lueur)},170`;
+    for (const [larg, a] of [[110, 0.02], [84, 0.025], [62, 0.03], [44, 0.035], [28, 0.04], [14, 0.045]]) {
+      ctx.beginPath();
+      surface.ligne.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+      ctx.strokeStyle = `rgba(${teinte},${a})`; ctx.lineWidth = larg; ctx.stroke();
+    }
     ctx.restore();
     if (sol) {
       /* La crête est la bande entre sa ligne et l'horizon. */

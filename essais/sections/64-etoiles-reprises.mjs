@@ -213,4 +213,25 @@ export default async T => {
     return { avec: compte(true), sans: compte(false) };
   });
   ok("le bandeau ne peint rien sous l'eau", bandeau.avec > 50 && bandeau.sans < bandeau.avec / 10, JSON.stringify(bandeau));
+
+  /* Vers le zénith, le reflet de l'eau suit le cercle de l'horizon : un peu
+     au-dessus du sommet du cercle, l'eau est plus claire au milieu, près du
+     cercle, que dans le coin, loin de lui. Posé en bande horizontale, le
+     reflet éclairait le coin autant que le milieu et dessinait une bande à
+     travers l'écran, vu dans le simulateur le 6 octobre 2026. */
+  const bande = await pg.evaluate(async () => {
+    const V = await import("/src/voute.js");
+    const cv = document.createElement("canvas");
+    cv.style.cssText = "position:fixed;left:0;top:0;width:390px;height:844px";
+    document.body.appendChild(cv);
+    V.peindre(cv, { az: 180, haut: 89, champ: 60, instant: new Date("2026-08-18T23:00:00+02:00") }, { lat: 47.5, lon: 4.3 }, { calme: true });
+    const x = cv.getContext("2d"), k = cv.width / 390;
+    const sommet = 844 / 2 + V.projeterLarge(0, 0, 180, 89, 60).y * 195;
+    const lum = (px, py) => { const d = x.getImageData(Math.round(px * k), Math.round(py * k), 1, 1).data; return d[0] + d[1] + d[2]; };
+    const y = sommet - 22;
+    cv.remove();
+    return { milieu: lum(195, y), coin: lum(6, y), sommet: Math.round(sommet) };
+  });
+  ok("vers le zénith, le reflet de l'eau suit l'horizon sans faire de bande",
+    bande.sommet > 40 && bande.milieu - bande.coin > 6, JSON.stringify(bande));
 };
