@@ -1090,6 +1090,60 @@ case "$N" in
   351) # Une Lune décroissante se pose à gauche, sa part éclairée hors de l'écran.
      perl -0pi -e 's/\(sorte === "lune" && \/décroissante\|Dernier\/\.test\(nomPhase\) \? "droite" : "gauche"\)/"gauche"/' src/vues/plein-ciel.js
      ATTENDU="une Lune décroissante se pose sur le bord droit" ;;
+  352) # Le pas de décalage d'un nom retombe à treize points.
+     perl -0pi -e 's/\? \[0, h, -h, 2 \* h\] : \[0, h, -h\]/? [0, 13, -13, 26] : [0, 13, -13]/' src/voute.js
+     ATTENDU="les noms se posent sans se chevaucher" ;;
+  353) # La Voie lactée perd la Grande Faille.
+     perl -0pi -e 's/const faille = \(l > 10 && l < 90\) \?/const faille = false ?/' src/voute.js
+     ATTENDU="la Voie lactée est plus dense vers le Sagittaire et creusée par la Grande Faille" ;;
+  354) # La visée ne dit plus « sous les pieds ».
+     perl -0pi -e 's/ : haut < -80 \? "Sous les pieds"//' src/vues/etoiles.js
+     ATTENDU="la visée se dit sous les pieds" ;;
+  355) # Le chemin confond la droite et la gauche.
+     perl -0pi -e 's/\(daz > 0 \? "à droite" : "à gauche"\)/(daz > 0 ? "à gauche" : "à droite")/' src/vues/etoiles.js
+     ATTENDU="le chemin vers une constellation se dit par sa direction et sa distance" ;;
+  356) # La recherche range les constellations sous l'horizon parmi les visibles.
+     perl -0pi -e 's/visibles: l\.filter\(x => x\.hauteur > 0\)/visibles: l.filter(x => x.hauteur > -90)/' src/vues/etoiles.js
+     ATTENDU="la recherche range les visibles par hauteur" ;;
+  357) # La recherche tient compte des accents.
+     perl -0pi -e 's/const sansAccent = t => t\.normalize\("NFD"\)\.replace\(\/\[\\u0300-\\u036f\]\/g, ""\)\.toLowerCase\(\);/const sansAccent = t => t.toLowerCase();/' src/vues/etoiles.js
+     ATTENDU="la recherche ignore les accents" ;;
+  358) # La nébulosité se lit à la mauvaise heure.
+     perl -0pi -e 's/const cle = cleHeure\(instant\);/const cle = cleHeure(new Date(instant.getTime() + 864e5 * 400));/' src/vues/etoiles.js
+     ATTENDU="la nébulosité prévue se lit à l.heure" ;;
+  359) # Le regard s'arrête de nouveau à cinq degrés.
+     perl -0pi -e 's/export const HAUT_MIN = -89,/export const HAUT_MIN = 5,/' src/vues/etoiles.js
+     ATTENDU="le regard descend jusque sous les pieds" ;;
+  360) # Le zoom ne dit plus le champ.
+     perl -0pi -e 's/const champ = performance\.now\(\) - champVu < 1500 \?/const champ = false ?/' src/vues/etoiles.js
+     ATTENDU="le zoom resserre le champ et le dit" ;;
+  361) # La recherche ne sépare plus les deux groupes.
+     perl -0pi -e 's/\+ \(cachees\.length \? `<li class="ci-groupe">Sous l.horizon, \$\{cachees\.length\}<\/li>` \+ cachees\.map\(ligne\)\.join\(""\) : ""\)/+ cachees.map(ligne).join("")/' src/vues/etoiles.js
+     ATTENDU="la recherche sépare les constellations visibles et celles sous l.horizon" ;;
+  362) # La flèche ne dit plus la direction.
+     perl -0pi -e 's/cibleNom\.textContent = `\$\{d\[0\]\}, \$\{c\.hauteur/cibleNom.textContent = `\${d[0]} est là\${c.hauteur/' src/vues/etoiles.js
+     ATTENDU="une constellation cherchée hors du champ se signale avec sa direction" ;;
+  363) # « Y aller » ne bouge plus le regard.
+     perl -0pi -e 's/vue\.az = a0 \+ ch\.daz \* e; vue\.haut = h0 \+ dh \* e;/vue.az = a0; vue.haut = h0;/' src/vues/etoiles.js
+     ATTENDU="« Y aller » amène le regard sur la constellation cherchée" ;;
+  364) # « Oublier » ne retire plus la recherche.
+     perl -0pi -e 's/vue\.cible = null; cibleBarre\.hidden = true; redessiner\(\);/redessiner();/' src/vues/etoiles.js
+     ATTENDU="« Oublier » retire la recherche" ;;
+  365) # La lumière rouge ne s'applique plus.
+     perl -0pi -e 's/fe\.classList\.toggle\("ci-rouge", on\);//' src/vues/etoiles.js
+     ATTENDU="la lumière rouge passe tout l.écran au rouge" ;;
+  366) # Le rail du curseur ne porte plus la nébulosité.
+     perl -0pi -e 's/const c = nuagesA\(instantDe\(Math\.round\(\(k \+ 0\.5\) \/ 40 \* pas\)\)\);/const c = null;/' src/vues/etoiles.js
+     ATTENDU="le rail du curseur porte la nébulosité de la nuit" ;;
+  367) # La lecture ne fait plus défiler la nuit.
+     perl -0pi -e 's/curseur\.value = String\(\(Number\(curseur\.value\) \+ 1\) % \(pas \+ 1\)\);/curseur.value = curseur.value;/' src/vues/etoiles.js
+     ATTENDU="la lecture fait défiler la nuit" ;;
+  368) # L'eau ne se peint plus sous l'horizon.
+     perl -0pi -e 's/    ctx\.fillStyle = prof; ctx\.fill\(eau\);\n//' src/voute.js
+     ATTENDU="sous l.horizon, une étendue d.eau laisse deviner les étoiles" ;;
+  369) # La voûte reprend la densité entière de l'écran.
+     perl -0pi -e 's/const dpr = Math\.min\(2, window\.devicePixelRatio \|\| 1\);/const dpr = window.devicePixelRatio || 1;/' src/voute.js
+     ATTENDU="toute toile plafonne sa densité à 2" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

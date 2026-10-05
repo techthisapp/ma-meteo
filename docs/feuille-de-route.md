@@ -965,15 +965,18 @@ Demande de Jérôme du 5 octobre 2026 : améliorer la vue des étoiles en plein
 sous l'horizon reste et s'améliore ; on vise sous ses pieds autant qu'au-dessus
 de sa tête ; les constellations sous l'eau sont nommées ; une recherche de
 constellation guide le regard par une flèche jusqu'à la trouver. Maquette
-interactive sur le vrai ciel de Fain, à valider.
+interactive sur le vrai ciel de Fain, reprise après les remarques de Jérôme
+du 5 octobre : Voie lactée plus belle, recherche en deux groupes, cible sans
+cercle, eau sans rides, étoiles plus réalistes d'après une capture fournie ;
+validée le 6 octobre, l'écran s'ouvrant sur les étoiles visibles.
 
 | Lot | Contenu | État |
 |---|---|---|
-| 1 | Lisibilité : noms placés sans chevauchement, étoiles brillantes nommées et auréolées, constellations nommées sous l'eau | à faire |
-| 2 | L'eau reprise : surface éclairée, rides qui avancent, graduation de l'horizon tous les quinze degrés, nadir et zénith atteignables et marqués | à faire |
-| 3 | Réalisme : Voie lactée calculée sur le plan galactique, fond qui s'éclaircit vers l'horizon et lueur du crépuscule, Lune à sa phase, scintillement près de l'horizon | à faire |
-| 4 | Gestes : pincement et boutons de zoom de 20 à 100 degrés, recherche d'une constellation avec flèche qui la vise, mode nuit rouge | à faire |
-| 5 | Météo : curseur teinté par la nébulosité prévue, nuages qui voilent la carte à l'heure choisie, lecture qui fait défiler la nuit | à faire |
+| 1 | Lisibilité : noms placés sans chevauchement, étoiles brillantes nommées et auréolées, constellations nommées sous l'eau | livré, version 176 |
+| 2 | L'eau reprise : eau calme sans rides, reflet sous l'horizon, crête en silhouette, graduation tous les quinze degrés, nadir et zénith atteignables et marqués | livré, version 176 |
+| 3 | Réalisme : fond bleu nuit, Voie lactée nuageuse calculée sur le plan galactique avec ses poussières, étoiles à halo et aigrettes, lueur du crépuscule, Lune à sa phase, scintillement près de l'horizon | livré, version 176 |
+| 4 | Gestes : pincement et boutons de zoom de 20 à 100 degrés, recherche en deux groupes avec flèche qui vise la constellation, lumière rouge | livré, version 176 |
+| 5 | Météo : curseur teinté par la nébulosité prévue, nuages qui voilent la carte à l'heure choisie, lecture qui fait défiler la nuit | livré, version 176 |
 | 6 | Viser le ciel avec le téléphone, boussole et inclinaison, autorisation demandée par iOS | à faire |
 
 ## Hors cadre
@@ -1199,3 +1202,4 @@ Les deux premières lignes se lèvent avec le même service dorsal minimal. Les 
 | 5 octobre 2026 | Version 173, jalon 23, lot 2 : la version 172 vérifiée dans le simulateur, sur Paris au coucher du soleil. Le Soleil s'ouvre, rougi du couchant, avec ses heures ; le glissement vers le bas le referme et le rend à sa place. Défaut vu : un dernier croissant, éclairé de son côté gauche, s'ouvrait sur le bord gauche et ne montrait que sa part sombre. Une Lune décroissante se pose désormais sur le bord droit, les informations à gauche, `cote` de `src/vues/plein-ciel.js`. Un contrôle nouveau, erreur volontaire 351 vue. Passe complète verte, 1149 contrôles |
 | 5 octobre 2026 | Version 174, jalon 23, lot 3 : la version 173 vérifiée dans le simulateur, le dernier croissant posé sur le bord droit, sa part éclairée visible. Défaut vu : agrandie, la Lune montrait un bord et un terminateur en escalier, sa texture de 320 points pour 150 de rayon étant doublée. `relief.js` borne désormais le disque par un cercle lissé posé juste en dedans du bord de la texture, demande un agrandissement de la meilleure qualité, et fait passer la teinte froide et la pâleur de jour de la part sombre sur une bande étroite autour du terminateur, au lieu de les trancher. Retouche vérifiée sur capture ; aucun contrôle nouveau, les contrôles de la Lune et du plein ciel passent. Passe complète verte, 1149 contrôles |
 | 5 octobre 2026 | Version 175, jalon 23, lot 3 repris : dans le simulateur, le bord de la Lune agrandie restait dentelé, le découpage par cercle du canevas n'étant pas lissé dans Safari. Le disque passe désormais par une toile intermédiaire à la taille de l'écran, `disqueLisse` de `src/relief.js`, agrandi de la meilleure qualité puis borné par un masque en dégradé qui descend à zéro sur un point et demi. Aucun contrôle nouveau ; ceux du ciel, de la Lune et du plein ciel passent. Passe complète verte, 1149 contrôles |
+| 6 octobre 2026 | Version 176, jalon 24, lots 1 à 5 : les étoiles en plein écran reprises d'après la maquette validée. La peinture quitte `src/vues/etoiles.js` pour un module nouveau, `src/voute.js`, partagé par le bandeau et le plein écran : fond bleu nuit, Voie lactée calculée sur le plan galactique avec un bruit fractal, ses filets de poussière et la Grande Faille, peinte au quart de la taille et gardée tant que la vue ne bouge pas ; étoiles à cœur blanc, halo de leur couleur et aigrettes pour les plus vives, nommées en jaune pâle ; constellations en capitales espacées, nommées aussi sous l'eau ; noms placés sans chevauchement ; eau calme sous une crête en silhouette. Le plein écran gagne la visée jusqu'au nadir, le zoom au pincement, à la molette et par boutons de 20 à 100 degrés, la recherche en deux groupes avec flèche et « Y aller », la constellation trouvée qui s'illumine, la lumière rouge, le rail du curseur teinté par la nébulosité prévue, les nuages à l'heure choisie et la lecture de la nuit. Défauts trouvés en route : un nom posé sous un autre le chevauchait d'un point et renonçait toujours ; le motif des nuages laissait des joints rectangulaires ; à l'ouverture de jour, la carte passait au début de la nuit au lieu de l'instant présent. Le contrôle de l'eau lit désormais un bleu dominant, l'eau étant indigo par décision, et celui de la densité lit `voute.js`. Seize contrôles nouveaux, deux adaptés, erreurs volontaires 352 à 369 vues. Passe complète verte, 1165 contrôles |

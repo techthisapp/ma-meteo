@@ -344,18 +344,17 @@ export default async T => {
         ? "" : `${r.width} sur ${r.height}`;
     }) === "");
 
-  /* L'eau se mesure au pixel sous l'horizon : sa teinte relève le vert au-dessus
-     du fond de la nuit, et les étoiles d'en dessous y font des taches plus
-     claires que l'eau de leur rangée. Les traits des figures, plus pâles, ne
-     passent pas ce seuil. */
-  ok("sous l'horizon, une étendue d'eau laisse deviner les étoiles",
-    await pgEt.evaluate(() => {
+  /* L'eau se mesure au pixel sous l'horizon : un bleu nuit, depuis la
+     version 176, où le bleu domine le rouge même sous la lueur du jour, et les étoiles d'en
+     dessous y font des taches plus claires que l'eau de leur rangée. Les
+     traits des figures, plus pâles, ne passent pas ce seuil. */
+  const eauPleinDit = await pgEt.evaluate(() => {
       const cv = document.getElementById("ciToilePE");
       if (!cv) return "pas de plein écran";
       const ctx = cv.getContext("2d");
       const y0 = Math.round(cv.height * 0.72), y1 = Math.round(cv.height * 0.88);
       const d = ctx.getImageData(0, y0, cv.width, y1 - y0).data;
-      let vert = 0, n = 0, clairs = 0;
+      let vert = 0, rouge = 0, n = 0, clairs = 0;
       for (let y = 0; y < y1 - y0; y++) {
         let base = Infinity;
         for (let x = 0; x < cv.width; x++) {
@@ -364,13 +363,14 @@ export default async T => {
         }
         for (let x = 0; x < cv.width; x++) {
           const i = (y * cv.width + x) * 4;
-          vert += d[i + 1]; n++;
+          vert += d[i + 2]; rouge += d[i]; n++;
           if (d[i] + d[i + 1] + d[i + 2] > base + 40) clairs++;
         }
       }
-      const vm = vert / n;
-      return vm > 30 && clairs > 20 ? "" : `vert moyen ${vm.toFixed(0)}, ${clairs} points clairs`;
-    }) === "");
+      const vm = vert / n, rm = rouge / n;
+      return vm > 30 && vm > rm * 1.3 && clairs > 20 ? "" : `bleu moyen ${vm.toFixed(0)}, rouge ${rm.toFixed(0)}, ${clairs} points clairs`;
+    });
+  ok("sous l'horizon, une étendue d'eau laisse deviner les étoiles", eauPleinDit === "", eauPleinDit);
 
   ok("le plein écran dit qu'il fait jour quand le Soleil efface les étoiles",
     await pgEt.evaluate(() => /Il fait jour/.test(document.getElementById("ciJour")?.textContent || "")));

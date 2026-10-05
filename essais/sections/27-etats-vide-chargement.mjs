@@ -294,7 +294,9 @@ export default async T => {
   });
   ok("les sources secondaires passent par le rendu regroupé", regroupeTexte.every(x => x.endsWith(":true")), regroupeTexte.join(" "));
   const densiteTexte = [];
-  for (const f of ["carte", "vent", "temps", "feu", "relief", "vues/etoiles", "vues/climat"]) {
+  /* La peinture des étoiles a quitté vues/etoiles.js pour voute.js en version
+     176. */
+  for (const f of ["carte", "vent", "temps", "feu", "relief", "voute", "vues/climat"]) {
     const t = await (await fetch(`${RACINE_HTTP}src/${f}.js`)).text();
     const usages = t.match(/[^\n]{0,30}devicePixelRatio/g) || [];
     densiteTexte.push(`${f}:${usages.length && usages.every(u => /Math\.min\(2, window\.devicePixelRatio/.test(u))}`);
