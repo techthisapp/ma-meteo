@@ -958,6 +958,24 @@ dessin existant de l'astre.
 | 2 | Vérification dans le simulateur ; une Lune décroissante se pose sur le bord droit | livré, version 173 |
 | 3 | La Lune agrandie sans escalier, au bord comme au terminateur | livré, versions 174 et 175 |
 
+## Jalon 24. Les étoiles en plein écran reprises
+
+Demande de Jérôme du 5 octobre 2026 : améliorer la vue des étoiles en plein
+écran. Toutes les propositions sont retenues et à planifier. Décisions : l'eau
+sous l'horizon reste et s'améliore ; on vise sous ses pieds autant qu'au-dessus
+de sa tête ; les constellations sous l'eau sont nommées ; une recherche de
+constellation guide le regard par une flèche jusqu'à la trouver. Maquette
+interactive sur le vrai ciel de Fain, à valider.
+
+| Lot | Contenu | État |
+|---|---|---|
+| 1 | Lisibilité : noms placés sans chevauchement, étoiles brillantes nommées et auréolées, constellations nommées sous l'eau | à faire |
+| 2 | L'eau reprise : surface éclairée, rides qui avancent, graduation de l'horizon tous les quinze degrés, nadir et zénith atteignables et marqués | à faire |
+| 3 | Réalisme : Voie lactée calculée sur le plan galactique, fond qui s'éclaircit vers l'horizon et lueur du crépuscule, Lune à sa phase, scintillement près de l'horizon | à faire |
+| 4 | Gestes : pincement et boutons de zoom de 20 à 100 degrés, recherche d'une constellation avec flèche qui la vise, mode nuit rouge | à faire |
+| 5 | Météo : curseur teinté par la nébulosité prévue, nuages qui voilent la carte à l'heure choisie, lecture qui fait défiler la nuit | à faire |
+| 6 | Viser le ciel avec le téléphone, boussole et inclinaison, autorisation demandée par iOS | à faire |
+
 ## Hors cadre
 
 | Fonction | Ce qu'elle exigerait |

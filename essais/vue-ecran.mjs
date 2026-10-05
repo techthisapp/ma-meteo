@@ -235,7 +235,7 @@ for (const theme of ["light", "dark"]) {
   /* Le soleil et la lune sont deux écrans de la destination Le ciel : la
      variable les nomme encore, la capture ouvre la destination puis choisit. */
   const voulu = process.env.ECRAN || "soleil";
-  const dansLeCiel = voulu === "soleil" || voulu === "lune";
+  const dansLeCiel = voulu === "soleil" || voulu === "lune" || voulu === "etoiles";
   await pg.locator(`[data-onglet="${dansLeCiel ? "ciel" : voulu}"]`).click();
   await pg.waitForTimeout(700);
   if (dansLeCiel) {
