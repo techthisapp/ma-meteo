@@ -2682,6 +2682,10 @@ button.rangee:active{background:var(--surface-2)}
   background:linear-gradient(90deg,rgba(8,26,52,0) 30%,rgba(8,26,52,.34) 100%);
   opacity:0;transition:opacity .75s}
 .pc-ouvert::after{opacity:1}
+/* L'astre posé à droite : le voile fonce le côté gauche, où sont les
+   informations. */
+.pc-droite::after{background:linear-gradient(270deg,rgba(8,26,52,0) 30%,rgba(8,26,52,.34) 100%)}
+.pc-droite .pc-infos{left:var(--marge);right:calc(var(--pc-visible, 42%) + 12px)}
 .pc-astre{position:absolute;transform:var(--pc-depart);transform-origin:50% 50%;
   transition:transform .85s cubic-bezier(.65,0,.25,1);will-change:transform}
 .pc-ouvert .pc-astre{transform:none}

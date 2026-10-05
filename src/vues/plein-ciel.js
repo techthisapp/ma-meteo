@@ -34,6 +34,14 @@ const PART = { soleil: Feu.RAYON, lune: 0.155, vignette: 0.47 };
 export const RAYON_PLEIN = 0.21;
 export const PART_VISIBLE = 0.42;
 
+/* Le bord où l'astre se pose. Le Soleil et une Lune croissante se posent à
+   gauche ; une Lune décroissante, éclairée de son côté gauche, se poserait à
+   gauche en ne montrant que sa part sombre : elle se pose à droite, les
+   informations passant à gauche. Vu dans le simulateur le 5 octobre 2026, un
+   dernier croissant ouvert sur le bord gauche. */
+export const cote = (sorte, nomPhase = "") =>
+  (sorte === "lune" && /décroissante|Dernier/.test(nomPhase) ? "droite" : "gauche");
+
 /* Les seuils de la lumière. L'heure dorée commence quand le Soleil descend
    sous six degrés ; l'heure bleue va de quatre à huit degrés sous l'horizon. */
 export const DOREE = 6;
@@ -258,8 +266,9 @@ export function ouvrir(source, sorte) {
   const x0 = rs.left + rs.width / 2, y0 = rs.top + rs.height / 2;
 
   const r1 = Math.min(H * RAYON_PLEIN, W * 0.55);
-  const x1 = W * PART_VISIBLE - r1, y1 = H * 0.5;
-  const cote = r1 / PART[sorte];
+  const droite = cote(sorte, sorte === "lune" ? Astres.phase(maintenant).nom : "") === "droite";
+  const x1 = droite ? W * (1 - PART_VISIBLE) + r1 : W * PART_VISIBLE - r1, y1 = H * 0.5;
+  const taille = r1 / PART[sorte];
 
   /* Le ciel du panneau qui porte l'astre, sans ses astres ni ses nuages. */
   const panneau = source.closest(".plein") && source.closest(".plein").querySelector(".ci");
@@ -273,7 +282,7 @@ export function ouvrir(source, sorte) {
   const debut = `inset(${Math.max(0, rp.top)}px ${Math.max(0, W - rp.right)}px ${Math.max(0, H - rp.bottom)}px ${Math.max(0, rp.left)}px)`;
 
   const cadre = document.createElement("div");
-  cadre.className = `pc pc-${sorte}`;
+  cadre.className = `pc pc-${sorte}${droite ? " pc-droite" : ""}`;
   cadre.setAttribute("role", "dialog");
   cadre.setAttribute("aria-modal", "true");
   cadre.setAttribute("aria-label", inf.nom);
@@ -285,8 +294,8 @@ export function ouvrir(source, sorte) {
   const donnees = Object.entries(modele.dataset)
     .map(([k, v]) => `data-${k.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`)}="${esc(v)}"`).join(" ");
   cadre.innerHTML = `<canvas class="pc-astre" ${donnees} data-dpr-max="1.5" aria-hidden="true" `
-    + `style="width:${cote.toFixed(1)}px;height:${cote.toFixed(1)}px;`
-    + `left:${(x1 - cote / 2).toFixed(1)}px;top:${(y1 - cote / 2).toFixed(1)}px;`
+    + `style="width:${taille.toFixed(1)}px;height:${taille.toFixed(1)}px;`
+    + `left:${(x1 - taille / 2).toFixed(1)}px;top:${(y1 - taille / 2).toFixed(1)}px;`
     + `--pc-depart:translate(${(x0 - x1).toFixed(1)}px, ${(y0 - y1).toFixed(1)}px) scale(${(r0 / r1).toFixed(4)})"></canvas>`
     + gabarit(inf, maintenant)
     + `<button type="button" class="pc-fermer" aria-label="Refermer">×</button>`

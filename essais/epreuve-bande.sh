@@ -1087,6 +1087,9 @@ case "$N" in
   350) # Le Soleil ouvert se dessine à pleine densité.
      perl -0pi -e 's/ data-dpr-max="1\.5"//' src/vues/plein-ciel.js
      ATTENDU="le Soleil ouvert se dessine à densité bornée" ;;
+  351) # Une Lune décroissante se pose à gauche, sa part éclairée hors de l'écran.
+     perl -0pi -e 's/\(sorte === "lune" && \/décroissante\|Dernier\/\.test\(nomPhase\) \? "droite" : "gauche"\)/"gauche"/' src/vues/plein-ciel.js
+     ATTENDU="une Lune décroissante se pose sur le bord droit" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

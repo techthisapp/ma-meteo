@@ -143,4 +143,17 @@ export default async T => {
     && l.lignes.includes("Passage au méridien") && l.duo.some(d => /pleine lune/.test(d)),
     l && `${l.grand} | ${l.sous} | ${l.lignes.join(", ")} | ${l.duo.join(" ; ")}`);
   if (l) await fermerParCroix();
+
+  /* Une Lune décroissante est éclairée de son côté gauche : posée sur le bord
+     gauche, elle ne montrerait que sa part sombre. Vu dans le simulateur le
+     5 octobre 2026. Elle se pose à droite, les informations à gauche. */
+  ok("une Lune décroissante se pose sur le bord droit",
+    await pg.evaluate(async () => {
+      const PC = await import("/src/vues/plein-ciel.js");
+      const attendu = [["soleil", "", "gauche"], ["lune", "Premier croissant", "gauche"],
+        ["lune", "Pleine lune", "gauche"], ["lune", "Gibbeuse décroissante", "droite"],
+        ["lune", "Dernier quartier", "droite"], ["lune", "Dernier croissant", "droite"]];
+      const faux = attendu.filter(([s, n, c]) => PC.cote(s, n) !== c);
+      return faux.map(f => f.join(" ")).join(", ");
+    }) === "");
 };
