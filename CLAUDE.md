@@ -98,7 +98,7 @@ installe Playwright 1.63.0, puis `npx playwright install chromium`.
 
 | Commande | Effet |
 |---|---|
-| `bash essais/passe.sh 8137` | La suite complète, sur une copie du dépôt dans `/tmp/passe-<port>` ; trois minutes, 1149 contrôles à la version 174 |
+| `bash essais/passe.sh 8137` | La suite complète, sur une copie du dépôt dans `/tmp/passe-<port>` ; trois minutes, 1149 contrôles à la version 175 |
 | `SECTIONS="carte,vent" bash essais/passe.sh 8137` | Les seules sections dont le titre ou le nom de fichier contient l'un des motifs |
 | `JUSQUA="La bande horaire" bash essais/passe.sh 8137` | La suite jusqu'à la fin d'une section |
 | `PARALLELE=1 CHRONO=1 bash essais/passe.sh 8137` | Une section à la fois, avec le temps de chacune ; trois passent côte à côte par défaut |
@@ -188,11 +188,11 @@ Les consignes détaillées du projet sont dans `docs/consignes/`.
 
 ## État au 4 octobre 2026
 
-Version 174, publiée depuis Claude Code. Jalons livrés : 1 à 4, 7 à 18, dont 14, la comparaison ; 15, les
+Version 175, publiée depuis Claude Code. Jalons livrés : 1 à 4, 7 à 18, dont 14, la comparaison ; 15, les
 plages ; 16, la neige ; 17, la semaine au plus loin ; 18, les couches de la
 carte et l'eau ; 19, la carte enrichie, livré
 en versions 140 à 153, repris en versions 154 et 155. Jalon 20, textes,
-accueil, ciel et heures, livré en versions 156 à 159. Jalon 21, le ruban repris, livré en versions 160 à 163. Jalon 22, la pluie dans l'heure reprise, livré en versions 168 à 170 : ruban sur trois heures, voisinage, seconde méthode par le déplacement des averses. Jalon 23, le plein ciel du Soleil et de la Lune, livré en versions 172 à 174. Jalons restants : 6, la justesse des prévisions publiée, vers
+accueil, ciel et heures, livré en versions 156 à 159. Jalon 21, le ruban repris, livré en versions 160 à 163. Jalon 22, la pluie dans l'heure reprise, livré en versions 168 à 170 : ruban sur trois heures, voisinage, seconde méthode par le déplacement des averses. Jalon 23, le plein ciel du Soleil et de la Lune, livré en versions 172 à 175. Jalons restants : 6, la justesse des prévisions publiée, vers
 la fin octobre ; 5, la 3D, écartée pour le moment.
 
 Points connus à reprendre :

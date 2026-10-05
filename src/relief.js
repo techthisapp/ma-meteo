@@ -270,6 +270,31 @@ export function disque(angleI, angle, eclairee, clarte = 0) {
 
 /* ---------- Dessin ---------- */
 
+/* La toile intermédiaire du disque lissé, gardée d'une image à l'autre. Le
+   masque descend à zéro sur un point et demi d'écran au bord du disque. */
+let lisse = null;
+function disqueLisse(tex, R, dpr) {
+  const n = Math.max(2, Math.round(R * 2 * dpr));
+  if (!lisse) lisse = document.createElement("canvas");
+  if (lisse.width !== n) { lisse.width = n; lisse.height = n; }
+  const y = lisse.getContext("2d");
+  y.globalCompositeOperation = "source-over";
+  y.clearRect(0, 0, n, n);
+  y.imageSmoothingEnabled = true;
+  y.imageSmoothingQuality = "high";
+  y.drawImage(tex, 0, 0, n, n);
+  const r = (n / 2) * BORD_DISQUE;
+  const flou = 1.5 * dpr;
+  const g = y.createRadialGradient(n / 2, n / 2, Math.max(0, r - flou), n / 2, n / 2, r);
+  g.addColorStop(0, "rgba(0,0,0,1)");
+  g.addColorStop(1, "rgba(0,0,0,0)");
+  y.globalCompositeOperation = "destination-in";
+  y.fillStyle = g;
+  y.fillRect(0, 0, n, n);
+  y.globalCompositeOperation = "source-over";
+  return lisse;
+}
+
 /* La Lune ne bouillonne pas. Ce qui vit ici, c'est le halo, qui respire, la
    pâleur du jour, qui la mange, et le rougissement près de l'horizon. */
 export function dessiner(cv, t) {
@@ -313,14 +338,11 @@ export function dessiner(cv, t) {
   /* 2. Le disque peint. La texture fait 320 points pour un disque de 150 de
         rayon : le bord du disque tombe à 150 / 160 du demi-côté. Agrandie
         dans le plein ciel, version 173, elle montrait un bord en escalier.
-        Le disque se borne donc par un cercle lissé posé juste en dedans de
-        ce bord, et l'agrandissement se demande de la meilleure qualité. */
-  x.save();
-  x.beginPath(); x.arc(c, c, R * BORD_DISQUE, 0, Math.PI * 2); x.clip();
-  x.imageSmoothingEnabled = true;
-  x.imageSmoothingQuality = "high";
-  x.drawImage(disque(angleI, angle, eclairee, clarte), c - R, c - R, R * 2, R * 2);
-  x.restore();
+        Le disque passe donc par une toile intermédiaire à la taille de
+        l'écran, agrandi de la meilleure qualité, puis borné par un masque en
+        dégradé posé juste en dedans de ce bord : un découpage par cercle
+        n'est pas lissé dans Safari, vu dans le simulateur. */
+  x.drawImage(disqueLisse(disque(angleI, angle, eclairee, clarte), R, dpr), c - R, c - R, R * 2, R * 2);
 
   // 3. Basse sur l'horizon, l'atmosphère la rougit, comme le Soleil.
   if (chaud > 0.02) {
