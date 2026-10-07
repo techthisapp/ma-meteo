@@ -6,6 +6,7 @@ import { esc } from "../horloge.js";
 import { ico, teinteT, couleurT, teinteUV, satUV, clarteUV, couleurUV, teinteAQI, couleurAQI } from "../icones.js";
 import * as Reglages from "../reglages.js";
 import * as Villes from "../villes.js";
+import { pasDe } from "../passe.js";
 
 /* Une rampe de nappe à partir d'arrêts `[valeur, teinte]` : la teinte en
    degrés de roue pour la toile, la couleur écrite pour la légende. Hors de
@@ -95,21 +96,25 @@ export const NAPPES_CARTE = [
     { parHeure: true }),
   enFamille("eau", "pluie24", "caPluie24", "Pluie sur 24 h", "Pluie 24 h", "goutte", "cumul prévu", "pluie24", R_PLUIE,
     [0.3, 3, 10, 25, 50], " mm"),
-  /* La pluie tombée, version 179 : `src/pluie-passee.js`. Une échelle plus
-     haute que la pluie prévue sur 24 h, le cumul couvrant deux et trois
-     jours. */
-  { ...enFamille("eau", "pluie48", "caPluie48", "Pluie des 48 h passées", "48 h passées", "goutte", "estimée",
-    "pluie48", R_PLUIE, [0.5, 5, 15, 40, 80], " mm"), source: "passee" },
-  { ...enFamille("eau", "pluie72", "caPluie72", "Pluie des 72 h passées", "72 h passées", "goutte", "estimée",
-    "pluie72", R_PLUIE, [0.5, 5, 20, 50, 100], " mm"), source: "passee" },
+  /* La pluie tombée, version 179, et les autres nappes du passé, version
+     180 : `src/passe.js`. Leur période se choisit au curseur de la légende,
+     et `reglerPasse` récrit nom, échelle et teinte à chaque pas. */
+  { cle: "pluiepassee", famille: "eau", id: "caPluiePassee", nom: "Pluie tombée", tuile: "Pluie passée", ico: "goutte",
+    source: "passee", periode: true, unite: " mm" },
   enFamille("neige", "neige24", "caNeige24", "Neige sur 24 h", "Neige 24 h", "neige", "cumul prévu", "neige24", R_NEIGE,
     [0.2, 2, 10, 25, 50], " cm"),
+  { cle: "neigepassee", famille: "neige", id: "caNeigePassee", nom: "Neige tombée", tuile: "Neige passée", ico: "neige",
+    source: "passee", periode: true, unite: " cm" },
   enFamille("neige", "limite", "caLimite", "Limite pluie-neige", "Limite neige", "neige", "au plus bas sur 24 h", "limite", R_LIMITE,
     [0, 600, 1200, 2500, 3500], " m"),
+  { cle: "rafalespassees", famille: "vent", id: "caRafalesPassees", nom: "Plus fortes rafales", tuile: "Rafales passées",
+    ico: "vent", source: "passee", periode: true, unite: " km/h" },
   enFamille("vent", "pression", "caPression", "Pression", null, "jauge", "maintenant", "pression", R_PRESSION,
     [985, 1000, 1013, 1025, 1040], " hPa", { isolignes: { pas: 4, base: 1012 }, parHeure: true }),
   enFamille("temp", "gel", "caGel", "Gel de la nuit", "Gel nuit", "thermo", "minimum de 18 h à 10 h", "gel", R_GEL,
     [-10, -4, 0, 4, 10], "°", { isolignes: { niveaux: [0] } }),
+  { cle: "temppassee", famille: "temp", id: "caTempPassee", nom: "Plus haute température", tuile: "Extrêmes",
+    ico: "thermo", source: "passee", periode: true, unite: "°" },
   enFamille("ciel", "cielnuit", "caCielNuit", "Ciel de la nuit", "Ciel nuit", "lune", "couverture de 22 h à 2 h", "cielNuit", R_CIEL,
     [0, 25, 50, 75, 100], " %"),
   enFamille("ciel", "brouillard", "caBrouillard", "Brouillard du matin", "Brouillard", "brume", "visibilité de 5 h à 10 h", "brouillard",
@@ -130,6 +135,48 @@ export const NAPPES_CARTE = [
     champ: "eauMer", source: "mer", mer: true, teinte: teinteT, sat: 0.54, clarte: 0.47,
     arrets: [12, 15, 18, 21, 24], unite: "°", couleur: couleurT },
 ];
+
+/* Les échelles des nappes du passé, par pas du curseur : un cumul de deux
+   mois ne se lit pas sur l'échelle d'une journée. Les teintes restent
+   celles de la pluie et de la neige prévues. */
+const ECHELLES_PASSE = {
+  pluie: { "24h": [0.5, 3, 10, 25, 50], "48h": [0.5, 5, 15, 40, 80], "72h": [0.5, 5, 20, 50, 100], "7j": [1, 10, 30, 70, 150],
+    "14j": [2, 15, 50, 100, 200], "30j": [5, 30, 80, 150, 300], "60j": [10, 50, 150, 300, 500] },
+  neige: { "24h": [0.2, 2, 10, 25, 50], "48h": [0.5, 5, 15, 40, 80], "72h": [0.5, 5, 20, 50, 100], "7j": [1, 10, 30, 70, 150],
+    "14j": [1, 15, 50, 100, 200], "30j": [2, 20, 80, 150, 300], "60j": [2, 30, 100, 200, 400] },
+};
+const TEINTES_PLUIE = [195, 215, 240, 275, 310], TEINTES_NEIGE = [195, 210, 235, 265, 290];
+const R_RAFALES = rampe([[20, 170], [40, 110], [60, 50], [90, 15], [120, 320]]);
+const etagee = (a, teintes, o) => rampe(a.map((v, i) => [v, teintes[i]]), { seuil: a[0], ...o });
+
+/* Le pas et, pour les températures, l'extrême : nom, porte, champ, échelle et
+   teinte de la nappe. La nappe est récrite sur place, comme les autres
+   modules la lisent dans la table. */
+export function reglerPasse(n, pas, extreme = "chaud") {
+  if (!n || !n.periode) return n;
+  n.porte = pas.nom;
+  n.pas = pas.cle;
+  let r;
+  if (n.cle === "pluiepassee" || n.cle === "neigepassee") {
+    const pluie = n.cle === "pluiepassee";
+    n.champ = pluie ? "pluie" : "neige";
+    n.arrets = ECHELLES_PASSE[n.champ][pas.cle];
+    r = pluie ? etagee(n.arrets, TEINTES_PLUIE, { sat: 0.6, clarte: 0.5 }) : etagee(n.arrets, TEINTES_NEIGE, { sat: 0.45, clarte: 0.62 });
+  } else if (n.cle === "rafalespassees") {
+    n.champ = "rafales";
+    n.arrets = [20, 40, 60, 90, 120];
+    r = R_RAFALES;
+  } else {
+    n.champ = extreme;
+    n.nom = extreme === "froid" ? "Plus basse température" : "Plus haute température";
+    n.arrets = [-5, 5, 15, 25, 35];
+    r = { teinte: teinteT, couleur: couleurT, sat: 0.54, clarte: 0.47 };
+  }
+  Object.assign(n, { teinte: r.teinte, couleur: r.couleur, sat: r.sat, clarte: r.clarte });
+  return n;
+}
+
+for (const n of NAPPES_CARTE) reglerPasse(n, pasDe(Reglages.periodePasse()), Reglages.extremePasse());
 
 /* Le document de la carte : les deux toiles, les repères, les outils, le
    panneau des couches, les légendes et la chronologie. */
@@ -248,17 +295,33 @@ export const gabaritCarte = g => `<div class="ca-cadre">`
   + `<b class="ca-l-titre" id="caLegTitre"></b>`
   + `<i class="ca-rampe" id="caRampe"></i>`
   + `<div class="ca-graduations" id="caGrads"></div>`
+  /* Le curseur de la période, version 180, sous l'échelle des nappes du
+     passé ; le plus haut ou le plus bas pour les températures. */
+  + `<div class="ca-periode" id="caPeriode" hidden>`
+  + `<input type="range" id="caPerCurseur" min="0" max="6" step="1" aria-label="Période">`
+  + `<output id="caPerVal"></output>`
+  + `<span class="ca-extreme" id="caExtreme" hidden role="radiogroup" aria-label="Extrême">`
+  + `<button type="button" role="radio" data-extreme="chaud">Max</button>`
+  + `<button type="button" role="radio" data-extreme="froid">Min</button></span>`
+  + `</div>`
   + `</div>`
   + `<div class="ca-lv-ligne">`
   + `<div class="ca-legende ca-lv" id="caLegVent" hidden></div>`
   + `<div class="ca-legende ca-lv ca-lx" id="caLegFeux" hidden `
   + `aria-label="Foyers vus par satellite sur les deux derniers jours">`
-  + `<span class="ca-lv-r"><i class="ca-pastille-feu"></i>Foyers satellite, 48 h</span>`
+  + `<span class="ca-lv-r"><i class="ca-pastille-feu"></i><span id="caFeuxNom">Foyers satellite, 48 h</span></span>`
+  + `<span class="ca-lv-r"><i class="ca-pastille-brule"></i>Surfaces brûlées</span>`
   + `</div>`
   + `<div class="ca-legende ca-lv ca-lf" id="caLegFoudre" hidden `
   + `aria-label="Foudre des trente dernières minutes, du jaune pour un éclair au rouge sombre pour vingt et plus">`
   + `<span class="ca-lv-r"><i class="ca-rampe-foudre"></i>Foudre, 30 min</span>`
   + `</div>`
+  + `</div>`
+  /* La période des feux, version 180. */
+  + `<div class="ca-periode" id="caPerFeux" hidden>`
+  + `<span class="ca-per-nom">Feux</span>`
+  + `<input type="range" id="caPerFeuxCurseur" min="0" max="5" step="1" aria-label="Période des feux">`
+  + `<output id="caPerFeuxVal"></output>`
   + `</div></div></div>`
   /* Les sources ne s'affichent plus en permanence, version 140, demande de
      Jérôme : elles se lisent derrière un bouton, et en entier dans la carte

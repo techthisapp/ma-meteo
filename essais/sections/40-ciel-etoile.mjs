@@ -536,23 +536,24 @@ export default async T => {
   const joursFeux = () => [...new Set(etat.appelsFeux
     .map(u => decodeURIComponent((/[?&]time=([^&]+)/.exec(u) || [])[1] || "")))].sort();
 
-  ok("la couche demande deux jours, le jour même et la veille",
+  /* Depuis la version 180, la période se demande en une plage de dates. */
+  ok("la couche demande au départ deux jours, de la veille au jour même, en une plage",
     (() => {
       const j = joursFeux();
-      if (j.length !== 2) return false;
       const veille = new Date(FIGE - 86400000).toISOString().slice(0, 10);
-      return j[0] === veille && j[1] === FEUX_JOUR;
+      return j.length === 1 && j[0] === `${veille}/${FEUX_JOUR}`;
     })(), joursFeux().join(" "));
 
   /* La dimension de temps est obligatoire : sans elle le service rend l'année
      2020 et une image vide, ce qui fait croire qu'il ne sert rien. */
-  ok("chaque tuile porte sa date",
+  ok("chaque tuile porte sa période",
     etat.appelsFeux.length > 0
     && etat.appelsFeux.every(u => /[?&]time=\d{4}-\d\d-\d\d/.test(u)),
     etat.appelsFeux.find(u => !/[?&]time=/.test(u)) || "toutes datées");
 
-  ok("les tuiles se demandent en projection de Mercator",
-    etat.appelsFeux.every(u => /crs=EPSG:3857/.test(u) && /layers=viirs\.hs/.test(u)),
+  ok("les tuiles se demandent en projection de Mercator, foyers et surfaces brûlées",
+    etat.appelsFeux.every(u => /crs=EPSG:3857/.test(u) && /layers=(viirs\.hs|nrt\.ba)&/.test(u))
+    && etat.appelsFeux.some(u => /layers=nrt\.ba&/.test(u)) && etat.appelsFeux.some(u => /layers=viirs\.hs&/.test(u)),
     etat.appelsFeux[0] || "aucune tuile");
 
   ok("les foyers se posent sur la carte",
@@ -583,6 +584,26 @@ export default async T => {
       if (/incendie/i.test(t)) return "la légende promet un incendie";
       return "";
     }) === "");
+
+  /* Le curseur des feux, version 180 : trois mois demandés en une plage qui
+     finit le jour même, la légende et le réglage suivent, la boîte ne se
+     replie pas. */
+  etat.appelsFeux.length = 0;
+  await pgFx.locator("#caPerFeuxVal").click();
+  await pgFx.locator("#caPerFeuxCurseur").fill("4");
+  await pgFx.waitForTimeout(600);
+  const fx3 = await pgFx.evaluate(() => ({
+    nom: document.getElementById("caFeuxNom").textContent,
+    val: document.getElementById("caPerFeuxVal").textContent,
+    replie: document.getElementById("caLegendes").classList.contains("replie"),
+    garde: JSON.parse(localStorage.getItem("mameteo.reglages.v1") || "{}").periodefeux ?? null }));
+  ok("le curseur des feux demande trois mois en une plage, la légende suit et la période se garde",
+    (() => {
+      const debut = new Date(FIGE - 89 * 86400000).toISOString().slice(0, 10);
+      const j = joursFeux();
+      return j.length === 1 && j[0] === `${debut}/${FEUX_JOUR}` && fx3.nom === "Foyers satellite, 3 mois"
+        && fx3.val === "3 mois" && !fx3.replie && fx3.garde === "90j";
+    })(), `${joursFeux().join(" ")} ${JSON.stringify(fx3)}`);
 
   /* La mention est une attribution : elle doit se lire sur une couche colorée
      comme sur la carte nue. Le gris clair d'origine s'y perdait. La mesure porte

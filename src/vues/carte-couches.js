@@ -16,9 +16,9 @@ import * as NappeCarte from "../nappe.js";
 import * as Vent from "../vent.js";
 import * as Vig from "../vigilance.js";
 import * as Prevue from "../prevue.js";
-import * as PluiePassee from "../pluie-passee.js";
+import * as Passe from "../passe.js";
 import * as ZonesEau from "../zones-eau.js";
-import { NAPPES_CARTE } from "./carte-gabarit.js";
+import { NAPPES_CARTE, reglerPasse } from "./carte-gabarit.js";
 import { couchePluie } from "./carte-chronologie.js";
 
 /* ---------- Les couches ----------
@@ -41,7 +41,8 @@ export function brancherCouches(E) {
   /* Sur une heure prévue de la chronologie, la température se lit dans la
      grille prévue, à cette heure : lot 5c. */
   const grilleDe = n => (!n ? E.mesures : n.source === "air" ? E.mesuresAir
-    : n.source === "prevue" ? E.prevueVue : n.source === "passee" ? E.grillePassee
+    : n.source === "prevue" ? E.prevueVue
+      : n.source === "passee" ? (E.grillePassee && E.grillePassee.pas === n.pas ? E.grillePassee : null)
       : n.source === "pollens" ? E.grillePollens
       : n.source === "mer" ? E.grilleMer
         : n.parHeure && E.heurePrevue > 0 && E.prevueVue ? E.prevueVue : E.mesures);
@@ -209,7 +210,7 @@ export function brancherCouches(E) {
      qui se perdraient sous une averse. */
   const coucheFeux = (c, v, l, h) => {
     if (!E.feuxAllume) return 0;
-    return Feux.peindre(c, v, l, h, Date.now(), () => E.revoir());
+    return Feux.peindre(c, v, l, h, Date.now(), () => E.revoir(), Feux.pasDe(Reglages.periodeFeux()).jours);
   };
 
   /* La foudre, par-dessus la pluie : clairsemée, elle se lit sur toute
@@ -294,8 +295,27 @@ export function brancherCouches(E) {
   const lirePollens = () => lireGrille(NappeCarte.chargerPollens, "grillePollens",
     d => (d.pollens.some(v => v >= 1) ? "" : "Aucun pollen en saison sur la carte."));
   const lireMer = () => lireGrille(NappeCarte.chargerMer, "grilleMer");
-  /* La pluie tombée, version 179. */
-  const lirePassee = () => lireGrille(PluiePassee.charger, "grillePassee");
+  /* Le temps passé, versions 179 et 180. La grille porte le pas qu'elle
+     sert : un curseur glissé de deux mois à un jour pendant que les deux
+     mois se lisent ne doit pas voir la réponse longue arriver en dernier et
+     se peindre sous le nom du jour. */
+  const lirePassee = async () => {
+    const pas = Reglages.periodePasse();
+    if (E.grillePassee && E.grillePassee.pas === pas) { E.revoir(); return; }
+    if (Passe.parJours(pas) && !(E.grillePassee && Passe.parJours(E.grillePassee.pas))) E.dire("Lecture de la période en cours.");
+    try {
+      const d = await Passe.charger(pas);
+      if (!cv.isConnected || Reglages.periodePasse() !== pas) return;
+      if (!d) { E.dire("La nappe a besoin du réseau."); return; }
+      E.grillePassee = { ...d, pas };
+      E.dire("");
+      E.resumer();
+      E.revoir();
+    } catch {
+      if (cv.isConnected) E.dire("La nappe a besoin du réseau.");
+    }
+  };
+  E.lirePassee = lirePassee;
 
   const lireAir = async () => {
     try {
@@ -408,6 +428,46 @@ export function brancherCouches(E) {
       E.revoir();
     } catch { /* la carte se lit sans la foudre */ }
   };
+
+  /* Les curseurs de période, version 180, dans la boîte des légendes. Un
+     appui sur eux ne replie pas la boîte. */
+  const curseur = (id, valeurs, lire, poser, quand) => {
+    const el = bloc.querySelector(`#${id}`);
+    if (!el) return;
+    el.closest(".ca-periode").addEventListener("click", e => e.stopPropagation());
+    el.closest(".ca-periode").addEventListener("keydown", e => e.stopPropagation());
+    el.value = String(Math.max(0, valeurs.indexOf(lire())));
+    el.addEventListener("input", () => {
+      const v = valeurs[Number(el.value)];
+      if (!v || v === lire()) return;
+      poser(v);
+      quand();
+    });
+  };
+  const reglerChoisie = () => {
+    const pas = Passe.pasDe(Reglages.periodePasse());
+    for (const n of NAPPES_CARTE) reglerPasse(n, pas, Reglages.extremePasse());
+  };
+  curseur("caPerCurseur", Reglages.PERIODES_PASSE, Reglages.periodePasse, Reglages.poserPeriodePasse, () => {
+    reglerChoisie();
+    E.poserLegende();
+    E.mention();
+    if (NAPPES_CARTE.some(n => n.cle === E.choisie && n.periode)) lirePassee();
+  });
+  curseur("caPerFeuxCurseur", Reglages.PERIODES_FEUX, Reglages.periodeFeux, Reglages.poserPeriodeFeux, () => {
+    E.poserLegende();
+    E.revoir();
+  });
+  for (const b of bloc.querySelectorAll("#caExtreme button")) {
+    b.addEventListener("click", e => {
+      e.stopPropagation();
+      Reglages.poserExtremePasse(b.dataset.extreme);
+      reglerChoisie();
+      E.poserLegende();
+      E.mention();
+      E.revoir();
+    });
+  }
 
   const feuxB = bloc.querySelector("#caFeux");
   feuxB.addEventListener("click", () => {

@@ -1165,21 +1165,57 @@ case "$N" in
   376) # Le reflet de l'eau redevient une bande horizontale.
      perl -0pi -e 's/      surface\.ligne\.forEach\(\(\[x, y\], i\) => \(i \? ctx\.lineTo\(x, y\) : ctx\.moveTo\(x, y\)\)\);/      ctx.moveTo(-10, surface.haut + 30); ctx.lineTo(1e4, surface.haut + 30);/' src/voute.js
      ATTENDU="vers le zénith, le reflet de l.eau suit l.horizon sans faire de bande" ;;
-  377) # Le cumul de 48 h prend les 48 premières heures au lieu des dernières.
-     perl -0pi -e 's/pluie48\[i\] = somme\(v\.slice\(-48\)\);/pluie48[i] = somme(v.slice(0, 48));/' src/pluie-passee.js
-     ATTENDU="les cumuls se font sur les 48 et les 72 dernières heures" ;;
+  377) # Les cumuls d'heures prennent les premières heures au lieu des dernières.
+     perl -0pi -e 's/x\[k\]\.slice\(-h\)/x[k].slice(0, h)/' src/passe.js
+     ATTENDU="les heures donnent cumuls, plus forte rafale et extrêmes" ;;
   378) # La pluie passée quitte la famille de l'eau.
-     perl -0pi -e 's/\{ \.\.\.enFamille\("eau", "pluie48"/{ ...enFamille("ciel", "pluie48"/' src/vues/carte-gabarit.js
-     ATTENDU="le panneau porte la pluie passée sur 48 et sur 72 heures, avec l.eau" ;;
+     perl -0pi -e 's/\{ cle: "pluiepassee", famille: "eau"/{ cle: "pluiepassee", famille: "ciel"/' src/vues/carte-gabarit.js
+     ATTENDU="le panneau porte la pluie, la neige, les rafales et les extrêmes passés" ;;
   379) # La nappe passée lit la grille prévue.
-     perl -0pi -e 's/n\.source === "passee" \? E\.grillePassee/n.source === "passee" ? E.prevueVue/' src/vues/carte-couches.js
-     ATTENDU="la pluie passée se lit d.une seule requête" ;;
-  380) # Changer de durée relit la grille.
-     perl -0pi -e 's/  if \(garde && t < garde\.exp\) return garde\.d;\n  let d = null;\n  try \{\n    const r = await \(fetcheur === chercher \? chercherEn\(20000\) : fetcheur\)\(adresse\(\)\);\n    if \(r\.ok\) d = lire/  let d = null;\n  try {\n    const r = await (fetcheur === chercher ? chercherEn(20000) : fetcheur)(adresse());\n    if (r.ok) d = lire/' src/pluie-passee.js
-     ATTENDU="passer de 48 à 72 heures ne relit pas la grille" ;;
+     perl -0pi -e 's/n\.source === "passee" \? \(E\.grillePassee && E\.grillePassee\.pas === n\.pas \? E\.grillePassee : null\)/n.source === "passee" ? E.prevueVue/' src/vues/carte-couches.js
+     ATTENDU="la pluie passée s.ouvre sur 48 heures" ;;
+  380) # Changer de période relit la grille.
+     perl -0pi -e 's/  if \(g && t < g\.exp\) return g\.p;\n//' src/passe.js
+     ATTENDU="le curseur passé à 72 heures relit la même grille sans requête" ;;
   381) # La rangée « Par-dessus » repasse à trois colonnes.
      perl -0pi -e 's/  display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\);gap:2px;/  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;/' styles.css
      ATTENDU="toutes les tuiles du panneau se voient d.un coup" ;;
+  382) # Les jours comptent le jour présent, à moitié prévu.
+     perl -0pi -e 's/x\[k\]\.slice\(0, -1\)\.slice\(-jours\)/x[k].slice(-jours)/' src/passe.js
+     ATTENDU="à une semaine, les jours se lisent d.une requête" ;;
+  383) # Une réponse longue arrivée en dernier prend la place de la période choisie.
+     perl -0pi -e 's/if \(!cv\.isConnected \|\| Reglages\.periodePasse\(\) !== pas\) return;/if (!cv.isConnected) return;/' src/vues/carte-couches.js
+     ATTENDU="un curseur glissé vite garde la dernière période choisie" ;;
+  384) # Un appui sur le curseur replie la légende.
+     perl -0pi -e 's/el\.closest\("\.ca-periode"\)\.addEventListener\("click", e => e\.stopPropagation\(\)\);//' src/vues/carte-couches.js
+     ATTENDU="le curseur passé à 72 heures relit la même grille sans requête et ne replie pas la légende" ;;
+  385) # Le choix du plus bas ne change pas le champ peint.
+     perl -0pi -e 's/n\.champ = extreme;/n.champ = "chaud";/' src/vues/carte-gabarit.js
+     ATTENDU="les extrêmes passent du plus haut au plus bas" ;;
+  386) # L'ancien choix de la pluie des 72 heures se perd.
+     perl -0pi -e 's/if \(ANCIENNES\[etat\.nappe\]\) etat/if (false) etat/' src/reglages.js
+     ATTENDU="la pluie des 72 heures choisie en version 179" ;;
+  387) # La grille lâche oublie le bord est.
+     perl -0pi -e 's/Math\.round\(k \* \(n - 1\) \/ \(m - 1\)\)/Math.min(2 * k, n - 2)/' src/passe.js
+     ATTENDU="les jours se lisent sur 110 points" ;;
+  388) # La plage des feux commence un jour trop tôt.
+     perl -0pi -e 's/jourDe\(fin - \(n - 1\) \* 86400000\)/jourDe(fin - n * 86400000)/' src/feux.js
+     ATTENDU="la couche demande au départ deux jours, de la veille au jour même" ;;
+  389) # Les surfaces brûlées ne se demandent plus.
+     perl -0pi -e 's/for \(const couche of \[BRULE, COUCHE\]\)/for (const couche of [COUCHE])/' src/feux.js
+     ATTENDU="les tuiles se demandent en projection de Mercator, foyers et surfaces brûlées" ;;
+  390) # Le curseur des feux ne règle pas la période peinte.
+     perl -0pi -e 's/Feux\.pasDe\(Reglages\.periodeFeux\(\)\)\.jours\);/2);/' src/vues/carte-couches.js
+     ATTENDU="le curseur des feux demande trois mois en une plage" ;;
+  391) # L'échelle reste celle d'une journée quelle que soit la période.
+     perl -0pi -e 's/n\.arrets = ECHELLES_PASSE\[n\.champ\]\[pas\.cle\];/n.arrets = ECHELLES_PASSE[n.champ]["24h"];/' src/vues/carte-gabarit.js
+     ATTENDU="à 30 jours, la même lecture des jours sert, l.échelle s.élargit" ;;
+  392) # La neige passée peint la pluie.
+     perl -0pi -e 's/n\.champ = pluie \? "pluie" : "neige";/n.champ = "pluie";/' src/vues/carte-gabarit.js
+     ATTENDU="la neige passée suit la même période" ;;
+  393) # La rafale passée devient une somme.
+     perl -0pi -e 's/g\.rafales\[i\] = plus\(de\("wind_gusts_10m"\)\);/g.rafales[i] = somme(de("wind_gusts_10m"));/' src/passe.js
+     ATTENDU="les heures donnent cumuls, plus forte rafale" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

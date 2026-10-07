@@ -522,7 +522,8 @@ export function vueReglages(ctx, rendre, majEtat) {
     ["Neige", "stations OpenSkiMap, © contributeurs OpenStreetMap, licence ODbL ; neige par Open-Meteo"],
     ["Durées de route", "serveur public de démonstration OSRM"],
     ["Communes", "interfaces adresse et découpage administratif de data.gouv.fr"],
-    ["Couches de la carte", "pluie RainViewer ; foudre et nuages EUMETSAT ; feux du système européen d'information sur les feux de forêt"],
+    ["Couches de la carte", "pluie RainViewer ; foudre et nuages EUMETSAT ; foyers et surfaces brûlées du système européen d'information sur les feux de forêt ; "
+      + "pluie, neige, rafales et températures passées estimées par Open-Meteo"],
     /* Le fond est embarqué : ces sources ne reçoivent rien, elles sont citées
        pour leurs licences. Jalon 19, lot 2. */
     ["Fond de la carte", "contours et cours d'eau de l'IGN, Natural Earth, relief d'après les altitudes Terrarium de Mapzen, "

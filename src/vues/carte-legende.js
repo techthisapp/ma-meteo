@@ -8,6 +8,7 @@ import * as Vent from "../vent.js";
 import * as NappeCarte from "../nappe.js";
 import { NAPPES_CARTE } from "./carte-gabarit.js";
 import * as Reglages from "../reglages.js";
+import * as Feux from "../feux.js";
 
 export function brancherLegende(E) {
   const { bloc, cv } = E;
@@ -100,6 +101,13 @@ export function brancherLegende(E) {
   const legVent = bloc.querySelector("#caLegVent");
   const legFoudre = bloc.querySelector("#caLegFoudre");
   const legFeux = bloc.querySelector("#caLegFeux");
+  const periode = bloc.querySelector("#caPeriode");
+  const perCurseur = bloc.querySelector("#caPerCurseur");
+  const perVal = bloc.querySelector("#caPerVal");
+  const extreme = bloc.querySelector("#caExtreme");
+  const perFeux = bloc.querySelector("#caPerFeux");
+  const perFeuxVal = bloc.querySelector("#caPerFeuxVal");
+  const feuxNom = bloc.querySelector("#caFeuxNom");
   /* La boîte des légendes se replie et se déplie d'un appui, version 155. */
   const boite = bloc.querySelector("#caLegendes");
   const plier = () => {
@@ -150,7 +158,28 @@ export function brancherLegende(E) {
     /* La force du vent se lit à la longueur des traînées et, depuis la
        version 140, à leur couleur. La légende montre trois traînées et les
        nomme, avec les mots de l'échelle du ruban. */
+    /* Le curseur de période des nappes du passé, version 180. */
+    periode.hidden = !(n && n.periode);
+    if (n && n.periode) {
+      perCurseur.value = String(Reglages.PERIODES_PASSE.indexOf(n.pas));
+      perCurseur.setAttribute("aria-valuetext", n.porte);
+      perVal.textContent = n.porte;
+      extreme.hidden = n.cle !== "temppassee";
+      for (const b of extreme.querySelectorAll("button")) {
+        b.setAttribute("aria-checked", b.dataset.extreme === Reglages.extremePasse() ? "true" : "false");
+      }
+    }
     legFeux.hidden = !E.feuxAllume;
+    perFeux.hidden = !E.feuxAllume;
+    if (E.feuxAllume) {
+      const pas = Feux.pasDe(Reglages.periodeFeux());
+      feuxNom.textContent = `Foyers satellite, ${pas.nom}`;
+      perFeuxVal.textContent = pas.nom;
+      legFeux.setAttribute("aria-label", `Foyers vus par satellite et surfaces brûlées, ${pas.nom}`);
+      const c = bloc.querySelector("#caPerFeuxCurseur");
+      c.value = String(Reglages.PERIODES_FEUX.indexOf(pas.cle));
+      c.setAttribute("aria-valuetext", pas.nom);
+    }
     legFoudre.hidden = !E.foudreAllume;
     legVent.hidden = !E.ventAllume;
     /* La boîte se cache quand elle n'a rien à dire. */

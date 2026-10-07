@@ -57,7 +57,9 @@ export default async T => {
 
   /* La légende réunie, version 155 : la nappe, le vent, la foudre et les feux
      dans une seule boîte basse ; un appui la replie en une pastille, le choix
-     se garde, un autre appui la déplie. */
+     se garde, un autre appui la déplie. Depuis la version 180, le curseur de
+     la période des feux y ajoute une ligne : la boîte ouverte tient en 130
+     points. */
   const [, q] = await ouvrirCarte({ ...FAIN, nappe: "temp", ventcarte: true, foudrecarte: true, feuxcarte: true,
     pluiecarte: false, vigicarte: false }, 0, { sansFond: true });
   await reposer(q, 1500);
@@ -75,7 +77,7 @@ export default async T => {
   await q.waitForTimeout(300);
   const rouverte = await boite();
   ok("les légendes tiennent dans une seule boîte basse, qu'un appui replie et déplie",
-    ouverte.boites === 1 && ouverte.vus === 4 && ouverte.haut <= 80 && !ouverte.replie
+    ouverte.boites === 1 && ouverte.vus === 4 && ouverte.haut <= 130 && !ouverte.replie
     && repliee.haut <= 32 && repliee.replie && rouverte.haut === ouverte.haut && !rouverte.replie,
     JSON.stringify({ ouverte, repliee, rouverte }));
 };

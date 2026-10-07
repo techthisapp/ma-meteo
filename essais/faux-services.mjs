@@ -542,7 +542,10 @@ export function prevueCorps(u) {
 /* La pluie tombée, version 179 : 72 heures passées en secondes Unix. De la
    pluie sur le sud-est, 0,5 mm par heure pendant les 48 dernières heures, et
    1 mm par heure sur la Bretagne pendant les 24 heures d'avant seulement : la
-   Bretagne a de la pluie sur 72 h et aucune sur 48 h. */
+   Bretagne a de la pluie sur 72 h et aucune sur 48 h. Version 180 : de la
+   neige sur les Alpes, 0,2 cm par heure les 24 dernières heures ; une rafale
+   de 95 km/h sur la Bretagne il y a 60 heures, 30 ailleurs ; une température
+   qui va de 10 à 33 degrés selon l'heure, plus fraîche au nord. */
 export function passeeCorps(u) {
   const q = new URL(u).searchParams;
   const lats = decodeURIComponent(q.get("latitude")).split(",").map(Number);
@@ -552,7 +555,33 @@ export function passeeCorps(u) {
   return lats.map((la, i) => {
     const lo = lons[i];
     return { latitude: la, longitude: lo, hourly: { time,
-      precipitation: time.map((_, k) => (la < 45 && lo > 4 && k >= 24 ? 0.5 : la > 47 && lo < -1 && k < 24 ? 1 : 0)) } };
+      precipitation: time.map((_, k) => (la < 45 && lo > 4 && k >= 24 ? 0.5 : la > 47 && lo < -1 && k < 24 ? 1 : 0)),
+      snowfall: time.map((_, k) => (la < 46.5 && lo > 5.5 && k >= 48 ? 0.2 : 0)),
+      wind_gusts_10m: time.map((_, k) => (la > 47 && lo < -1 && k === 12 ? 95 : 30)),
+      temperature_2m: time.map((_, k) => Math.round((10 + (k % 24) - (la - 41) * 0.5) * 10) / 10) } };
+  });
+}
+
+/* Les jours passés, version 180 : 61 jours, le dernier étant le jour
+   présent, sur la grille lâche. Le jour présent porte 100 mm partout, qu'une
+   lecture correcte laisse de côté ; le sud-est a 2 mm par jour sur la semaine
+   d'avant, la Bretagne 5 mm par jour du 8e au 30e jour avant. */
+export function passeeJoursCorps(u) {
+  const q = new URL(u).searchParams;
+  const lats = decodeURIComponent(q.get("latitude")).split(",").map(Number);
+  const lons = decodeURIComponent(q.get("longitude")).split(",").map(Number);
+  const t1 = Date.parse("2026-08-17T22:00:00Z") / 1000;
+  const time = Array.from({ length: 61 }, (_, k) => t1 - (60 - k) * 86400);
+  return lats.map((la, i) => {
+    const lo = lons[i];
+    const avant = k => 60 - k;
+    return { latitude: la, longitude: lo, daily: { time,
+      precipitation_sum: time.map((_, k) => (avant(k) === 0 ? 100
+        : la < 45 && lo > 4 && avant(k) <= 7 ? 2 : la > 47 && lo < -1 && avant(k) >= 8 && avant(k) <= 30 ? 5 : 0)),
+      snowfall_sum: time.map(() => 0),
+      wind_gusts_10m_max: time.map((_, k) => (avant(k) === 20 ? 110 : 40)),
+      temperature_2m_max: time.map((_, k) => (avant(k) === 0 ? 50 : 28)),
+      temperature_2m_min: time.map(() => 12) } };
   });
 }
 
@@ -783,7 +812,7 @@ export const brancherFauxServices = async (c, etat) => {
   /* L'ensemble se sert avant la prévision : son domaine porte le même nom à un
      préfixe près, et la route de la prévision le happerait. Playwright essaie la
      dernière route posée en premier, celle-ci vient donc après. */
-  await c.route(/api\.open-meteo\.com/, route => {
+  await c.route(/api\.open-meteo\.com/, async route => {
     const u = route.request().url();
     const d = JSON.parse(JSON.stringify(METEO));
     // Le classement des lieux : la colonne d'ensoleillement n'est demandée que là.
@@ -801,6 +830,12 @@ export const brancherFauxServices = async (c, etat) => {
        1,2 mm par heure ; de la neige sur les Alpes, 0,5 cm par heure ; du gel
        la nuit dans le nord-est ; une pression qui monte de 1000 hPa au sud à
        1026 au nord ; du brouillard au matin dans le centre-est. */
+    if (u.includes("past_days=60") && u.includes("daily=precipitation_sum")) {
+      etat.appelsPasseeJours.push(u);
+      if (etat.retardPasseeJours) await new Promise(r => setTimeout(r, etat.retardPasseeJours));
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(passeeJoursCorps(u)) });
+      return;
+    }
     if (u.includes("past_hours=72") && u.includes("hourly=precipitation")) {
       etat.appelsPassee.push(u);
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(passeeCorps(u)) });
@@ -1242,6 +1277,8 @@ export const nouvelEtat = () => ({
   appelsGeo: [],
   appelsPrevue: [],
   appelsPassee: [],
+  appelsPasseeJours: [],
+  retardPasseeJours: 0,
   appelsMer: [],
   appelsPollens: [],
   appelsZones: [],

@@ -1580,6 +1580,23 @@ button.rangee:active{background:var(--surface-2)}
   flex:none;width:10px;height:10px;border-radius:var(--rayon-plein);
   background:#e8442a;box-shadow:0 0 0 3px rgba(232,68,42,.22);
 }
+/* Les surfaces brûlées, en rouge cerné comme sur la légende du service. */
+.ca-lx .ca-pastille-brule{
+  flex:none;width:10px;height:10px;
+  background:#f05050;border:1px solid #a51c1c;
+}
+/* Les curseurs de période, version 180 : sous l'échelle d'une nappe du
+   passé, sur toute sa largeur, et sous les feux. La valeur se lit à droite. */
+.ca-periode{display:flex;align-items:center;gap:var(--espace-sm);cursor:default}
+.ca-periode[hidden]{display:none}
+#caLegende .ca-periode{grid-column:1 / -1;margin-top:2px}
+.ca-periode input[type=range]{flex:1;min-width:110px;height:28px;margin:0;accent-color:var(--accent, #3478f6)}
+.ca-periode output{min-width:56px;font-size:11px;font-weight:var(--graisse-medium);color:var(--etiquette)}
+.ca-per-nom{font-size:11px;color:var(--etiquette-2)}
+.ca-extreme{display:flex;border-radius:var(--rayon-plein);overflow:hidden;box-shadow:inset 0 0 0 1px var(--separateur, rgba(0,0,0,.15))}
+.ca-extreme[hidden]{display:none}
+.ca-extreme button{border:0;background:none;padding:4px 8px;font:inherit;font-size:11px;color:var(--etiquette-2);min-height:28px}
+.ca-extreme button[aria-checked=true]{background:var(--accent, #3478f6);color:#fff}
 .ca-lf .ca-rampe-foudre{
   flex:none;width:36px;height:6px;border-radius:var(--rayon-plein);
   background:linear-gradient(90deg,#fef9bd,#fdb14c,#f23a24,#b10126);

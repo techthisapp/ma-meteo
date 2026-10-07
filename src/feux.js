@@ -21,15 +21,28 @@
    Le piège de cette source, à connaître avant de la croire muette : la
    dimension de temps est obligatoire et sa valeur par défaut est le
    1er janvier 2020. Une tuile demandée sans date rend une image vide, ce qui
-   fait conclure à tort que le service ne sert rien. */
+   fait conclure à tort que le service ne sert rien.
+
+   La période, version 180, demande de Jérôme du 7 octobre 2026 : elle se
+   choisit au curseur, de 24 heures à un an, et se demande en une plage de
+   dates, `time=début/fin`, que le service accepte. Mesuré le 7 octobre 2026
+   sur la tuile de la France au zoom cinq : 5,6 kilooctets pour deux jours,
+   83 pour un an. Les surfaces brûlées de la même période, couche `nrt.ba`,
+   se posent sous les foyers : 0,8 kilooctet pour deux jours, 10 pour un an. */
 
 import { tuilesVues } from "./radar.js";
 
 export const CARTE = "https://maps.effis.emergency.copernicus.eu/gwis";
 export const COUCHE = "viirs.hs";
+export const BRULE = "nrt.ba";
 
-// Le nombre de jours posés l'un sur l'autre, du plus ancien au plus récent.
+// Les pas du curseur ; deux jours au départ, soit quatre passages.
 export const FENETRE = 2;
+export const PAS = [
+  { cle: "1j", jours: 1, nom: "24 h" }, { cle: "2j", jours: 2, nom: "48 h" }, { cle: "7j", jours: 7, nom: "7 jours" },
+  { cle: "30j", jours: 30, nom: "30 jours" }, { cle: "90j", jours: 90, nom: "3 mois" }, { cle: "1an", jours: 365, nom: "1 an" },
+];
+export const pasDe = cle => PAS.find(p => p.cle === cle) || PAS[1];
 
 export const TAILLE = 256;
 export const ZMAX_TUILE = 7;
@@ -50,24 +63,19 @@ export const jourDe = t => {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 };
 
-/* Les jours de la fenêtre, du plus ancien au plus récent : le tracé les pose
-   dans cet ordre et le jour même reste dessus. */
-export function jours(fin = Date.now(), n = FENETRE) {
-  const out = [];
-  for (let k = n - 1; k >= 0; k--) out.push(jourDe(fin - k * 86400000));
-  return out;
-}
+/* La plage de la période : du premier jour au jour même, bornes comprises. */
+export const plage = (fin = Date.now(), n = FENETRE) => `${jourDe(fin - (n - 1) * 86400000)}/${jourDe(fin)}`;
 
-export const adresse = (t, jour) =>
-  `${CARTE}?service=WMS&version=1.3.0&request=GetMap&layers=${COUCHE}`
+export const adresse = (t, temps, couche = COUCHE) =>
+  `${CARTE}?service=WMS&version=1.3.0&request=GetMap&layers=${couche}`
   + `&styles=&format=image/png&transparent=true&crs=EPSG:3857`
-  + `&bbox=${bornes(t)}&width=${TAILLE}&height=${TAILLE}&time=${jour}`;
+  + `&bbox=${bornes(t)}&width=${TAILLE}&height=${TAILLE}&time=${temps}`;
 
 const cache = new Map();
 export function oublier() { cache.clear(); }
 
-export function tuile(t, jour, surPret) {
-  const cle = adresse(t, jour);
+export function tuile(t, temps, surPret, couche = COUCHE) {
+  const cle = adresse(t, temps, couche);
   let e = cache.get(cle);
   if (e) {
     cache.delete(cle); cache.set(cle, e);
@@ -89,16 +97,16 @@ export function tuile(t, jour, surPret) {
 
 export const tuilesFeux = (vue, l, h) => tuilesVues(vue, l, h, ZMAX_TUILE);
 
-/* Le tracé : chaque tuile de la vue reçoit les jours de la fenêtre, du plus
-   ancien au plus récent. Une tuile absente ne peint rien. Rend le nombre de
+/* Le tracé : chaque tuile de la vue reçoit les surfaces brûlées puis les
+   foyers de la période. Une tuile absente ne peint rien. Rend le nombre de
    tuiles posées. */
-export function peindre(ctx, vue, l, h, fin, surPret) {
+export function peindre(ctx, vue, l, h, fin, surPret, n = FENETRE) {
   let posees = 0;
   ctx.imageSmoothingEnabled = true;
-  const liste = jours(fin || Date.now());
+  const temps = plage(fin || Date.now(), n);
   for (const t of tuilesFeux(vue, l, h)) {
-    for (const j of liste) {
-      const e = tuile(t, j, surPret);
+    for (const couche of [BRULE, COUCHE]) {
+      const e = tuile(t, temps, surPret, couche);
       if (!e.pret) continue;
       ctx.drawImage(e.img, t.px, t.py, t.cote + 0.5, t.cote + 0.5);
       posees++;

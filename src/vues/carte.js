@@ -167,7 +167,7 @@ export function vueCarte(ctx, rendre, majEtat) {
            pas : allumée par défaut, elle aurait fait paraître les rivières
            presque toujours. */
         fond: () => ({
-          rivieres: ["eau", "pluie24", "pluie48", "pluie72"].includes(E.choisie) || E.rivAllume === true,
+          rivieres: ["eau", "pluie24", "pluiepassee"].includes(E.choisie) || E.rivAllume === true,
           relief: ["neige24", "limite"].includes(E.choisie) || E.neigeAllume === true,
         }),
       });

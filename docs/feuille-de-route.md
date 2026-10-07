@@ -988,8 +988,19 @@ les feux sur trois mois.
 
 | Lot | Contenu | État |
 |---|---|---|
-| 1 | Pluie des 48 et des 72 heures passées, estimation du modèle, `src/pluie-passee.js` | livré, version 179 |
-| 2 | À choisir par Jérôme parmi les autres cumuls : feux et surfaces brûlées sur la saison, neige tombée, rafales les plus fortes, chaleur et froid des jours passés | à décider |
+| 1 | Pluie des 48 et des 72 heures passées, estimation du modèle | livré, version 179 |
+| 2 | Toutes les nappes du passé, période choisie au curseur dans la légende : pluie et neige tombées, plus fortes rafales, plus haute ou plus basse température, de 24 heures à 60 jours, `src/passe.js` ; feux et surfaces brûlées de 24 heures à un an | livré, version 180 |
+
+Pas retenus, demande de Jérôme du 7 octobre 2026 : « le pas à définir pour ne
+pas trop alourdir ». Nappes : 24, 48 et 72 heures lues heure par heure sur la
+grille entière, une requête ; 7, 14, 30 et 60 jours lus jour par jour sur une
+grille de 110 points étalée ensuite, une seconde requête qui ne part qu'à
+partir d'une semaine. Soixante jours sont le plus loin raisonnable : le
+service compte chaque point comme un appel et une requête de plus de deux
+semaines comme plusieurs, soit environ 470 appels pour 60 jours sur 110
+points, sur 10 000 par jour. Feux : 24 heures, 48 heures, 7 jours, 30 jours,
+3 mois et un an, en une plage de dates par tuile ; un an coûte 83 kilooctets
+par tuile au zoom cinq.
 
 ## Hors cadre
 
@@ -1219,3 +1230,4 @@ Les deux premières lignes se lèvent avec le même service dorsal minimal. Les 
 | 6 octobre 2026 | Version 178, jalon 24 : la version 177 vérifiée dans le simulateur. Le pincement reste dans la carte et garde sous les doigts le ciel pincé, la page ne zoome plus ; le voile se coupe et le ciel redevient net ; vers le zénith l'horizon est un cercle juste. Défaut vu : au-dessus de ce cercle, une bande claire traversait l'écran, l'eau en dégradé vertical passant plus claire que le haut du ciel et son reflet étant posé en bande horizontale. L'eau est désormais d'un bleu uniforme plus sombre que le ciel, et son reflet suit la ligne d'horizon en traits larges et pâles. Un contrôle nouveau, erreur volontaire 376 vue. Passe complète verte, 1172 contrôles |
 \n
 | 7 octobre 2026 | Version 179, jalon 25, lot 1 : deux nappes nouvelles dans la famille de l'eau, la pluie des 48 et des 72 heures passées. Une seule requête de 380 points à Open-Meteo, `past_hours=72`, une seule grandeur, gardée une heure en mémoire ; c'est une estimation du modèle, que la légende dit « estimée ». Les rivières se montrent dessous, comme pour la pluie sur 24 h. Défauts trouvés en route : l'intitulé long poussait l'échelle hors de la légende ; dans le panneau, la quatrième tuile de l'eau tombait sous le nom de la famille ; et le panneau débordait de 42 points sur un écran de 390. Les tuiles s'appellent « 48 h passées » et « 72 h passées », une famille de plus de trois tuiles passe à la ligne sous ses tuiles, et les couches posées par-dessus vont sur quatre colonnes. Le contrôle du panneau attend une ligne par groupe de trois tuiles. Quatre contrôles nouveaux, un adapté, erreurs volontaires 377 à 381 vues. Passe complète verte, 1176 contrôles |
+| 8 octobre 2026 | Version 180, jalon 25, lot 2 : toutes les nappes du passé, chacune avec sa période choisie au curseur dans la légende. Les deux nappes de la pluie passée deviennent une seule « Pluie passée » ; s'y ajoutent « Neige passée », « Rafales passées » et « Extrêmes », le plus haut ou le plus bas des températures au choix par deux boutons sous l'échelle. Un ancien choix de la pluie des 48 ou des 72 heures se reprend avec sa durée. L'échelle de la pluie et de la neige s'élargit avec la période. La couche des feux a son propre curseur, de 24 heures à un an, demande une plage de dates au lieu d'un jour par image, et pose dessous les surfaces brûlées de la même période. Défauts trouvés en route : la grille compte 21 colonnes et 20 rangs, non 20 et 19 comme l'écrivait un commentaire de `src/nappe.js`, et la première grille lâche manquait la dernière colonne ; une réponse longue arrivée après un curseur ramené à 24 heures prenait sa place, la grille porte désormais son pas. Quinze contrôles pour le temps passé, quatre pour les feux, erreurs volontaires 377 à 380 reprises et 382 à 393 vues. Le contrôle de la boîte des légendes admet 130 points au lieu de 80, pour la ligne du curseur des feux. Passe complète verte, 1186 contrôles |

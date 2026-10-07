@@ -21,8 +21,8 @@ import { POLLENS } from "./air.js";
 
 export const S = 41.0, N = 51.4, O = -5.6, E = 10.0;
 export const PAS_LAT = 0.55, PAS_LON = 0.80;
-export const COLS = Math.round((E - O) / PAS_LON) + 1;   // 20
-export const RANGS = Math.round((N - S) / PAS_LAT) + 1;  // 19
+export const COLS = Math.round((E - O) / PAS_LON) + 1;   // 21
+export const RANGS = Math.round((N - S) / PAS_LAT) + 1;  // 20
 
 const SERVICE = "https://api.open-meteo.com/v1/forecast";
 

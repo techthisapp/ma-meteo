@@ -365,8 +365,13 @@ export function poserCiel(e) {
 /* Les nappes de la grille prévue rejoignent la liste le 3 octobre 2026, jalon
    19, lot 5 : oubliées ici, elles se peignaient sans que le choix soit gardé
    d'une ouverture à l'autre. */
-export const NAPPES = ["temp", "uv", "air", "eau", "ventmoy", "rafales", "pluie24", "pluie48", "pluie72", "neige24", "limite", "pression",
-  "gel", "cielnuit", "brouillard", "pollens", "vagues", "eaumer"];
+/* Les nappes du passé, version 180 : la pluie des 48 et des 72 heures,
+   deux nappes de la version 179, deviennent une seule pluie tombée dont la
+   période se choisit au curseur. Un ancien choix se reprend avec sa durée. */
+export const NAPPES = ["temp", "uv", "air", "eau", "ventmoy", "rafales", "pluie24", "pluiepassee", "neige24", "limite", "pression",
+  "gel", "cielnuit", "brouillard", "pollens", "vagues", "eaumer", "neigepassee", "rafalespassees", "temppassee"];
+const ANCIENNES = { pluie48: ["pluiepassee", "48h"], pluie72: ["pluiepassee", "72h"] };
+if (ANCIENNES[etat.nappe]) etat = { ...etat, nappe: ANCIENNES[etat.nappe][0], periodepasse: ANCIENNES[etat.nappe][1] };
 export const nappe = () => (NAPPES.includes(etat.nappe) ? etat.nappe : null);
 export function poserNappe(v) { poser({ nappe: NAPPES.includes(v) ? v : null }); }
 
@@ -396,6 +401,18 @@ export function poserNuagescarte(v) { poser({ nuagescarte: v === true }); }
    de l'année, et la couche serait vide le reste du temps. */
 export const feuxcarte = () => etat.feuxcarte === true;
 export function poserFeuxcarte(v) { poser({ feuxcarte: v === true }); }
+
+/* Les périodes des couches du passé, version 180 : celle des nappes, le
+   plus haut ou le plus bas des températures, celle des feux. Une valeur
+   inconnue retombe sur la valeur par défaut. */
+export const PERIODES_PASSE = ["24h", "48h", "72h", "7j", "14j", "30j", "60j"];
+export const periodePasse = () => (PERIODES_PASSE.includes(etat.periodepasse) ? etat.periodepasse : "48h");
+export function poserPeriodePasse(v) { poser({ periodepasse: PERIODES_PASSE.includes(v) ? v : "48h" }); }
+export const extremePasse = () => (etat.extremepasse === "froid" ? "froid" : "chaud");
+export function poserExtremePasse(v) { poser({ extremepasse: v === "froid" ? "froid" : "chaud" }); }
+export const PERIODES_FEUX = ["1j", "2j", "7j", "30j", "90j", "1an"];
+export const periodeFeux = () => (PERIODES_FEUX.includes(etat.periodefeux) ? etat.periodefeux : "2j");
+export function poserPeriodeFeux(v) { poser({ periodefeux: PERIODES_FEUX.includes(v) ? v : "2j" }); }
 /* La légende de la carte repliée, version 155. */
 export const legendeRepliee = () => etat.legenderepliee === true;
 export function poserLegendeRepliee(v) { poser({ legenderepliee: v === true }); }
