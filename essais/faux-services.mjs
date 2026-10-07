@@ -539,6 +539,23 @@ export function prevueCorps(u) {
   });
 }
 
+/* La pluie tombée, version 179 : 72 heures passées en secondes Unix. De la
+   pluie sur le sud-est, 0,5 mm par heure pendant les 48 dernières heures, et
+   1 mm par heure sur la Bretagne pendant les 24 heures d'avant seulement : la
+   Bretagne a de la pluie sur 72 h et aucune sur 48 h. */
+export function passeeCorps(u) {
+  const q = new URL(u).searchParams;
+  const lats = decodeURIComponent(q.get("latitude")).split(",").map(Number);
+  const lons = decodeURIComponent(q.get("longitude")).split(",").map(Number);
+  const t1 = Date.parse("2026-08-18T07:00:00Z") / 1000;
+  const time = Array.from({ length: 72 }, (_, k) => t1 - (71 - k) * 3600);
+  return lats.map((la, i) => {
+    const lo = lons[i];
+    return { latitude: la, longitude: lo, hourly: { time,
+      precipitation: time.map((_, k) => (la < 45 && lo > 4 && k >= 24 ? 0.5 : la > 47 && lo < -1 && k < 24 ? 1 : 0)) } };
+  });
+}
+
 export function grilleCorps(u) {
   const q = new URL(u).searchParams;
   const lats = decodeURIComponent(q.get("latitude")).split(",").map(Number);
@@ -784,6 +801,11 @@ export const brancherFauxServices = async (c, etat) => {
        1,2 mm par heure ; de la neige sur les Alpes, 0,5 cm par heure ; du gel
        la nuit dans le nord-est ; une pression qui monte de 1000 hPa au sud à
        1026 au nord ; du brouillard au matin dans le centre-est. */
+    if (u.includes("past_hours=72") && u.includes("hourly=precipitation")) {
+      etat.appelsPassee.push(u);
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(passeeCorps(u)) });
+      return;
+    }
     if (u.includes("timeformat=unixtime") && u.includes("hourly=temperature_2m%2Cprecipitation%2Csnowfall")) {
       etat.appelsPrevue.push(u);
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(prevueCorps(u)) });
@@ -1219,6 +1241,7 @@ export const nouvelEtat = () => ({
   appelsPoint: [],
   appelsGeo: [],
   appelsPrevue: [],
+  appelsPassee: [],
   appelsMer: [],
   appelsPollens: [],
   appelsZones: [],

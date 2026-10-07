@@ -365,7 +365,7 @@ export function poserCiel(e) {
 /* Les nappes de la grille prévue rejoignent la liste le 3 octobre 2026, jalon
    19, lot 5 : oubliées ici, elles se peignaient sans que le choix soit gardé
    d'une ouverture à l'autre. */
-export const NAPPES = ["temp", "uv", "air", "eau", "ventmoy", "rafales", "pluie24", "neige24", "limite", "pression",
+export const NAPPES = ["temp", "uv", "air", "eau", "ventmoy", "rafales", "pluie24", "pluie48", "pluie72", "neige24", "limite", "pression",
   "gel", "cielnuit", "brouillard", "pollens", "vagues", "eaumer"];
 export const nappe = () => (NAPPES.includes(etat.nappe) ? etat.nappe : null);
 export function poserNappe(v) { poser({ nappe: NAPPES.includes(v) ? v : null }); }

@@ -95,6 +95,13 @@ export const NAPPES_CARTE = [
     { parHeure: true }),
   enFamille("eau", "pluie24", "caPluie24", "Pluie sur 24 h", "Pluie 24 h", "goutte", "cumul prévu", "pluie24", R_PLUIE,
     [0.3, 3, 10, 25, 50], " mm"),
+  /* La pluie tombée, version 179 : `src/pluie-passee.js`. Une échelle plus
+     haute que la pluie prévue sur 24 h, le cumul couvrant deux et trois
+     jours. */
+  { ...enFamille("eau", "pluie48", "caPluie48", "Pluie des 48 h passées", "48 h passées", "goutte", "estimée",
+    "pluie48", R_PLUIE, [0.5, 5, 15, 40, 80], " mm"), source: "passee" },
+  { ...enFamille("eau", "pluie72", "caPluie72", "Pluie des 72 h passées", "72 h passées", "goutte", "estimée",
+    "pluie72", R_PLUIE, [0.5, 5, 20, 50, 100], " mm"), source: "passee" },
   enFamille("neige", "neige24", "caNeige24", "Neige sur 24 h", "Neige 24 h", "neige", "cumul prévu", "neige24", R_NEIGE,
     [0.2, 2, 10, 25, 50], " cm"),
   enFamille("neige", "limite", "caLimite", "Limite pluie-neige", "Limite neige", "neige", "au plus bas sur 24 h", "limite", R_LIMITE,

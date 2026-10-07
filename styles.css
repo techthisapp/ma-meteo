@@ -1498,6 +1498,11 @@ button.rangee:active{background:var(--surface-2)}
 .ca-aucune[aria-checked="true"]{background:var(--accent);color:#fff}
 .ca-familles{display:flex;flex-direction:column;gap:2px}
 .ca-fam{display:grid;grid-template-columns:70px repeat(3,minmax(0,1fr));gap:2px;align-items:stretch}
+/* Une famille de plus de trois tuiles passe à la ligne sous les tuiles, non
+   sous son nom : la quatrième, la pluie passée sur 72 h depuis la version
+   179, tombait dans la colonne du nom. */
+.ca-fam > .ca-ch:nth-of-type(3n + 4){grid-column-start:2}
+.ca-fam:has(> .ca-ch:nth-of-type(4)) > .ca-fam-nom{grid-row:span 2}
 /* Le nom de la famille en petites lettres, coupé aux espaces seulement : en
    capitales, « Températures » se coupait en trois. */
 .ca-fam-nom{
@@ -1508,9 +1513,14 @@ button.rangee:active{background:var(--surface-2)}
 .ca-fam .ca-ch{min-height:50px;font-size:12px}
 /* Les tuiles passent à la ligne, de même largeur, la plus petite qui loge
    « Température » sans la couper. */
+/* Quatre colonnes pour les couches posées par-dessus, version 179 : avec la
+   pluie passée, une rangée de plus dans les nappes faisait déborder le
+   panneau de 42 points sur un écran de 390. Les noms passent en 12 points,
+   comme ceux des nappes. */
 .ca-grille{
-  display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:2px;
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;
 }
+.ca-grille .ca-ch{font-size:12px}
 .ca-ch{
   min-width:0;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;

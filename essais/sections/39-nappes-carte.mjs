@@ -66,8 +66,12 @@ export default async T => {
     }) && p.scrollHeight <= p.clientHeight + 1;
     /* Les nappes vont par familles depuis la version 154, une ligne chacune ;
        les superpositions gardent leur grille. */
-    const familles = [...p.querySelectorAll(".ca-fam")].map(f =>
-      new Set([...f.querySelectorAll(".ca-ch")].map(b => Math.round(b.getBoundingClientRect().top))).size);
+    /* Une ligne par groupe de trois tuiles : la famille de l'eau en porte
+       quatre depuis la version 179, la pluie passée sur 48 et 72 h. */
+    const familles = [...p.querySelectorAll(".ca-fam")].map(f => {
+      const t = [...f.querySelectorAll(".ca-ch")];
+      return new Set(t.map(b => Math.round(b.getBoundingClientRect().top))).size - Math.ceil(t.length / 3) + 1;
+    });
     const rangees = [...p.querySelectorAll(".ca-grille")].map(g => ({
       defile: g.scrollWidth > g.clientWidth + 1,
       tops: new Set([...g.querySelectorAll(".ca-ch")].map(b => Math.round(b.getBoundingClientRect().top))).size }));

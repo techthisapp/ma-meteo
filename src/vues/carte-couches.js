@@ -16,6 +16,7 @@ import * as NappeCarte from "../nappe.js";
 import * as Vent from "../vent.js";
 import * as Vig from "../vigilance.js";
 import * as Prevue from "../prevue.js";
+import * as PluiePassee from "../pluie-passee.js";
 import * as ZonesEau from "../zones-eau.js";
 import { NAPPES_CARTE } from "./carte-gabarit.js";
 import { couchePluie } from "./carte-chronologie.js";
@@ -40,7 +41,8 @@ export function brancherCouches(E) {
   /* Sur une heure prévue de la chronologie, la température se lit dans la
      grille prévue, à cette heure : lot 5c. */
   const grilleDe = n => (!n ? E.mesures : n.source === "air" ? E.mesuresAir
-    : n.source === "prevue" ? E.prevueVue : n.source === "pollens" ? E.grillePollens
+    : n.source === "prevue" ? E.prevueVue : n.source === "passee" ? E.grillePassee
+      : n.source === "pollens" ? E.grillePollens
       : n.source === "mer" ? E.grilleMer
         : n.parHeure && E.heurePrevue > 0 && E.prevueVue ? E.prevueVue : E.mesures);
   E.grilleDe = grilleDe;
@@ -292,6 +294,8 @@ export function brancherCouches(E) {
   const lirePollens = () => lireGrille(NappeCarte.chargerPollens, "grillePollens",
     d => (d.pollens.some(v => v >= 1) ? "" : "Aucun pollen en saison sur la carte."));
   const lireMer = () => lireGrille(NappeCarte.chargerMer, "grilleMer");
+  /* La pluie tombée, version 179. */
+  const lirePassee = () => lireGrille(PluiePassee.charger, "grillePassee");
 
   const lireAir = async () => {
     try {
@@ -344,6 +348,7 @@ export function brancherCouches(E) {
       else if (n.source === "prevue") lirePrevue();
       else if (n.source === "pollens") lirePollens();
       else if (n.source === "mer") lireMer();
+      else if (n.source === "passee") lirePassee();
       else lireMesures();
       return;
     }
@@ -455,6 +460,7 @@ export function brancherCouches(E) {
       if (auDepart && auDepart.source === "prevue") lirePrevue();
       if (auDepart && auDepart.source === "pollens") lirePollens();
       if (auDepart && auDepart.source === "mer") lireMer();
+      if (auDepart && auDepart.source === "passee") lirePassee();
       if (E.vigiAllume) lireVigi();
     },
   };

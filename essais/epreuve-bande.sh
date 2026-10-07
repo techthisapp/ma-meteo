@@ -1165,6 +1165,21 @@ case "$N" in
   376) # Le reflet de l'eau redevient une bande horizontale.
      perl -0pi -e 's/      surface\.ligne\.forEach\(\(\[x, y\], i\) => \(i \? ctx\.lineTo\(x, y\) : ctx\.moveTo\(x, y\)\)\);/      ctx.moveTo(-10, surface.haut + 30); ctx.lineTo(1e4, surface.haut + 30);/' src/voute.js
      ATTENDU="vers le zénith, le reflet de l.eau suit l.horizon sans faire de bande" ;;
+  377) # Le cumul de 48 h prend les 48 premières heures au lieu des dernières.
+     perl -0pi -e 's/pluie48\[i\] = somme\(v\.slice\(-48\)\);/pluie48[i] = somme(v.slice(0, 48));/' src/pluie-passee.js
+     ATTENDU="les cumuls se font sur les 48 et les 72 dernières heures" ;;
+  378) # La pluie passée quitte la famille de l'eau.
+     perl -0pi -e 's/\{ \.\.\.enFamille\("eau", "pluie48"/{ ...enFamille("ciel", "pluie48"/' src/vues/carte-gabarit.js
+     ATTENDU="le panneau porte la pluie passée sur 48 et sur 72 heures, avec l.eau" ;;
+  379) # La nappe passée lit la grille prévue.
+     perl -0pi -e 's/n\.source === "passee" \? E\.grillePassee/n.source === "passee" ? E.prevueVue/' src/vues/carte-couches.js
+     ATTENDU="la pluie passée se lit d.une seule requête" ;;
+  380) # Changer de durée relit la grille.
+     perl -0pi -e 's/  if \(garde && t < garde\.exp\) return garde\.d;\n  let d = null;\n  try \{\n    const r = await \(fetcheur === chercher \? chercherEn\(20000\) : fetcheur\)\(adresse\(\)\);\n    if \(r\.ok\) d = lire/  let d = null;\n  try {\n    const r = await (fetcheur === chercher ? chercherEn(20000) : fetcheur)(adresse());\n    if (r.ok) d = lire/' src/pluie-passee.js
+     ATTENDU="passer de 48 à 72 heures ne relit pas la grille" ;;
+  381) # La rangée « Par-dessus » repasse à trois colonnes.
+     perl -0pi -e 's/  display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\);gap:2px;/  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;/' styles.css
+     ATTENDU="toutes les tuiles du panneau se voient d.un coup" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

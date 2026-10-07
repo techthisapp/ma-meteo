@@ -309,7 +309,12 @@ export function peindreDepartements(cv, ctx, vue, l, h, teintes, style = {}) {
 const TRAME = 64;
 let tramePot = null;
 
+/* La dernière nappe peinte, pour les contrôles : ils lisent la valeur
+   qu'elle porte en un point, comme `derniersTraits` pour les isolignes. */
+export const derniereNappe = { valeurA: null };
+
 export function peindreNappe(ctx, vue, l, h, couche, style = {}) {
+  derniereNappe.valeurA = couche ? couche.valeurA : null;
   if (!couche) return 0;
   const { S, N, O, E, cols, valeurA, teinte } = couche;
   /* La saturation et la clarté sont un nombre pour la plupart des nappes, une
