@@ -1228,6 +1228,27 @@ case "$N" in
   397) # La couche des feux s'ouvre encore sur deux jours.
      perl -0pi -e 's/etat\.periodefeux : "7j"\);/etat.periodefeux : "2j");/' src/reglages.js
      ATTENDU="la couche demande au départ sept jours, jusqu.au jour même" ;;
+  398) # La suite ne demande que le choix automatique.
+     perl -0pi -e 's/&models=\$\{MODELES\.join\(","\)\}//' src/pluieproche.js
+     ATTENDU="la suite lit six modèles en une requête" ;;
+  399) # Un seul modèle suffit à dire la pluie.
+     perl -0pi -e 's/export const MAJORITE = 0\.5;/export const MAJORITE = 0.01;/' src/pluieproche.js
+     ATTENDU="une pluie qu.une minorité des modèles voit se marque possible" ;;
+  400) # La force prend le plus fort des modèles au lieu de la médiane.
+     perl -0pi -e 's/const taux = mediane\(mouilles\) \* parHeure;/const taux = Math.max(...mouilles) * parHeure;/' src/pluieproche.js
+     ATTENDU="la pluie se lit à la majorité des modèles" ;;
+  401) # L'encart tait l'accord des modèles.
+     perl -0pi -e 's/const dapres = ev\.total > 1 \?/const dapres = false ?/' src/pluieproche.js
+     ATTENDU="une pluie que la moitié des modèles voit se dit avec l.accord" ;;
+  402) # Une pluie de faible accord se peint pleine.
+     perl -0pi -e 's/poser\(radar \? "modele" : "eau", x\.i, de, a, part !== null && part < 0\.75\);/poser(radar ? "modele" : "eau", x.i, de, a, false);/' src/app.js
+     ATTENDU="une pluie que la moitié des modèles voit se dit avec l.accord et se peint plus pâle" ;;
+  403) # La pluie possible ne se marque pas.
+     perl -0pi -e 's/if \(!pluie\) \{ poser\("possible", 0, de, a\); return; \}/if (!pluie) return;/' src/app.js
+     ATTENDU="une pluie qu.une minorité des modèles voit se marque possible" ;;
+  404) # Un modèle sans valeur compte comme sec.
+     perl -0pi -e 's/const vals = colonnes\.map\(c => c\[k\]\)\.filter\(Number\.isFinite\);/const vals = colonnes.map(c => c[k] ?? 0);/' src/pluieproche.js
+     ATTENDU="la pluie se lit à la majorité des modèles" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

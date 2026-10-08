@@ -40,6 +40,7 @@ export default async T => {
           de: parseFloat(b.style.getPropertyValue("--de")),
           l: parseFloat(b.style.getPropertyValue("--l")),
           genre: b.dataset.genre, rang: Number(b.dataset.rang),
+          partiel: b.classList.contains("pp-partiel"),
         })),
         legende: [...e.querySelectorAll(".pp-leg")].map(x => x.textContent.trim()),
         zone: e.querySelector(".pp-zone")?.textContent.trim() || "",
@@ -159,8 +160,35 @@ export default async T => {
   const ppTard = await avecPluie("sec", null, "tard");
   ok("la pluie que le modèle voit plus tard se dit avec son heure et sa source",
     ppTard && ppTard.phrase === "Pluie faible vers 11 h" && ppTard.delai === "dans 2 h"
-    && ppTard.sous.startsWith("Pendant 30 minutes environ, d'après le modèle."),
+    && ppTard.sous.startsWith("Pendant 30 minutes environ, d'après 6 modèles sur 6."),
     ppTard && `${ppTard.phrase} | ${ppTard.delai} | ${ppTard.sous}`);
+
+  /* Plusieurs modèles, version 183 : la suite les lit en une seule requête,
+     et l'encart dit combien voient la pluie. */
+  const demande = new URL(etat.appelsRepli[etat.appelsRepli.length - 1] || "https://x/");
+  ok("la suite lit six modèles en une requête",
+    (demande.searchParams.get("models") || "") === "icon_seamless,meteofrance_arome_france_hd,meteofrance_arome_france,"
+      + "ukmo_seamless,knmi_seamless,dmi_seamless",
+    demande.searchParams.get("models") || "aucun modèle demandé");
+  etat.accordRepli = 3;
+  const ppMoitie = await avecPluie("sec", null, "tard");
+  etat.accordRepli = Infinity;
+  const moitie = ppMoitie ? ppMoitie.morceaux.filter(m => m.genre === "modele") : [];
+  ok("une pluie que la moitié des modèles voit se dit avec l'accord et se peint plus pâle",
+    ppMoitie && ppMoitie.phrase === "Pluie faible vers 11 h"
+    && ppMoitie.sous.startsWith("Pendant 30 minutes environ, d'après 3 modèles sur 6.")
+    && moitie.length === 1 && moitie[0].partiel && /d'après 3 modèles sur 6/.test(ppMoitie.lu),
+    ppMoitie && `${ppMoitie.sous} | ${JSON.stringify(moitie)} | ${ppMoitie.lu}`);
+  etat.accordRepli = 2;
+  const ppMinorite = await avecPluie("debut", null, "tard");
+  etat.accordRepli = Infinity;
+  const possible = ppMinorite ? ppMinorite.morceaux.filter(m => m.genre === "possible") : [];
+  ok("une pluie qu'une minorité des modèles voit se marque possible, sans être annoncée",
+    ppMinorite && ppMinorite.phrase === "Pluie modérée vers 09 h 20"
+    && !ppMinorite.morceaux.some(m => m.genre === "modele")
+    && possible.length === 1 && proche(possible[0].de, pc(120)) && proche(possible[0].l, pc(30))
+    && ppMinorite.legende.includes("possible"),
+    ppMinorite && `${JSON.stringify(ppMinorite.morceaux)} | ${ppMinorite.legende.join(" ")}`);
 
   /* Avec le radar, la part du modèle se distingue : plus pâle, nommée dans le
      ruban, passé un trait au bout de l'heure du radar, 10 h 10. */
@@ -401,6 +429,17 @@ export default async T => {
       const M = await import("/src/pluieproche.js");
       return [45, 60, 120, 135].map(M.delaiCourt).join("|");
     }) === "45 min|1 h|2 h|2 h 15");
+  /* La lecture des modèles, version 183 : la majorité décide de la pluie, la
+     médiane de ceux qui la voient de sa force, et un modèle sans valeur ne
+     compte pas. */
+  ok("la pluie se lit à la majorité des modèles, à la force médiane de ceux qui la voient",
+    await pgAcc.evaluate(async () => {
+      const M = await import("/src/pluieproche.js");
+      const l = M.lireRepli({ minutely_15: { time: ["2026-08-18T10:00", "2026-08-18T10:15", "2026-08-18T10:30"],
+        precipitation_a: [0.1, 0.3, null], precipitation_b: [0.5, 0, null], precipitation_c: [2.5, 0, null],
+        precipitation_d: [0, 0, null], precipitation_e: [0, 0, null], precipitation_f: [0, null, null] } });
+      return l.pas.map(x => `${x.i}:${x.accord}/${x.total}`).join(" ");
+    }) === "2:3/6 1:1/5 0:0/0");
   /* Le repli est un modèle : il ne corrige pas la série horaire. */
   ok("le repli n'accorde pas le rappel de parapluie",
     await pgAcc.evaluate(async () => {

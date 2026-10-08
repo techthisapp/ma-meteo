@@ -399,31 +399,37 @@ function panneauPluieProche() {
      font un seul trait. Le rang zéro, la valeur inconnue, se hachure ; le sec
      reste vide. La pluie des voisins se hachure en bleu, là seulement où le
      point est au sec. */
+  /* L'accord des modèles, version 183 : une pluie que la moitié à peine des
+     modèles voit se peint plus pâle, `partiel`, et une pluie qu'une minorité
+     voit se marque en pointillé, `possible`. Le radar n'a pas d'accord. */
+  const accordDe = x => (x.total > 1 ? x.accord / x.total : null);
   const morceaux = [];
-  const ajouter = (genre, rang, k) => {
-    const de = place(pas[k].t), a = place(k + 1 < n ? pas[k + 1].t : finHeure);
+  const poser = (genre, rang, de, a, partiel = false) => {
     if (a <= de) return;
     const der = morceaux[morceaux.length - 1];
-    if (der && der.genre === genre && der.rang === rang && Math.abs(der.a - de) < 0.01) der.a = a;
-    else morceaux.push({ genre, rang, de, a });
+    if (der && der.genre === genre && der.rang === rang && der.partiel === partiel && Math.abs(der.a - de) < 0.01) der.a = a;
+    else morceaux.push({ genre, rang, de, a, partiel });
   };
+  const ajouter = (genre, rang, k, partiel) =>
+    poser(genre, rang, place(pas[k].t), place(k + 1 < n ? pas[k + 1].t : finHeure), partiel);
   pas.forEach((x, k) => {
+    const part = accordDe(x);
     if (x.i === 0) ajouter("inconnu", 0, k);
-    else if (Pluie.estPluie(x.i)) ajouter("eau", x.i, k);
+    else if (Pluie.estPluie(x.i)) ajouter("eau", x.i, k, part !== null && part < 0.75);
     else if (Pluie.estPluie(autour[k])) ajouter("autour", autour[k], k);
+    else if (part > 0) ajouter("possible", 0, k);
   });
   suite.forEach((x, k) => {
-    if (!Pluie.estPluie(x.i)) return;
+    const part = accordDe(x);
+    const pluie = Pluie.estPluie(x.i);
+    if (!pluie && !(part > 0)) return;
     const de = place(Math.max(x.t, finHeure));
     const a = place(Math.min(k + 1 < suite.length ? suite[k + 1].t : x.t + Pluie.PAS_REPLI * 60000, t1));
-    if (a <= de) return;
-    const genre = radar ? "modele" : "eau";
-    const der = morceaux[morceaux.length - 1];
-    if (der && der.genre === genre && der.rang === x.i && Math.abs(der.a - de) < 0.01) der.a = a;
-    else morceaux.push({ genre, rang: x.i, de, a });
+    if (!pluie) { poser("possible", 0, de, a); return; }
+    poser(radar ? "modele" : "eau", x.i, de, a, part !== null && part < 0.75);
   });
-  const ruban = morceaux.map(m => `<i class="pp-s pp-${m.genre}${m.genre === "eau" || m.genre === "modele" ? ` pp-r${m.rang}` : ""}" `
-    + `data-rang="${m.rang}" data-genre="${m.genre}" `
+  const ruban = morceaux.map(m => `<i class="pp-s pp-${m.genre}${m.genre === "eau" || m.genre === "modele" ? ` pp-r${m.rang}` : ""}`
+    + `${m.partiel ? " pp-partiel" : ""}" data-rang="${m.rang}" data-genre="${m.genre}" `
     + `style="--de:${m.de.toFixed(2)}%;--l:${(m.a - m.de).toFixed(2)}%"></i>`).join("");
 
   /* Les repères : les quarts d'heure entiers, sauf trop près des deux bouts où
@@ -440,6 +446,7 @@ function panneauPluieProche() {
   const rangs = [...new Set(morceaux.filter(m => m.genre === "eau" || m.genre === "modele").map(m => m.rang))].sort();
   const legende = rangs.map(r => `<span class="pp-leg"><i class="pp-r${r}"></i>${esc(Pluie.nomDe(r).replace(/^Pluie /, ""))}</span>`)
     .concat(morceaux.some(m => m.genre === "autour") ? [`<span class="pp-leg"><i class="pp-autour"></i>alentour</span>`] : [])
+    .concat(morceaux.some(m => m.genre === "possible") ? [`<span class="pp-leg"><i class="pp-possible"></i>possible</span>`] : [])
     .join("");
 
   /* Le sens d'arrivée, quand la mesure a abouti. Il suit la ligne de durée, en
@@ -462,7 +469,7 @@ function panneauPluieProche() {
     + `<p class="pp-axe"><span>maint.</span>${reperes.join("")}<span>${esc(heureJour(new Date(t1)))}</span></p>`
     /* Le repli vient d'un modèle et non du radar : il le dit. Audit, constat
        2.6, le service du radar pouvant aussi se taire. */
-    + (l.source === "repli" ? `<p class="pp-sous pp-repli">Estimation d'un modèle, au quart d'heure.</p>` : "")
+    + (l.source === "repli" ? `<p class="pp-sous pp-repli">Estimation de plusieurs modèles, au quart d'heure.</p>` : "")
     /* La carte, couche de pluie allumée, demande de Jérôme du 4 octobre 2026 :
        la pluie qui arrive se regarde autour de soi. */
     + `<p class="pp-pied"><span class="pp-legende">${legende}</span>`
@@ -477,7 +484,8 @@ const estPluieRang = i => Pluie.estPluie(i);
 function resumeGraphe(pas, autour = [], suite = []) {
   const avant = resumeHeure(pas, autour);
   const eau = suite.find(x => Pluie.estPluie(x.i));
-  return eau ? `${avant}. Ensuite, d'après le modèle, de la pluie vers ${heureJour(new Date(eau.t))}` : avant;
+  const dapres = eau && eau.total > 1 ? `d'après ${eau.accord} modèles sur ${eau.total}` : "d'après le modèle";
+  return eau ? `${avant}. Ensuite, ${dapres}, de la pluie vers ${heureJour(new Date(eau.t))}` : avant;
 }
 
 function resumeHeure(pas, autour = []) {

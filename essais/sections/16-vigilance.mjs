@@ -199,7 +199,7 @@ export default async T => {
   ok("un service de Météo-France muet se dit à l'accueil, dans les réglages et sur la carte, et la pluie dit son repli",
     muetDit.panneau === 0 && /Vigilance Météo-France non lue.*le service ne répond pas/.test(muetDit.pied)
     && /non lue/.test(sourcesDit) && /Vigilance Météo-France indisponible/.test(legendeDit)
-    && /Estimation d'un modèle/.test(muetDit.repli),
+    && /Estimation de plusieurs modèles/.test(muetDit.repli),
     JSON.stringify({ ...muetDit, sourcesDit, legendeDit }));
   ok("un service qui répond ne fait rien dire de tel",
     await pg.locator(".pied-vig").count() === 0);

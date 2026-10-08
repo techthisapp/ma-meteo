@@ -507,6 +507,9 @@ export function vueReglages(ctx, rendre, majEtat) {
   const sources = [
     ["Prévision", "Open-Meteo, avec AROME de Météo-France sur les deux premiers jours ; confiance par les "
       + "scénarios d'ICON et d'ECMWF ; tendance au-delà de seize jours par GFS"],
+    /* Version 183 : la pluie des trois heures au quart d'heure. */
+    ["Pluie des trois heures", "six modèles par Open-Meteo : ICON du service allemand, AROME et AROME HD de "
+      + "Météo-France, modèles du Met Office britannique, de l'institut néerlandais et de l'institut danois"],
     /* Un service muet le dit ici aussi, audit, constat 2.6. */
     ["Vigilance, pluie dans l'heure", (() => {
       const l = Vig.etatLecture();

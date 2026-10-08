@@ -1162,6 +1162,10 @@ button.rangee:active{background:var(--surface-2)}
 .pp-autour{background:repeating-linear-gradient(135deg,var(--pp1) 0 3px,transparent 3px 7px)}
 /* La part du modèle, version 169 : plus pâle, passé un trait pointillé. */
 .pp-modele{opacity:var(--pp-modele)}
+/* L'accord des modèles, version 183 : une pluie que la moitié à peine des
+   modèles voit, plus pâle ; une pluie qu'une minorité voit, en pointillé. */
+.pp-s.pp-partiel{opacity:calc(var(--pp-modele) * .6)}
+.pp-possible{background:repeating-linear-gradient(90deg,var(--pp1) 0 2px,transparent 2px 6px);opacity:.75}
 .pp-limite{position:absolute;top:0;bottom:0;left:var(--x);border-left:1px dashed var(--etiquette-3)}
 .pp-zone{
   position:absolute;top:0;bottom:0;left:var(--x);right:0;

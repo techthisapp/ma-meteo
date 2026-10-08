@@ -52,7 +52,7 @@ export default async T => {
       if (u.includes("minutely_15")) {
         etat.appelsRepli.push(u);
         route.fulfill({ status: 200, contentType: "application/json",
-          body: JSON.stringify(repliCorps(etat.profilRepli, FIGE, u)) });
+          body: JSON.stringify(repliCorps(etat.profilRepli, FIGE, u, etat.accordRepli)) });
         return;
       }
       if (u.includes("sunshine_duration")) { servirBeauTemps(u, route); return; }

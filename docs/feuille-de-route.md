@@ -1002,6 +1002,36 @@ points, sur 10 000 par jour. Feux : 24 heures, 48 heures, 7 jours, 30 jours,
 3 mois et un an, en une plage de dates par tuile ; un an coûte 83 kilooctets
 par tuile au zoom cinq.
 
+## Jalon 26. La suite de la pluie
+
+Demande de Jérôme du 8 octobre 2026 : le tracé de la pluie après l'heure du
+radar manque de précision ; un autre service, une meilleure extrapolation.
+
+Comparaison faite avant tout changement, sur 343 émissions passées d'avril à
+juin 2026, treize stations horaires de Météo-France, jours de pluie,
+deuxième et troisième heure après l'émission, pluie dès 0,2 mm à l'heure.
+Prévisions passées lues sur l'archive des émissions d'Open-Meteo. Le choix
+automatique d'Open-Meteo, employé jusque-là, est ICON-D2 où il couvre et
+ICON-EU ailleurs.
+
+| Méthode | Heures justes | Pluies vues | Fausses alertes | Score de Brier |
+|---|---|---|---|---|
+| ICON seul, avant | 81,0 % | 67,8 % | 19,0 % | 0,190 |
+| AROME France HD seul | 74,3 % | 61,9 % | 30,4 % | |
+| Six modèles, majorité | 80,0 % | 73,3 % | 24,7 % | 0,148 |
+| Six modèles recalés sur la première heure | 78,7 % | 70,7 % | 26,0 % | |
+
+Part des modèles qui voient la pluie et pluie observée : aucun, 7 % ; un
+quart, 33 % ; la moitié, 61 % ; trois quarts, 68 % ; tous, 94 %.
+AROME-PI, la prévision immédiate de Météo-France jusqu'à six heures, n'est
+pas servie par Open-Meteo et demande une clé sur le portail de Météo-France.
+
+| Lot | Contenu | État |
+|---|---|---|
+| 1 | Six modèles en une requête ; pluie à la majorité, force médiane ; accord dit dans l'encart, pluie de faible accord plus pâle, pluie d'une minorité en pointillé « possible » | livré, version 183 |
+| 2 | Le déplacement des averses prolongé jusqu'à deux heures, fondu dans les modèles | à faire |
+| | Recalage des modèles sur la première heure | écarté, aucun gain mesuré |
+
 ## Hors cadre
 
 | Fonction | Ce qu'elle exigerait |
@@ -1233,3 +1263,4 @@ Les deux premières lignes se lèvent avec le même service dorsal minimal. Les 
 | 8 octobre 2026 | Version 180, jalon 25, lot 2 : toutes les nappes du passé, chacune avec sa période choisie au curseur dans la légende. Les deux nappes de la pluie passée deviennent une seule « Pluie passée » ; s'y ajoutent « Neige passée », « Rafales passées » et « Extrêmes », le plus haut ou le plus bas des températures au choix par deux boutons sous l'échelle. Un ancien choix de la pluie des 48 ou des 72 heures se reprend avec sa durée. L'échelle de la pluie et de la neige s'élargit avec la période. La couche des feux a son propre curseur, de 24 heures à un an, demande une plage de dates au lieu d'un jour par image, et pose dessous les surfaces brûlées de la même période. Défauts trouvés en route : la grille compte 21 colonnes et 20 rangs, non 20 et 19 comme l'écrivait un commentaire de `src/nappe.js`, et la première grille lâche manquait la dernière colonne ; une réponse longue arrivée après un curseur ramené à 24 heures prenait sa place, la grille porte désormais son pas. Quinze contrôles pour le temps passé, quatre pour les feux, erreurs volontaires 377 à 380 reprises et 382 à 393 vues. Le contrôle de la boîte des légendes admet 130 points au lieu de 80, pour la ligne du curseur des feux. Passe complète verte, 1186 contrôles |
 | 8 octobre 2026 | Version 181, remarque de Jérôme : la couleur verte des feux ne convient pas. Le service colore chaque foyer selon son âge, vert au delà d'un mois, si bien que trois mois ou un an couvraient la carte de vert. Les foyers sont repeints sur l'appareil du rouge de la légende, éclaircis à 75 % au delà d'une semaine et à 50 % au delà d'un mois ; les surfaces brûlées, rouges et orange chez le service, passent au bordeaux pour se distinguer des foyers. Les faux services rendent des foyers verts au delà d'un mois, comme le vrai. Un contrôle nouveau, erreurs volontaires 394 à 396 vues. Passe complète verte, 1187 contrôles |
 | 8 octobre 2026 | Version 182, décisions de Jérôme : soixante jours restent le plus loin des nappes du passé ; la couche des feux s'ouvre sur sept jours au lieu de deux. Une période déjà choisie reste. Contrôle de l'ouverture repris, erreurs volontaires 388 et 397 vues. Passe complète verte, 1187 contrôles |
+| 8 octobre 2026 | Version 183, jalon 26, lot 1 : la suite de la pluie lit six modèles au lieu du seul choix automatique d'Open-Meteo. La comparaison sur 343 émissions passées montre que la majorité des modèles fait à peu près aussi bien qu'ICON seul en oui ou non, mais que leur accord est une probabilité fiable : l'encart dit « d'après 4 modèles sur 6 », une pluie de faible accord se peint plus pâle, et une pluie qu'une minorité voit se marque « possible » en pointillé sans être annoncée. Le recalage sur la première heure est écarté. Sources : une ligne nouvelle, « Pluie des trois heures ». Sept contrôles nouveaux ou repris, erreurs volontaires 398 à 404 vues. Passe complète verte, 1191 contrôles |

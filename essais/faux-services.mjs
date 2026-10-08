@@ -371,15 +371,21 @@ export const heureParis = t => {
 };
 /* Le nombre de pas rendus suit celui qui est demandé, comme le fait la source.
    Une charge qui rendrait toujours cinq pas masquerait une demande trop large. */
-export const repliCorps = (profil, base, u) => {
+/* Depuis la version 183, la source rend une colonne par modèle demandé,
+   `precipitation_<modèle>`, comme Open-Meteo. `accord` dit combien des
+   modèles portent le profil, les autres restant au sec : un accord partiel
+   se fabrique ainsi sans profil nouveau. */
+export const repliCorps = (profil, base, u, accord = Infinity) => {
   const v = REPLI_PROFILS[profil] || REPLI_PROFILS.sec;
-  const n = Number(new URL(u).searchParams.get("forecast_minutely_15")) || v.length;
+  const q = new URL(u).searchParams;
+  const n = Number(q.get("forecast_minutely_15")) || v.length;
   const t0 = Math.floor(base / 900000) * 900000;
   const suite = Array.from({ length: n }, (_, k) => (k < v.length ? v[k] : 0));
-  return { minutely_15: {
-    time: suite.map((_, k) => heureParis(t0 + k * 900000)),
-    precipitation: suite,
-  } };
+  const modeles = (q.get("models") || "").split(",").filter(Boolean);
+  const colonnes = modeles.length
+    ? Object.fromEntries(modeles.map((m, j) => [`precipitation_${m}`, j < accord ? suite : suite.map(() => 0)]))
+    : { precipitation: suite };
+  return { minutely_15: { time: suite.map((_, k) => heureParis(t0 + k * 900000)), ...colonnes } };
 };
 
 export const pluieCorps = (profil, base) => {
@@ -821,7 +827,7 @@ export const brancherFauxServices = async (c, etat) => {
     if (u.includes("minutely_15")) {
       etat.appelsRepli.push(u);
       route.fulfill({ status: 200, contentType: "application/json",
-        body: JSON.stringify(repliCorps(etat.profilRepli, FIGE, u)) });
+        body: JSON.stringify(repliCorps(etat.profilRepli, FIGE, u, etat.accordRepli)) });
       return;
     }
     if (u.includes("sunshine_duration")) { servirBeauTemps(u, route); return; }
@@ -1267,6 +1273,7 @@ export const nouvelEtat = () => ({
   profilVoisins: null,
   appelsVoisins: [],
   profilRepli: "sec",
+  accordRepli: Infinity,
   appelsRepli: [],
   appelsPays: [],
   appelsVig: [],

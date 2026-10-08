@@ -119,7 +119,9 @@ for (const theme of ["light", "dark"]) {
   await brancherFauxServices(ctx, Object.assign(nouvelEtat(), { profilAir: "ambroisie",
     /* REPLI choisit la colonne du modèle au quart d'heure, « tard » pour la
        pluie de 11 h que montre la suite des trois heures. */
-    ...(process.env.REPLI ? { profilRepli: process.env.REPLI } : {}) }));
+    ...(process.env.REPLI ? { profilRepli: process.env.REPLI } : {}),
+    /* ACCORD dit combien des six modèles portent la colonne, les autres au sec. */
+    ...(process.env.ACCORD ? { accordRepli: Number(process.env.ACCORD) } : {}) }));
   /* De la pluie posée l'après-midi du 18 août, pour les vues qui montrent le
      rappel de parapluie. La charge d'essai est sèche ce jour-là. Seule la
      prévision horaire est retouchée ; les autres demandes au même hôte vont aux

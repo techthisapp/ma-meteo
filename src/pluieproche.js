@@ -40,6 +40,33 @@ const REPLI_PAS = 5;          // cinq pas de quinze minutes couvrent l'heure
    d'heure, treize pas de maintenant à trois heures et quart. La colonne est
    lue en même temps que le radar, quelques centaines d'octets. */
 const SUITE_PAS = 13;
+
+/* Plusieurs modèles au lieu d'un, version 183, demande de Jérôme du
+   8 octobre 2026 : le tracé après l'heure manquait de précision.
+
+   Jusque-là, la colonne venait du choix automatique d'Open-Meteo, qui sert en
+   France ICON-D2 où ce modèle couvre et ICON-EU ailleurs. Comparé le
+   8 octobre 2026 sur 343 émissions passées d'avril à juin 2026, treize
+   stations de Météo-France, les jours de pluie, deuxième et troisième heure
+   après l'émission, pluie comptée dès 0,2 mm à l'heure :
+
+   | Méthode | Heures justes | Pluies vues | Fausses alertes |
+   |---|---|---|---|
+   | ICON seul, avant | 81,0 % | 67,8 % | 19,0 % |
+   | AROME France HD seul | 74,3 % | 61,9 % | 30,4 % |
+   | Six modèles, majorité | 80,0 % | 73,3 % | 24,7 % |
+
+   La majorité ne fait guère mieux que le meilleur modèle. La part des
+   modèles qui voient la pluie est en revanche une probabilité fiable : il a
+   plu 7 % du temps quand aucun n'en voyait, 33 % quand un quart en voyaient,
+   61 % pour la moitié, 94 % quand tous en voyaient ; le score de Brier passe
+   de 0,190 à 0,148. Le ruban dit donc la pluie où la majorité la voit, plus
+   pâle quand l'accord est faible, et une pluie possible où une minorité la
+   voit. Le recalage des modèles sur la première heure a été essayé et écarté :
+   il n'améliorait rien. Les six modèles se lisent en une requête. */
+export const MODELES = ["icon_seamless", "meteofrance_arome_france_hd", "meteofrance_arome_france",
+  "ukmo_seamless", "knmi_seamless", "dmi_seamless"];
+export const MAJORITE = 0.5;
 export const HORIZON = 3 * 3600000;
 export const PAS_MF = 5;      // minutes, pas de la source de Météo-France
 export const PAS_REPLI = 15;  // minutes, pas du repli
@@ -108,19 +135,33 @@ export function lire(d) {
 
 /* La lecture du repli. Une lame d'eau en millimètres par pas de quinze minutes
    devient le même rang ordinal que celui de Météo-France, pour que la phrase se
-   lise pareil quelle que soit la source qui l'a nourrie. */
+   lise pareil quelle que soit la source qui l'a nourrie.
+
+   Depuis la version 183, chaque pas porte aussi l'accord des modèles :
+   `accord` modèles sur `total` voient la pluie. Le pas est mouillé quand la
+   moitié au moins la voit, à la force médiane de ceux qui la voient. Un
+   modèle sans valeur à ce pas ne compte pas. */
+const mediane = xs => {
+  const t = [...xs].sort((a, b) => a - b);
+  return t.length % 2 ? t[(t.length - 1) / 2] : (t[t.length / 2 - 1] + t[t.length / 2]) / 2;
+};
 export function lireRepli(d) {
   const m = d && d.minutely_15;
-  if (!m || !Array.isArray(m.time) || !Array.isArray(m.precipitation)) return null;
+  if (!m || !Array.isArray(m.time)) return null;
+  const colonnes = Object.keys(m).filter(k => k === "precipitation" || k.startsWith("precipitation_"))
+    .map(k => m[k]).filter(Array.isArray);
+  if (!colonnes.length) return null;
   const parHeure = 60 / PAS_REPLI;
   const pas = m.time.map((t, k) => {
-    const mm = m.precipitation[k];
-    if (!Number.isFinite(mm)) return { t: instantParis(t), i: 0 };
-    const taux = mm * parHeure;
-    const i = mm < SEUILS_REPLI.lame ? 1
-      : taux < SEUILS_REPLI.moderee ? 2
-        : taux < SEUILS_REPLI.forte ? 3 : 4;
-    return { t: instantParis(t), i };
+    const vals = colonnes.map(c => c[k]).filter(Number.isFinite);
+    if (!vals.length) return { t: instantParis(t), i: 0, accord: 0, total: 0 };
+    const mouilles = vals.filter(mm => mm >= SEUILS_REPLI.lame);
+    if (mouilles.length / vals.length < MAJORITE) {
+      return { t: instantParis(t), i: 1, accord: mouilles.length, total: vals.length };
+    }
+    const taux = mediane(mouilles) * parHeure;
+    const i = taux < SEUILS_REPLI.moderee ? 2 : taux < SEUILS_REPLI.forte ? 3 : 4;
+    return { t: instantParis(t), i, accord: mouilles.length, total: vals.length };
   }).filter(x => Number.isFinite(x.t));
   if (pas.length < 2) return null;
   return { dispo: true, nom: null, maj: null, pas, source: "repli", pasMinutes: PAS_REPLI };
@@ -129,7 +170,7 @@ export function lireRepli(d) {
 async function chargerModele(lat, lon, fetcheur) {
   const u = `${REPLI}?latitude=${lat}&longitude=${lon}`
     + `&timezone=${encodeURIComponent("Europe/Paris")}`
-    + `&minutely_15=precipitation&forecast_minutely_15=${SUITE_PAS}`;
+    + `&minutely_15=precipitation&forecast_minutely_15=${SUITE_PAS}&models=${MODELES.join(",")}`;
   try {
     const r = await fetcheur(u);
     if (!r.ok) return null;
@@ -337,8 +378,11 @@ export function plusTard(l, maintenant = Date.now()) {
   if (k < 0) return null;
   let apres = s.findIndex((x, j) => j > k && !estPluie(x.i));
   const bout = apres < 0 ? s.length : apres;
-  return { genre: "debut", force: Math.max(...s.slice(k, bout).map(x => x.i)),
-    t: Math.max(s[k].t, fin), fin: apres < 0 ? null : s[apres].t, modele: true };
+  const episode = s.slice(k, bout);
+  const fort = episode.reduce((a, x) => ((x.accord || 0) > (a.accord || 0) ? x : a), episode[0]);
+  return { genre: "debut", force: Math.max(...episode.map(x => x.i)),
+    t: Math.max(s[k].t, fin), fin: apres < 0 ? null : s[apres].t, modele: true,
+    accord: fort.accord || 0, total: fort.total || 0 };
 }
 
 /* Ce que l'encart annonce : la pluie sur le point dans l'heure, sinon la pluie
@@ -377,8 +421,9 @@ export function lignes(ev, maintenant = Date.now(), pas = PAS_MF) {
   const methode = ev.confirme ? " Heure confirmée par le déplacement des averses."
     : ev.nonVue ? " Aucune averse observée en approche."
       : ev.plage ? " Heure incertaine selon le déplacement des averses." : "";
+  const dapres = ev.total > 1 ? `d'après ${ev.accord} modèles sur ${ev.total}` : "d'après le modèle";
   const sous = (ev.modele
-    ? (duree ? `Pendant ${duree} minutes environ, d'après le modèle.` : "D'après le modèle.")
+    ? (duree ? `Pendant ${duree} minutes environ, ${dapres}.` : `${dapres.replace(/^d/, "D")}.`)
     : (duree ? `Pendant ${duree} minutes environ.` : "")) + methode;
   if (ev.plage) {
     const [a, b] = ev.plage.map(x => minutesJusqua(x, maintenant, pas));
