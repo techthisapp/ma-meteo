@@ -6,7 +6,7 @@ export const titre = "La pluie sur la carte";
 export const avecPage = true;
 
 export default async T => {
-  const { ctx, nav, etat, ok, brancherRoutes, ouvrirPage, onglet, ouvrirCarte } = T;
+  const { ctx, nav, etat, ok, brancherRoutes, ouvrirPage, onglet, ouvrirCarte, reposer } = T;
   /* La couche de pluie vient du service RainViewer, sans clé. Les tuiles d'essai
      sont unies, d'une teinte qui porte le rang de l'image : la toile relue au
      pixel dit alors quelle image est montrée.
@@ -306,15 +306,20 @@ export default async T => {
 
      Une seule image à l'ouverture : la dernière observée, douze tuiles, seize
      kilooctets mesurés. Les douze autres images n'arrivent que si la chronologie
-     est mise en marche, et une tuile déjà vue ne se redemande pas. */
+     est mise en marche, et une tuile déjà vue ne se redemande pas. Depuis la
+     version 185, le déplacement des averses lit en plus l'image de trente
+     minutes plus tôt sur la seule tuile de zoom cinq du centre. */
   etat.appelsRadar.length = 0;
   const [ctxRad, pgRad] = await ouvrirCarte(FAIN, 0);
   const tuilesDe = () => etat.appelsRadar.filter(u => u.includes("tilecache"));
   const cheminsDe = () => new Set(tuilesDe().map(u => /\/v2\/radar\/([a-z0-9]+)\//.exec(u)[1]));
 
-  ok("l'ouverture ne charge qu'une image",
-    cheminsDe().size === 1 && [...cheminsDe()][0] === "obs12",
-    `${cheminsDe().size} images : ${[...cheminsDe()].join(", ")}`);
+  await reposer(pgRad, 1500);
+  const avant = tuilesDe().filter(u => /\/obs9\//.test(u));
+  ok("l'ouverture ne charge qu'une image, et une tuile de plus pour le déplacement",
+    [...cheminsDe()].sort().join(",") === "obs12,obs9"
+    && avant.length === 1 && /\/obs9\/256\/5\/16\/11\//.test(avant[0]),
+    `${cheminsDe().size} images : ${[...cheminsDe()].join(", ")} ; ${avant.join(" ")}`);
 
   ok("les tuiles se demandent en deux cent cinquante-six points",
     tuilesDe().length > 0 && tuilesDe().every(u => /\/(obs|nc)\d+\/256\/\d+\/\d+\/\d+\/2\/1_1\.png$/.test(u)),
@@ -363,13 +368,60 @@ export default async T => {
      service en publiait aucune aux deux relevés du 5 septembre 2026 : la couche ne
      l'invente pas. */
   /* Depuis la version 151, les douze heures prévues suivent : la piste porte
-     treize images observées puis douze heures, et s'ouvre sur maintenant. */
-  ok("sans image extrapolée la chronologie s'arrête à maintenant",
+     treize images observées puis douze heures, et s'ouvre sur maintenant.
+     Depuis la version 185, douze images poussées s'intercalent, au pas de dix
+     minutes, et les heures prévues reprennent après. */
+  ok("sans image extrapolée la chronologie s'ouvre sur maintenant, suivie des images poussées",
     await pgRad.evaluate(() => {
       const p = document.getElementById("caPiste");
       return `${p.getAttribute("aria-valuemax")}|${p.getAttribute("aria-valuenow")}`
         + `|${p.classList.contains("ca-piste-futur")}`;
-    }) === "24|12|false");
+    }) === "36|12|false");
+
+  /* Les images poussées, version 185 : la dernière image observée déplacée
+     vers l'aval, et fondue dans la pluie prévue au delà d'une heure. */
+  etat.appelsPrevue.length = 0;
+  const poussee = await pgRad.evaluate(async () => {
+    const p = document.getElementById("caPiste");
+    const dodo = m => new Promise(r => setTimeout(r, m));
+    p.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    await dodo(300);
+    const premiere = { heure: document.getElementById("caHeure").textContent,
+      futur: document.getElementById("caHeure").classList.contains("ca-heure-futur") };
+    for (let k = 0; k < 11; k++) p.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    await dodo(1200);
+    return { premiere, derniere: document.getElementById("caHeure").textContent };
+  });
+  await reposer(pgRad, 1500);
+  ok("les images poussées suivent la dernière observée au pas de dix minutes, fondues dans la pluie prévue",
+    poussee.premiere.futur && poussee.premiere.heure === "09 h 10" && poussee.derniere === "11 h"
+    && etat.appelsPrevue.length > 0,
+    `${JSON.stringify(poussee)} ; ${etat.appelsPrevue.length} lectures de la pluie prévue`);
+
+  /* Le tracé décalé : chaque tuile se pose à sa place plus le déplacement, et
+     la pluie qui entre dans la vue vient de tuiles d'au delà de son bord. */
+  ok("l'image poussée se pose décalée et prend la pluie d'au delà du bord",
+    await pgRad.evaluate(async () => {
+      const R = await import("/src/radar.js");
+      const idx = await R.charger();
+      const ch = idx.images[idx.images.length - 1].chemin;
+      const vue = { lat: 47.5, lon: 4.3, z: 8 }, l = 390, h = 660;
+      const trace = () => { const r = []; return { r, ctx: { drawImage: (i, x, y) => r.push([Math.round(x), Math.round(y)]) } }; };
+      R.peindreDecale(trace().ctx, vue, l, h, idx.hote, ch, 300, -150);
+      await new Promise(ok => setTimeout(ok, 1200));
+      const d = trace(), b = trace();
+      R.peindreDecale(d.ctx, vue, l, h, idx.hote, ch, 300, -150);
+      R.peindre(b.ctx, vue, l, h, idx.hote, ch);
+      if (!d.r.length || !b.r.length) return "aucune tuile posée";
+      const decales = b.r.map(([x, y]) => `${x + 300},${y - 150}`);
+      const poses = new Set(d.r.map(([x, y]) => `${x},${y}`));
+      const gardees = decales.filter(k => {
+        const [x, y] = k.split(",").map(Number);
+        return x < l && y < h && x > -256 && y > -256;
+      });
+      if (!gardees.every(k => poses.has(k))) return "une tuile visible n'est pas décalée";
+      return d.r.some(([x]) => x - 300 < -200) ? "" : "aucune tuile d'au delà du bord ouest";
+    }) === "");
 
   // Une tuile déjà vue ne se redemande pas : la chronologie parcourue deux fois
   // ne coûte pas deux fois.

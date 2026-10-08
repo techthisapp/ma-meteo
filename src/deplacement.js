@@ -234,14 +234,14 @@ export function profilDe(donnees, px, py, dx, dy, minutes, n = TAILLE) {
 /* La mesure complète. `images` est la liste des observations de l'index, la plus
    récente en dernier. Rien n'est rendu si les conditions de lecture ne sont pas
    réunies : une direction inventée serait pire que pas de direction. */
-export async function mesurer(lat, lon, hote, images, charge = chargerTuile) {
+/* Le déplacement sur une tuile de zoom cinq, ou rien. Les images viennent de
+   l'index du radar, dans sa forme : un chemin et un horodatage en
+   millisecondes. */
+async function mesurerTuile(t, hote, images, charge) {
   if (!hote || !Array.isArray(images) || images.length <= PAS_ECART) return null;
   const derniere = images[images.length - 1];
   const avant = images[images.length - 1 - PAS_ECART];
   if (!derniere || !avant) return null;
-  const t = tuileDe(lat, lon);
-  /* Les images viennent de l'index du radar, dans sa forme : un chemin et un
-     horodatage en millisecondes. */
   const [da, db] = await Promise.all([
     charge(adresse(hote, avant.chemin, t)),
     charge(adresse(hote, derniere.chemin, t)),
@@ -255,6 +255,31 @@ export async function mesurer(lat, lon, hote, images, charge = chargerTuile) {
   if (nul !== null && bon.s - nul < GAIN_MIN) return null;
   const minutes = (derniere.t - avant.t) / 60000;
   if (!(minutes > 0)) return null;
+  return { bon, minutes, db, derniere };
+}
+
+/* Le déplacement pour la carte, version 185 : celui de la tuile du centre de
+   la vue, sinon de l'une de ses quatre voisines, la première qui porte assez
+   de pluie pour se mesurer. Il se rend en pixels de zoom cinq par minute,
+   avec l'heure de la dernière image. Une seule mesure pour toute la vue :
+   deux vecteurs voisins feraient se chevaucher ou s'écarter les tuiles à
+   leur frontière. */
+export async function mouvementVue(lat, lon, hote, images, charge = chargerTuile) {
+  const c = tuileDe(lat, lon), n = Math.pow(2, ZOOM);
+  for (const [ox, oy] of [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]]) {
+    const y = c.y + oy;
+    if (y < 0 || y >= n) continue;
+    const m = await mesurerTuile({ z: ZOOM, x: (c.x + ox + n) % n, y }, hote, images, charge);
+    if (m) return { vx: m.bon.dx / m.minutes, vy: m.bon.dy / m.minutes, tImage: m.derniere.t, tuile: [c.x + ox, y] };
+  }
+  return null;
+}
+
+export async function mesurer(lat, lon, hote, images, charge = chargerTuile) {
+  const t = tuileDe(lat, lon);
+  const m = await mesurerTuile(t, hote, images, charge);
+  if (!m) return null;
+  const { bon, minutes, db, derniere } = m;
   const n2 = Math.pow(2, t.z);
   const px = (mx(lon) * n2 - t.x) * TAILLE, py = (my(lat) * n2 - t.y) * TAILLE;
   return { ...depuisDecalage(bon.dx, bon.dy, minutes, lat), score: bon.s, minutes,

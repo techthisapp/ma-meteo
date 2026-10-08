@@ -10,11 +10,23 @@ import * as Reglages from "../reglages.js";
 import * as Carte from "../carte.js";
 import * as NappeCarte from "../nappe.js";
 import * as Prevue from "../prevue.js";
+import * as Deplacement from "../deplacement.js";
+import { poidsDeplacement } from "../pluieproche.js";
 import { NAPPES_CARTE } from "./carte-gabarit.js";
 
 /* Douze heures prévues après les images du radar, jalon 19, lot 5c,
    décision de Jérôme du 2 octobre 2026. */
 export const HEURES_PREVUES = 12;
+
+/* Les images poussées, version 185, remarque de Jérôme du 9 octobre 2026 :
+   après la dernière image du radar, la piste passait aussitôt à la grille
+   prévue, des pavés flous d'une maille de soixante kilomètres. Douze images
+   au pas de dix minutes, jusqu'à deux heures après la dernière observée,
+   montrent cette image poussée du déplacement mesuré, fondue dans la pluie
+   prévue comme dans l'encart de l'accueil : pleinement jusqu'à une heure
+   d'ici, de moins en moins ensuite. Les heures prévues reprennent après. */
+export const POUSSEES = 12;
+export const PAS_POUSSE = 10;
 
 /* La pluie prévue, en millimètres par heure, sur une rampe proche de celle
    du radar : bleu pâle, bleu, vert, jaune, rouge, magenta. */
@@ -34,6 +46,23 @@ const teintePluie = v => {
 export const couchePluie = E => (c, v, l, h) => {
   if (!E.pluieAllume) return 0;
   const cadre = E.cadres?.[E.cadre];
+  if (cadre?.pousse && E.mouvement && E.images.length) {
+    const w = poidsDeplacement((cadre.t - Date.now()) / 60000);
+    let posees = 0;
+    if (w < 1 && E.prevueVue) {
+      posees += Carte.peindreNappe(c, v, l, h, NappeCarte.couche(E.prevueVue.pluie, teintePluie),
+        { opacite: 0.72 * (1 - w), sat: 0.7, clarte: 0.5, libre: true });
+    }
+    if (w > 0) {
+      const tau = (cadre.t - E.mouvement.tImage) / 60000, k = Math.pow(2, v.z - Deplacement.ZOOM);
+      const a = c.globalAlpha;
+      c.globalAlpha = a * w;
+      posees += Radar.peindreDecale(c, v, l, h, E.hote, E.images[cadre.radar].chemin,
+        E.mouvement.vx * tau * k, E.mouvement.vy * tau * k, () => E.revoir());
+      c.globalAlpha = a;
+    }
+    return posees;
+  }
   if (cadre?.prevue) {
     if (!E.prevueVue) return 0;
     return Carte.peindreNappe(c, v, l, h, NappeCarte.couche(E.prevueVue.pluie, teintePluie),
@@ -76,9 +105,9 @@ export function brancherChronologie(E) {
   const rangPrevue = c => (E.prevue ? Math.max(0, Math.round((c.t / 1000 - E.prevue.t0) / 3600)) : 0);
   E.majHeure = () => {
     const c = E.cadres[E.cadre];
-    E.heurePrevue = c?.prevue ? rangPrevue(c) : 0;
+    E.heurePrevue = c?.prevue || c?.pousse ? rangPrevue(c) : 0;
     if (E.prevue) E.prevueVue = Prevue.vue(E.prevue, E.heurePrevue);
-    E.heureCadre = c?.prevue ? c.t : null;
+    E.heureCadre = c?.prevue || c?.pousse ? c.t : null;
     E.poserLegende?.();
     E.revoir();
     E.poserVent?.();
@@ -98,7 +127,7 @@ export function brancherChronologie(E) {
     heure.textContent = dit;
     heure.classList.toggle("ca-heure-futur", c.futur === true);
     /* Une heure prévue demande la grille prévue, lue une fois. */
-    if (c.prevue && !E.prevue) E.lirePrevue?.();
+    if ((c.prevue || c.pousse) && !E.prevue) E.lirePrevue?.();
     E.majHeure();
   };
 
@@ -107,6 +136,14 @@ export function brancherChronologie(E) {
      si une nappe horaire est choisie. La piste paraît dès deux cadres. */
   E.majChronologie = () => {
     const radar = E.pluieAllume ? E.images.map((im, k) => ({ t: im.t, futur: im.futur === true, radar: k })) : [];
+    /* Les images poussées, quand le service n'extrapole pas lui-même et que
+       le déplacement s'est mesuré. */
+    if (radar.length && E.mouvement && !radar.some(c => c.futur)) {
+      const der = radar[radar.length - 1];
+      for (let k = 1; k <= POUSSEES; k++) {
+        radar.push({ t: der.t + k * PAS_POUSSE * 60000, futur: true, radar: der.radar, pousse: k });
+      }
+    }
     const horaire = E.pluieAllume || nappeHoraire();
     const fin = radar.length ? radar[radar.length - 1].t : Date.now();
     const prevues = [];
@@ -198,10 +235,25 @@ export function brancherChronologie(E) {
          paraître. */
       E.cadres = [];
       E.majChronologie();
+      lireMouvement();
     } catch {
       if (!cv.isConnected) return;
       E.dire("La pluie a besoin du réseau.");
     }
+  };
+
+  /* Le déplacement des averses pour la carte, version 185 : au centre de la
+     vue, sur les images observées. Rien de plus ne se demande quand il ne se
+     mesure pas : la piste garde alors ses heures prévues. */
+  E.mouvement = null;
+  const lireMouvement = async () => {
+    if (!E.pluieAllume || E.mouvement || !E.images.length || E.images.some(x => x.futur)) return;
+    try {
+      const m = await Deplacement.mouvementVue(E.vue.lat, E.vue.lon, E.hote, E.images.filter(x => !x.futur));
+      if (!m || !cv.isConnected) return;
+      E.mouvement = m;
+      E.majChronologie();
+    } catch { /* la piste se lit sans images poussées */ }
   };
 
   /* La pluie, superposition depuis le 19 septembre 2026. La chronologie la
@@ -216,7 +268,7 @@ export function brancherChronologie(E) {
     E.poserLegende();
     if (!E.pluieAllume) { arreter(); E.majChronologie(); E.revoir(); return; }
     E.dire("");
-    if (E.images.length) { E.majChronologie(); E.revoir(); } else lireIndex();
+    if (E.images.length) { E.majChronologie(); E.revoir(); lireMouvement(); } else lireIndex();
   });
 
   /* Le départ, que la carte lance une fois tous ses modules branchés. */

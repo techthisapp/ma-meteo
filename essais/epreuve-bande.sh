@@ -1276,6 +1276,21 @@ case "$N" in
   413) # La mesure ne part que sur une pluie annoncée.
      perl -0pi -e 's/!\(Pluie\.annonce\(pluieProche\) \|\| indice\)/!Pluie.annonce(pluieProche)/' src/app.js
      ATTENDU="un seul modèle qui voit de la pluie fait partir la mesure" ;;
+  414) # La piste n'a pas d'images poussées.
+     perl -0pi -e 's/for \(let k = 1; k <= POUSSEES; k\+\+\)/for (let k = 1; k <= 0; k++)/' src/vues/carte-chronologie.js
+     ATTENDU="sans image extrapolée la chronologie s.ouvre sur maintenant" ;;
+  415) # L'image poussée se pose sans décalage.
+     perl -0pi -e 's/const x = t\.px - marge \+ sx, y = t\.py - marge \+ sy;/const x = t.px - marge, y = t.py - marge;/' src/radar.js
+     ATTENDU="l.image poussée se pose décalée" ;;
+  416) # L'image poussée ne prend rien d'au delà du bord.
+     perl -0pi -e 's/const marge = Math\.min\(Math\.max\(Math\.abs\(sx\), Math\.abs\(sy\)\), 1\.5 \* Math\.max\(l, h\)\);/const marge = 0;/' src/radar.js
+     ATTENDU="l.image poussée se pose décalée" ;;
+  417) # Les images poussées ne se fondent pas dans la pluie prévue.
+     perl -0pi -e 's/if \(\(c\.prevue \|\| c\.pousse\) && !E\.prevue\) E\.lirePrevue\?\.\(\);/if (c.prevue \&\& !E.prevue) E.lirePrevue?.();/' src/vues/carte-chronologie.js
+     ATTENDU="les images poussées suivent la dernière observée" ;;
+  418) # Le déplacement de la carte se mesure d'abord sur une tuile voisine.
+     perl -0pi -e 's/\[\[0, 0\], \[-1, 0\], \[1, 0\], \[0, -1\], \[0, 1\]\]/[[-1, 0], [0, 0], [1, 0], [0, -1], [0, 1]]/' src/deplacement.js
+     ATTENDU="l.ouverture ne charge qu.une image" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

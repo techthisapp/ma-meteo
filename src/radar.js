@@ -193,6 +193,26 @@ export function peindre(ctx, vue, l, h, hote, chemin, surPret) {
   return posees;
 }
 
+/* Le tracé d'une image poussée, version 185 : la dernière image observée,
+   déplacée de `sx` et `sy` points d'écran. Les tuiles se prennent sur une vue
+   élargie de `marge` : la pluie qui entre dans la vue vient d'au delà de son
+   bord. */
+export function peindreDecale(ctx, vue, l, h, hote, chemin, sx, sy, surPret) {
+  if (!hote || !chemin) return 0;
+  const marge = Math.min(Math.max(Math.abs(sx), Math.abs(sy)), 1.5 * Math.max(l, h));
+  let posees = 0;
+  ctx.imageSmoothingEnabled = true;
+  for (const t of tuilesVues(vue, l + 2 * marge, h + 2 * marge)) {
+    const x = t.px - marge + sx, y = t.py - marge + sy;
+    if (x > l || y > h || x + t.cote < 0 || y + t.cote < 0) continue;
+    const e = tuile(hote, chemin, t, surPret);
+    if (!e.pret) continue;
+    ctx.drawImage(e.img, x, y, t.cote + 0.5, t.cote + 0.5);
+    posees++;
+  }
+  return posees;
+}
+
 /* Toutes les tuiles d'une image, promises. La lecture automatique attend
    celle-ci avant de montrer l'image suivante : une animation qui saute les
    images non chargées montre une pluie qui bondit au lieu d'avancer. */

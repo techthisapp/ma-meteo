@@ -22,7 +22,7 @@ application.
 
 ## État au 8 octobre 2026
 
-Version 184. Le projet est passé de claude.ai à Claude Code le 1er octobre
+Version 185. Le projet est passé de claude.ai à Claude Code le 1er octobre
 2026, à la version 118. Un audit complet de la version 120 a été mené le même
 jour, `docs/audit-2026-10-01.md`, avec le suivi de chaque lot en fin de
 document.
@@ -45,7 +45,7 @@ relevés seront réunis. Le jalon 5, la 3D, est écarté pour le moment. Le jalo
 reprise, ouvert le 4 octobre 2026 : livré en versions 168 à 170 : ruban sur
 trois heures, voisinage, pastille accordée au radar, seconde méthode par le
 déplacement des averses. Le jalon 23, le plein ciel du Soleil et
-de la Lune, est livré en versions 172 à 175. Le jalon 24, les étoiles en plein écran reprises, a ses lots 1 à 5 livrés en versions 176 à 178 ; reste le lot 6, viser le ciel avec le téléphone. Le jalon 25, les cartes du passé, est livré en versions 179 à 182 : nappes du passé et feux, période choisie au curseur dans la légende. Le jalon 26, la suite de la pluie, est livré en versions 183 et 184 : six modèles et leur accord, puis le déplacement des averses prolongé.
+de la Lune, est livré en versions 172 à 175. Le jalon 24, les étoiles en plein écran reprises, a ses lots 1 à 5 livrés en versions 176 à 178 ; reste le lot 6, viser le ciel avec le téléphone. Le jalon 25, les cartes du passé, est livré en versions 179 à 182 : nappes du passé et feux, période choisie au curseur dans la légende. Le jalon 26, la suite de la pluie, est livré en versions 183 à 185 : six modèles et leur accord, le déplacement des averses prolongé, puis les images poussées sur la carte.
 
 ## Points ouverts
 
