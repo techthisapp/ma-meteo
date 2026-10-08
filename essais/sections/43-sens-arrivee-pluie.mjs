@@ -115,6 +115,68 @@ export default async T => {
       return n === apres ? "" : `${n - apres} tuiles redemandées à la seconde lecture`;
     }) === "");
 
+  /* Le déplacement prolongé, version 184, jalon 26, lot 2. */
+  ok("la couleur du radar se lit en dBZ et en classe de pluie",
+    await pgDep.evaluate(async () => {
+      const D = await import("/src/deplacement.js");
+      const z = [[0x00, 0x9a, 0xd5, 255], [0xff, 0xe0, 0x00, 255], [0xd9, 0x1b, 0x00, 255], [0x78, 0xb8, 0xff, 255],
+        [0xc2, 0xb4, 0x82, 255], [0x00, 0x9a, 0xd5, 0]].map(c => D.dbzDe(...c));
+      return `${z.join(",")} ${z.map(D.rangDe).join(",")}`;
+    }) === "21,36,48,21,9, 2,3,4,2,1,1");
+
+  ok("le profil pousse la dernière image du déplacement mesuré, minute par minute",
+    await pgDep.evaluate(async () => {
+      const D = await import("/src/deplacement.js");
+      const n = 256, img = new Uint8ClampedArray(n * n * 4);
+      for (let y = 0; y < n; y++) for (let x = 100; x <= 130; x++) {
+        const k = (y * n + x) * 4; img[k] = 0x00; img[k + 1] = 0x7f; img[k + 2] = 0xb4; img[k + 3] = 255;
+      }
+      /* Six pixels vers l'est en trente minutes : la bande, à vingt pixels à
+         l'ouest du point, arrive en cent minutes environ, quatre-vingt-dix-huit
+         pour la fenêtre de trois pixels. Près du bord ouest, l'amont sort de
+         la tuile au bout d'une vingtaine de minutes. */
+      const p = D.profilDe(img, 150, 128, 6, 0, 30);
+      const bord = D.profilDe(img, 5, 128, 6, 0, 30);
+      const debut = p.findIndex(v => v > 0);
+      return `${p.length} ${debut} ${p[120]} ${p[60]} ${bord.length < 30}`;
+    }) === "151 98 24 0 true");
+
+  ok("la mesure rend le profil et l'heure de son image",
+    await pgDep.evaluate(async () => {
+      const D = await import("/src/deplacement.js");
+      const R = await import("/src/radar.js");
+      const idx = await R.charger();
+      const obs = idx.images.filter(x => !x.futur);
+      D.oublier();
+      const d = await D.mesurer(47.5, 4.3, idx.hote, obs);
+      if (!d) return "aucune mesure";
+      if (!Array.isArray(d.profil) || d.profil.length < 61) return `profil de ${d.profil && d.profil.length} minutes`;
+      return d.tImage === obs[obs.length - 1].t ? "" : "heure d'image fausse";
+    }) === "");
+
+  ok("le déplacement compte pleinement jusqu'à une heure, plus du tout à deux heures et demie",
+    await pgDep.evaluate(async () => {
+      const P = await import("/src/pluieproche.js");
+      const t0 = Date.now(), mn = 60000;
+      const profil = Array.from({ length: 151 }, (_, tau) => (tau >= 70 && tau <= 110 ? 24 : 0));
+      const dep = { profil, tImage: t0 - 10 * mn };
+      const sec = k => ({ t: t0 + (60 + 15 * k) * mn, i: 1, accord: 0, total: 6 });
+      const f = P.fondre([0, 1, 2, 3].map(sec), dep, t0);
+      const pluie = P.fondre([{ t: t0 + 120 * mn, i: 3, accord: 6, total: 6 }, { t: t0 + 150 * mn, i: 3, accord: 6, total: 6 }], dep, t0);
+      return [...f.map(x => `${x.i}:${x.p.toFixed(2)}`), ...pluie.map(x => `${x.i}:${(x.p ?? 1).toFixed(2)}`)].join(" ");
+    }) === "2:1.00 2:0.83 2:0.67 1:0.00 3:0.67 3:1.00");
+
+  ok("une pluie apportée par le déplacement le dit, avec l'accord des modèles",
+    await pgDep.evaluate(async () => {
+      const P = await import("/src/pluieproche.js");
+      return [P.dapresDe({ radar: true, accord: 0, total: 6 }), P.dapresDe({ radar: true, accord: 1, total: 6 }),
+        P.dapresDe({ radar: false, accord: 4, total: 6 })].join(" | ");
+    }) === "d'après le déplacement des averses, qu'aucun modèle ne voit | "
+      + "d'après le déplacement des averses et 1 modèle sur 6 | d'après 4 modèles sur 6");
+
+  ok("le ruban fond le déplacement dans la suite et la nomme estimée",
+    await pgDep.evaluate(() => document.querySelector(".pp-zone")?.textContent.trim() || "") === "estimée");
+
   await ctxDep.close();
 
   /* Les jours secs, le panneau se tait et la mesure ne part pas : elle coûte
@@ -135,6 +197,25 @@ export default async T => {
     etat.appelsRadar.length === 0 && venuesSeches === 0,
     `${etat.appelsRadar.length} appels au radar, ${venuesSeches} lignes de venue`);
   await ctxDepSec.close();
+
+  /* Version 184 : un seul modèle voit de la pluie dans les trois heures. Rien
+     ne s'annonce, mais le déplacement prolongé peut l'annoncer ou la
+     démentir : la mesure part. */
+  etat.profilRepli = "tard"; etat.accordRepli = 1;
+  etat.appelsRadar.length = 0;
+  const ctxIndice = await nav.newContext({
+    viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+    locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+  });
+  await ctxIndice.addInitScript(amorceGardee(FAIN, FIGE));
+  await brancherRoutes(ctxIndice);
+  const pgIndice = await ctxIndice.newPage();
+  await ouvrirPage(pgIndice);
+  await reposer(pgIndice, 1800);
+  ok("un seul modèle qui voit de la pluie fait partir la mesure du déplacement",
+    etat.appelsRadar.some(u => /\/256\/5\/16\/11\//.test(u)), `${etat.appelsRadar.length} appels au radar`);
+  await ctxIndice.close();
+  etat.profilRepli = "sec"; etat.accordRepli = Infinity;
   etat.profilPluie = "sec";
 
   /* ---------- Le repli, là où le radar ne couvre pas ----------

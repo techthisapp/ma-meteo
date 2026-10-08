@@ -363,9 +363,10 @@ function panneauVigilance() {
    est de cinq minutes puis de dix, et une courbe lissée donnerait à ces neuf
    points une continuité qu'ils n'ont pas. */
 function panneauPluieProche() {
-  const l = pluieProche;
-  if (!l || !l.dispo) return "";
   const maintenant = Date.now();
+  /* La suite fondue avec le déplacement des averses, version 184. */
+  const l = Pluie.avecDeplacement(pluieProche, deplacement, maintenant);
+  if (!l || !l.dispo) return "";
   /* La seconde méthode ne vaut que pour le radar de Météo-France : le repli est
      un modèle, et le déplacement mesuré ne dit rien de lui. */
   const ev = l.source === "meteofrance"
@@ -402,7 +403,7 @@ function panneauPluieProche() {
   /* L'accord des modèles, version 183 : une pluie que la moitié à peine des
      modèles voit se peint plus pâle, `partiel`, et une pluie qu'une minorité
      voit se marque en pointillé, `possible`. Le radar n'a pas d'accord. */
-  const accordDe = x => (x.total > 1 ? x.accord / x.total : null);
+  const accordDe = x => (Number.isFinite(x.p) ? x.p : x.total > 1 ? x.accord / x.total : null);
   const morceaux = [];
   const poser = (genre, rang, de, a, partiel = false) => {
     if (a <= de) return;
@@ -464,7 +465,7 @@ function panneauPluieProche() {
     /* Le trait marque la fin de l'heure du radar ; la part qui suit se nomme
        dans le ruban même, la légende tenant ainsi sur une ligne. */
     + (radar && suite.length ? `<i class="pp-limite" style="--x:${place(finHeure).toFixed(2)}%"></i>`
-      + `<span class="pp-zone" style="--x:${place(finHeure).toFixed(2)}%">modèle</span>` : "")
+      + `<span class="pp-zone" style="--x:${place(finHeure).toFixed(2)}%">${suite.some(x => x.poids > 0) ? "estimée" : "modèle"}</span>` : "")
     + `<i class="pp-maint"></i></div>`
     + `<p class="pp-axe"><span>maint.</span>${reperes.join("")}<span>${esc(heureJour(new Date(t1)))}</span></p>`
     /* Le repli vient d'un modèle et non du radar : il le dit. Audit, constat
@@ -484,7 +485,7 @@ const estPluieRang = i => Pluie.estPluie(i);
 function resumeGraphe(pas, autour = [], suite = []) {
   const avant = resumeHeure(pas, autour);
   const eau = suite.find(x => Pluie.estPluie(x.i));
-  const dapres = eau && eau.total > 1 ? `d'après ${eau.accord} modèles sur ${eau.total}` : "d'après le modèle";
+  const dapres = eau ? Pluie.dapresDe({ ...eau, radar: eau.radar && eau.poids >= 0.5 }) : "";
   return eau ? `${avant}. Ensuite, ${dapres}, de la pluie vers ${heureJour(new Date(eau.t))}` : avant;
 }
 
@@ -1627,7 +1628,12 @@ async function lirePluieProche(g) {
    même question finiraient par se contredire. */
 async function lireDeplacement(g) {
   deplacement = null;
-  if (!pluieProche || !pluieProche.dispo || !Pluie.annonce(pluieProche)) return;
+  /* Depuis la version 184, la mesure part aussi quand un modèle au moins voit
+     de la pluie dans les trois heures, ou qu'un voisin en voit dans l'heure :
+     le déplacement prolongé peut alors l'annoncer ou la démentir. */
+  const indice = pluieProche && ((pluieProche.suite || []).some(x => x.accord > 0)
+    || (pluieProche.voisins || []).some(v => v.pas.some(x => Pluie.estPluie(x.i))));
+  if (!pluieProche || !pluieProche.dispo || !(Pluie.annonce(pluieProche) || indice)) return;
   const mien = generation;
   try {
     const idx = await Radar.charger();

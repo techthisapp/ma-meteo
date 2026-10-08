@@ -23,6 +23,7 @@
 import { JETON } from "./vigilance.js";
 import { recaler, chercher, instantParis, heureJour } from "./horloge.js";
 import { SEUIL_LAME } from "./previsions.js";
+import { rangDe, SEUIL_DBZ } from "./deplacement.js";
 
 const SERVICE = "https://webservice.meteofrance.com/v3/nowcast/rain";
 
@@ -362,6 +363,49 @@ export function proximite(l, maintenant = Date.now()) {
   return { genre: "proche", force: Math.max(...autour.map(e => e.force)), t, fin: null };
 }
 
+/* Le déplacement des averses prolongé, version 184, jalon 26, lot 2. Le
+   profil de `src/deplacement.js` dit, minute par minute, la pluie que la
+   dernière image radar apporte en la poussant du déplacement mesuré. Il se
+   fond dans l'accord des modèles : pleinement jusqu'à une heure d'ici, de
+   moins en moins ensuite, plus du tout à deux heures et demie. C'est la
+   pratique des services de prévision immédiate, l'extrapolation valant mieux
+   que les modèles au début et moins bien ensuite ; elle tient pour les pluies
+   étendues, mal pour les orages qui naissent sur place. Aucune archive
+   d'images radar ne permet de la vérifier sur le passé.
+
+   Chaque pas porte alors `p`, la part qui voit la pluie, le déplacement
+   compté pour `poids` et les modèles pour le reste, et `radar`, la pluie que
+   le déplacement apporte. Un pas que le déplacement ne couvre pas, au delà
+   du bord de la tuile, reste celui des modèles. */
+export const FONDU = { plein: 60, nul: 150 };
+export const poidsDeplacement = minutes =>
+  Math.max(0, Math.min(1, (FONDU.nul - minutes) / (FONDU.nul - FONDU.plein)));
+export function fondre(suite, dep, maintenant = Date.now()) {
+  if (!Array.isArray(suite) || !dep || !Array.isArray(dep.profil) || !Number.isFinite(dep.tImage)) return suite;
+  return suite.map(x => {
+    const w = poidsDeplacement((x.t - maintenant) / 60000);
+    if (w <= 0) return x;
+    const vals = [];
+    for (let m = 0; m < PAS_REPLI; m += 5) {
+      const tau = Math.round((x.t + m * 60000 - dep.tImage) / 60000);
+      const v = tau >= 0 && tau < dep.profil.length ? dep.profil[tau] : null;
+      if (v === null || v === undefined) return x;
+      vals.push(v);
+    }
+    const mouilles = vals.filter(v => v >= SEUIL_DBZ);
+    const radar = mouilles.length * 2 > vals.length;
+    const rangRadar = radar ? rangDe(Math.max(...mouilles)) : 1;
+    const part = x.total > 0 ? x.accord / x.total : null;
+    const p = part === null ? (radar ? 1 : 0) : w * (radar ? 1 : 0) + (1 - w) * part;
+    let i = 1;
+    if (p >= MAJORITE) i = radar && (w >= 0.5 || !estPluie(x.i)) ? rangRadar : x.i;
+    return { ...x, i, p, radar, poids: w };
+  });
+}
+/* La lecture tout entière, la suite fondue avec le déplacement. */
+export const avecDeplacement = (l, dep, maintenant = Date.now()) =>
+  (l && l.suite && dep && dep.profil ? { ...l, suite: fondre(l.suite, dep, maintenant) } : l);
+
 /* La pluie plus tard, version 169 : rien dans l'heure, ni sur le point ni
    autour, mais le modèle en voit dans les deux heures qui suivent. Elle ne se
    dit que si toute l'heure est connue au sec : une échéance muette arrête la
@@ -382,13 +426,26 @@ export function plusTard(l, maintenant = Date.now()) {
   const fort = episode.reduce((a, x) => ((x.accord || 0) > (a.accord || 0) ? x : a), episode[0]);
   return { genre: "debut", force: Math.max(...episode.map(x => x.i)),
     t: Math.max(s[k].t, fin), fin: apres < 0 ? null : s[apres].t, modele: true,
-    accord: fort.accord || 0, total: fort.total || 0 };
+    accord: fort.accord || 0, total: fort.total || 0,
+    radar: episode.some(x => x.radar && x.poids >= 0.5) };
 }
 
 /* Ce que l'encart annonce : la pluie sur le point dans l'heure, sinon la pluie
    autour, sinon la pluie que le modèle voit plus tard. */
 export const annonce = (l, maintenant = Date.now()) =>
   evenement(l, maintenant) || proximite(l, maintenant) || plusTard(l, maintenant);
+
+/* La source d'une pluie plus tard : l'accord des modèles, et le déplacement
+   des averses quand il compte pour moitié au moins, version 184. */
+const modelesTxt = (a, t) => `${a} modèle${a > 1 ? "s" : ""} sur ${t}`;
+export function dapresDe(ev) {
+  if (ev.radar) {
+    if (!(ev.total > 1)) return "d'après le déplacement des averses";
+    return ev.accord > 0 ? `d'après le déplacement des averses et ${modelesTxt(ev.accord, ev.total)}`
+      : "d'après le déplacement des averses, qu'aucun modèle ne voit";
+  }
+  return ev.total > 1 ? `d'après ${modelesTxt(ev.accord, ev.total)}` : "d'après le modèle";
+}
 
 /* Un délai, « 20 min » ou « 2 h 15 ». */
 export const delaiCourt = m => (m < 60 ? `${m} min`
@@ -421,7 +478,7 @@ export function lignes(ev, maintenant = Date.now(), pas = PAS_MF) {
   const methode = ev.confirme ? " Heure confirmée par le déplacement des averses."
     : ev.nonVue ? " Aucune averse observée en approche."
       : ev.plage ? " Heure incertaine selon le déplacement des averses." : "";
-  const dapres = ev.total > 1 ? `d'après ${ev.accord} modèles sur ${ev.total}` : "d'après le modèle";
+  const dapres = dapresDe(ev);
   const sous = (ev.modele
     ? (duree ? `Pendant ${duree} minutes environ, ${dapres}.` : `${dapres.replace(/^d/, "D")}.`)
     : (duree ? `Pendant ${duree} minutes environ.` : "")) + methode;

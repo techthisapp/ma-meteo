@@ -1249,6 +1249,33 @@ case "$N" in
   404) # Un modèle sans valeur compte comme sec.
      perl -0pi -e 's/const vals = colonnes\.map\(c => c\[k\]\)\.filter\(Number\.isFinite\);/const vals = colonnes.map(c => c[k] ?? 0);/' src/pluieproche.js
      ATTENDU="la pluie se lit à la majorité des modèles" ;;
+  405) # Un pixel transparent se lit comme une pluie.
+     perl -0pi -e 's/  if \(a < 16\) return null;\n  let bon = null, ecart = Infinity;/  let bon = null, ecart = Infinity;/' src/deplacement.js
+     ATTENDU="la couleur du radar se lit en dBZ" ;;
+  406) # La pluie modérée disparaît des classes du radar.
+     perl -0pi -e 's/z < 29 \? 2 : z < 37 \? 3 : 4\)/z < 37 ? 2 : 4)/' src/deplacement.js
+     ATTENDU="la couleur du radar se lit en dBZ" ;;
+  407) # Le profil lit l'aval au lieu de l'amont.
+     perl -0pi -e 's/const cx = px - vx \* tau, cy = py - vy \* tau;/const cx = px + vx * tau, cy = py + vy * tau;/' src/deplacement.js
+     ATTENDU="le profil pousse la dernière image" ;;
+  408) # Le profil invente du sec au delà du bord de la tuile.
+     perl -0pi -e 's/    if \(dehors\) break;\n    mouilles\.sort/    if (dehors) { out.push(0); continue; }\n    mouilles.sort/' src/deplacement.js
+     ATTENDU="le profil pousse la dernière image" ;;
+  409) # Le déplacement compte pleinement jusqu'au bout.
+     perl -0pi -e 's/Math\.max\(0, Math\.min\(1, \(FONDU\.nul - minutes\) \/ \(FONDU\.nul - FONDU\.plein\)\)\)/(minutes < FONDU.nul ? 1 : 0)/' src/pluieproche.js
+     ATTENDU="le déplacement compte pleinement jusqu.à une heure" ;;
+  410) # La mesure ne rend pas le profil.
+     perl -0pi -e 's/profil: profilDe\(db, px, py, bon\.dx, bon\.dy, minutes\)/profil: []/' src/deplacement.js
+     ATTENDU="la mesure rend le profil" ;;
+  411) # L'accueil ne fond pas le déplacement dans la suite.
+     perl -0pi -e 's/const l = Pluie\.avecDeplacement\(pluieProche, deplacement, maintenant\);/const l = pluieProche;/' src/app.js
+     ATTENDU="le ruban fond le déplacement dans la suite" ;;
+  412) # Une pluie apportée par le déplacement se dit venue des modèles.
+     perl -0pi -e 's/  if \(ev\.radar\) \{/  if (false) {/' src/pluieproche.js
+     ATTENDU="une pluie apportée par le déplacement le dit" ;;
+  413) # La mesure ne part que sur une pluie annoncée.
+     perl -0pi -e 's/!\(Pluie\.annonce\(pluieProche\) \|\| indice\)/!Pluie.annonce(pluieProche)/' src/app.js
+     ATTENDU="un seul modèle qui voit de la pluie fait partir la mesure" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

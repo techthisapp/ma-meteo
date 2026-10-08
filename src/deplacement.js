@@ -169,6 +169,68 @@ export function approcheDe(donnees, px, py, dx, dy, minutes, tImage, n = TAILLE)
   return { t: null, jusqua: tImage + HORIZON_APPROCHE * 60000 };
 }
 
+/* L'intensité lue à la couleur, version 184, jalon 26, lot 2. La table des
+   couleurs du schéma 2 du service, « Universal Blue », relevée le 8 octobre
+   2026 sur la table publique de RainViewer, de 0 à 66 dBZ par pas de 3 : la
+   pluie d'abord, la neige ensuite. Le lissage des tuiles mêle les teintes
+   voisines ; la couleur la plus proche suffit à dire la classe. */
+const PALETTE = [
+  [0, 0x827b69], [3, 0x8b826d], [6, 0x9e9375], [9, 0xc2b482], [12, 0xd6c88f], [15, 0x88ddee], [18, 0x36bae5],
+  [21, 0x009ad5], [24, 0x007fb4], [27, 0x00699c], [30, 0x005588], [33, 0x004a70], [36, 0xffe000], [39, 0xffb700],
+  [42, 0xff9500], [45, 0xff4400], [48, 0xd91b00], [51, 0xa80000], [54, 0x5d0000], [57, 0xff95ff], [60, 0xff77ff],
+  [63, 0xff58ff], [66, 0xffffff],
+  [0, 0xc7ffff], [3, 0xc4ffff], [6, 0xc2ffff], [9, 0xbfffff], [12, 0xb2f2ff], [15, 0x9fdfff], [18, 0x8bcbff],
+  [21, 0x78b8ff], [24, 0x65a5ff], [27, 0x5898ff], [30, 0x4f8fff], [33, 0x4585ff], [36, 0x3b7bff], [39, 0x3272ff],
+  [42, 0x2868ff], [45, 0x1f5fff], [48, 0x1555ff], [51, 0x0c4bff], [54, 0x0242ff], [57, 0x0038ff], [60, 0x002fff],
+  [63, 0x0025ff], [66, 0x001bff],
+];
+export function dbzDe(r, g, b, a) {
+  if (a < 16) return null;
+  let bon = null, ecart = Infinity;
+  for (const [z, c] of PALETTE) {
+    const e = (r - (c >> 16)) ** 2 + (g - ((c >> 8) & 255)) ** 2 + (b - (c & 255)) ** 2;
+    if (e < ecart) { ecart = e; bon = z; }
+  }
+  return bon;
+}
+/* Les classes de la pluie dans l'heure, en dBZ par la relation de Marshall
+   et Palmer : 12 dBZ valent 0,15 mm à l'heure, 29 en valent 2,5, 37 en
+   valent 7,6, les bornes de la pluie faible, modérée et forte du repli. */
+export const SEUIL_DBZ = 12;
+export const rangDe = z => (z === null || z < SEUIL_DBZ ? 1 : z < 29 ? 2 : z < 37 ? 3 : 4);
+
+/* Le profil, version 184. La dernière image poussée du déplacement mesuré,
+   minute par minute jusqu'à `HORIZON_SUITE` après sa prise : en chaque
+   minute, la pluie qui passera sur le point est celle qui se trouve en amont
+   à la distance parcourue. Le point se lit sur trois pixels de côté, une
+   dizaine de kilomètres : il est mouillé quand la moitié au moins l'est, à la
+   force médiane des pixels mouillés. Une valeur par minute, le dBZ d'une
+   pluie, zéro pour le sec, `null` au delà du bord de la tuile. */
+export const HORIZON_SUITE = 150;
+export function profilDe(donnees, px, py, dx, dy, minutes, n = TAILLE) {
+  const vx = dx / minutes, vy = dy / minutes;
+  const out = [];
+  for (let tau = 0; tau <= HORIZON_SUITE; tau++) {
+    const cx = px - vx * tau, cy = py - vy * tau;
+    const mouilles = [];
+    let vus = 0, dehors = false;
+    for (let oy = -1; oy <= 1 && !dehors; oy++) {
+      for (let ox = -1; ox <= 1; ox++) {
+        const x = Math.round(cx + ox), y = Math.round(cy + oy);
+        if (x < 0 || y < 0 || x >= n || y >= n) { dehors = true; break; }
+        const k = (y * n + x) * 4;
+        const z = dbzDe(donnees[k], donnees[k + 1], donnees[k + 2], donnees[k + 3]);
+        vus++;
+        if (z !== null && z >= SEUIL_DBZ) mouilles.push(z);
+      }
+    }
+    if (dehors) break;
+    mouilles.sort((a, b) => a - b);
+    out.push(mouilles.length * 2 >= vus ? mouilles[Math.floor(mouilles.length / 2)] : 0);
+  }
+  return out;
+}
+
 /* La mesure complète. `images` est la liste des observations de l'index, la plus
    récente en dernier. Rien n'est rendu si les conditions de lecture ne sont pas
    réunies : une direction inventée serait pire que pas de direction. */
@@ -196,7 +258,8 @@ export async function mesurer(lat, lon, hote, images, charge = chargerTuile) {
   const n2 = Math.pow(2, t.z);
   const px = (mx(lon) * n2 - t.x) * TAILLE, py = (my(lat) * n2 - t.y) * TAILLE;
   return { ...depuisDecalage(bon.dx, bon.dy, minutes, lat), score: bon.s, minutes,
-    approche: approcheDe(db, px, py, bon.dx, bon.dy, minutes, derniere.t) };
+    approche: approcheDe(db, px, py, bon.dx, bon.dy, minutes, derniere.t),
+    profil: profilDe(db, px, py, bon.dx, bon.dy, minutes), tImage: derniere.t };
 }
 
 /* Le chargement d'une tuile en champ de pixels. Le service sert ses images avec
