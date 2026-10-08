@@ -537,11 +537,12 @@ export default async T => {
     .map(u => decodeURIComponent((/[?&]time=([^&]+)/.exec(u) || [])[1] || "")))].sort();
 
   /* Depuis la version 180, la période se demande en une plage de dates. */
-  ok("la couche demande au départ deux jours, de la veille au jour même, en une plage",
+  /* Depuis la version 182, la couche s'ouvre sur sept jours. */
+  ok("la couche demande au départ sept jours, jusqu'au jour même, en une plage",
     (() => {
       const j = joursFeux();
-      const veille = new Date(FIGE - 86400000).toISOString().slice(0, 10);
-      return j.length === 1 && j[0] === `${veille}/${FEUX_JOUR}`;
+      const debut = new Date(FIGE - 6 * 86400000).toISOString().slice(0, 10);
+      return j.length === 1 && j[0] === `${debut}/${FEUX_JOUR}`;
     })(), joursFeux().join(" "));
 
   /* La dimension de temps est obligatoire : sans elle le service rend l'année

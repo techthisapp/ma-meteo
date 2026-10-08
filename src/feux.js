@@ -36,8 +36,8 @@ export const CARTE = "https://maps.effis.emergency.copernicus.eu/gwis";
 export const COUCHE = "viirs.hs";
 export const BRULE = "nrt.ba";
 
-// Les pas du curseur ; deux jours au départ, soit quatre passages.
-export const FENETRE = 2;
+// Les pas du curseur ; sept jours au départ depuis la version 182.
+export const FENETRE = 7;
 export const PAS = [
   { cle: "1j", jours: 1, nom: "24 h" }, { cle: "2j", jours: 2, nom: "48 h" }, { cle: "7j", jours: 7, nom: "7 jours" },
   { cle: "30j", jours: 30, nom: "30 jours" }, { cle: "90j", jours: 90, nom: "3 mois" }, { cle: "1an", jours: 365, nom: "1 an" },

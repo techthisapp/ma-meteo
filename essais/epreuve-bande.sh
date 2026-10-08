@@ -1200,7 +1200,7 @@ case "$N" in
      ATTENDU="les jours se lisent sur 110 points" ;;
   388) # La plage des feux commence un jour trop tôt.
      perl -0pi -e 's/jourDe\(fin - \(n - 1\) \* 86400000\)/jourDe(fin - n * 86400000)/' src/feux.js
-     ATTENDU="la couche demande au départ deux jours, de la veille au jour même" ;;
+     ATTENDU="la couche demande au départ sept jours, jusqu.au jour même" ;;
   389) # Les surfaces brûlées ne se demandent plus.
      perl -0pi -e 's/for \(const couche of \[BRULE, COUCHE\]\)/for (const couche of [COUCHE])/' src/feux.js
      ATTENDU="les tuiles se demandent en projection de Mercator, foyers et surfaces brûlées" ;;
@@ -1225,6 +1225,9 @@ case "$N" in
   396) # Les surfaces brûlées gardent le rouge du service.
      perl -0pi -e 's/e\.peinte = teindre\(e\.img, couche === COUCHE \? TEINTE : TEINTE_BRULE\);/e.peinte = couche === COUCHE ? teindre(e.img, TEINTE) : null;/' src/feux.js
      ATTENDU="sur trois mois, les foyers restent du rouge de la légende" ;;
+  397) # La couche des feux s'ouvre encore sur deux jours.
+     perl -0pi -e 's/etat\.periodefeux : "7j"\);/etat.periodefeux : "2j");/' src/reglages.js
+     ATTENDU="la couche demande au départ sept jours, jusqu.au jour même" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

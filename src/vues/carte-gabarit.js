@@ -308,8 +308,8 @@ export const gabaritCarte = g => `<div class="ca-cadre">`
   + `<div class="ca-lv-ligne">`
   + `<div class="ca-legende ca-lv" id="caLegVent" hidden></div>`
   + `<div class="ca-legende ca-lv ca-lx" id="caLegFeux" hidden `
-  + `aria-label="Foyers vus par satellite sur les deux derniers jours">`
-  + `<span class="ca-lv-r"><i class="ca-pastille-feu"></i><span id="caFeuxNom">Foyers satellite, 48 h</span></span>`
+  + `aria-label="Foyers vus par satellite et surfaces brûlées, 7 jours">`
+  + `<span class="ca-lv-r"><i class="ca-pastille-feu"></i><span id="caFeuxNom">Foyers satellite, 7 jours</span></span>`
   + `<span class="ca-lv-r"><i class="ca-pastille-brule"></i>Surfaces brûlées</span>`
   + `</div>`
   + `<div class="ca-legende ca-lv ca-lf" id="caLegFoudre" hidden `

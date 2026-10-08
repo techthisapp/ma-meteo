@@ -404,15 +404,17 @@ export function poserFeuxcarte(v) { poser({ feuxcarte: v === true }); }
 
 /* Les périodes des couches du passé, version 180 : celle des nappes, le
    plus haut ou le plus bas des températures, celle des feux. Une valeur
-   inconnue retombe sur la valeur par défaut. */
+   inconnue retombe sur la valeur par défaut. Les feux s'ouvrent sur sept
+   jours depuis la version 182, décision de Jérôme du 8 octobre 2026 ; une
+   période déjà choisie reste. */
 export const PERIODES_PASSE = ["24h", "48h", "72h", "7j", "14j", "30j", "60j"];
 export const periodePasse = () => (PERIODES_PASSE.includes(etat.periodepasse) ? etat.periodepasse : "48h");
 export function poserPeriodePasse(v) { poser({ periodepasse: PERIODES_PASSE.includes(v) ? v : "48h" }); }
 export const extremePasse = () => (etat.extremepasse === "froid" ? "froid" : "chaud");
 export function poserExtremePasse(v) { poser({ extremepasse: v === "froid" ? "froid" : "chaud" }); }
 export const PERIODES_FEUX = ["1j", "2j", "7j", "30j", "90j", "1an"];
-export const periodeFeux = () => (PERIODES_FEUX.includes(etat.periodefeux) ? etat.periodefeux : "2j");
-export function poserPeriodeFeux(v) { poser({ periodefeux: PERIODES_FEUX.includes(v) ? v : "2j" }); }
+export const periodeFeux = () => (PERIODES_FEUX.includes(etat.periodefeux) ? etat.periodefeux : "7j");
+export function poserPeriodeFeux(v) { poser({ periodefeux: PERIODES_FEUX.includes(v) ? v : "7j" }); }
 /* La légende de la carte repliée, version 155. */
 export const legendeRepliee = () => etat.legenderepliee === true;
 export function poserLegendeRepliee(v) { poser({ legenderepliee: v === true }); }
