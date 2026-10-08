@@ -1580,10 +1580,9 @@ button.rangee:active{background:var(--surface-2)}
   flex:none;width:10px;height:10px;border-radius:var(--rayon-plein);
   background:#e8442a;box-shadow:0 0 0 3px rgba(232,68,42,.22);
 }
-/* Les surfaces brûlées, en rouge cerné comme sur la légende du service. */
+/* Les surfaces brûlées, en bordeaux, la teinte de `src/feux.js`. */
 .ca-lx .ca-pastille-brule{
-  flex:none;width:10px;height:10px;
-  background:#f05050;border:1px solid #a51c1c;
+  flex:none;width:10px;height:10px;background:#8e1b3a;
 }
 /* Les curseurs de période, version 180 : sous l'échelle d'une nappe du
    passé, sur toute sa largeur, et sous les feux. La valeur se lit à droite. */

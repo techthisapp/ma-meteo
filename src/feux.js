@@ -42,6 +42,18 @@ export const PAS = [
   { cle: "1j", jours: 1, nom: "24 h" }, { cle: "2j", jours: 2, nom: "48 h" }, { cle: "7j", jours: 7, nom: "7 jours" },
   { cle: "30j", jours: 30, nom: "30 jours" }, { cle: "90j", jours: 90, nom: "3 mois" }, { cle: "1an", jours: 365, nom: "1 an" },
 ];
+/* La teinte des foyers. Le service colore chaque foyer selon son âge : rouge
+   sous 24 heures, orange sur la semaine, bleu sur le mois, vert au delà.
+   Relevé sur sa légende le 8 octobre 2026. Sur une période longue, la carte
+   se couvrait de vert, couleur qui ne dit pas le feu : les foyers sont
+   repeints d'une seule teinte, celle de la légende. Les surfaces brûlées,
+   rouges et orange chez le service, se confondaient alors avec eux : elles
+   passent au bordeaux. Sur trois mois et un an, les foyers couvrent presque
+   toute la France ; ils s'éclaircissent pour laisser voir le fond et les
+   surfaces. */
+export const TEINTE = "#e8442a";
+export const TEINTE_BRULE = "#8e1b3a";
+export const opaciteFoyers = n => (n > 30 ? 0.5 : n > 7 ? 0.75 : 1);
 export const pasDe = cle => PAS.find(p => p.cle === cle) || PAS[1];
 
 export const TAILLE = 256;
@@ -87,12 +99,29 @@ export function tuile(t, temps, surPret, couche = COUCHE) {
   e = { pret: false, echoue: false, img: new Image() };
   e.img.crossOrigin = "anonymous";
   e.img.decoding = "async";
-  e.img.addEventListener("load", () => { e.pret = true; if (surPret) surPret(); });
+  e.img.addEventListener("load", () => {
+    e.peinte = teindre(e.img, couche === COUCHE ? TEINTE : TEINTE_BRULE);
+    e.pret = true;
+    if (surPret) surPret();
+  });
   e.img.addEventListener("error", () => { e.echoue = true; });
   e.img.src = cle;
   cache.set(cle, e);
   while (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value);
   return e;
+}
+
+/* Une image repeinte d'une seule teinte, la transparence gardée. */
+export function teindre(img, teinte = TEINTE) {
+  const c = document.createElement("canvas");
+  c.width = img.naturalWidth || TAILLE;
+  c.height = img.naturalHeight || TAILLE;
+  const x = c.getContext("2d");
+  x.drawImage(img, 0, 0);
+  x.globalCompositeOperation = "source-in";
+  x.fillStyle = teinte;
+  x.fillRect(0, 0, c.width, c.height);
+  return c;
 }
 
 export const tuilesFeux = (vue, l, h) => tuilesVues(vue, l, h, ZMAX_TUILE);
@@ -108,7 +137,9 @@ export function peindre(ctx, vue, l, h, fin, surPret, n = FENETRE) {
     for (const couche of [BRULE, COUCHE]) {
       const e = tuile(t, temps, surPret, couche);
       if (!e.pret) continue;
-      ctx.drawImage(e.img, t.px, t.py, t.cote + 0.5, t.cote + 0.5);
+      ctx.globalAlpha = couche === COUCHE ? opaciteFoyers(n) : 1;
+      ctx.drawImage(e.peinte || e.img, t.px, t.py, t.cote + 0.5, t.cote + 0.5);
+      ctx.globalAlpha = 1;
       posees++;
     }
   }

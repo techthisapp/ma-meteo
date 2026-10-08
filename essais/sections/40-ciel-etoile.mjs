@@ -592,6 +592,25 @@ export default async T => {
   await pgFx.locator("#caPerFeuxVal").click();
   await pgFx.locator("#caPerFeuxCurseur").fill("4");
   await pgFx.waitForTimeout(600);
+  /* Le service peint en vert les foyers de plus d'un mois ; la carte les
+     repeint du rouge de la légende. */
+  const teinteFx = await pgFx.evaluate(() => {
+    const cv = document.getElementById("caToile");
+    const ctx = cv.getContext("2d");
+    let rouges = 0, verts = 0, pleins = 0, vus = 0;
+    for (let y = 60; y < cv.height - 60; y += 40) {
+      for (let x = 60; x < cv.width - 60; x += 40) {
+        const d = ctx.getImageData(x, y, 1, 1).data;
+        vus++;
+        if (d[0] > 150 && d[0] > 2 * d[1] && d[1] < 110) rouges++;
+        if (d[1] > 150 && d[0] < 120) verts++;
+        if (d[0] > 220 && d[1] > 55 && d[2] < 120) pleins++;
+      }
+    }
+    return { rouges, verts, pleins, vus };
+  });
+  ok("sur trois mois, les foyers restent du rouge de la légende, sans vert, éclaircis sur le bordeaux des surfaces",
+    teinteFx.verts === 0 && teinteFx.pleins === 0 && teinteFx.rouges / teinteFx.vus > 0.3, JSON.stringify(teinteFx));
   const fx3 = await pgFx.evaluate(() => ({
     nom: document.getElementById("caFeuxNom").textContent,
     val: document.getElementById("caPerFeuxVal").textContent,

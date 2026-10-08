@@ -1205,9 +1205,13 @@ export const brancherFauxServices = async (c, etat) => {
     const m = /[?&]time=([^&]+)/.exec(u);
     const jour = m ? decodeURIComponent(m[1]) : "2020-01-01";
     const vide = jour < "2025-01-01";
+    /* Comme le vrai service, des foyers verts quand la période dépasse un
+       mois : la couleur dit l'âge du foyer. Version 180. */
+    const [debut, fin] = jour.split("/");
+    const vieux = /layers=viirs\.hs&/.test(u) && fin && Date.parse(fin) - Date.parse(debut) > 30 * 86400000;
     r.fulfill({ status: 200, contentType: "image/png",
       headers: { "Access-Control-Allow-Origin": "*" },
-      body: vide ? pngUni(0, 0, 0, 0) : pngUni(232, 68, 42, 255) });
+      body: vide ? pngUni(0, 0, 0, 0) : vieux ? pngUni(60, 200, 70, 255) : pngUni(232, 68, 42, 255) });
   });
   await c.route(/view\.eumetsat\.int\/geoserver\/mtg_fd\/ir105_hrfi/, r => {
     const u = r.request().url();

@@ -1216,6 +1216,15 @@ case "$N" in
   393) # La rafale passée devient une somme.
      perl -0pi -e 's/g\.rafales\[i\] = plus\(de\("wind_gusts_10m"\)\);/g.rafales[i] = somme(de("wind_gusts_10m"));/' src/passe.js
      ATTENDU="les heures donnent cumuls, plus forte rafale" ;;
+  394) # Les foyers gardent la couleur d'âge du service.
+     perl -0pi -e 's/ctx\.drawImage\(e\.peinte \|\| e\.img,/ctx.drawImage(e.img,/' src/feux.js
+     ATTENDU="sur trois mois, les foyers restent du rouge de la légende" ;;
+  395) # Les foyers d'une période longue restent pleins.
+     perl -0pi -e 's/ctx\.globalAlpha = couche === COUCHE \? opaciteFoyers\(n\) : 1;/ctx.globalAlpha = 1;/' src/feux.js
+     ATTENDU="sur trois mois, les foyers restent du rouge de la légende" ;;
+  396) # Les surfaces brûlées gardent le rouge du service.
+     perl -0pi -e 's/e\.peinte = teindre\(e\.img, couche === COUCHE \? TEINTE : TEINTE_BRULE\);/e.peinte = couche === COUCHE ? teindre(e.img, TEINTE) : null;/' src/feux.js
+     ATTENDU="sur trois mois, les foyers restent du rouge de la légende" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
