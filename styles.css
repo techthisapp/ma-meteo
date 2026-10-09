@@ -2468,6 +2468,11 @@ button.rangee:active{background:var(--surface-2)}
 }
 .rg-maj{flex-wrap:wrap;gap:var(--espace-sm)}
 .rg-b{font-size:var(--texte-corps);padding:0}
+/* La clé de la prévision immédiate, version 186 : le champ prend la place,
+   les deux boutons restent à droite. */
+.rg-cle{gap:var(--espace-sm)}
+.rg-cle input{flex:1;min-width:0;font:inherit;font-size:var(--texte-corps);padding:6px 10px;
+  border:1px solid var(--filet);border-radius:var(--rayon-sm);background:var(--surface);color:var(--etiquette)}
 .rangee:has(> .rg-b){padding-top:0;padding-bottom:0;margin-bottom:calc(var(--espace-sm) * -1)}
 .rg-maj .note:empty{display:none}
 .rg-src{padding-top:var(--espace-sm);padding-bottom:var(--espace-sm)}

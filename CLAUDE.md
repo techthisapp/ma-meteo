@@ -31,6 +31,7 @@ Les sources de données, toutes interrogées depuis le navigateur :
 | Source | Emploi | Particularités |
 |---|---|---|
 | Open-Meteo | Prévision, ensembles, archive, mer, sol, neige, air | Quota gratuit compté par adresse : des essais répétés depuis un même poste finissent en refus 429. Le téléphone de l'utilisateur n'est pas concerné. Une réponse garde un seul décalage horaire, celui du moment de la requête : toute lecture passe par `recaler` de `src/horloge.js`, qui la récrit à l'heure de Paris. Depuis la version 131, `cleJour` et `cleHeure` écrivent un instant à l'heure de Paris, et `instantParis` lit une heure des données comme un instant de Paris : un téléphone réglé sur un autre fuseau trouve les bonnes heures |
+| Météo-France, PIAF | Prévision immédiate de la pluie, carte et point, depuis la version 186 | Clé gratuite du portail des API, saisie dans les réglages et gardée sur l'appareil, jamais dans le dépôt ; `api.meteofrance.fr/pro/piaf/1.0`, la clé en tête de l'adresse ; 50 requêtes par minute. La clé de Jérôme pour les essais est dans `~/.config/ma-meteo/cle-meteofrance` |
 | Météo-France | Vigilance, pluie dans l'heure | Le drapeau `rain_product_available` de la pluie dans l'heure ne dit pas la couverture du radar : il valait zéro à Pignan sous la pluie le 4 octobre 2026. Depuis la version 171, une pluie annoncée se lit quel que soit le drapeau |
 | VigiEau | Restrictions d'eau, par département et pour un point ; zones d'alerte sur la carte depuis la version 152 | Accepte les requêtes de l'application. Les zones viennent d'une archive PMTiles refaite chaque jour, `regleau.s3.gra.perf.cloud.ovh.net`, lue par plages d'octets par `src/zones-eau.js` |
 | Hub'eau | Nappes, rivières, étiage ONDE, température de l'eau | Lent, huit à treize secondes par appel ; les lectures se font après l'affichage, avec trente secondes d'attente au plus |
@@ -98,14 +99,14 @@ installe Playwright 1.63.0, puis `npx playwright install chromium`.
 
 | Commande | Effet |
 |---|---|
-| `bash essais/passe.sh 8137` | La suite complète, sur une copie du dépôt dans `/tmp/passe-<port>` ; trois minutes, 1200 contrôles à la version 185 |
+| `bash essais/passe.sh 8137` | La suite complète, sur une copie du dépôt dans `/tmp/passe-<port>` ; trois minutes, 1208 contrôles à la version 186 |
 | `SECTIONS="carte,vent" bash essais/passe.sh 8137` | Les seules sections dont le titre ou le nom de fichier contient l'un des motifs |
 | `JUSQUA="La bande horaire" bash essais/passe.sh 8137` | La suite jusqu'à la fin d'une section |
 | `PARALLELE=1 CHRONO=1 bash essais/passe.sh 8137` | Une section à la fois, avec le temps de chacune ; trois passent côte à côte par défaut |
 | `bash essais/epreuve-bande.sh <n>` | Une erreur volontaire : le script introduit l'erreur numéro n dans une copie, ne passe que la section qui porte le contrôle attendu, et vérifie qu'il échoue. Verdicts possibles : vue, non vue, non appliquée, ou épreuve interrompue |
 
 Les erreurs volontaires sont numérotées dans `essais/epreuve-bande.sh` ; la
-dernière porte le numéro 418. Tout contrôle nouveau a son erreur volontaire, et
+dernière porte le numéro 428. Tout contrôle nouveau a son erreur volontaire, et
 une erreur volontaire éprouvée pendant que son contrôle échoue déjà sur le bon
 code doit être repassée.
 
@@ -188,11 +189,11 @@ Les consignes détaillées du projet sont dans `docs/consignes/`.
 
 ## État au 8 octobre 2026
 
-Version 185, publiée depuis Claude Code. Jalons livrés : 1 à 4, 7 à 18, dont 14, la comparaison ; 15, les
+Version 186, publiée depuis Claude Code. Jalons livrés : 1 à 4, 7 à 18, dont 14, la comparaison ; 15, les
 plages ; 16, la neige ; 17, la semaine au plus loin ; 18, les couches de la
 carte et l'eau ; 19, la carte enrichie, livré
 en versions 140 à 153, repris en versions 154 et 155. Jalon 20, textes,
-accueil, ciel et heures, livré en versions 156 à 159. Jalon 21, le ruban repris, livré en versions 160 à 163. Jalon 22, la pluie dans l'heure reprise, livré en versions 168 à 170 : ruban sur trois heures, voisinage, seconde méthode par le déplacement des averses. Jalon 23, le plein ciel du Soleil et de la Lune, livré en versions 172 à 175. Jalon 24, les étoiles en plein écran reprises, lots 1 à 5 livrés en versions 176 à 178, peinture dans `src/voute.js` ; lot 6, viser avec le téléphone, à faire. Jalon 25, les cartes du passé, livré en versions 179 à 182 : pluie, neige, rafales et températures passées de 24 heures à 60 jours, `src/passe.js`, et feux jusqu'à un an, la période choisie au curseur dans la légende. Jalon 26, la suite de la pluie, livré en versions 183 à 185 : six modèles et leur accord, le déplacement des averses prolongé, `src/deplacement.js` et `fondre` de `src/pluieproche.js`, et les images poussées de la piste de la carte. Jalons restants : 6, la justesse des prévisions publiée, vers
+accueil, ciel et heures, livré en versions 156 à 159. Jalon 21, le ruban repris, livré en versions 160 à 163. Jalon 22, la pluie dans l'heure reprise, livré en versions 168 à 170 : ruban sur trois heures, voisinage, seconde méthode par le déplacement des averses. Jalon 23, le plein ciel du Soleil et de la Lune, livré en versions 172 à 175. Jalon 24, les étoiles en plein écran reprises, lots 1 à 5 livrés en versions 176 à 178, peinture dans `src/voute.js` ; lot 6, viser avec le téléphone, à faire. Jalon 25, les cartes du passé, livré en versions 179 à 182 : pluie, neige, rafales et températures passées de 24 heures à 60 jours, `src/passe.js`, et feux jusqu'à un an, la période choisie au curseur dans la légende. Jalon 26, la suite de la pluie, livré en versions 183 à 185 : six modèles et leur accord, le déplacement des averses prolongé, `src/deplacement.js` et `fondre` de `src/pluieproche.js`, et les images poussées de la piste de la carte ; puis, version 186, la prévision immédiate PIAF de Météo-France, `src/piaf.js`, avec une clé saisie dans les réglages. Jalons restants : 6, la justesse des prévisions publiée, vers
 la fin octobre ; 5, la 3D, écartée pour le moment.
 
 Points connus à reprendre :

@@ -1291,6 +1291,36 @@ case "$N" in
   418) # Le déplacement de la carte se mesure d'abord sur une tuile voisine.
      perl -0pi -e 's/\[\[0, 0\], \[-1, 0\], \[1, 0\], \[0, -1\], \[0, 1\]\]/[[-1, 0], [0, 0], [1, 0], [0, -1], [0, 1]]/' src/deplacement.js
      ATTENDU="l.ouverture ne charge qu.une image" ;;
+  419) # La piste de la carte ignore PIAF malgré la clé.
+     perl -0pi -e 's/if \(radar\.length && Piaf\.actif\(\) && /if (false \&\& radar.length \&\& Piaf.actif() \&\& /' src/vues/carte-chronologie.js
+     ATTENDU="avec la clé, la piste porte les échéances de PIAF" ;;
+  420) # Une échéance de PIAF ne se peint pas.
+     perl -0pi -e 's/if \(cadre\?\.piaf\) return Piaf\.peindre\(c, v, l, h, cadre\.t, \(\) => E\.revoir\(\)\);/if (cadre?.piaf) return 0;/' src/vues/carte-chronologie.js
+     ATTENDU="une échéance de PIAF se peint sur la carte" ;;
+  421) # L'accueil garde la suite des modèles malgré PIAF.
+     perl -0pi -e 's/  if \(d && piaf\) d\.suite = suitePiaf\(piaf, finDe\(d\.pas\)\);\n//' src/pluieproche.js
+     ATTENDU="avec la clé, l.encart annonce la pluie que PIAF prévoit" ;;
+  422) # L'encart ne dit pas que la pluie vient de PIAF.
+     perl -0pi -e 's/  if \(ev\.piaf\) return "d.après la prévision immédiate de Météo-France";\n//' src/pluieproche.js
+     ATTENDU="avec la clé, l.encart annonce la pluie que PIAF prévoit" ;;
+  423) # Le TIFF ne se lit que sur sa première bande.
+     perl -0pi -e 's/for \(let s = 0; s < tags\[273\]\.length && k < valeurs\.length; s\+\+\)/for (let s = 0; s < 1 \&\& k < valeurs.length; s++)/' src/piaf.js
+     ATTENDU="le TIFF du service se lit" ;;
+  424) # Le compteur laisse tout partir.
+     perl -0pi -e 's/export const PAR_MINUTE = 45;/export const PAR_MINUTE = 1000;/' src/piaf.js
+     ATTENDU="le compteur laisse partir quarante-cinq requêtes" ;;
+  425) # La clé saisie ne se garde pas.
+     perl -0pi -e 's/export function poserClePiaf\(v\) \{ poser\(\{ clepiaf: /export function poserClePiaf(v) { poser({ clepiaf: null \&\& /' src/reglages.js
+     ATTENDU="la clé se saisit dans les réglages" ;;
+  426) # Le point se demande sans la clé.
+     perl -0pi -e 's/\$\{avecCle\(WCS, cle\)\}&service=WCS/\${WCS}?service=WCS/' src/piaf.js
+     ATTENDU="avec la clé, l.encart annonce la pluie que PIAF prévoit" ;;
+  427) # La politique de la page ne permet pas le service de PIAF.
+     perl -0pi -e 's/ https:\/\/view\.eumetsat\.int https:\/\/api\.meteofrance\.fr; worker-src/ https:\/\/view.eumetsat.int; worker-src/' index.html
+     ATTENDU="avec la clé, l.encart annonce la pluie que PIAF prévoit" ;;
+  428) # La clé de l'image de carte passe en dernière place.
+     perl -0pi -e 's/\$\{avecCle\(WMS, cle\)\}&service=WMS/\${WMS}?service=WMS/; s/&time=\$\{iso\(t\)\}`;/\&time=\${iso(t)}\&apikey=\${encodeURIComponent(cle || "")}`;/' src/piaf.js
+     ATTENDU="une échéance de PIAF se peint sur la carte" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

@@ -509,7 +509,8 @@ export function vueReglages(ctx, rendre, majEtat) {
       + "scénarios d'ICON et d'ECMWF ; tendance au-delà de seize jours par GFS"],
     /* Version 183 : la pluie des trois heures au quart d'heure. */
     ["Pluie des trois heures", "six modèles par Open-Meteo : ICON du service allemand, AROME et AROME HD de "
-      + "Météo-France, modèles du Met Office britannique, de l'institut néerlandais et de l'institut danois"],
+      + "Météo-France, modèles du Met Office britannique, de l'institut néerlandais et de l'institut danois ; "
+      + "avec une clé, prévision immédiate PIAF de Météo-France"],
     /* Un service muet le dit ici aussi, audit, constat 2.6. */
     ["Vigilance, pluie dans l'heure", (() => {
       const l = Vig.etatLecture();
@@ -576,6 +577,20 @@ export function vueReglages(ctx, rendre, majEtat) {
          relevés, pour que le lecteur sache si les chiffres sont assis. */
       + justesseHTML()
 
+      /* La clé de la prévision immédiate de Météo-France, version 186. Elle
+         reste sur l'appareil ; le champ ne la réaffiche pas. */
+      + `<div class="carte"><div class="carte-tete"><h3>Prévision immédiate</h3></div>`
+      + `<div class="rangee"><span class="rangee-txt">Clé Météo-France</span>`
+      + `<span class="rangee-val" id="rgCleEtat">${Reglages.clePiaf() ? "enregistrée" : "aucune"}</span></div>`
+      + `<div class="rangee rg-cle"><input type="password" id="rgCle" autocomplete="off" autocapitalize="off" `
+      + `spellcheck="false" placeholder="Coller la clé" aria-label="Clé de l'API PIAF de Météo-France">`
+      + `<button type="button" class="bouton-texte rg-b" id="rgCleOk">Enregistrer</button>`
+      + `<button type="button" class="bouton-texte rg-b" id="rgCleNon"${Reglages.clePiaf() ? "" : " hidden"}>Retirer</button></div>`
+      + aide("Avec une clé de l'API PIAF du portail de Météo-France, la pluie des trois heures et la carte "
+        + "suivent la prévision immédiate de Météo-France, au kilomètre et toutes les cinq minutes. "
+        + "La clé reste sur cet appareil.")
+      + `</div>`
+
       /* La version, et la recherche d'une plus récente à la demande. */
       + `<div class="carte"><div class="carte-tete"><h3>Application</h3></div>`
       + `<div class="rangee"><span class="rangee-txt">Version</span>`
@@ -618,6 +633,19 @@ export function vueReglages(ctx, rendre, majEtat) {
         } catch { /* stockage indisponible */ }
         location.reload();
       });
+      const cleEtat = bloc.querySelector("#rgCleEtat"), cleChamp = bloc.querySelector("#rgCle");
+      const cleNon = bloc.querySelector("#rgCleNon");
+      const majCle = () => {
+        cleEtat.textContent = Reglages.clePiaf() ? "enregistrée" : "aucune";
+        cleNon.hidden = !Reglages.clePiaf();
+        cleChamp.value = "";
+      };
+      bloc.querySelector("#rgCleOk")?.addEventListener("click", () => {
+        Reglages.poserClePiaf(cleChamp.value);
+        majCle();
+        if (!Reglages.clePiaf() && cleChamp) cleEtat.textContent = "clé trop courte";
+      });
+      cleNon?.addEventListener("click", () => { Reglages.poserClePiaf(null); majCle(); });
       const chercher = bloc.querySelector("#rgChercher");
       const dit = bloc.querySelector("#rgMaj");
       if (chercher) {

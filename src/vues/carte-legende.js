@@ -9,6 +9,7 @@ import * as NappeCarte from "../nappe.js";
 import { NAPPES_CARTE } from "./carte-gabarit.js";
 import * as Reglages from "../reglages.js";
 import * as Feux from "../feux.js";
+import * as Piaf from "../piaf.js";
 
 export function brancherLegende(E) {
   const { bloc, cv } = E;
@@ -48,7 +49,7 @@ export function brancherLegende(E) {
   E.mention = () => {
     credit.innerHTML = (E.pluieAllume
       ? `<span>Pluie <a href="https://www.rainviewer.com" target="_blank" `
-        + `rel="noopener noreferrer">RainViewer</a>, pluie prévue Open-Meteo</span>`
+        + `rel="noopener noreferrer">RainViewer</a>, pluie prévue ${Piaf.actif() ? "Météo-France et " : ""}Open-Meteo</span>`
       : "")
       + (() => {
         /* Deux couches de la même source ne la nomment qu'une fois. La

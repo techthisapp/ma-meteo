@@ -1235,6 +1235,25 @@ export const brancherFauxServices = async (c, etat) => {
     r.fulfill({ status: 200, contentType: "image/png",
       headers: { "Access-Control-Allow-Origin": "*" }, body: pngDamier() });
   });
+  await c.route(/api\.meteofrance\.fr\/pro\/piaf/, r => {
+    const u = r.request().url();
+    etat.appelsPiaf.push(u);
+    const ent = { "Access-Control-Allow-Origin": "*" };
+    if (!/[?&]apikey=[^&]{20,}/.test(u)) { r.fulfill({ status: 401, headers: ent, body: "" }); return; }
+    if (/DescribeCoverage/.test(u)) {
+      const bon = u.includes(`___${PIAF_REF}_PT15M`);
+      r.fulfill({ status: bon ? 200 : 404, headers: ent, contentType: "application/xml", body: "<x/>" });
+      return;
+    }
+    if (/GetCoverage/.test(u)) {
+      const m = /subset=time\(([^)]+)\)/.exec(decodeURIComponent(u));
+      if (!m || !u.includes(`___${PIAF_REF}_PT15M`)) { r.fulfill({ status: 404, headers: ent, body: "" }); return; }
+      const v = piafCumul(Date.parse(m[1]), etat.profilPiaf);
+      r.fulfill({ status: 200, headers: ent, contentType: "image/tiff", body: tiffDe(3, 3, Array(9).fill(v)) });
+      return;
+    }
+    r.fulfill({ status: 200, headers: ent, contentType: "image/png", body: pngUni(...PIAF_TEINTE, 255) });
+  });
   await c.route(/tilecache\.rainviewer\.com/, r => {
     const u = r.request().url();
     etat.appelsRadar.push(u);
@@ -1253,6 +1272,33 @@ export const brancherFauxServices = async (c, etat) => {
       body: mesure ? pngMotif(t.r, t.g, t.b, 230, t.rang, 256, etat.radarFondPlein ? 230 : 0)
         : pngUni(t.r, t.g, t.b, 230) });
   });
+};
+
+/* La prévision immédiate PIAF de Météo-France, version 186. La dernière
+   prévision servie date de 8 h 45, heure de Paris, un quart d'heure avant
+   l'heure figée, comme le vrai service ; seule celle-là se décrit. Au point,
+   un quart d'heure de pluie modérée, 0,8 mm, pour chaque quart d'heure qui
+   finit entre 11 h 15 et 11 h 45 ; rien ailleurs. Les images de la carte
+   sont unies, d'un violet que rien d'autre ne peint. */
+export const PIAF_REF = "2026-08-18T06.45.00Z";
+export const PIAF_TEINTE = [120, 40, 210];
+export const tiffDe = (largeur, hauteur, valeurs) => {
+  const n = 11, ifd = 8, donnees = ifd + 2 + n * 12 + 4;
+  const b = Buffer.alloc(donnees + 8 * largeur * hauteur);
+  b.write("II", 0, "latin1"); b.writeUInt16LE(42, 2); b.writeUInt32LE(ifd, 4); b.writeUInt16LE(n, ifd);
+  const tags = [[256, 3, largeur], [257, 3, hauteur], [258, 3, 64], [259, 3, 1], [262, 3, 1], [273, 4, donnees],
+    [277, 3, 1], [278, 3, hauteur], [279, 4, 8 * largeur * hauteur], [284, 3, 1], [339, 3, 3]];
+  tags.forEach(([t, ty, v], k) => {
+    const o = ifd + 2 + 12 * k;
+    b.writeUInt16LE(t, o); b.writeUInt16LE(ty, o + 2); b.writeUInt32LE(1, o + 4);
+    if (ty === 3) b.writeUInt16LE(v, o + 8); else b.writeUInt32LE(v, o + 8);
+  });
+  valeurs.forEach((v, k) => b.writeDoubleLE(v, donnees + 8 * k));
+  return b;
+};
+export const piafCumul = (T, profil = "tard") => {
+  const fin = (T - FIGE) / 60000;
+  return profil === "tard" && fin >= 135 && fin <= 165 ? 0.8 : 0;
 };
 
 export const nouvelEtat = () => ({
@@ -1289,6 +1335,8 @@ export const nouvelEtat = () => ({
   appelsPrevue: [],
   appelsPassee: [],
   appelsPasseeJours: [],
+  appelsPiaf: [],
+  profilPiaf: "tard",
   retardPasseeJours: 0,
   appelsMer: [],
   appelsPollens: [],

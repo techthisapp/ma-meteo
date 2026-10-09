@@ -24,6 +24,7 @@ import { JETON } from "./vigilance.js";
 import { recaler, chercher, instantParis, heureJour } from "./horloge.js";
 import { SEUIL_LAME } from "./previsions.js";
 import { rangDe, SEUIL_DBZ } from "./deplacement.js";
+import * as Piaf from "./piaf.js";
 
 const SERVICE = "https://webservice.meteofrance.com/v3/nowcast/rain";
 
@@ -193,6 +194,17 @@ function suiteDe(modele, fin) {
   return modele.pas.filter(x => x.t + PAS_REPLI * 60000 > fin);
 }
 
+/* La suite lue sur PIAF, version 186 : le cumul de chaque quart d'heure
+   devient le rang de la pluie dans l'heure, aux mêmes bornes que les
+   modèles. Elle commence, comme la leur, au quart d'heure qui couvre la fin
+   de l'heure du radar. */
+export const rangDuCumul = mm => (!Number.isFinite(mm) ? 0 : mm < SEUILS_REPLI.lame ? 1
+  : mm * 4 < SEUILS_REPLI.moderee ? 2 : mm * 4 < SEUILS_REPLI.forte ? 3 : 4);
+export function suitePiaf(lus, fin) {
+  return lus.filter(x => !Number.isFinite(fin) || x.t + PAS_REPLI * 60000 > fin)
+    .map(x => ({ t: x.t, i: rangDuCumul(x.mm), mm: x.mm, piaf: true }));
+}
+
 /* Le voisinage, depuis la version 168, demande de Jérôme du 4 octobre 2026.
    Le produit répond pour un point, et une averse qui passe à deux kilomètres
    change toute la réponse. Quatre points de plus, à trois kilomètres environ au
@@ -226,7 +238,11 @@ export async function charger(lat, lon, fetcheur = chercher) {
   const k = cle(lat, lon);
   const g = gardes.get(k);
   if (g && Date.now() < g.exp) return g.d;
-  const [modele, centre, ...autour] = await Promise.all([
+  /* La prévision immédiate de Météo-France, quand une clé est saisie,
+     version 186 : elle remplace la suite des modèles. */
+  const t0 = Date.now();
+  const [piaf, modele, centre, ...autour] = await Promise.all([
+    Piaf.actif() ? Piaf.suite(lat, lon, t0, t0 + HORIZON + 15 * 60000).catch(() => null) : null,
     chargerModele(lat, lon, fetcheur),
     ...[[lat, lon], ...voisinsDe(lat, lon)].map(([a, b]) => lireProduit(a, b, fetcheur)),
   ]);
@@ -239,6 +255,7 @@ export async function charger(lat, lon, fetcheur = chercher) {
     d.suite = suiteDe(modele, finDe(d.pas));
     if (d.pas.length < 2) d = null;
   } else d = null;
+  if (d && piaf) d.suite = suitePiaf(piaf, finDe(d.pas));
   gardes.set(k, { d, exp: Date.now() + GARDE });
   return d;
 }
@@ -403,8 +420,10 @@ export function fondre(suite, dep, maintenant = Date.now()) {
   });
 }
 /* La lecture tout entière, la suite fondue avec le déplacement. */
+/* La suite de PIAF ne se fond pas : elle porte déjà le déplacement des
+   averses, mesuré par Météo-France. */
 export const avecDeplacement = (l, dep, maintenant = Date.now()) =>
-  (l && l.suite && dep && dep.profil ? { ...l, suite: fondre(l.suite, dep, maintenant) } : l);
+  (l && l.suite && dep && dep.profil && !l.suite.some(x => x.piaf) ? { ...l, suite: fondre(l.suite, dep, maintenant) } : l);
 
 /* La pluie plus tard, version 169 : rien dans l'heure, ni sur le point ni
    autour, mais le modèle en voit dans les deux heures qui suivent. Elle ne se
@@ -427,7 +446,7 @@ export function plusTard(l, maintenant = Date.now()) {
   return { genre: "debut", force: Math.max(...episode.map(x => x.i)),
     t: Math.max(s[k].t, fin), fin: apres < 0 ? null : s[apres].t, modele: true,
     accord: fort.accord || 0, total: fort.total || 0,
-    radar: episode.some(x => x.radar && x.poids >= 0.5) };
+    radar: episode.some(x => x.radar && x.poids >= 0.5), piaf: episode.some(x => x.piaf) };
 }
 
 /* Ce que l'encart annonce : la pluie sur le point dans l'heure, sinon la pluie
@@ -439,6 +458,7 @@ export const annonce = (l, maintenant = Date.now()) =>
    des averses quand il compte pour moitié au moins, version 184. */
 const modelesTxt = (a, t) => `${a} modèle${a > 1 ? "s" : ""} sur ${t}`;
 export function dapresDe(ev) {
+  if (ev.piaf) return "d'après la prévision immédiate de Météo-France";
   if (ev.radar) {
     if (!(ev.total > 1)) return "d'après le déplacement des averses";
     return ev.accord > 0 ? `d'après le déplacement des averses et ${modelesTxt(ev.accord, ev.total)}`

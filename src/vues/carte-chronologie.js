@@ -12,6 +12,7 @@ import * as NappeCarte from "../nappe.js";
 import * as Prevue from "../prevue.js";
 import * as Deplacement from "../deplacement.js";
 import { poidsDeplacement } from "../pluieproche.js";
+import * as Piaf from "../piaf.js";
 import { NAPPES_CARTE } from "./carte-gabarit.js";
 
 /* Douze heures prévues après les images du radar, jalon 19, lot 5c,
@@ -46,6 +47,9 @@ const teintePluie = v => {
 export const couchePluie = E => (c, v, l, h) => {
   if (!E.pluieAllume) return 0;
   const cadre = E.cadres?.[E.cadre];
+  /* La prévision immédiate de Météo-France, version 186, quand une clé est
+     saisie : une image par échéance, posée sur la projection de la carte. */
+  if (cadre?.piaf) return Piaf.peindre(c, v, l, h, cadre.t, () => E.revoir());
   if (cadre?.pousse && E.mouvement && E.images.length) {
     const w = poidsDeplacement((cadre.t - Date.now()) / 60000);
     let posees = 0;
@@ -105,9 +109,9 @@ export function brancherChronologie(E) {
   const rangPrevue = c => (E.prevue ? Math.max(0, Math.round((c.t / 1000 - E.prevue.t0) / 3600)) : 0);
   E.majHeure = () => {
     const c = E.cadres[E.cadre];
-    E.heurePrevue = c?.prevue || c?.pousse ? rangPrevue(c) : 0;
+    E.heurePrevue = c?.prevue || c?.pousse || c?.piaf ? rangPrevue(c) : 0;
     if (E.prevue) E.prevueVue = Prevue.vue(E.prevue, E.heurePrevue);
-    E.heureCadre = c?.prevue || c?.pousse ? c.t : null;
+    E.heureCadre = c?.prevue || c?.pousse || c?.piaf ? c.t : null;
     E.poserLegende?.();
     E.revoir();
     E.poserVent?.();
@@ -136,9 +140,17 @@ export function brancherChronologie(E) {
      si une nappe horaire est choisie. La piste paraît dès deux cadres. */
   E.majChronologie = () => {
     const radar = E.pluieAllume ? E.images.map((im, k) => ({ t: im.t, futur: im.futur === true, radar: k })) : [];
-    /* Les images poussées, quand le service n'extrapole pas lui-même et que
-       le déplacement s'est mesuré. */
-    if (radar.length && E.mouvement && !radar.some(c => c.futur)) {
+    /* Avec une clé, les échéances de PIAF au pas de cinq minutes, de la
+       dernière image observée à près de trois heures d'ici, version 186.
+       Sans clé, les images poussées, quand le service du radar n'extrapole
+       pas lui-même et que le déplacement s'est mesuré. */
+    if (radar.length && Piaf.actif() && !radar.some(c => c.futur)) {
+      const der = radar[radar.length - 1];
+      const borne = Date.now() + Piaf.HORIZON * 60000;
+      for (let t = der.t + Piaf.PAS * 60000; t <= borne; t += Piaf.PAS * 60000) {
+        radar.push({ t, futur: true, radar: der.radar, piaf: true });
+      }
+    } else if (radar.length && E.mouvement && !radar.some(c => c.futur)) {
       const der = radar[radar.length - 1];
       for (let k = 1; k <= POUSSEES; k++) {
         radar.push({ t: der.t + k * PAS_POUSSE * 60000, futur: true, radar: der.radar, pousse: k });
@@ -210,7 +222,8 @@ export function brancherChronologie(E) {
       const k = (E.cadre + 1) % E.cadres.length;
       const c = E.cadres[k];
       const l = cv.clientWidth, h = cv.clientHeight;
-      if (c.radar !== undefined) await Radar.preparer(E.vue, l, h, E.hote, E.images[c.radar].chemin);
+      if (c.piaf) await Piaf.preparer(c.t);
+      else if (c.radar !== undefined) await Radar.preparer(E.vue, l, h, E.hote, E.images[c.radar].chemin);
       else if (c.prevue && !E.prevue && E.lirePrevue) await E.lirePrevue();
       if (!enLecture || !cv.isConnected) break;
       poserRang(k);
@@ -247,7 +260,7 @@ export function brancherChronologie(E) {
      mesure pas : la piste garde alors ses heures prévues. */
   E.mouvement = null;
   const lireMouvement = async () => {
-    if (!E.pluieAllume || E.mouvement || !E.images.length || E.images.some(x => x.futur)) return;
+    if (!E.pluieAllume || E.mouvement || Piaf.actif() || !E.images.length || E.images.some(x => x.futur)) return;
     try {
       const m = await Deplacement.mouvementVue(E.vue.lat, E.vue.lon, E.hote, E.images.filter(x => !x.futur));
       if (!m || !cv.isConnected) return;

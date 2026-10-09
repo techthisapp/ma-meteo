@@ -600,6 +600,13 @@ export const AFFICHAGES_CIEL = ["visibles", "toutes", "constellations"];
 /* Le voile des nuages prévus sur la carte du ciel, version 177, demande de
    Jérôme du 6 octobre 2026 : allumé au départ, il se coupe d'un bouton et le
    choix se garde. */
+/* La clé de la prévision immédiate de Météo-France, PIAF, version 186. Elle
+   se saisit dans les réglages et reste sur cet appareil : le dépôt est
+   public et n'en porte aucune. Sans clé, la pluie des trois heures garde ses
+   six modèles et la carte ses images poussées. */
+export const clePiaf = () => (typeof etat.clepiaf === "string" && etat.clepiaf.length > 20 ? etat.clepiaf : null);
+export function poserClePiaf(v) { poser({ clepiaf: typeof v === "string" && v.trim().length > 20 ? v.trim() : null }); }
+
 export const voileCiel = () => etat.voileCiel !== false;
 export function poserVoileCiel(v) { poser({ voileCiel: v === true }); }
 

@@ -465,7 +465,7 @@ function panneauPluieProche() {
     /* Le trait marque la fin de l'heure du radar ; la part qui suit se nomme
        dans le ruban même, la légende tenant ainsi sur une ligne. */
     + (radar && suite.length ? `<i class="pp-limite" style="--x:${place(finHeure).toFixed(2)}%"></i>`
-      + `<span class="pp-zone" style="--x:${place(finHeure).toFixed(2)}%">${suite.some(x => x.poids > 0) ? "estimée" : "modèle"}</span>` : "")
+      + `<span class="pp-zone" style="--x:${place(finHeure).toFixed(2)}%">${suite.some(x => x.piaf) ? "prévue" : suite.some(x => x.poids > 0) ? "estimée" : "modèle"}</span>` : "")
     + `<i class="pp-maint"></i></div>`
     + `<p class="pp-axe"><span>maint.</span>${reperes.join("")}<span>${esc(heureJour(new Date(t1)))}</span></p>`
     /* Le repli vient d'un modèle et non du radar : il le dit. Audit, constat
