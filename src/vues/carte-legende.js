@@ -72,6 +72,7 @@ export function brancherLegende(E) {
         E.neigeAllume && "neige"].filter(Boolean).join(", ").replace(/^./, c => c.toUpperCase())} Open-Meteo</span>` : "")
       + (E.neigeAllume ? `<span>Stations OpenSkiMap, © contributeurs OpenStreetMap</span>` : "")
       + (E.rivAllume ? `<span>Cours d'eau Hub'eau</span>` : "")
+      + (E.choisie === "foret" ? `<span>Météo des forêts Météo-France</span>` : "")
       + (E.choisie === "eau" ? `<span>Restrictions${E.modeZones ? " par zone" : ""} <a href="https://vigieau.gouv.fr" target="_blank" `
         + `rel="noopener noreferrer">VigiEau</a></span>` : "")
       + (E.foudreAllume || E.nuagesAllume
@@ -125,15 +126,16 @@ export function brancherLegende(E) {
     legende.hidden = !n;
     if (n && n.departements) {
       const cs = getComputedStyle(cv);
-      const ve = n.classes.map((_, i) => cs.getPropertyValue(`--ca-ve${i + 1}`).trim());
+      const ve = n.classes.map((_, i) => cs.getPropertyValue(`--ca-${n.palette || "ve"}${i + 1}`).trim());
       const pas = 100 / ve.length;
       rampeEl.style.background = `linear-gradient(to right, ${ve.map((c, i) => `${c} ${(i * pas).toFixed(0)}% ${((i + 1) * pas).toFixed(0)}%`).join(", ")})`;
-      titreLeg.textContent = `${n.nom}, ${n.porte}${E.modeZones ? ", par zone d'alerte" : ""}`;
+      titreLeg.textContent = `${n.nom}, ${n.porte}${n.cle === "eau" && E.modeZones ? ", par zone d'alerte" : ""}`;
       /* Quatre classes ne tiennent pas sous la rampe : les deux bouts, relevé
          sur le site le 3 octobre 2026. Le libellé lu garde les quatre. */
       const classes = n.classes.join("").length > 18 ? [n.classes[0], n.classes[n.classes.length - 1]] : n.classes;
       grads.innerHTML = classes.map(v => `<span>${esc(v)}</span>`).join("");
-      legende.setAttribute("aria-label", `${n.nom} en vigueur, de la vigilance à la crise`);
+      legende.setAttribute("aria-label", n.cle === "foret" ? `Danger d'incendie de forêt, ${n.porte}, de faible à très élevé`
+        : `${n.nom} en vigueur, de la vigilance à la crise`);
     } else if (n) {
       const a = n.arrets;
       rampeEl.style.background = `linear-gradient(to right, ${

@@ -22,7 +22,7 @@ application.
 
 ## État au 8 octobre 2026
 
-Version 187. Le projet est passé de claude.ai à Claude Code le 1er octobre
+Version 188. Le projet est passé de claude.ai à Claude Code le 1er octobre
 2026, à la version 118. Un audit complet de la version 120 a été mené le même
 jour, `docs/audit-2026-10-01.md`, avec le suivi de chaque lot en fin de
 document.
@@ -45,7 +45,7 @@ relevés seront réunis. Le jalon 5, la 3D, est écarté pour le moment. Le jalo
 reprise, ouvert le 4 octobre 2026 : livré en versions 168 à 170 : ruban sur
 trois heures, voisinage, pastille accordée au radar, seconde méthode par le
 déplacement des averses. Le jalon 23, le plein ciel du Soleil et
-de la Lune, est livré en versions 172 à 175. Le jalon 24, les étoiles en plein écran reprises, a ses lots 1 à 5 livrés en versions 176 à 178 ; reste le lot 6, viser le ciel avec le téléphone. Le jalon 25, les cartes du passé, est livré en versions 179 à 182 : nappes du passé et feux, période choisie au curseur dans la légende. Le jalon 26, la suite de la pluie, est livré en versions 183 à 186 : six modèles et leur accord, le déplacement des averses prolongé, les images poussées sur la carte, puis la prévision immédiate PIAF de Météo-France avec une clé saisie dans les réglages. Le jalon 6 a son lot 1 livré en version 187 : la justesse mesurée aux stations de Météo-France. La clé de Jérôme, pour les essais sur le Mac, est dans `~/.config/ma-meteo/cle-meteofrance`, hors du dépôt.
+de la Lune, est livré en versions 172 à 175. Le jalon 24, les étoiles en plein écran reprises, a ses lots 1 à 5 livrés en versions 176 à 178 ; reste le lot 6, viser le ciel avec le téléphone. Le jalon 25, les cartes du passé, est livré en versions 179 à 182 : nappes du passé et feux, période choisie au curseur dans la légende. Le jalon 26, la suite de la pluie, est livré en versions 183 à 186 : six modèles et leur accord, le déplacement des averses prolongé, les images poussées sur la carte, puis la prévision immédiate PIAF de Météo-France avec une clé saisie dans les réglages. Le jalon 6 a son lot 1 livré en version 187 : la justesse mesurée aux stations de Météo-France. La météo des forêts est livrée en version 188 ; viennent ensuite les bulletins d'avalanche, avant l'hiver, puis le radar de Météo-France si son rendu peut égaler RainViewer. La clé de Jérôme, pour les essais sur le Mac, est dans `~/.config/ma-meteo/cle-meteofrance`, hors du dépôt.
 
 ## Points ouverts
 

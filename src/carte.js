@@ -86,6 +86,7 @@ const couleurs = cv => {
     /* Les restrictions d'eau, jalon 18 : une palette à elles, du sable pâle au
        violet sombre, pour ne pas se lire comme une vigilance météo. */
     ve1: v("--ca-ve1"), ve2: v("--ca-ve2"), ve3: v("--ca-ve3"), ve4: v("--ca-ve4"),
+    vf1: v("--ca-vf1"), vf2: v("--ca-vf2"), vf3: v("--ca-vf3"), vf4: v("--ca-vf4"),
     /* Le fond enrichi, jalon 19. */
     riviere: v("--ca-riviere"), ville: v("--ca-ville"), villePoint: v("--ca-ville-point"),
   };

@@ -1330,6 +1330,7 @@ button.rangee:active{background:var(--surface-2)}
      teintes sont pâles, la carte devant rester lisible sous elles. */
   --ca-vg2:#f2e3a8;
   --ca-ve1:rgba(214,190,120,.45);--ca-ve2:rgba(232,146,62,.5);--ca-ve3:rgba(206,70,58,.55);--ca-ve4:rgba(106,44,95,.6);
+  --ca-vf1:rgba(110,175,90,.4);--ca-vf2:rgba(236,200,60,.5);--ca-vf3:rgba(238,136,40,.55);--ca-vf4:rgba(208,48,40,.6);
   --ca-vg3:#f3c98d;
   --ca-vg4:#eba9a0;
   /* Le fond enrichi, jalon 19 : l'eau, les noms des villes et leur point. */
@@ -1349,6 +1350,7 @@ button.rangee:active{background:var(--surface-2)}
     --ca-vent:#b8c6d6;
     --ca-vg2:#4a4326;
     --ca-ve1:rgba(214,190,120,.4);--ca-ve2:rgba(232,146,62,.45);--ca-ve3:rgba(226,90,78,.5);--ca-ve4:rgba(170,90,160,.55);
+    --ca-vf1:rgba(110,175,90,.35);--ca-vf2:rgba(236,200,60,.45);--ca-vf3:rgba(238,136,40,.5);--ca-vf4:rgba(230,70,60,.55);
     --ca-vg3:#573a1f;
     --ca-vg4:#5a2e2a;
     --ca-riviere:#4f87bb;

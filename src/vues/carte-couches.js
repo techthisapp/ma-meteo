@@ -17,6 +17,7 @@ import * as Vent from "../vent.js";
 import * as Vig from "../vigilance.js";
 import * as Prevue from "../prevue.js";
 import * as Passe from "../passe.js";
+import * as Foret from "../foret.js";
 import * as ZonesEau from "../zones-eau.js";
 import { NAPPES_CARTE, reglerPasse } from "./carte-gabarit.js";
 import { couchePluie } from "./carte-chronologie.js";
@@ -181,6 +182,27 @@ export function brancherCouches(E) {
     if (!eauNiveaux) return 0;
     return Carte.peindreDepartements(cv, c, v, l, h, eauNiveaux, { palette: "ve" });
   };
+  /* Le danger d'incendie de forêt, version 188 : les départements teintés du
+     jour montré, comme les restrictions d'eau. */
+  let foretNiveaux = null;
+  const coucheForet = (c, v, l, h) => {
+    if (E.choisie !== "foret" || !foretNiveaux) return 0;
+    return Carte.peindreDepartements(cv, c, v, l, h, foretNiveaux, { palette: "vf" });
+  };
+  const lireForet = async () => {
+    try {
+      const d = await Foret.charger();
+      if (!cv.isConnected) return;
+      if (!d) { E.dire("La nappe a besoin du réseau et de la clé de Météo-France."); return; }
+      const j = Foret.jourMontre(d);
+      foretNiveaux = Foret.niveaux(d, j.jour);
+      const n = NAPPES_CARTE.find(x => x.cle === "foret");
+      if (n) n.porte = j.dit;
+      E.dire("");
+      E.poserLegende();
+      E.revoir();
+    } catch { if (cv.isConnected) E.dire("La nappe a besoin du réseau."); }
+  };
   const coucheVigiFond = (c, v, l, h) => {
     if (!E.vigiAllume || !vigiNiveaux || vigiEnTrait()) return 0;
     return Carte.peindreDepartements(cv, c, v, l, h, vigiNiveaux);
@@ -236,7 +258,7 @@ export function brancherCouches(E) {
      comme posées même vides, et un liseré le long des limites ferait lire
      une couche là où il n'y a pas d'orage. */
   const couche = couchePluie(E);
-  const COUCHES = [coucheEau, coucheVigiFond, { peindre: coucheValeur, gaine: false },
+  const COUCHES = [coucheEau, coucheForet, coucheVigiFond, { peindre: coucheValeur, gaine: false },
     { peindre: coucheNuages, gaine: false },
     couche, { peindre: coucheFoudre, gaine: false },
     { peindre: coucheFeux, gaine: false },
@@ -343,7 +365,8 @@ export function brancherCouches(E) {
   /* Le choix de nappe. Une seule à la fois, ou aucune : ce sont des
      étalements de couleur sur toute la surface. Le choix se garde d'une
      visite à l'autre, et une nappe éteinte ne demande rien à sa source. */
-  const rangs = new Map(NAPPES_CARTE.map(n => [n.cle, bloc.querySelector(`#${n.id}`)]));
+  /* Une nappe dont la tuile n'est pas posée, faute de clé, n'entre pas. */
+  const rangs = new Map(NAPPES_CARTE.map(n => [n.cle, bloc.querySelector(`#${n.id}`)]).filter(([, el]) => el));
   const sans = bloc.querySelector("#caSansNappe");
 
   const poserChoix = c => {
@@ -356,6 +379,10 @@ export function brancherCouches(E) {
     E.majChronologie?.();
     if (c === "eau") {
       if (eauNiveaux) E.revoir(); else lireEau();
+      return;
+    }
+    if (c === "foret") {
+      if (foretNiveaux) E.revoir(); else lireForet();
       return;
     }
     const n = NAPPES_CARTE.find(x => x.cle === c && x.champ);
@@ -507,7 +534,7 @@ export function brancherCouches(E) {
   /* Les départs, que la carte lance une fois tous ses modules branchés : les
      restrictions d'eau d'abord, comme avant le découpage, puis le reste. */
   return {
-    eau: () => { if (E.choisie === "eau") lireEau(); },
+    eau: () => { if (E.choisie === "eau") lireEau(); if (E.choisie === "foret") lireForet(); },
     reste: () => {
       if (E.foudreAllume) lireFoudre();
       if (E.nuagesAllume) lireNuages();

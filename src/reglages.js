@@ -369,7 +369,7 @@ export function poserCiel(e) {
    deux nappes de la version 179, deviennent une seule pluie tombée dont la
    période se choisit au curseur. Un ancien choix se reprend avec sa durée. */
 export const NAPPES = ["temp", "uv", "air", "eau", "ventmoy", "rafales", "pluie24", "pluiepassee", "neige24", "limite", "pression",
-  "gel", "cielnuit", "brouillard", "pollens", "vagues", "eaumer", "neigepassee", "rafalespassees", "temppassee"];
+  "gel", "cielnuit", "brouillard", "pollens", "vagues", "eaumer", "neigepassee", "rafalespassees", "temppassee", "foret"];
 const ANCIENNES = { pluie48: ["pluiepassee", "48h"], pluie72: ["pluiepassee", "72h"] };
 if (ANCIENNES[etat.nappe]) etat = { ...etat, nappe: ANCIENNES[etat.nappe][0], periodepasse: ANCIENNES[etat.nappe][1] };
 export const nappe = () => (NAPPES.includes(etat.nappe) ? etat.nappe : null);

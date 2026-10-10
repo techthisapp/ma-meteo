@@ -1235,6 +1235,14 @@ export const brancherFauxServices = async (c, etat) => {
     r.fulfill({ status: 200, contentType: "image/png",
       headers: { "Access-Control-Allow-Origin": "*" }, body: pngDamier() });
   });
+  await c.route(/public-api\.meteofrance\.fr\/public\/DPMeteoForets/, r => {
+    const u = r.request().url();
+    etat.appelsForet.push(u);
+    const ent = { "Access-Control-Allow-Origin": "*" };
+    if (!/[?&]apikey=[^&]{20,}/.test(u)) { r.fulfill({ status: 401, headers: ent, body: "" }); return; }
+    if (/carte\/encours/.test(u)) { r.fulfill({ status: 200, headers: ent, contentType: "text/csv", body: foretCsv(etat.foretVieille) }); return; }
+    r.fulfill({ status: 404, headers: ent, body: "" });
+  });
   await c.route(/public-api\.meteofrance\.fr\/public\/DPPaquetObs/, r => {
     const u = r.request().url();
     etat.appelsObs.push(u);
@@ -1334,6 +1342,18 @@ export const obsPaquet = () => {
   return out;
 };
 
+/* La météo des forêts, version 188 : la carte faite la veille de l'heure
+   figée, à 16 h 50 de Paris ; la Côte-d'Or en danger élevé aujourd'hui et
+   très élevé demain, les Bouches-du-Rhône très élevé les deux jours, le reste
+   faible. `foretVieille` rend la carte d'un mois plus tôt, hors saison. */
+export const foretCsv = vieille => {
+  const ref = new Date(FIGE - (vieille ? 31 : 1) * 86400000);
+  ref.setUTCHours(14, 50, 5, 0);
+  const t = ref.toISOString().replace(".000", "");
+  const deps = [["01", 1, 1, "Ain"], ["13", 4, 4, "Bouches-du-Rhône"], ["21", 3, 4, "Côte-d'Or"], ["2A", 2, 2, "Corse-du-Sud"], ["89", 1, 2, "Yonne"]];
+  return "reference_time;dep_code;niveau_j1;niveau_j2;dep_nom\n" + deps.map(d => [t, ...d].join(";")).join("\n") + "\n";
+};
+
 export const nouvelEtat = () => ({
   radarFutur: 0,
   radarFondPlein: false,
@@ -1370,6 +1390,8 @@ export const nouvelEtat = () => ({
   appelsPasseeJours: [],
   appelsPiaf: [],
   appelsObs: [],
+  appelsForet: [],
+  foretVieille: false,
   profilPiaf: "tard",
   retardPasseeJours: 0,
   appelsMer: [],

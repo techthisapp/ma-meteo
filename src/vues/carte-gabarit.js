@@ -7,6 +7,7 @@ import { ico, teinteT, couleurT, teinteUV, satUV, clarteUV, couleurUV, teinteAQI
 import * as Reglages from "../reglages.js";
 import * as Villes from "../villes.js";
 import { pasDe } from "../passe.js";
+import * as Foret from "../foret.js";
 
 /* Une rampe de nappe à partir d'arrêts `[valeur, teinte]` : la teinte en
    degrés de roue pour la toile, la couleur écrite pour la légende. Hors de
@@ -127,6 +128,10 @@ export const NAPPES_CARTE = [
     clarte: R_POLLENS.clarte, arrets: [1, 2, 3], etiquettes: ["Saison", "Pic", "Très fort"], unite: "",
     ecrire: v => (v < 1 ? "hors saison" : v < 2 ? "en saison" : v < 3 ? "au pic" : "très fort"),
     credit: "Pollens Copernicus" },
+  /* Le danger d'incendie de forêt, version 188 : une nappe par départements,
+     comme les restrictions d'eau, avec la clé de Météo-France seulement. */
+  { cle: "foret", famille: "air", id: "caForet", nom: "Danger d'incendie", tuile: "Danger feux", ico: "feu",
+    porte: "aujourd'hui", departements: true, classes: Foret.NIVEAUX, palette: "vf", cleRequise: true },
   { cle: "vagues", famille: "mer", id: "caVagues", nom: "Vagues", tuile: null, ico: "vague", porte: "hauteur maintenant",
     champ: "vagues", source: "mer", mer: true, teinte: R_VAGUES.teinte, couleur: R_VAGUES.couleur, sat: R_VAGUES.sat,
     clarte: R_VAGUES.clarte, arrets: [0, 0.5, 1, 2, 4], unite: " m",
@@ -242,7 +247,7 @@ export const gabaritCarte = g => `<div class="ca-cadre">`
   + `<div class="ca-familles" role="radiogroup" aria-labelledby="caPnTitre">`
   + FAMILLES.map(([fam, nom]) => `<div class="ca-fam" role="group" aria-label="${esc(nom)}">`
     + `<span class="ca-fam-nom" aria-hidden="true">${esc(nom)}</span>`
-    + NAPPES_CARTE.filter(n => n.famille === fam).map(n => `<button type="button" class="ca-ch" id="${n.id}" `
+    + NAPPES_CARTE.filter(n => n.famille === fam && (!n.cleRequise || Reglages.clePiaf())).map(n => `<button type="button" class="ca-ch" id="${n.id}" `
       + `role="radio" aria-checked="${Reglages.nappe() === n.cle ? "true" : "false"}">`
       + ico(n.ico, "") + `<span>${n.tuile || n.nom}</span></button>`).join("")
     + `</div>`).join("")

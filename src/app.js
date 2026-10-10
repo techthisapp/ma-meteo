@@ -9,7 +9,7 @@
    couches, navigation par barre d'onglets, contenu posé sur le fond, feuilles
    pour les actions temporaires. */
 
-import { nombreFr, esc, heureJour, enumerer, cleHeure } from "./horloge.js";
+import { nombreFr, esc, heureJour, enumerer, cleHeure, cleJour } from "./horloge.js";
 import { surveiller } from "./typo.js";
 import { surveillerAides } from "./aide.js";
 import * as P from "./previsions.js";
@@ -36,6 +36,7 @@ import * as Vig from "./vigilance.js";
 import * as Astres from "./astres.js";
 import * as Justesse from "./justesse.js";
 import * as Observations from "./observations.js";
+import * as Foret from "./foret.js";
 import * as Ensemble from "./ensemble.js";
 import * as Air from "./air.js";
 import * as Parapluie from "./parapluie.js";
@@ -698,6 +699,20 @@ function ecranAccueil() {
        ils reprennent leur rang de gravité, et le bloc garde ses trois lignes au
        plus. Ajoutés au bout, ils en faisaient une quatrième, ce que la garde des
        blocs a relevé le 30 septembre 2026. */
+    /* Le danger d'incendie de forêt, version 188 : élevé ou très élevé dans
+       le département, aujourd'hui parmi les conseils du jour, demain parmi
+       ceux de demain. Avec la clé de Météo-France seulement. */
+    const foret = Foret.derniere();
+    const depForet = Reglages.departementDu(g);
+    const danger = (jour, quand) => {
+      const n = Foret.niveau(foret, depForet, jour);
+      if (!(n >= 3)) return null;
+      const nom = foret.deps[Foret.normaliser(depForet)]?.nom;
+      return { i: "feu", g: n >= 4 ? 5 : 4,
+        t: `Danger d'incendie de forêt ${Foret.nomDe(n).toLowerCase()} ${quand}${nom ? `, ${nom}` : ""}.` };
+    };
+    const fJour = foret && depForet ? danger(cleJour(new Date()), "aujourd'hui") : null;
+    if (fJour) lJour.push(fJour);
     lJour.sort((a, b) => b.g - a.g);
     lJour.splice(LIGNES_MAX);
     /* Le renversement de température ne se dit qu'avec demain : c'est de cette
@@ -714,6 +729,7 @@ function ecranAccueil() {
         decalage: restant, scenarios: Ensemble.journee(d.time[i + 1]),
         medianes: Ensemble.alignerSur(sDemain)?.q.t.med,
         air: Air.alignerSur(sDemain), pollens: suivis }) : []),
+      ...(foret && depForet ? [danger(cleJour(new Date(Date.now() + 86400000)), "demain")].filter(Boolean) : []),
     ].sort((a, b) => b.g - a.g).slice(0, LIGNES_MAX);
 
     /* Un titre peut n'être lu que par la voix de synthèse : celui des chiffres du
@@ -1550,6 +1566,14 @@ async function charger() {
   /* Les mesures de la station du lieu, version 187, jalon 6 : avec la clé de
      Météo-France seulement, après le rendu, sans rien afficher. */
   if (r) lireObservations(g, r);
+  lireForet();
+}
+
+/* La météo des forêts, version 188 : lue une fois toutes les trois heures,
+   avec la clé de Météo-France, et l'accueil se refait si elle change. */
+async function lireForet() {
+  if (!Reglages.clePiaf() || Foret.derniere()) return;
+  try { if (await Foret.charger()) rendre(); } catch { /* l'accueil se lit sans elle */ }
 }
 
 async function lireObservations(g, r) {

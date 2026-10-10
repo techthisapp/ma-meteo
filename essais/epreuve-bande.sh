@@ -1345,6 +1345,27 @@ case "$N" in
   436) # Le rappel de la clé ne vient que trois jours avant.
      perl -0pi -e 's/export const RAPPEL_CLE = 30 \* 86400000;/export const RAPPEL_CLE = 3 * 86400000;/' src/reglages.js
      ATTENDU="la clé qui expire dans le mois se signale" ;;
+  437) # Les échéances de la météo des forêts se décalent d'un jour.
+     perl -0pi -e 's/if \(jour === jourDe\(carte\.ref, 1\)\) return d\.j1;/if (jour === jourDe(carte.ref, 0)) return d.j1;/' src/foret.js
+     ATTENDU="la carte se lit par département" ;;
+  438) # Un département à un chiffre ne se retrouve pas.
+     perl -0pi -e 's/return \/\^\\d\$\/\.test\(s\) \? `0\$\{s\}` : s;/return s;/' src/foret.js
+     ATTENDU="la carte se lit par département" ;;
+  439) # Le danger élevé ne se dit pas, seul le très élevé.
+     perl -0pi -e 's/if \(!\(n >= 3\)\) return null;/if (!(n >= 4)) return null;/' src/app.js
+     ATTENDU="le danger d.incendie élevé se dit aujourd.hui" ;;
+  440) # Le danger de demain ne se dit pas.
+     perl -0pi -e 's/      \.\.\.\(foret && depForet \? \[danger\(cleJour\(new Date\(Date\.now\(\) \+ 86400000\)\), "demain"\)\]\.filter\(Boolean\) : \[\]\),\n//' src/app.js
+     ATTENDU="le danger d.incendie élevé se dit aujourd.hui et le très élevé demain" ;;
+  441) # La tuile du danger d'incendie paraît sans clé.
+     perl -0pi -e 's/\(!n\.cleRequise \|\| Reglages\.clePiaf\(\)\)/true/' src/vues/carte-gabarit.js
+     ATTENDU="sans clé, la météo des forêts ne se demande pas et sa tuile ne paraît pas" ;;
+  442) # Le danger d'incendie prend la palette des restrictions d'eau.
+     perl -0pi -e 's/foretNiveaux, \{ palette: "vf" \}/foretNiveaux, { palette: "ve" }/' src/vues/carte-couches.js
+     ATTENDU="chaque département se teinte de son niveau du jour" ;;
+  443) # Une carte hors saison se dit du jour.
+     perl -0pi -e 's/dit: `le \$\{d\}, hors saison`/dit: "aujourd.hui"/' src/foret.js
+     ATTENDU="hors saison, l.accueil se tait et la carte dit la date" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
