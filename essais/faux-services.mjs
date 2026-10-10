@@ -1235,6 +1235,18 @@ export const brancherFauxServices = async (c, etat) => {
     r.fulfill({ status: 200, contentType: "image/png",
       headers: { "Access-Control-Allow-Origin": "*" }, body: pngDamier() });
   });
+  await c.route(/public-api\.meteofrance\.fr\/public\/DPPaquetObs/, r => {
+    const u = r.request().url();
+    etat.appelsObs.push(u);
+    const ent = { "Access-Control-Allow-Origin": "*" };
+    if (!/[?&]apikey=[^&]{20,}/.test(u)) { r.fulfill({ status: 401, headers: ent, body: "" }); return; }
+    if (/liste-stations/.test(u)) { r.fulfill({ status: 200, headers: ent, contentType: "text/plain", body: OBS_LISTE }); return; }
+    if (/paquet\/horaire\?id-departement=21&/.test(u)) {
+      r.fulfill({ status: 200, headers: ent, contentType: "application/json", body: JSON.stringify(obsPaquet()) });
+      return;
+    }
+    r.fulfill({ status: 404, headers: ent, body: "" });
+  });
   await c.route(/api\.meteofrance\.fr\/pro\/piaf/, r => {
     const u = r.request().url();
     etat.appelsPiaf.push(u);
@@ -1301,6 +1313,27 @@ export const piafCumul = (T, profil = "tard") => {
   return profil === "tard" && fin >= 135 && fin <= 165 ? 0.8 : 0;
 };
 
+/* Les observations des stations de Météo-France, version 187. Trois
+   stations : Semur-en-Auxois à quatre kilomètres de Fain et à son altitude,
+   une station de crête à cinq kilomètres mais six cents mètres plus haut, et
+   Dijon, trop loin. Le paquet du département porte cinq jours de Semur, à
+   18 °C, avec 0,4 mm de pluie chaque jour de 13 h à 14 h UTC, soit 15 h à
+   Paris. */
+export const OBS_LISTE = "Id_station;Id_omm;Nom_usuel;Latitude;Longitude;Altitude;Date_ouverture;Pack\n"
+  + "21603001;;SEMUR EN AUXOIS_SAPC;47.490000;4.340000;285;2001-01-01;ETENDU\n"
+  + "21999001;;CRETE;47.540000;4.330000;900;2001-01-01;ETENDU\n"
+  + "21231001;;DIJON;47.320000;5.040000;220;2001-01-01;ETENDU\n";
+export const obsPaquet = () => {
+  const out = [];
+  for (let h = 0; h < 120; h++) {
+    const t = new Date(FIGE - h * 3600000);
+    t.setUTCMinutes(0, 0, 0);
+    out.push({ lat: 47.49, lon: 4.34, geo_id_insee: "21603001", validity_time: t.toISOString().replace(".000", ""),
+      t: 291.15, rr1: t.getUTCHours() === 13 ? 0.4 : 0 });
+  }
+  return out;
+};
+
 export const nouvelEtat = () => ({
   radarFutur: 0,
   radarFondPlein: false,
@@ -1336,6 +1369,7 @@ export const nouvelEtat = () => ({
   appelsPassee: [],
   appelsPasseeJours: [],
   appelsPiaf: [],
+  appelsObs: [],
   profilPiaf: "tard",
   retardPasseeJours: 0,
   appelsMer: [],

@@ -15,7 +15,16 @@ import * as Air from "../air.js";
 import * as Atmo from "../atmo.js";
 import * as Version from "../version.js";
 import * as Justesse from "../justesse.js";
+import * as Observations from "../observations.js";
 import { rangees, valeur, aide } from "./communs.js";
+
+/* L'état de la clé de Météo-France, avec sa fin de validité, version 187. */
+function etatCle() {
+  if (!Reglages.clePiaf()) return "aucune";
+  const fin = Reglages.expirationCle();
+  return fin ? `valable jusqu'au ${new Date(fin).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}`
+    : "enregistrée";
+}
 
 function justesseHTML() {
   const b = Justesse.bilan(Justesse.lire().lignes);
@@ -26,12 +35,19 @@ function justesseHTML() {
   }
   const lignes = b.paliers.filter(p => p.ecart !== undefined).map(p =>
     `<div class="rangee"><span class="rangee-txt"><b>${esc(Justesse.nomEcheance(p.e).replace(/^./, c => c.toUpperCase()))}</b>`
-    + `<span>${p.part2} % à 2° près, ${p.n} relevés${Math.abs(p.biais) >= 0.5 ? `, ${p.biais > 0 ? "trop chaude" : "trop fraîche"} de ${fr(Math.abs(p.biais))}°` : ""}</span></span>`
+    + `<span>${p.part2} % à 2° près, ${p.n} relevés${Math.abs(p.biais) >= 0.5 ? `, ${p.biais > 0 ? "trop chaude" : "trop fraîche"} de ${fr(Math.abs(p.biais))}°` : ""}`
+    + `${p.pluie !== null && p.pluie !== undefined ? `, pluie juste ${p.pluie} %` : ""}</span></span>`
     + `<span class="rangee-val"><b>± ${fr(p.ecart)}°</b></span></div>`).join("");
   /* Sans phrase sur le délai, retirée à la demande de Jérôme le 27 septembre
-     2026 : la carte donne les chiffres et la façon de les lire. */
-  return tete + lignes
-    + aide("Écart moyen entre la température annoncée et celle relevée, à 6 h et à 15 h.") + `</div>`;
+     2026 : la carte donne les chiffres et la façon de les lire. Depuis la
+     version 187, la station de Météo-France qui mesure se nomme, et la pluie
+     se juge aussi. */
+  const noms = b.stations.map(Observations.nomDe).filter(Boolean);
+  const station = noms.length ? `<p class="note rg-station">Mesures de la station de ${esc(noms.map(n => n.replace(/_SAPC$/, "")).join(", "))}.</p>` : "";
+  return tete + station + lignes
+    + aide("Écart moyen entre la température annoncée et celle mesurée, à 6 h et à 15 h ; part des heures où la pluie "
+      + "annoncée ou non à 0,2 mm est tombée ou non. Les mesures viennent de la station de Météo-France la plus proche "
+      + "quand la clé de Météo-France est saisie, sinon d'un relevé d'Open-Meteo.") + `</div>`;
 }
 
 /* ---------- Le rappel de parapluie ---------- */
@@ -511,6 +527,8 @@ export function vueReglages(ctx, rendre, majEtat) {
     ["Pluie des trois heures", "six modèles par Open-Meteo : ICON du service allemand, AROME et AROME HD de "
       + "Météo-France, modèles du Met Office britannique, de l'institut néerlandais et de l'institut danois ; "
       + "avec une clé, prévision immédiate PIAF de Météo-France"],
+    /* Version 187 : le service ne reçoit que le département de la station. */
+    ["Justesse des prévisions", "avec une clé, observations horaires des stations de Météo-France ; sinon relevé d'Open-Meteo"],
     /* Un service muet le dit ici aussi, audit, constat 2.6. */
     ["Vigilance, pluie dans l'heure", (() => {
       const l = Vig.etatLecture();
@@ -581,14 +599,15 @@ export function vueReglages(ctx, rendre, majEtat) {
          reste sur l'appareil ; le champ ne la réaffiche pas. */
       + `<div class="carte"><div class="carte-tete"><h3>Prévision immédiate</h3></div>`
       + `<div class="rangee"><span class="rangee-txt">Clé Météo-France</span>`
-      + `<span class="rangee-val" id="rgCleEtat">${Reglages.clePiaf() ? "enregistrée" : "aucune"}</span></div>`
+      + `<span class="rangee-val" id="rgCleEtat">${etatCle()}</span></div>`
       + `<div class="rangee rg-cle"><input type="password" id="rgCle" autocomplete="off" autocapitalize="off" `
       + `spellcheck="false" placeholder="Coller la clé" aria-label="Clé de l'API PIAF de Météo-France">`
       + `<button type="button" class="bouton-texte rg-b" id="rgCleOk">Enregistrer</button>`
       + `<button type="button" class="bouton-texte rg-b" id="rgCleNon"${Reglages.clePiaf() ? "" : " hidden"}>Retirer</button></div>`
-      + aide("Avec une clé de l'API PIAF du portail de Météo-France, la pluie des trois heures et la carte "
-        + "suivent la prévision immédiate de Météo-France, au kilomètre et toutes les cinq minutes. "
-        + "La clé reste sur cet appareil.")
+      + aide("Avec une clé du portail des API de Météo-France, la pluie des trois heures et la carte "
+        + "suivent la prévision immédiate de Météo-France, au kilomètre et toutes les cinq minutes, et la justesse "
+        + "des prévisions se mesure à la station la plus proche. La clé reste sur cet appareil ; l'accueil prévient "
+        + "un mois avant sa fin.")
       + `</div>`
 
       /* La version, et la recherche d'une plus récente à la demande. */
@@ -636,7 +655,7 @@ export function vueReglages(ctx, rendre, majEtat) {
       const cleEtat = bloc.querySelector("#rgCleEtat"), cleChamp = bloc.querySelector("#rgCle");
       const cleNon = bloc.querySelector("#rgCleNon");
       const majCle = () => {
-        cleEtat.textContent = Reglages.clePiaf() ? "enregistrée" : "aucune";
+        cleEtat.textContent = etatCle();
         cleNon.hidden = !Reglages.clePiaf();
         cleChamp.value = "";
       };

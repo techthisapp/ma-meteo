@@ -1321,6 +1321,30 @@ case "$N" in
   428) # La clé de l'image de carte passe en dernière place.
      perl -0pi -e 's/\$\{avecCle\(WMS, cle\)\}&service=WMS/\${WMS}?service=WMS/; s/&time=\$\{iso\(t\)\}`;/\&time=\${iso(t)}\&apikey=\${encodeURIComponent(cle || "")}`;/' src/piaf.js
      ATTENDU="une échéance de PIAF se peint sur la carte" ;;
+  429) # La station se choisit sans regarder l'altitude.
+     perl -0pi -e 's/    if \(Number\.isFinite\(altitude\) && Number\.isFinite\(alt\) && Math\.abs\(alt - altitude\) > ECART_ALTITUDE\) continue;\n//' src/observations.js
+     ATTENDU="la station retenue est la plus proche" ;;
+  430) # La station se choisit à n'importe quelle distance.
+     perl -0pi -e 's/    if \(d > DISTANCE_MAX\) continue;\n//' src/observations.js
+     ATTENDU="la station retenue est la plus proche" ;;
+  431) # La température reste en kelvins.
+     perl -0pi -e 's/Math\.round\(\(x\.t - 273\.15\) \* 10\) \/ 10/Math.round(x.t * 10) \/ 10/' src/observations.js
+     ATTENDU="le paquet se lit en degrés" ;;
+  432) # L'heure de la mesure reste en UTC.
+     perl -0pi -e 's/const h = cleHeure\(new Date\(x\.validity_time\)\)\.slice\(0, 13\);/const h = x.validity_time.slice(0, 13);/' src/observations.js
+     ATTENDU="le paquet se lit en degrés et à l.heure de Paris" ;;
+  433) # Le journal ne reçoit pas les mesures.
+     perl -0pi -e 's/if \(o\) Justesse\.releverStation\(o, Justesse\.lieuDe\(g\.lat, g\.lon\)\);/if (false) Justesse.releverStation(o, Justesse.lieuDe(g.lat, g.lon));/' src/app.js
+     ATTENDU="avec la clé, les lignes du journal reçoivent la mesure" ;;
+  434) # La justesse ignore les mesures des stations.
+     perl -0pi -e 's/const vrai = l => \(Number\.isFinite\(l\.o\) \? l\.o : l\.r\);/const vrai = l => l.r;/' src/justesse.js
+     ATTENDU="les réglages disent la fin de la clé, la station et la justesse mesurée" ;;
+  435) # La pluie se dit toujours juste.
+     perl -0pi -e 's/pl\.filter\(l => \(l\.mm >= SEUIL_PLUIE\) === \(l\.ro >= SEUIL_PLUIE\)\)/pl.filter(l => true)/' src/justesse.js
+     ATTENDU="les réglages disent la fin de la clé, la station et la justesse mesurée" ;;
+  436) # Le rappel de la clé ne vient que trois jours avant.
+     perl -0pi -e 's/export const RAPPEL_CLE = 30 \* 86400000;/export const RAPPEL_CLE = 3 * 86400000;/' src/reglages.js
+     ATTENDU="la clé qui expire dans le mois se signale" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

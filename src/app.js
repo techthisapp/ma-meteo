@@ -35,6 +35,7 @@ import { moments } from "./ecritures.js";
 import * as Vig from "./vigilance.js";
 import * as Astres from "./astres.js";
 import * as Justesse from "./justesse.js";
+import * as Observations from "./observations.js";
 import * as Ensemble from "./ensemble.js";
 import * as Air from "./air.js";
 import * as Parapluie from "./parapluie.js";
@@ -870,6 +871,15 @@ function ecranAccueil() {
         + (lecture.depuis ? ` depuis le ${esc(lecture.depuis.toLocaleDateString("fr-FR", { day: "numeric", month: "long" }))} `
           + `à ${esc(heureJour(lecture.depuis))}` : "")
         + ` : le service ne répond pas.</p>` : "")
+      /* La clé de Météo-France qui arrive à expiration, version 187 : un mois
+         avant, une ligne discrète, comme la vigilance muette. */
+      + (() => {
+        const fin = Reglages.expirationCle();
+        if (!fin || fin - Date.now() > Reglages.RAPPEL_CLE) return "";
+        const jour = new Date(fin).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+        return `<p class="pied pied-cle">${fin < Date.now() ? `La clé de Météo-France a expiré le ${esc(jour)}`
+          : `La clé de Météo-France expire le ${esc(jour)}`} : à renouveler sur le portail, puis dans les réglages.</p>`;
+      })()
       + `</div>`;
   }
 
@@ -1537,6 +1547,16 @@ async function charger() {
      ne conditionne rien : il est appelé après le rendu, une charge en échec ne
      lui donnant du reste rien à noter. */
   if (r) Justesse.noter(r, Justesse.lieuDe(g.lat, g.lon));
+  /* Les mesures de la station du lieu, version 187, jalon 6 : avec la clé de
+     Météo-France seulement, après le rendu, sans rien afficher. */
+  if (r) lireObservations(g, r);
+}
+
+async function lireObservations(g, r) {
+  try {
+    const o = await Observations.duLieu(g.lat, g.lon, Number(r.elevation));
+    if (o) Justesse.releverStation(o, Justesse.lieuDe(g.lat, g.lon));
+  } catch { /* le journal garde le relevé d'Open-Meteo */ }
 }
 
 /* Les scénarios se lisent après la prévision et sans la retarder : ils ajoutent

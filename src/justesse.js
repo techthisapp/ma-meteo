@@ -146,6 +146,28 @@ export function noter(charge, lieu, maintenant = new Date(), scenarios = null) {
   return { notes: nouvelles.length, releves, completees };
 }
 
+/* Les mesures d'une station de Météo-France, version 187, jalon 6. Elles se
+   posent sur les lignes du lieu dont l'heure visée est mesurée : la
+   température `o`, la pluie de l'heure `ro`, la station `st`. Le relevé
+   d'Open-Meteo reste à côté, pour les lieux sans station. Le paquet couvre
+   cinq jours : une visite par semaine suffit à ne rien perdre. */
+export function releverStation(obs, lieu) {
+  if (!obs || !obs.mesures || !lieu) return 0;
+  const j = lire();
+  let n = 0;
+  for (const l of j.lignes) {
+    if (l.l !== lieu || l.o !== undefined) continue;
+    const m = obs.mesures[l.c];
+    if (!m || !Number.isFinite(m.t)) continue;
+    l.o = m.t;
+    if (Number.isFinite(m.rr1)) l.ro = m.rr1;
+    l.st = obs.station.id;
+    n++;
+  }
+  if (n) ecrire(j);
+  return n;
+}
+
 // Vide le journal. Sert aux essais, et à un réglage de remise à zéro si un jour
 // il en faut un.
 export function oublier() {
@@ -162,23 +184,33 @@ export function oublier() {
 export const JOURS_VISES = 60;
 export const COUPLES_MIN = 5;
 
+/* Depuis la version 187, la mesure de la station passe avant le relevé
+   d'Open-Meteo, et la pluie se juge aussi : annoncée ou non à 0,2 mm dans
+   l'heure, tombée ou non à la station. */
+export const SEUIL_PLUIE = 0.2;
 export function bilan(lignes) {
-  const faits = (lignes || []).filter(l => Number.isFinite(l.r) && Number.isFinite(l.t));
+  const vrai = l => (Number.isFinite(l.o) ? l.o : l.r);
+  const faits = (lignes || []).filter(l => Number.isFinite(vrai(l)) && Number.isFinite(l.t));
   const jours = new Set(faits.map(l => l.c.slice(0, 10)));
   const depuis = faits.length ? faits.map(l => l.c.slice(0, 10)).sort()[0] : null;
   const paliers = PALIERS.map(e => {
     const x = faits.filter(l => l.e === e);
+    const pl = x.filter(l => Number.isFinite(l.ro) && Number.isFinite(l.mm));
+    const pluie = pl.length >= COUPLES_MIN
+      ? Math.round(pl.filter(l => (l.mm >= SEUIL_PLUIE) === (l.ro >= SEUIL_PLUIE)).length / pl.length * 100) : null;
     if (x.length < COUPLES_MIN) return { e, n: x.length };
-    const d = x.map(l => l.t - l.r);
+    const d = x.map(l => l.t - vrai(l));
     const moy = a => a.reduce((s, v) => s + v, 0) / a.length;
     return {
       e, n: x.length,
       ecart: Math.round(moy(d.map(Math.abs)) * 10) / 10,
       biais: Math.round(moy(d) * 10) / 10,
       part2: Math.round(d.filter(v => Math.abs(v) <= 2).length / d.length * 100),
+      mesures: x.filter(l => Number.isFinite(l.o)).length, pluie,
     };
   });
-  return { jours: jours.size, depuis, paliers, assis: jours.size >= JOURS_VISES };
+  const stations = [...new Set(faits.filter(l => l.st).map(l => l.st))];
+  return { jours: jours.size, depuis, paliers, assis: jours.size >= JOURS_VISES, stations };
 }
 
 /* Le nom d'une échéance en toutes lettres. */

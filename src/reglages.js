@@ -605,6 +605,18 @@ export const AFFICHAGES_CIEL = ["visibles", "toutes", "constellations"];
    public et n'en porte aucune. Sans clé, la pluie des trois heures garde ses
    six modèles et la carte ses images poussées. */
 export const clePiaf = () => (typeof etat.clepiaf === "string" && etat.clepiaf.length > 20 ? etat.clepiaf : null);
+/* La fin de validité de la clé, version 187, choix A de Jérôme du
+   10 octobre 2026 : la clé du portail porte sa date d'expiration, et
+   l'application prévient un mois avant. `null` quand la clé ne se lit pas. */
+export function expirationCle(cle = clePiaf()) {
+  try {
+    const p = String(cle || "").split(".")[1];
+    if (!p) return null;
+    const j = JSON.parse(atob(p.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(p.length / 4) * 4, "=")));
+    return Number.isFinite(j.exp) ? j.exp * 1000 : null;
+  } catch { return null; }
+}
+export const RAPPEL_CLE = 30 * 86400000;
 export function poserClePiaf(v) { poser({ clepiaf: typeof v === "string" && v.trim().length > 20 ? v.trim() : null }); }
 
 export const voileCiel = () => etat.voileCiel !== false;
