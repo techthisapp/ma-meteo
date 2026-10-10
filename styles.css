@@ -2861,3 +2861,12 @@ button.rangee:active{background:var(--surface-2)}
 @media (prefers-reduced-motion:reduce){
   .pc-ciel,.pc-astre,.pc::after,.pc-fermer,.pc-indication,.pc-infos > *,.pc-arc-fait{transition:none!important}
 }
+
+/* Le risque d'avalanche, version 189 : un filet de la couleur du risque, du
+   vert du risque faible au rouge sombre du très fort. */
+.av{border-left:4px solid var(--filet)}
+.av-r1{border-left-color:#7cb86a}.av-r2{border-left-color:#e6c84a}.av-r3{border-left-color:#ee8a2c}
+.av-r4{border-left-color:#d6402e}.av-r5{border-left-color:#8e1b2a}
+.av-indice{font-weight:var(--graisse-medium);color:var(--etiquette)}
+.av-risque{margin:6px 0 4px;font-weight:var(--graisse-medium)}
+.av-resume{margin:6px 0 0;white-space:pre-line;font-size:var(--texte-note);color:var(--etiquette-2)}

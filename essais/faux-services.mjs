@@ -1235,6 +1235,16 @@ export const brancherFauxServices = async (c, etat) => {
     r.fulfill({ status: 200, contentType: "image/png",
       headers: { "Access-Control-Allow-Origin": "*" }, body: pngDamier() });
   });
+  await c.route(/public-api\.meteofrance\.fr\/public\/DPBRA/, r => {
+    const u = r.request().url();
+    etat.appelsBra.push(u);
+    const ent = { "Access-Control-Allow-Origin": "*" };
+    if (!/[?&]apikey=[^&]{20,}/.test(u)) { r.fulfill({ status: 401, headers: ent, body: "" }); return; }
+    if (/liste-massifs/.test(u)) { r.fulfill({ status: 200, headers: ent, contentType: "application/geo+json", body: JSON.stringify(BRA_MASSIFS) }); return; }
+    if (/massif\/BRA\?id-massif=8&/.test(u)) { r.fulfill({ status: 200, headers: ent, contentType: "text/xml", body: etat.braHors ? BRA_HORS : BRA_BELLEDONNE }); return; }
+    if (/massif\/BRA\?id-massif=\d+&/.test(u)) { r.fulfill({ status: 200, headers: ent, contentType: "text/xml", body: BRA_HORS }); return; }
+    r.fulfill({ status: 404, headers: ent, body: "" });
+  });
   await c.route(/public-api\.meteofrance\.fr\/public\/DPMeteoForets/, r => {
     const u = r.request().url();
     etat.appelsForet.push(u);
@@ -1354,6 +1364,27 @@ export const foretCsv = vieille => {
   return "reference_time;dep_code;niveau_j1;niveau_j2;dep_nom\n" + deps.map(d => [t, ...d].join(";")).join("\n") + "\n";
 };
 
+/* Les bulletins d'avalanche, version 189 : deux massifs carrés, Belledonne
+   autour de Grenoble et le Mont-Blanc plus au nord ; le bulletin de
+   Belledonne est l'exemple du document de Météo-France du 26 octobre 2023,
+   celui du Mont-Blanc le message de fin de saison. `braHors` met les deux
+   hors saison. */
+const carre = (code, title, x0, y0, x1, y1) => ({ type: "Feature", properties: { code, title, mountain: "Alpes du Nord" },
+  geometry: { type: "MultiPolygon", coordinates: [[[[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]]]] } });
+export const BRA_MASSIFS = { type: "FeatureCollection", features: [carre(8, "Belledonne", 5.8, 45.0, 6.2, 45.4),
+  carre(3, "Mont-Blanc", 6.7, 45.8, 7.1, 46.0)] };
+export const BRA_HORS = `<?xml version="1.0" encoding="UTF-8" standalone="yes" ?><message><![CDATA[Bulletin avalanche : la saison est terminée sur le massif, rendez-vous début novembre.]]></message>`;
+export const BRA_BELLEDONNE = `<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<BULLETINS_NEIGE_AVALANCHE TYPEBULLETIN="BRA" ID="8" MASSIF="Belledonne" DATEBULLETIN="2026-08-17T16:00:00" DATEECHEANCE="2026-08-18T18:00:00" DATEVALIDITE="2026-08-18T18:00:00" AMENDEMENT="false">
+<CARTOUCHERISQUE>
+<RISQUE RISQUE1="2" EVOLURISQUE1="" LOC1="&lt;2100" ALTITUDE="2100" RISQUE2="3" EVOLURISQUE2="2" LOC2="&gt;2100" RISQUEMAXI="3" COMMENTAIRE="Au-dessus de 2100m risque marqué évoluant en risque limité, plus bas risque limité." RISQUEMAXIJ2="2" DATE_RISQUE_J2="2026-08-19T00:00:00"/>
+<PENTE NE="true" E="false" SE="false" S="true" SW="false" W="false" NW="true" N="false" COMMENTAIRE=""/>
+<RESUME>Départs spontanés : quelques coulées en pentes raides.</RESUME>
+<RisqueJ2>risque limité</RisqueJ2>
+<AVIS/>
+</CARTOUCHERISQUE>
+</BULLETINS_NEIGE_AVALANCHE>`;
+
 export const nouvelEtat = () => ({
   radarFutur: 0,
   radarFondPlein: false,
@@ -1391,6 +1422,8 @@ export const nouvelEtat = () => ({
   appelsPiaf: [],
   appelsObs: [],
   appelsForet: [],
+  appelsBra: [],
+  braHors: false,
   foretVieille: false,
   profilPiaf: "tard",
   retardPasseeJours: 0,

@@ -4,6 +4,8 @@
 import { esc } from "../horloge.js";
 import { liste } from "../ecritures.js";
 import * as Neige from "../neige.js";
+import * as Avalanche from "../avalanche.js";
+import * as Reglages from "../reglages.js";
 import * as Plage from "../plage.js";
 import * as VigiEau from "../vigieau.js";
 import * as Eau from "../eau.js";
@@ -12,6 +14,33 @@ import { angleFleche, TRACE_FLECHE } from "../fleche.js";
 import * as Vig from "../vigilance.js";
 import { conseilsHTML } from "../conseils.js";
 import { aide } from "./communs.js";
+
+/* Le risque d'avalanche des massifs des stations proches, version 189, avec
+   la clé de Météo-France : une carte par massif, le risque du lendemain et
+   ses limites, la tendance, les pentes les plus dangereuses et le résumé du
+   bulletin. Hors saison, une ligne le dit. Les stations hors des massifs
+   des bulletins, Jura, Vosges, Massif central, n'en ont pas. */
+export function avalancheHTML(stations, rendre) {
+  if (!Reglages.clePiaf()) return "";
+  const e = Avalanche.etatPour(stations);
+  if (!e) {
+    Avalanche.charger(stations).then(x => { if (x) rendre(); }).catch(() => {});
+    return "";
+  }
+  if (!e.massifs.length) return "";
+  const hors = e.massifs.every(m => m.b.horsSaison);
+  if (hors) {
+    return `<div class="carte av"><h3>Risque d'avalanche</h3><p class="note">Hors saison : les bulletins de `
+      + `${esc(e.massifs.map(m => m.massif).join(", "))} reprennent début novembre.</p></div>`;
+  }
+  return e.massifs.filter(m => !m.b.horsSaison).map(({ massif, b }) => `<div class="carte av av-r${b.maxi || 0}">`
+    + `<div class="ng-tete"><b>Risque d'avalanche, ${esc(massif)}</b><span class="av-indice">${b.maxi || "?"} sur 5</span></div>`
+    + `<p class="av-risque">${esc(Avalanche.phraseRisque(b))}${b.avis ? `. ${esc(b.avis.charAt(0).toUpperCase() + b.avis.slice(1))}` : ""}.</p>`
+    + (b.maxiJ2 ? `<p class="note">Surlendemain : ${esc(Avalanche.nomRisque(b.maxiJ2))}, ${b.maxiJ2} sur 5.</p>` : "")
+    + (b.pentes.length ? `<p class="note">${esc(Avalanche.phrasePentes(b))}.</p>` : "")
+    + (b.resume ? `<p class="av-resume">${esc(b.resume)}</p>` : "")
+    + `</div>`).join("");
+}
 
 /* La feuille de la neige, jalon 16, lot 3 : les stations à une heure de
    route, regroupées sous leur domaine, décidé par Jérôme le 30 septembre 2026.
@@ -70,7 +99,7 @@ export function vueNeige(ctx, rendre) {
   const tete = `<div class="carte retenir"><div class="conseils">${conseilsHTML([
     ...(notable ? [{ i: "neige", g: 6, t: notable.phrase }] : []),
     { i: "neige", g: 1, t: Neige.phraseNeige(nz.resumes) }])}</div></div>`;
-  return { titre, sous, corps: tete + cartes.join("")
+  return { titre, sous, corps: tete + avalancheHTML(nz.proches, rendre) + cartes.join("")
     + aide("La neige se prévoit à l'altitude du pied et du sommet de chaque station.") };
 }
 

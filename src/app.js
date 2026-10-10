@@ -37,6 +37,7 @@ import * as Astres from "./astres.js";
 import * as Justesse from "./justesse.js";
 import * as Observations from "./observations.js";
 import * as Foret from "./foret.js";
+import * as Avalanche from "./avalanche.js";
 import * as Ensemble from "./ensemble.js";
 import * as Air from "./air.js";
 import * as Parapluie from "./parapluie.js";
@@ -685,6 +686,16 @@ function ecranAccueil() {
     const saisonNeige = !!nz && nz.resumes.length > 0 && Neige.enSaison(cleHeure().slice(0, 10), nz.resumes);
     const notable = saisonNeige ? Neige.chuteNotable(nz.resumes) : null;
     if (notable) lJour.unshift({ i: "neige", g: 6, t: notable.phrase, d: "feuille:neige" });
+    /* Le risque d'avalanche fort ou très fort d'un massif des stations
+       proches, version 189, avec la clé de Météo-France : il mène à la
+       feuille de la neige, qui porte le bulletin. */
+    const av = nz && nz.proches.length && Reglages.clePiaf() ? Avalanche.etatPour(nz.proches) : null;
+    if (nz && nz.proches.length && Reglages.clePiaf() && !av) {
+      Avalanche.charger(nz.proches).then(x => { if (Avalanche.risqueFort(x)) rendre(); }).catch(() => {});
+    }
+    const fort = Avalanche.risqueFort(av);
+    if (fort) lJour.push({ i: "alerte", g: fort.maxi >= 5 ? 7 : 5, d: "feuille:neige",
+      t: `Risque d'avalanche ${Avalanche.nomRisque(fort.maxi)} sur le massif ${fort.massif}, ${fort.maxi} sur 5.` });
     /* La plage, jalon 15 : la même porte large, de juin à septembre et au-delà
        tant que l'eau de la plage la plus proche dépasse 20°. */
     const pz = Plage.etatPlage(Reglages.lire());

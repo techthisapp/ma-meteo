@@ -1366,6 +1366,27 @@ case "$N" in
   443) # Une carte hors saison se dit du jour.
      perl -0pi -e 's/dit: `le \$\{d\}, hors saison`/dit: "aujourd.hui"/' src/foret.js
      ATTENDU="hors saison, l.accueil se tait et la carte dit la date" ;;
+  444) # Le risque au-dessus de l'altitude limite se perd.
+     perl -0pi -e 's/risque2: nombre\(r\?\.getAttribute\("RISQUE2"\)\)/risque2: null/' src/avalanche.js
+     ATTENDU="le bulletin se lit" ;;
+  445) # Le message de fin de saison se lit comme un bulletin vide.
+     perl -0pi -e 's/if \(racine\.nodeName === "message"\) return \{ horsSaison: true, message: racine\.textContent\.trim\(\) \};/if (racine.nodeName === "message") return null;/' src/avalanche.js
+     ATTENDU="hors saison, le message du service se lit comme tel" ;;
+  446) # Le risque se dit sans sa limite d'altitude.
+     perl -0pi -e 's/if \(b\.altitude\) return `Risque \$\{n2\} au-dessus de \$\{b\.altitude\} m, \$\{n1\} plus bas`;//' src/avalanche.js
+     ATTENDU="le risque et les pentes se disent en mots" ;;
+  447) # Une station se range dans le premier massif venu.
+     perl -0pi -e 's/\(liste \|\| \[\]\)\.find\(m => m\.anneaux\.some\(a => dedans\(a, lon, lat\)\)\) \|\| null/(liste || [])[0] || null/' src/avalanche.js
+     ATTENDU="une station se range dans le massif qui la contient" ;;
+  448) # Le bulletin d'un massif se demande pour chaque station.
+     perl -0pi -e 's/if \(m && !vus\.has\(m\.code\)\) vus\.set\(m\.code, m\);/if (m) vus.set(`\${m.code}-\${s.nom}`, m);/' src/avalanche.js
+     ATTENDU="avec la clé, la feuille de la neige porte le bulletin du massif des stations, une fois" ;;
+  449) # Un risque marqué remonte à l'accueil.
+     perl -0pi -e 's/!m\.b\.horsSaison && m\.b\.maxi >= 4/!m.b.horsSaison \&\& m.b.maxi >= 3/' src/avalanche.js
+     ATTENDU="un risque marqué ne remonte pas à l.accueil" ;;
+  450) # Hors saison, la feuille ne dit rien.
+     perl -0pi -e 's/  if \(hors\) \{/  if (false) {/' src/vues/loisirs.js
+     ATTENDU="hors saison, la feuille dit que les bulletins reprennent" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
