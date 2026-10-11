@@ -119,4 +119,58 @@ export function nomDe(id) {
   return s ? s[4] : null;
 }
 
-export function oublier() { liste = null; paquets.clear(); }
+/* La mesure du moment, version 192, demande de Jérôme du 12 octobre 2026 :
+   la dernière mesure de la station du lieu, au pas de six minutes, par
+   l'API des données d'observation, `station/infrahoraire-6m`. Relevé le
+   12 octobre 2026 : une seule mesure, la plus récente, 400 octets, servie
+   un quart d'heure après son heure. Gardée six minutes. Une mesure de plus
+   d'une heure et demie ne se montre pas : elle ne dit plus le moment. */
+export const SERVICE_6M = "https://public-api.meteofrance.fr/public/DPObs/v2/station/infrahoraire-6m";
+export const AGE_MAX = 90 * 60000;
+const instants = new Map();
+export function lireMesure(d) {
+  const x = Array.isArray(d) ? d[d.length - 1] : null;
+  if (!x || !Number.isFinite(x.t) || !x.validity_time) return null;
+  return { t: Math.round((x.t - 273.15) * 10) / 10, rr: Number.isFinite(x.rr_per) ? x.rr_per : null,
+    quand: Date.parse(x.validity_time) };
+}
+export async function mesureDuMoment(lat, lon, altitude, fetcheur = chercherEn(10000)) {
+  const cle = Reglages.clePiaf();
+  if (!cle || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  const s = stationDe(await stations(fetcheur), lat, lon, altitude);
+  if (!s) return null;
+  const g = instants.get(s.id);
+  if (g && Date.now() - g.lu < 6 * 60000) return g.m;
+  let m = null;
+  try {
+    const r = await fetcheur(`${SERVICE_6M}?apikey=${encodeURIComponent(cle)}&id_station=${s.id}&format=json`);
+    if (r.ok) m = lireMesure(await r.json());
+  } catch { m = null; }
+  if (m) m = { ...m, station: s };
+  instants.set(s.id, { m, lu: Date.now() });
+  return m;
+}
+
+/* Le nom d'une station, tel qu'on l'écrit : « SEMUR EN AUXOIS_SAPC » devient
+   « Semur en Auxois », « DIJON-LONGVIC » devient « Dijon-Longvic ». Les
+   séparateurs d'origine restent. */
+const PETITS = new Set(["en", "sur", "le", "la", "les", "de", "du", "des", "lès", "sous", "aux", "et"]);
+export function nomPropre(nom) {
+  let k = 0;
+  return String(nom || "").replace(/_SAPC$|_AERO$/i, "").toLowerCase()
+    .replace(/[a-zàâäçéèêëîïôöùûüÿ]+/g, m => (k++ && PETITS.has(m) ? m : m.charAt(0).toUpperCase() + m.slice(1)));
+}
+
+/* La phrase de l'accueil : « 6,8° mesurés à Semur-en-Auxois, il y a
+   14 min », avec la pluie des six minutes quand elle tombe. */
+export function phraseMesure(m, maintenant = Date.now()) {
+  if (!m || !Number.isFinite(m.t)) return null;
+  const age = maintenant - m.quand;
+  if (!(age >= 0) || age > AGE_MAX) return null;
+  const min = Math.round(age / 60000);
+  const depuis = min < 60 ? `il y a ${min} min` : `il y a 1 h ${String(min - 60).padStart(2, "0")}`;
+  const pluie = m.rr > 0 ? `, pluie ${String(m.rr).replace(".", ",")} mm` : "";
+  return `${String(m.t).replace(".", ",")}° mesurés à ${nomPropre(m.station.nom)}${pluie}, ${depuis}`;
+}
+
+export function oublier() { liste = null; paquets.clear(); instants.clear(); }

@@ -1435,6 +1435,18 @@ case "$N" in
   466) # Le résumé dit deux fois le séisme.
      perl -0pi -e 's/\.filter\(x => !\(d\.seisme && x\.num === "13"\)\)//' src/risques.js
      ATTENDU="les risques se lisent par familles" ;;
+  467) # La mesure du moment reste en kelvins.
+     perl -0pi -e 's/return \{ t: Math\.round\(\(x\.t - 273\.15\) \* 10\) \/ 10, rr:/return { t: Math.round(x.t * 10) \/ 10, rr:/' src/observations.js
+     ATTENDU="la dernière mesure de la station se dit sous la température" ;;
+  468) # Une mesure ancienne se montre encore.
+     perl -0pi -e 's/if \(!\(age >= 0\) \|\| age > AGE_MAX\) return null;/if (!(age >= 0)) return null;/' src/observations.js
+     ATTENDU="la mesure se nomme et se date en mots" ;;
+  469) # L'accueil ne lit pas la mesure du moment.
+     perl -0pi -e 's/  if \(r\) lireMesure\(g, r\);\n//' src/app.js
+     ATTENDU="la dernière mesure de la station se dit sous la température" ;;
+  470) # Les petits mots du nom de la station prennent une capitale.
+     perl -0pi -e 's/\(k\+\+ && PETITS\.has\(m\) \?/(false ?/' src/observations.js
+     ATTENDU="la mesure se nomme et se date en mots" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

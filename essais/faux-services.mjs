@@ -1261,6 +1261,17 @@ export const brancherFauxServices = async (c, etat) => {
     if (/carte\/encours/.test(u)) { r.fulfill({ status: 200, headers: ent, contentType: "text/csv", body: foretCsv(etat.foretVieille) }); return; }
     r.fulfill({ status: 404, headers: ent, body: "" });
   });
+  /* La mesure du moment, version 192 : la dernière mesure de Semur, douze
+     minutes avant l'heure figée, 18 °C et 0,2 mm de pluie. */
+  await c.route(/public-api\.meteofrance\.fr\/public\/DPObs\/v2\/station\/infrahoraire-6m/, r => {
+    const u = r.request().url();
+    etat.appelsMesure.push(u);
+    const ent = { "Access-Control-Allow-Origin": "*" };
+    if (!/[?&]apikey=[^&]{20,}/.test(u)) { r.fulfill({ status: 401, headers: ent, body: "" }); return; }
+    const t = new Date(FIGE - 12 * 60000).toISOString().replace(".000", "");
+    r.fulfill({ status: 200, headers: ent, contentType: "application/json",
+      body: JSON.stringify([{ geo_id_insee: "21603001", validity_time: t, t: 291.15, rr_per: 0.2 }]) });
+  });
   await c.route(/public-api\.meteofrance\.fr\/public\/DPPaquetObs/, r => {
     const u = r.request().url();
     etat.appelsObs.push(u);
@@ -1451,6 +1462,7 @@ export const nouvelEtat = () => ({
   appelsForet: [],
   appelsBra: [],
   appelsGeorisques: [],
+  appelsMesure: [],
   braHors: false,
   foretVieille: false,
   profilPiaf: "tard",

@@ -565,6 +565,8 @@ button.rangee:active{background:var(--surface-2)}
 .bd-ic{width:24px;height:24px;flex:0 0 auto}
 .bd-bornes{font-size:var(--texte-sous);color:var(--etiquette-2)}
 .bd-bornes b{font-weight:var(--graisse-semibold);color:var(--etiquette)}
+/* La mesure du moment, version 192 : une ligne discrète sous les bornes. */
+.bd-mesure{margin:2px 0 0;font-size:var(--texte-note);color:var(--etiquette-2)}
 
 .bd-mesures{
   display:grid;grid-template-columns:repeat(4,1fr);align-items:start;
@@ -1939,6 +1941,7 @@ button.rangee:active{background:var(--surface-2)}
 .pt-temps .bd-ciel{color:inherit}
 .pt-temps .bd-bornes{color:inherit;opacity:.84}
 .pt-temps .bd-bornes b{color:inherit}
+.pt-temps .bd-mesure{color:inherit;opacity:.72}
 
 /* La ligne d'état sous le grand chiffre. Elle est en drapeau plutôt qu'en bloc :
    l'écran de la lune y pose la vignette du disque devant le nom de la phase. La

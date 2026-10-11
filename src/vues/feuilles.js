@@ -535,7 +535,8 @@ export function vueReglages(ctx, rendre, majEtat) {
     /* Version 189. */
     ["Risque d'avalanche", "avec une clé, bulletins d'estimation du risque d'avalanche de Météo-France"],
     ["Danger d'incendie", "avec une clé, météo des forêts de Météo-France et de l'Office national des forêts"],
-    ["Justesse des prévisions", "avec une clé, observations horaires des stations de Météo-France ; sinon relevé d'Open-Meteo"],
+    ["Mesures des stations", "avec une clé, observations des stations de Météo-France, horaires pour la justesse, "
+      + "toutes les six minutes pour la mesure du moment ; sinon relevé d'Open-Meteo"],
     /* Un service muet le dit ici aussi, audit, constat 2.6. */
     ["Vigilance, pluie dans l'heure", (() => {
       const l = Vig.etatLecture();

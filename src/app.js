@@ -654,6 +654,12 @@ function ecranAccueil() {
          trop, et chacune coûte 44 points de hauteur. */
       + `<p class="bd-bornes"><b>${Math.round(tn)}°</b> à `
       + `<b>${Math.round(tx)}°</b> aujourd'hui</p>`
+      /* La mesure du moment, version 192 : la dernière mesure de la station
+         de Météo-France la plus proche, avec la clé seulement. */
+      + (() => {
+        const m = mesureMoment && mesureMoment.cle === Justesse.lieuDe(g.lat, g.lon) ? Observations.phraseMesure(mesureMoment.m) : null;
+        return m ? `<p class="bd-mesure">${esc(m)}</p>` : "";
+      })()
       + `</div></div></div></div>`;
 
     /* La page se lit en échelle de temps, du plus proche au plus lointain, et
@@ -1596,6 +1602,7 @@ async function charger() {
   /* Les mesures de la station du lieu, version 187, jalon 6 : avec la clé de
      Météo-France seulement, après le rendu, sans rien afficher. */
   if (r) lireObservations(g, r);
+  if (r) lireMesure(g, r);
   lireForet();
 }
 
@@ -1604,6 +1611,18 @@ async function charger() {
 async function lireForet() {
   if (!Reglages.clePiaf() || Foret.derniere()) return;
   try { if (await Foret.charger()) rendre(); } catch { /* l'accueil se lit sans elle */ }
+}
+
+/* La mesure du moment, version 192 : lue après le rendu, l'accueil se
+   refait à son arrivée. */
+let mesureMoment = null;
+async function lireMesure(g, r) {
+  try {
+    const m = await Observations.mesureDuMoment(g.lat, g.lon, Number(r.elevation));
+    if (!m) return;
+    mesureMoment = { cle: Justesse.lieuDe(g.lat, g.lon), m };
+    rendre();
+  } catch { /* l'accueil se lit sans elle */ }
 }
 
 async function lireObservations(g, r) {

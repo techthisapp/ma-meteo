@@ -75,6 +75,19 @@ export default async T => {
     && etat.appelsObs.some(u => /paquet\/horaire\?id-departement=21&format=json&apikey=/.test(u)),
     `${lignes} ; ${etat.appelsObs.join(" ")}`);
 
+  /* La mesure du moment, version 192, sous les bornes du jour. */
+  const mesure = await p1.evaluate(() => document.querySelector(".pt-temps .bd-mesure")?.textContent || "");
+  ok("la dernière mesure de la station se dit sous la température, avec la pluie et son âge",
+    /^18° mesurés à Semur en Auxois, pluie 0,2 mm, il y a 1[23] min$/.test(mesure)
+    && etat.appelsMesure.length >= 1 && etat.appelsMesure.every(u => /infrahoraire-6m\?apikey=[^&]+&id_station=21603001&format=json/.test(u)),
+    `${mesure} ; ${etat.appelsMesure.join(" ")}`);
+  ok("la mesure se nomme et se date en mots, et se tait au-delà d'une heure et demie",
+    await p1.evaluate(async () => {
+      const O = await import("/src/observations.js");
+      const m = { t: 6.8, rr: 0, quand: Date.now() - 75 * 60000, station: { nom: "DIJON-LONGVIC" } };
+      return [O.nomPropre("SEMUR EN AUXOIS_SAPC"), O.nomPropre("LA CHIAPPA"), O.phraseMesure(m),
+        String(O.phraseMesure({ ...m, quand: Date.now() - 100 * 60000 }))].join(" | ");
+    }) === "Semur en Auxois | La Chiappa | 6,8° mesurés à Dijon-Longvic, il y a 1 h 15 | null");
   const pied = await p1.evaluate(() => document.querySelector(".pied-cle")?.textContent || "");
   ok("la clé qui expire dans le mois se signale sous l'accueil",
     pied === "La clé de Météo-France expire le 28 août : à renouveler sur le portail, puis dans les réglages.", pied);
