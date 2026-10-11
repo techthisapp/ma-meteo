@@ -65,6 +65,31 @@ export const HAUT_MIN = -89, HAUT_MAX = 89, CHAMP_MIN = 20, CHAMP_MAX = 100;
    6 octobre 2026. */
 export const PINCE = 0.7;
 
+/* Viser le ciel avec le téléphone, version 190, jalon 24, lot 6, demande de
+   Jérôme. L'orientation du téléphone donne trois angles, `alpha` autour de
+   la verticale, `beta` d'avant en arrière, `gamma` de gauche à droite, dans
+   l'ordre que fixe la norme du W3C. Le regard est la direction du dos du
+   téléphone, celle de son appareil photo : le vecteur (0, 0, -1) de
+   l'appareil, tourné dans le repère est, nord, zénith. Sur iPhone, `alpha`
+   ne se rapporte pas au nord ; le cap de la boussole, `webkitCompassHeading`,
+   le remplace : alpha vaut alors 360 moins le cap. Le cap est magnétique ; en
+   France la déclinaison ne dépasse pas trois degrés, moins que l'erreur de la
+   boussole d'un téléphone, et n'est pas corrigée. */
+export function viseeDuTelephone(alpha, beta, gamma, cap = null) {
+  const r = Math.PI / 180;
+  const a = (Number.isFinite(cap) ? 360 - cap : alpha) * r, b = beta * r, g = gamma * r;
+  const [cA, sA, cB, sB, cG, sG] = [Math.cos(a), Math.sin(a), Math.cos(b), Math.sin(b), Math.cos(g), Math.sin(g)];
+  const est = -(cA * sG + sA * sB * cG), nord = -(sA * sG - cA * sB * cG), haut = -cB * cG;
+  return { az: ((Math.atan2(est, nord) / r) + 360) % 360, haut: Math.asin(Math.max(-1, Math.min(1, haut))) / r };
+}
+/* Le lissage : la boussole tremble d'un ou deux degrés à chaque mesure. Un
+   quart du chemin à chaque mesure, l'azimut par le plus court côté. */
+export const LISSAGE = 0.25;
+export function lisser(vue, cible, k = LISSAGE) {
+  const daz = ((cible.az - vue.az + 540) % 360) - 180;
+  return { az: (vue.az + daz * k + 360) % 360, haut: vue.haut + (cible.haut - vue.haut) * k };
+}
+
 /* La recherche d'une constellation, en deux groupes : les visibles, de la plus
    haute à la plus basse, puis celles sous l'horizon, par ordre alphabétique.
    Le nom se compare sans accents, et le nom latin compte aussi. */
@@ -329,6 +354,12 @@ export function vueEtoiles() {
           + icone('<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 20 20"/>') + `</button>`
           + `<button type="button" class="ci-rond" id="ciRouge" aria-pressed="false" aria-label="Lumière rouge, pour garder les yeux habitués à la nuit">`
           + icone('<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" fill="#E0565B" stroke="#E0565B"/>') + `</button>`
+          /* Viser avec le téléphone, version 190 : seulement là où le
+             navigateur connaît l'orientation de l'appareil. */
+          + (typeof DeviceOrientationEvent === "function" && matchMedia("(pointer: coarse)").matches
+            ? `<button type="button" class="ci-rond" id="ciViser" aria-pressed="false" aria-label="Viser avec le téléphone">`
+              + icone('<circle cx="12" cy="12" r="8.5"/><path d="M12 5.5 14 12h-4z" fill="currentColor"/><path d="M12 18.5 10 12h4z"/>') + `</button>`
+            : "")
           + `<button type="button" class="ci-rond" id="ciVoile" aria-pressed="${Reglages.voileCiel()}" aria-label="Voile des nuages prévus">`
           + icone('<path d="M7 18h10a4 4 0 0 0 .5-7.97A6 6 0 0 0 6.1 9.6 4.2 4.2 0 0 0 7 18z"/>') + `</button>`
           + `<button type="button" class="ci-rond ci-sources" id="ciSources" aria-label="Sources">`
@@ -685,6 +716,49 @@ export function vueEtoiles() {
           requestAnimationFrame(pas1);
         });
 
+        /* La visée par le téléphone. iOS demande l'autorisation au premier
+           appui, et seulement dans le geste lui-même. Un doigt qui glisse
+           sur le ciel reprend la main et éteint la visée. Sans mesure dans
+           la seconde et demie, le téléphone ne donne pas son orientation. */
+        const viserB = fe.querySelector("#ciViser");
+        let vise = false, mesuree = false, attente = null;
+        const surOrientation = ev => {
+          if (!vise) return;
+          const cap = Number.isFinite(ev.webkitCompassHeading) ? ev.webkitCompassHeading : null;
+          if (cap === null && !ev.absolute && ev.type !== "deviceorientationabsolute") return;
+          if (!Number.isFinite(ev.beta) || !Number.isFinite(ev.gamma) || (cap === null && !Number.isFinite(ev.alpha))) return;
+          mesuree = true;
+          const c = viseeDuTelephone(ev.alpha, ev.beta, ev.gamma, cap);
+          const l = lisser(vue, c);
+          vue.az = l.az; vue.haut = l.haut;
+          borner(); majVisee(); redessiner();
+        };
+        const arreterVisee = dit => {
+          vise = false;
+          clearTimeout(attente);
+          window.removeEventListener("deviceorientation", surOrientation);
+          window.removeEventListener("deviceorientationabsolute", surOrientation);
+          viserB?.setAttribute("aria-pressed", "false");
+          if (dit) visee.textContent = dit;
+        };
+        const lancerVisee = () => {
+          vise = true; mesuree = false;
+          viserB.setAttribute("aria-pressed", "true");
+          window.addEventListener("deviceorientationabsolute", surOrientation);
+          window.addEventListener("deviceorientation", surOrientation);
+          attente = setTimeout(() => { if (vise && !mesuree) arreterVisee("Ce téléphone ne donne pas son orientation."); }, 1500);
+        };
+        viserB?.addEventListener("click", () => {
+          if (vise) { arreterVisee(); return; }
+          const demande = DeviceOrientationEvent.requestPermission;
+          if (typeof demande !== "function") { lancerVisee(); return; }
+          demande.call(DeviceOrientationEvent).then(r => {
+            if (r === "granted") lancerVisee();
+            else arreterVisee("L'accès à l'orientation est refusé ; il s'autorise dans les réglages de Safari.");
+          }).catch(() => arreterVisee("L'orientation du téléphone n'a pas pu être demandée."));
+        });
+        pe.addEventListener("pointerdown", () => { if (vise && doigts.size === 0) arreterVisee(); }, { capture: true });
+
         fe.querySelector("#ciVoile").addEventListener("click", ev => {
           const on = ev.currentTarget.getAttribute("aria-pressed") !== "true";
           ev.currentTarget.setAttribute("aria-pressed", String(on));
@@ -702,6 +776,7 @@ export function vueEtoiles() {
         fe.querySelector("#ciSources").addEventListener("click", () => { fenetre.hidden = false; });
         fe.querySelector("#ciFenetreFermer").addEventListener("click", () => { fenetre.hidden = true; });
         const fermer = () => {
+          arreterVisee();
           arreterLecture();
           if (boucle !== null) cancelAnimationFrame(boucle);
           boucle = null;

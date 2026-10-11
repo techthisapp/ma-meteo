@@ -1387,6 +1387,30 @@ case "$N" in
   450) # Hors saison, la feuille ne dit rien.
      perl -0pi -e 's/  if \(hors\) \{/  if (false) {/' src/vues/loisirs.js
      ATTENDU="hors saison, la feuille dit que les bulletins reprennent" ;;
+  451) # Le cap de l'iPhone se lit à l'envers.
+     perl -0pi -e 's/\(Number\.isFinite\(cap\) \? 360 - cap : alpha\)/(Number.isFinite(cap) ? cap : alpha)/' src/vues/etoiles.js
+     ATTENDU="le regard suit le dos du téléphone" ;;
+  452) # Le regard suit l'écran au lieu du dos du téléphone.
+     perl -0pi -e 's/haut = -cB \* cG;/haut = cB * cG;/' src/vues/etoiles.js
+     ATTENDU="le regard suit le dos du téléphone" ;;
+  453) # Le lissage fait le tour par le long chemin.
+     perl -0pi -e 's/const daz = \(\(cible\.az - vue\.az \+ 540\) % 360\) - 180;\n  return \{ az: \(vue\.az/const daz = cible.az - vue.az;\n  return { az: (vue.az/' src/vues/etoiles.js
+     ATTENDU="le lissage prend le plus court chemin" ;;
+  454) # Un doigt sur le ciel n'éteint pas la visée.
+     perl -0pi -e 's/        pe\.addEventListener\("pointerdown", \(\) => \{ if \(vise && doigts\.size === 0\) arreterVisee\(\); \}, \{ capture: true \}\);\n//' src/vues/etoiles.js
+     ATTENDU="un doigt sur le ciel reprend la main" ;;
+  455) # Un téléphone muet garde la visée allumée.
+     perl -0pi -e 's/if \(vise && !mesuree\) arreterVisee\(/if (false) arreterVisee(/' src/vues/etoiles.js
+     ATTENDU="un téléphone qui ne donne pas son orientation le dit" ;;
+  456) # Un refus de l'autorisation passe inaperçu.
+     perl -0pi -e 's/else arreterVisee\("L.accès à l.orientation est refusé ; il s.autorise dans les réglages de Safari\."\);/else arreterVisee();/' src/vues/etoiles.js
+     ATTENDU="un refus de l.autorisation se dit" ;;
+  457) # Le bouton de visée paraît sur un ordinateur.
+     perl -0pi -e 's/ && matchMedia\("\(pointer: coarse\)"\)\.matches//' src/vues/etoiles.js
+     ATTENDU="sur un ordinateur, le bouton de visée ne paraît pas" ;;
+  458) # La direction regardée reste sur la ligne des boutons.
+     perl -0pi -e 's/\.ci-haut\{flex-wrap:wrap;justify-content:flex-end;row-gap:6px\}/.ci-haut{justify-content:flex-end;row-gap:6px}/' styles.css
+     ATTENDU="la direction regardée s.écrit en entier" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

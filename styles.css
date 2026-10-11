@@ -2284,6 +2284,12 @@ button.rangee:active{background:var(--surface-2)}
   -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
 }
 .ci-haut .ci-visee{margin-right:auto}
+/* Six boutons depuis la version 190, la visée par le téléphone en plus : la
+   direction regardée passe sous eux, sur sa propre ligne, au lieu de se
+   réduire à une lettre. Ce qui suivait la barre descend d'autant. */
+.ci-haut{flex-wrap:wrap;justify-content:flex-end;row-gap:6px}
+.ci-haut::after{content:"";order:1;flex-basis:100%}
+.ci-haut .ci-visee{order:2;flex:0 1 auto}
 .ci-rond{
   flex:0 0 auto;width:44px;height:44px;display:grid;place-items:center;padding:0;border-radius:50%;
   background:rgba(255,255,255,.12);color:#fff;font-size:var(--texte-sous);
@@ -2292,7 +2298,7 @@ button.rangee:active{background:var(--surface-2)}
 .ci-rond[aria-pressed="true"]{background:rgba(255,255,255,.22);box-shadow:inset 0 0 0 1.5px #8ec0ff}
 .ci-recherche{
   position:absolute;z-index:3;left:calc(14px + var(--gauche));right:calc(14px + var(--droite));
-  top:calc(env(safe-area-inset-top,0px) + 66px);max-height:50%;
+  top:calc(env(safe-area-inset-top,0px) + 112px);max-height:50%;
   display:flex;flex-direction:column;gap:var(--espace-xs);padding:10px;border-radius:var(--rayon-lg);
   background:rgba(15,22,36,.9);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
 }
@@ -2321,7 +2327,7 @@ button.rangee:active{background:var(--surface-2)}
 }
 .ci-cible [hidden]{display:none}
 .ci-jour{
-  position:absolute;top:calc(env(safe-area-inset-top,0px) + 66px);left:calc(16px + var(--gauche));right:calc(16px + var(--droite));
+  position:absolute;top:calc(env(safe-area-inset-top,0px) + 112px);left:calc(16px + var(--gauche));right:calc(16px + var(--droite));
   margin:0;color:rgba(230,236,245,.7);font-size:12px;
 }
 .ci-bouton{
