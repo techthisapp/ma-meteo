@@ -8,10 +8,11 @@ export default async T => {
   const { pg, ok, txt, onglet } = T;
   /* Huit tuiles depuis le jalon 11 : sept vers une voie du ruban, celle de l'air
      vers sa feuille. */
-  /* Depuis le 30 septembre 2026, la neuvième, l'eau, mène elle aussi à sa feuille. */
+  /* Du 30 septembre au 12 octobre 2026, une neuvième, l'eau, menait elle
+     aussi à sa feuille ; depuis la version 194, l'eau est une porte. */
   ok("chaque mesure de l'accueil porte une destination",
     await pg.locator(".bd-m[data-detail]").count() === 7
-    && await pg.locator(".bd-m[data-feuille]").count() === 2);
+    && await pg.locator(".bd-m[data-feuille]").count() === 1);
   ok("le grand chiffre et le ciel en portent une aussi",
     await pg.locator(".bd-deg[data-detail]").count() === 1
     && await pg.locator(".bd-ciel[data-detail]").count() === 1);

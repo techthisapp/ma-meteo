@@ -71,7 +71,7 @@ export default async T => {
   /* Les huit paramètres suivis, chacun vers son détail : sept voies du ruban,
      et la feuille de l'air. */
   ok("chaque tuile mène au détail de son paramètre",
-    bandeDit.destinations.join(" ") === "t mm v nua hum uv pres feuille:air feuille:eau",
+    bandeDit.destinations.join(" ") === "t mm v nua hum uv pres feuille:air",
     bandeDit.destinations.join(" "));
   ok("les quatre portes ferment l'accueil, après demain et après-demain",
     bandeDit.portesEnBas);
@@ -1156,15 +1156,17 @@ export default async T => {
     eauPur.choisi === "bon" && eauPur.nom === "Forage CD21 (Laignes-21)"
     && eauPur.tuile === '{"valeur":"Alerte renforcée","sous":"nappe basse","classe":"v-chaud"}', JSON.stringify(eauPur));
 
-  /* L'eau sur l'accueil et dans sa feuille, pour la commune d'essai : la tuile, le
-     conseil d'une restriction en alerte, et le détail. */
-  await pg.waitForFunction(() => /nappe très haute/.test(document.querySelector("#ecran .bd-mesures")?.textContent || ""), null, { timeout: 8000 }).catch(() => {});
+  /* L'eau sur l'accueil et dans sa feuille, pour la commune d'essai : la porte
+     du bas, depuis la version 194, et le détail. La restriction ne se dit
+     plus parmi les conseils du jour. */
+  await pg.waitForFunction(() => /nappe très haute/.test(document.querySelector("#ecran .porte-eau")?.textContent || ""), null, { timeout: 8000 }).catch(() => {});
   const eauAcc = await pg.evaluate(() => {
-    const t = [...document.querySelectorAll("#ecran .bd-mesures .bd-m")].find(x => /L'eau/.test(x.textContent));
-    return { tuile: t ? t.textContent.replace(/\s+/g, " ").trim() : "", classe: t?.querySelector(".v-attention") ? "v-attention" : "",
+    const t = document.querySelector("#ecran .porte-eau");
+    return { tuile: t ? t.textContent.replace(/\s+/g, " ").trim() : "", classe: t?.querySelector(".porte-info.v-attention") ? "v-attention" : "",
+      apres: !!t && !!t.nextElementSibling?.matches(".porte-risques"),
       conseil: [...document.querySelectorAll("#ecran .cj-l")].map(l => l.dataset.phrase).find(x => /^Restriction d'eau/.test(x || "")) || "" };
   });
-  const tuileEau = pg.locator("#ecran .bd-mesures .bd-m", { hasText: "L'eau" });
+  const tuileEau = pg.locator("#ecran .porte-eau");
   const tuileEauVue = await tuileEau.count();
   if (tuileEauVue) await tuileEau.first().click();
   await pg.waitForTimeout(600);
@@ -1181,10 +1183,10 @@ export default async T => {
   const tuilesVers = await pg.evaluate(() => Object.fromEntries([...document.querySelectorAll("#ecran .bd-m.tuile[data-feuille]")]
     .map(b => [b.dataset.feuille, b.getAttribute("aria-label").replace(/^.*, /, "")])));
   ok("une tuile qui ouvre une feuille dit au lecteur d'écran celle qu'elle ouvre",
-    tuilesVers.air === "voir l'air qu'on respire" && tuilesVers.eau === "voir l'eau", JSON.stringify(tuilesVers));
-  ok("la tuile de l'eau dit la restriction et la nappe, et une alerte se dit parmi les conseils",
-    /L'eau\s*Alerte\s*nappe très haute/.test(eauAcc.tuile) && eauAcc.classe === "v-attention"
-    && eauAcc.conseil === "Restriction d'eau : alerte, usages de l'eau encadrés par arrêté.", JSON.stringify(eauAcc));
+    tuilesVers.air === "voir l'air qu'on respire" && !tuilesVers.eau, JSON.stringify(tuilesVers));
+  ok("la porte de l'eau, au-dessus des risques, dit la restriction et la nappe ; les conseils du jour ne la redisent pas",
+    /^L'eau\s*Restriction : alerte, nappe très haute$/.test(eauAcc.tuile) && eauAcc.classe === "v-attention" && eauAcc.apres
+    && eauAcc.conseil === "", JSON.stringify(eauAcc));
   ok("la feuille de l'eau détaille la restriction, son arrêté, et l'état de la nappe",
     eauFeuille.surface === "Alerte" && eauFeuille.potable === "Vigilance" && eauFeuille.etat === "très haute" && eauFeuille.tendance === "stable"
     && eauFeuille.arrete === "L'arrêté en vigueur, jusqu'au 31 octobre"
@@ -1551,10 +1553,11 @@ export default async T => {
     lot2.rapport === null ? "ciel introuvable" : `rapport ${lot2.rapport.toFixed(3)}`);
   /* Jalon 11 : les quatre chiffres sur une ligne deviennent huit tuiles sur deux
      colonnes, une par paramètre suivi. */
-  /* Depuis le 30 septembre 2026, une neuvième tuile, l'eau, prend toute la
-     largeur de la dernière rangée. */
-  ok("les neuf tuiles des paramètres se rangent sur deux colonnes, l'eau sur toute la largeur",
-    lot2.cellules === 9 && lot2.rangees === 5 && lot2.colonnes === 2,
+  /* Du 30 septembre au 12 octobre 2026, une neuvième tuile, l'eau, prenait
+     toute la largeur de la dernière rangée ; depuis la version 194, l'eau
+     est une porte au bas de l'accueil. */
+  ok("les huit tuiles des paramètres se rangent sur deux colonnes",
+    lot2.cellules === 8 && lot2.rangees === 4 && lot2.colonnes === 2,
     `${lot2.cellules} tuiles, ${lot2.rangees} rangées, ${lot2.colonnes} colonnes`);
 
   ok("la phrase dit la pluie avec son moment, et les rafales fortes",

@@ -16,11 +16,13 @@ export default async T => {
   /* Jalon 11 : huit tuiles, une par paramètre suivi, au lieu de quatre mesures. */
   /* Depuis le 30 septembre 2026, une neuvième, l'eau, qui arrive après la
      prévision : elle est attendue. */
-  await pg.waitForFunction(() => document.querySelectorAll(".bd-m").length === 9, null, { timeout: 8000 }).catch(() => {});
-  ok("l'accueil porte une tuile par paramètre suivi", await pg.locator(".bd-m").count() === 9);
+  /* Depuis la version 194, l'eau est une porte au bas de l'accueil : les
+     tuiles reviennent à huit. */
+  await pg.waitForFunction(() => document.querySelectorAll(".bd-m").length === 8, null, { timeout: 8000 }).catch(() => {});
+  ok("l'accueil porte une tuile par paramètre suivi", await pg.locator(".bd-m").count() === 8);
   const mes = (await pg.locator(".bd-m i").allInnerTexts()).join(", ");
   ok("les tuiles sont nommées",
-    mes.toLowerCase() === "ressenti, pluie, vent, ciel, humidité, indice uv, pression, air, l'eau", mes);
+    mes.toLowerCase() === "ressenti, pluie, vent, ciel, humidité, indice uv, pression, air", mes);
   const cj = await phrasesConseils(pg, ".cj-l");
   /* Trois lignes par bloc au plus : au-delà, un bloc cesse d'être un résumé. Six
      en tout au pire, comme du temps de la carte unique. */

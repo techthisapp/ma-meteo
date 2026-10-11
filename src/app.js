@@ -727,12 +727,11 @@ function ecranAccueil() {
        tant que l'eau de la plage la plus proche dépasse 20°. */
     const pz = Plage.etatPlage(Reglages.lire());
     const saisonPlage = !!pz && pz.resumes.length > 0 && Plage.enSaisonPlage(cleHeure().slice(0, 10), pz.resumes);
-    /* L'eau, jalon 18 : une restriction d'alerte ou plus grave se dit parmi les
-       conseils du jour, et mène à la feuille de l'eau. */
+    /* L'eau, jalon 18. Depuis la version 194, demande de Jérôme du 12 octobre
+       2026, la restriction ne se dit plus parmi les conseils du jour : un
+       arrêté dure des semaines, et la ligne y restait en permanence. La porte
+       de l'eau, au bas de l'accueil, la dit. */
     const ez = Eau.etatEau(Reglages.lire());
-    const rEau = ez?.restriction;
-    if (rEau && rEau.rang >= 2) lJour.push({ i: "robinet", g: 4, d: "feuille:eau",
-      t: `Restriction d'eau : ${rEau.niveau.toLowerCase()}, usages de l'eau encadrés par arrêté.` });
     /* Les conseils de la neige et de l'eau s'ajoutent après le calcul du jour :
        ils reprennent leur rang de gravité, et le bloc garde ses trois lignes au
        plus. Ajoutés au bout, ils en faisaient une quatrième, ce que la garde des
@@ -824,11 +823,15 @@ function ecranAccueil() {
       ["Pression", pres0 === null ? "—" : `${Math.round(pres0)} hPa`, tendance || "maintenant", "", "pres", "jauge", "nuage"],
       ["Air", airJour ? `${airJour.indice}` : "—",
         airJour ? `${(Air.niveauDe(airJour.indice)?.nom || "indice européen").toLowerCase()} au pire ${ICI}` : "pas de mesure", "", null, "brume", "nuage", "air"],
-      /* L'eau, jalon 18 : la restriction en grand, la nappe dessous ; elle
-         ouvre la feuille de l'eau. */
-      ...(Eau.tuileEau(ez) ? [["L'eau", Eau.tuileEau(ez).valeur, Eau.tuileEau(ez).sous, Eau.tuileEau(ez).classe,
-        null, "robinet", "pluie", "eau"]] : []),
     ] : [];
+    /* L'eau, jalon 18, quitte la grille des mesures du jour en version 194,
+       demande de Jérôme du 12 octobre 2026 : une porte pleine largeur au bas
+       de l'accueil, au-dessus de celle des risques, qui dit la restriction et
+       la nappe et ouvre la feuille de l'eau. */
+    const te = Eau.tuileEau(ez);
+    const infoEau = !te ? "Restrictions, nappe, rivière"
+      : `${te.valeur === "Aucune" ? "Aucune restriction" : te.valeur === "—" ? "Restriction non lue" : `Restriction : ${te.valeur.toLowerCase()}`}`
+        + (ez?.nappe ? `, nappe ${ez.nappe.classe}` : "");
 
     /* Les quatre portes, en grille de deux sur deux. Jérôme les a voulues tout
        en bas de l'accueil le 24 septembre 2026, après « Demain et
@@ -877,6 +880,10 @@ function ecranAccueil() {
         + `<span class="porte-info" data-info="climat">${esc(info.climat)}</span></span>`
         + chevron + `</button>`
         + `</div>`
+      + `<button type="button" class="carte rangee porte porte-large porte-eau" data-feuille="eau">`
+      + ico("robinet", "") + `<span class="rangee-txt"><b>L'eau</b>`
+      + `<span class="porte-info${te?.classe ? ` ${te.classe}` : ""}" data-info="eau">${esc(infoEau)}</span></span>`
+      + chevron + `</button>`
       /* La cinquième porte, version 191 : les risques de la commune, que
          Géorisques recense, sur une ligne pleine largeur sous la grille de
          deux sur deux. */

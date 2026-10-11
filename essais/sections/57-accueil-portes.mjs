@@ -26,7 +26,7 @@ export default async T => {
     .map(x => [x.dataset.info, x.textContent])));
   /* Depuis la version 191, la porte des risques s'y ajoute, sous la grille. */
   ok("les portes portent une information clé, à la place de leur description",
-    Object.keys(portes).sort().join(",") === "activites,air,beau,climat,risques"
+    Object.keys(portes).sort().join(",") === "activites,air,beau,climat,eau,risques"
     && /^(Courir|Vélo|Linge|Aérer|Arroser|Voiture) : /.test(portes.activites)
     && /^Air /.test(portes.air) && !/[·]/.test(portes.air)
     && Object.values(portes).every(v => v && !/Records, normales|Mes lieux, et cent/.test(v)), JSON.stringify(portes));
@@ -38,15 +38,15 @@ export default async T => {
     const trace = html => { const d = document.createElement("div"); d.innerHTML = html; return d.querySelector("path")?.getAttribute("d") || "x"; };
     const tuile = n => [...document.querySelectorAll("#ecran .bd-m")].find(x => x.textContent.includes(n));
     const dans = el => [...(el?.querySelectorAll("path") || [])].map(x => x.getAttribute("d"));
-    return { eau: dans(tuile("L'eau")).includes(trace(I.ico("robinet", ""))),
+    return { eau: dans(document.querySelector("#ecran .porte-eau")).includes(trace(I.ico("robinet", ""))),
       humidite: dans(tuile("Humidité")).includes(trace(I.ico("goutte", ""))) };
   });
-  ok("la tuile de l'eau porte le robinet, celle de l'humidité garde la goutte", icones.eau && icones.humidite, JSON.stringify(icones));
+  ok("la porte de l'eau porte le robinet, la tuile de l'humidité garde la goutte", icones.eau && icones.humidite, JSON.stringify(icones));
 
   /* La fenêtre de l'eau : restriction, nappe et rivière d'abord ; l'étiage,
      la température de l'eau, le sol et l'arrosage derrière « Plus de
      détails », replié à l'ouverture. */
-  await pg.locator("#ecran .bd-mesures .bd-m", { hasText: "L'eau" }).first().click();
+  await pg.locator("#ecran .porte-eau").click();
   await pg.waitForFunction(() => /Étiage observé/.test(document.querySelector("#feuille-corps")?.textContent || ""), null, { timeout: 15000 }).catch(() => {});
   const eau = await pg.evaluate(() => {
     const c = document.getElementById("feuille-corps");

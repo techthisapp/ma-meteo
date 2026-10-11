@@ -2722,6 +2722,9 @@ button.rangee:active{background:var(--surface-2)}
 /* La neige, jalon 16 : la porte large au-dessus de la grille des portes, et
    les chiffres de chaque station en deux colonnes. */
 .porte-large{width:100%;margin-bottom:var(--espace-md)}
+/* Les portes de l'eau et des risques, sous la grille, version 194 : le même
+   écart entre elles qu'entre les rangées de la grille. */
+.porte-eau.porte-large{margin-bottom:0}
 .ng-dom h3{margin:0 0 var(--espace-sm)}
 .ng-st{margin-top:var(--espace-md);padding-top:var(--espace-md);border-top:1px solid var(--filet-clair)}
 .ng-tete{display:flex;justify-content:space-between;align-items:baseline;gap:var(--espace-sm)}

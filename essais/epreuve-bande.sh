@@ -1456,6 +1456,12 @@ case "$N" in
   473) # L'avis perd sa place au-dessus des onglets.
      perl -0pi -e 's/  bottom:calc\(var\(--bas\) \+ 74px\);z-index:80;margin:0;/  z-index:80;margin:0;/' styles.css
      ATTENDU="une version plus récente publiée fait paraître l.offre de recharger, devant tout" ;;
+  474) # La restriction d'eau revient parmi les conseils du jour.
+     perl -0pi -e 's/    const ez = Eau\.etatEau\(Reglages\.lire\(\)\);\n/    const ez = Eau.etatEau(Reglages.lire());\n    if (ez?.restriction?.rang >= 2) lJour.push({ i: "robinet", g: 4, d: "feuille:eau", t: `Restriction d\x27eau : \${ez.restriction.niveau.toLowerCase()}.` });\n/' src/app.js
+     ATTENDU="la porte de l.eau, au-dessus des risques" ;;
+  475) # La porte de l'eau passe sous celle des risques.
+     perl -0pi -e 's/(      \+ `<button type="button" class="carte rangee porte porte-large porte-eau" data-feuille="eau">`\n.*?\n.*?\n      \+ chevron \+ `<\/button>`\n)(.*?porte-risques.*?\n.*?\n.*?\n      \+ chevron \+ `<\/button>`\n)/$2$1/s' src/app.js
+     ATTENDU="la porte de l.eau, au-dessus des risques" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
