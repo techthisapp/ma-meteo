@@ -279,13 +279,39 @@ export default async T => {
     await pg.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
     await pg.waitForTimeout(600);
     return pg.evaluate(() => {
-      const b = document.querySelector("#ecran .mise-a-jour");
-      return b ? { texte: b.textContent, bouton: !!b.querySelector('[data-action="recharger"]') } : null;
+      const b = document.getElementById("majAvis");
+      if (!b || b.hidden) return null;
+      /* Depuis la version 193, l'avis flotte devant tout : le bouton se
+         touche lui-même, au-dessus de la barre des onglets. */
+      const r = b.querySelector('[data-action="recharger"]')?.getBoundingClientRect();
+      const dessus = r ? document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.closest('[data-action="recharger"]') : null;
+      const o = document.getElementById("onglets")?.getBoundingClientRect();
+      return { texte: b.textContent, bouton: !!dessus, auDessus: !o || b.getBoundingClientRect().bottom <= o.top };
     });
   };
   const plusRecente = await publier(`const VERSION = "ma-meteo-v999";`);
-  ok("une version plus récente publiée fait paraître l'offre de recharger",
-    plusRecente && /999/.test(plusRecente.texte) && plusRecente.bouton, JSON.stringify(plusRecente));
+  ok("une version plus récente publiée fait paraître l'offre de recharger, devant tout, au-dessus des onglets",
+    plusRecente && /999/.test(plusRecente.texte) && plusRecente.bouton && plusRecente.auDessus, JSON.stringify(plusRecente));
+  /* Sur la carte, l'avis reste devant ses boutons. */
+  await pg.locator('[data-onglet="carte"]').click();
+  await pg.waitForTimeout(900);
+  const surCarte = await pg.evaluate(() => {
+    const b = document.getElementById("majAvis");
+    const r = b?.querySelector('[data-action="recharger"]')?.getBoundingClientRect();
+    return !!(r && !b.hidden && document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.closest('[data-action="recharger"]'));
+  });
+  await pg.locator('[data-onglet="accueil"]').click();
+  await pg.waitForTimeout(600);
+  ok("sur la carte, l'offre de recharger reste devant ses boutons", surCarte);
+  /* La croix ferme l'avis jusqu'à la version suivante. */
+  const ferme = await pg.evaluate(async () => {
+    document.querySelector("#majAvis [data-fermer]").click();
+    await new Promise(r => setTimeout(r, 100));
+    return document.getElementById("majAvis").hidden;
+  });
+  await publier(`const VERSION = "${versionDit.coque}";`);
+  const rouvert = await publier(`const VERSION = "ma-meteo-v999";`);
+  ok("la croix ferme l'offre jusqu'à la version suivante", ferme && rouvert === null, JSON.stringify(rouvert));
   const memeVersion = await publier(`const VERSION = "${versionDit.coque}";`);
   ok("la même version ne fait rien paraître", memeVersion === null, JSON.stringify(memeVersion));
   const plusAncienne = await publier(`const VERSION = "ma-meteo-v1";`);

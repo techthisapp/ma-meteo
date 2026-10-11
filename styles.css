@@ -2477,6 +2477,19 @@ button.rangee:active{background:var(--surface-2)}
   border-radius:var(--rayon-md);background:var(--surface);
   font-size:var(--texte-note);color:var(--etiquette);
 }
+/* L'avis flottant, version 193 : au-dessus de la barre des onglets, devant
+   la carte et ses boutons ; sans barre, sur la carte en plein écran, au bas
+   de l'écran. */
+#majAvis{
+  position:fixed;left:calc(12px + var(--gauche));right:calc(12px + var(--droite));
+  bottom:calc(var(--bas) + 74px);z-index:80;margin:0;
+  box-shadow:0 6px 24px rgba(0,0,0,.18);
+}
+#majAvis[hidden]{display:none}
+#majAvis span{flex:1}
+:root.carte-plein #majAvis{bottom:calc(var(--bas) + 12px)}
+.maj-fermer{flex:none;display:grid;place-items:center;width:32px;height:32px;padding:0;border:0;background:none;color:var(--etiquette-2)}
+.maj-fermer svg{width:16px;height:16px}
 .rg-maj{flex-wrap:wrap;gap:var(--espace-sm)}
 .rg-b{font-size:var(--texte-corps);padding:0}
 /* La clé de la prévision immédiate, version 186 : le champ prend la place,

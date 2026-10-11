@@ -206,13 +206,32 @@ const titreEcran = (titre, sous, cote) =>
   + (sous ? `<p>${esc(sous)}</p>` : "")
   + `</div>`;
 
-/* Le bandeau de mise à jour, au même endroit que celui du hors ligne : une
-   version plus récente est publiée, et un toucher la charge. */
+/* L'avis de mise à jour : une version plus récente est publiée, et un
+   toucher la charge. Depuis la version 193, remarque de Jérôme du
+   12 octobre 2026, l'avis flotte au-dessus de la barre des onglets, devant
+   tout le reste : glissé en tête du contenu, il tombait sous la barre du
+   haut de l'accueil peint et sous les boutons de la carte. Une croix le
+   ferme jusqu'à la version suivante. */
 let versionPlusRecente = null;
-const bandeauMiseAJour = () => !versionPlusRecente ? "" :
-  `<div class="mise-a-jour" role="status">`
-  + `<span>La version ${versionPlusRecente} est disponible.</span>`
-  + `<button type="button" class="bouton-borde" data-action="recharger">Recharger</button></div>`;
+let avisFerme = null;
+function poserAvisMaj() {
+  let el = document.getElementById("majAvis");
+  if (!versionPlusRecente || avisFerme === versionPlusRecente) { if (el) el.hidden = true; return; }
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "majAvis";
+    el.className = "mise-a-jour";
+    el.setAttribute("role", "status");
+    document.body.appendChild(el);
+    el.addEventListener("click", ev => {
+      if (ev.target.closest("[data-fermer]")) { avisFerme = versionPlusRecente; el.hidden = true; }
+    });
+  }
+  el.innerHTML = `<span>La version ${versionPlusRecente} est disponible.</span>`
+    + `<button type="button" class="bouton-plein" data-action="recharger">Recharger</button>`
+    + `<button type="button" class="maj-fermer" data-fermer aria-label="Plus tard">${ico("fermer", "")}</button>`;
+  el.hidden = false;
+}
 
 const bandeauHorsLigne = () => navigator.onLine ? "" :
   `<div class="hors-ligne">${ico("sans_reseau", "")}`
@@ -934,7 +953,7 @@ function ecranAccueil() {
     titre: g.commune ? jour.charAt(0).toUpperCase() + jour.slice(1) : "Ma météo",
     sous: "",
     pleinCadre: plein,
-    corps: bandeauMiseAJour() + bandeauHorsLigne() + corps,
+    corps: bandeauHorsLigne() + corps,
     brancher(bloc) {
       Feu.poser(bloc.querySelector("#ciFeu"));
       Relief.poser(bloc.querySelector("#ciLune"));
@@ -1007,7 +1026,7 @@ function ecranVue(nom) {
     /* La commune est dans la barre de tête : la répéter sous chaque titre
        d'écran occupait une ligne pour une information déjà présente. */
     sous: f.sousEcran || "",
-    corps: bandeauMiseAJour() + bandeauHorsLigne() + f.corps,
+    corps: bandeauHorsLigne() + f.corps,
     brancher: f.brancher,
   };
 }
@@ -1938,7 +1957,7 @@ async function chercherVersion() {
   const v = await Version.plusRecente();
   if (v === versionPlusRecente) return;
   versionPlusRecente = v;
-  rendre();
+  poserAvisMaj();
 }
 setTimeout(chercherVersion, 4000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) chercherVersion(); });

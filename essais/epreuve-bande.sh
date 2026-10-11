@@ -1447,6 +1447,15 @@ case "$N" in
   470) # Les petits mots du nom de la station prennent une capitale.
      perl -0pi -e 's/\(k\+\+ && PETITS\.has\(m\) \?/(false ?/' src/observations.js
      ATTENDU="la mesure se nomme et se date en mots" ;;
+  471) # L'avis de mise à jour ne se pose pas.
+     perl -0pi -e 's/  versionPlusRecente = v;\n  poserAvisMaj\(\);/  versionPlusRecente = v;\n  rendre();/' src/app.js
+     ATTENDU="une version plus récente publiée fait paraître l.offre de recharger" ;;
+  472) # La croix ne retient pas la version écartée.
+     perl -0pi -e 's/\{ avisFerme = versionPlusRecente; el\.hidden = true; \}/{ el.hidden = true; }/' src/app.js
+     ATTENDU="la croix ferme l.offre jusqu.à la version suivante" ;;
+  473) # L'avis perd sa place au-dessus des onglets.
+     perl -0pi -e 's/  bottom:calc\(var\(--bas\) \+ 74px\);z-index:80;margin:0;/  z-index:80;margin:0;/' styles.css
+     ATTENDU="une version plus récente publiée fait paraître l.offre de recharger, devant tout" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
