@@ -1411,6 +1411,30 @@ case "$N" in
   458) # La direction regardée reste sur la ligne des boutons.
      perl -0pi -e 's/\.ci-haut\{flex-wrap:wrap;justify-content:flex-end;row-gap:6px\}/.ci-haut{justify-content:flex-end;row-gap:6px}/' styles.css
      ATTENDU="la direction regardée s.écrit en entier" ;;
+  459) # Les détails des risques passent pour des familles.
+     perl -0pi -e 's/if \(num\.length <= 2\) familles\.push/if (true) familles.push/' src/risques.js
+     ATTENDU="les risques se lisent par familles" ;;
+  460) # Les arrêtés se rangent du plus ancien.
+     perl -0pi -e 's/\.sort\(\(a, b\) => b\.debut\.localeCompare\(a\.debut\)\)/.sort((a, b) => a.debut.localeCompare(b.debut))/' src/risques.js
+     ATTENDU="les risques se lisent par familles" ;;
+  461) # La zone sismique 4 se perd.
+     perl -0pi -e 's/return z >= 1 && z <= 5 \? z : null; \};\nexport const lireRadon/return z >= 5 \&\& z <= 5 ? z : null; };\nexport const lireRadon/' src/risques.js
+     ATTENDU="les risques se lisent par familles" ;;
+  462) # Chaque dessin de l'accueil relance la lecture des risques.
+     perl -0pi -e 's/  if \(!enCours\.has\(cleLieu\)\) enCours\.set/  enCours.set/' src/risques.js
+     ATTENDU="une porte de l.accueil mène aux risques" ;;
+  463) # L'argile se demande la latitude en premier.
+     perl -0pi -e 's/rga\?latlon=\$\{envoi\(g\.lon\)\},\$\{envoi\(g\.lat\)\}/rga?latlon=\${envoi(g.lat)},\${envoi(g.lon)}/' src/risques.js
+     ATTENDU="une porte de l.accueil mène aux risques" ;;
+  464) # La politique de la page ne permet pas Géorisques.
+     perl -0pi -e 's/ https:\/\/georisques\.gouv\.fr; worker-src/; worker-src/' index.html
+     ATTENDU="une porte de l.accueil mène aux risques" ;;
+  465) # La porte des risques manque à l'accueil.
+     perl -0pi -e 's/data-feuille="risques"/data-feuille="climat"/' src/app.js
+     ATTENDU="une porte de l.accueil mène aux risques" ;;
+  466) # Le résumé dit deux fois le séisme.
+     perl -0pi -e 's/\.filter\(x => !\(d\.seisme && x\.num === "13"\)\)//' src/risques.js
+     ATTENDU="les risques se lisent par familles" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

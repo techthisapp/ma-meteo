@@ -24,8 +24,9 @@ export default async T => {
   /* Les portes portent une information clé, plus la description d'avant. */
   const portes = await pg.evaluate(() => Object.fromEntries([...document.querySelectorAll("#ecran .porte-info")]
     .map(x => [x.dataset.info, x.textContent])));
-  ok("les quatre portes portent une information clé, à la place de leur description",
-    Object.keys(portes).sort().join(",") === "activites,air,beau,climat"
+  /* Depuis la version 191, la porte des risques s'y ajoute, sous la grille. */
+  ok("les portes portent une information clé, à la place de leur description",
+    Object.keys(portes).sort().join(",") === "activites,air,beau,climat,risques"
     && /^(Courir|Vélo|Linge|Aérer|Arroser|Voiture) : /.test(portes.activites)
     && /^Air /.test(portes.air) && !/[·]/.test(portes.air)
     && Object.values(portes).every(v => v && !/Records, normales|Mes lieux, et cent/.test(v)), JSON.stringify(portes));

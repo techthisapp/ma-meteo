@@ -529,6 +529,9 @@ export function vueReglages(ctx, rendre, majEtat) {
       + "avec une clé, prévision immédiate PIAF de Météo-France"],
     /* Version 187 : le service ne reçoit que le département de la station. */
     /* Version 188. */
+    /* Version 191 : Géorisques reçoit le code de la commune et le point
+       arrondi au centième de degré. */
+    ["Risques de la commune", "Géorisques, du ministère de la Transition écologique"],
     /* Version 189. */
     ["Risque d'avalanche", "avec une clé, bulletins d'estimation du risque d'avalanche de Météo-France"],
     ["Danger d'incendie", "avec une clé, météo des forêts de Météo-France et de l'Office national des forêts"],

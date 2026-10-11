@@ -2876,3 +2876,9 @@ button.rangee:active{background:var(--surface-2)}
 .av-indice{font-weight:var(--graisse-medium);color:var(--etiquette)}
 .av-risque{margin:6px 0 4px;font-weight:var(--graisse-medium)}
 .av-resume{margin:6px 0 0;white-space:pre-line;font-size:var(--texte-note);color:var(--etiquette-2)}
+
+/* La feuille des risques, version 191 : une famille par ligne, ses détails
+   dessous en plus petit. */
+.rq-liste{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.rq-liste li{display:flex;flex-direction:column;gap:2px}
+.rq-liste span{font-size:var(--texte-note);color:var(--etiquette-2)}

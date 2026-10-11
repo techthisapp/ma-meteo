@@ -996,7 +996,7 @@ export const brancherFauxServices = async (c, etat) => {
   await c.route(/geo\.api\.gouv\.fr\/communes/, r => {
     etat.appelsGeo.push(r.request().url());
     r.fulfill({ status: 200, contentType: "application/json",
-      body: JSON.stringify([{ nom: "Grenoble", codesPostaux: ["38000"], codeDepartement: "38" }]) });
+      body: JSON.stringify([{ nom: "Grenoble", code: "38185", codesPostaux: ["38000"], codeDepartement: "38" }]) });
   });
   await c.route(/api-adresse\.data\.gouv\.fr/, r => {
     const q = new URL(r.request().url()).searchParams.get("q") || "";
@@ -1235,6 +1235,14 @@ export const brancherFauxServices = async (c, etat) => {
     r.fulfill({ status: 200, contentType: "image/png",
       headers: { "Access-Control-Allow-Origin": "*" }, body: pngDamier() });
   });
+  await c.route(/georisques\.gouv\.fr\/api\/v1/, r => {
+    const u = r.request().url();
+    etat.appelsGeorisques.push(u);
+    const ent = { "Access-Control-Allow-Origin": "*" };
+    const corps = /gaspar\/risques/.test(u) ? GEORISQUES.risques : /gaspar\/catnat/.test(u) ? GEORISQUES.catnat
+      : /zonage_sismique/.test(u) ? GEORISQUES.seisme : /radon/.test(u) ? GEORISQUES.radon : /rga/.test(u) ? GEORISQUES.rga : null;
+    r.fulfill({ status: corps ? 200 : 404, headers: ent, contentType: "application/json", body: corps ? JSON.stringify(corps) : "" });
+  });
   await c.route(/public-api\.meteofrance\.fr\/public\/DPBRA/, r => {
     const u = r.request().url();
     etat.appelsBra.push(u);
@@ -1385,6 +1393,25 @@ export const BRA_BELLEDONNE = `<?xml version="1.0" encoding="UTF-8" standalone="
 </CARTOUCHERISQUE>
 </BULLETINS_NEIGE_AVALANCHE>`;
 
+/* Géorisques, version 191 : la commune de Grenoble, trois familles de
+   risques, trois arrêtés de catastrophe naturelle, zone sismique 4, argiles
+   moyennes, radon faible. */
+export const GEORISQUES = {
+  risques: { results: 1, data: [{ code_insee: "38185", risques_detail: [
+    { num_risque: "11", libelle_risque_long: "Inondation" },
+    { num_risque: "112", libelle_risque_long: "Par une crue à débordement lent de cours d'eau" },
+    { num_risque: "113", libelle_risque_long: "Par une crue torrentielle" },
+    { num_risque: "13", libelle_risque_long: "Séisme" },
+    { num_risque: "24", libelle_risque_long: "Transport de marchandises dangereuses" }] }] },
+  catnat: { results: 3, data: [
+    { libelle_risque_jo: "Inondations et/ou Coulées de Boue", date_debut_evt: "06/07/2001", date_fin_evt: "07/07/2001" },
+    { libelle_risque_jo: "Sécheresse", date_debut_evt: "01/04/2022", date_fin_evt: "30/09/2022" },
+    { libelle_risque_jo: "Inondations et/ou Coulées de Boue", date_debut_evt: "21/01/2018", date_fin_evt: "23/01/2018" }] },
+  seisme: { results: 1, data: [{ code_insee: "38185", code_zone: "4", zone_sismicite: "4 - MOYENNE" }] },
+  radon: { results: 1, data: [{ code_insee: "38185", classe_potentiel: "1" }] },
+  rga: { codeExposition: "2", exposition: "Exposition moyenne" },
+};
+
 export const nouvelEtat = () => ({
   radarFutur: 0,
   radarFondPlein: false,
@@ -1423,6 +1450,7 @@ export const nouvelEtat = () => ({
   appelsObs: [],
   appelsForet: [],
   appelsBra: [],
+  appelsGeorisques: [],
   braHors: false,
   foretVieille: false,
   profilPiaf: "tard",
@@ -1467,6 +1495,10 @@ export const envelopperNavigateur = nav => {
        réponse 503 aurait laissé une erreur dans la console, qu'un contrôle
        refuse. Les contextes qui posent leurs faux services gardent les leurs. */
     await c.route(/router\.project-osrm\.org|webservice\.meteofrance\.com/, r => r.abort());
+    /* Depuis la version 191, l'accueil lit les risques de la commune en
+       arrière-plan : Géorisques et le service des communes sont coupés de
+       même dans les contextes qui ne posent pas leurs faux services. */
+    await c.route(/georisques\.gouv\.fr|geo\.api\.gouv\.fr/, r => r.abort());
     return c;
   };
   return sortantes;

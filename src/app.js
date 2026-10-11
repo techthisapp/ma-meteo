@@ -31,6 +31,8 @@ import { vueCommunes, vueAjout } from "./vues/lieux.js";
 import { vueReglages, vueParapluie, vueRessenti, vueActivites, vueBeauTemps, vueAir } from "./vues/feuilles.js";
 import { vueClimat } from "./vues/climat.js";
 import { vueNeige, vuePlage, vueEau } from "./vues/loisirs.js";
+import { vueRisques } from "./vues/risques.js";
+import * as Risques from "./risques.js";
 import { moments } from "./ecritures.js";
 import * as Vig from "./vigilance.js";
 import * as Astres from "./astres.js";
@@ -850,6 +852,13 @@ function ecranAccueil() {
         + `<span class="porte-info" data-info="climat">${esc(info.climat)}</span></span>`
         + chevron + `</button>`
         + `</div>`
+      /* La cinquième porte, version 191 : les risques de la commune, que
+         Géorisques recense, sur une ligne pleine largeur sous la grille de
+         deux sur deux. */
+      + `<button type="button" class="carte rangee porte porte-large porte-risques" data-feuille="risques">`
+      + ico("alerte", "") + `<span class="rangee-txt"><b>Les risques d'ici</b>`
+      + `<span class="porte-info" data-info="risques">${esc(info.risques)}</span></span>`
+      + chevron + `</button>`
       ;
 
     corps += `<div class="ecran-corps">`
@@ -1066,7 +1075,17 @@ const COURT = { courir: "Courir", velo: "Vélo", linge: "Linge", aerer: "Aérer"
 let beauLu = null;
 function infosPortes(g) {
   const out = { activites: "Courir, étendre, aérer, arroser", beau: "Mes lieux et alentours",
-    air: "Polluants et pollens", climat: "Records et normales" };
+    air: "Polluants et pollens", climat: "Records et normales",
+    risques: Risques.resume(Risques.garde(g)) || "Inondation, séisme, sol" };
+  /* Les risques se lisent une fois en arrière-plan, et la porte se complète
+     à leur arrivée. */
+  if (!Risques.garde(g)) {
+    Risques.charger(g).then(d => {
+      const el = document.querySelector('[data-info="risques"]');
+      const t = Risques.resume(d);
+      if (el && t) el.textContent = t;
+    }).catch(() => {});
+  }
   const s = P.serieHoraire(0, Activites.FENETRE, 8);
   const r = s ? Activites.repondre(s, P.bilanEau(Activites.SEUILS_ACT.arrosageJours)) : [];
   const avec = r.filter(x => x.creneau).sort((a, b) => a.creneau[0] - b.creneau[0]
@@ -1365,7 +1384,7 @@ async function suivrePosition({ force } = {}) {
 const FEUILLES = { vigilance: vueVigilance, communes: vueCommunes,
   ajout: vueAjout, reglages: vueReglages, parapluie: vueParapluie,
   ressenti: vueRessenti, activites: vueActivites, beautemps: vueBeauTemps,
-  air: vueAir, climat: vueClimat, neige: vueNeige, plage: vuePlage, eau: vueEau };
+  air: vueAir, climat: vueClimat, neige: vueNeige, plage: vuePlage, eau: vueEau, risques: vueRisques };
 
 /* Accroches : un contenu court n'occupe pas tout l'écran. */
 const ACCROCHE = { vigilance: "moyenne", communes: "grande",

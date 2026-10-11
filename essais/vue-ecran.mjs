@@ -349,7 +349,7 @@ for (const theme of ["light", "dark"]) {
   if (process.env.FEUILLE) {
     const cible = { parapluie: "#navJeton", activites: '[data-feuille="activites"]',
       beautemps: '[data-feuille="beautemps"]',
-      air: '[data-feuille="air"]' }[process.env.FEUILLE]
+      air: '[data-feuille="air"]', risques: '[data-feuille="risques"]' }[process.env.FEUILLE]
       || "#btnReglages";
     await pg.locator(cible).click();
     await pg.waitForTimeout(600);

@@ -126,7 +126,7 @@ Règles apprises à l'usage :
 3. Les contrôles servent leurs propres données : les faux services sont dans
    `brancherFauxServices` de `essais/faux-services.mjs`, avec leur état propre
    à chaque section, et `envelopperNavigateur` fait que tout contexte réponde
-   d'office à VigiEau et à Hub'eau, et une coupure à OSRM et à Météo-France. Un filet refuse toute autre
+   d'office à VigiEau et à Hub'eau, et une coupure à OSRM, à Météo-France, à Géorisques et au service des communes. Un filet refuse toute autre
    requête vers le réseau réel, et le contrôle « aucune requête ne sort vers
    le vrai réseau » échoue si une seule passe le filet.
 4. La date des contrôles est figée au 18 août 2026, la commune d'essai est Fain.
