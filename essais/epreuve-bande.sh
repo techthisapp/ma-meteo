@@ -1462,6 +1462,15 @@ case "$N" in
   475) # La porte de l'eau passe sous celle des risques.
      perl -0pi -e 's/(      \+ `<button type="button" class="carte rangee porte porte-large porte-eau" data-feuille="eau">`\n.*?\n.*?\n      \+ chevron \+ `<\/button>`\n)(.*?porte-risques.*?\n.*?\n.*?\n      \+ chevron \+ `<\/button>`\n)/$2$1/s' src/app.js
      ATTENDU="la porte de l.eau, au-dessus des risques" ;;
+  476) # La table des moments devient le choix par défaut.
+     perl -0pi -e 's/\(etat\.heuresaccueil === "moments" \? "moments" : "bande"\)/(etat.heuresaccueil === "bande" ? "bande" : "moments")/' src/reglages.js
+     ATTENDU="par défaut, l.accueil montre la bande" ;;
+  477) # Le réglage des moments ne change rien à l'accueil.
+     perl -0pi -e 's/\(Reglages\.heuresAccueil\(\) === "moments" && s/(false \&\& s/' src/app.js
+     ATTENDU="avec le réglage, la table des moments remplace la bande" ;;
+  478) # Le choix des réglages ne se garde pas.
+     perl -0pi -e 's/          Reglages\.poserHeuresAccueil\(b\.dataset\.heuresAccueil\);\n//' src/vues/feuilles.js
+     ATTENDU="le choix des prochaines heures se fait dans les réglages" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

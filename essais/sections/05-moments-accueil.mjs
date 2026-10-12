@@ -3,6 +3,9 @@
 
 export const titre = "Les moments de l'accueil";
 export const avecPage = true;
+/* La table des moments sur l'accueil, au lieu de la bande, depuis la
+   version 195. */
+export const reglagesPage = { heuresaccueil: "moments" };
 
 export default async T => {
   const { pg, ok } = T;
@@ -10,17 +13,25 @@ export default async T => {
      l'accueil. Ils en ferment le contenu, la vigilance et la source formant la
      clôture. */
   const moTitres = await pg.locator("#ecran .mt-t b").allInnerTexts();
+  /* Depuis la version 195, la table des moments remplace la bande quand le
+     réglage la choisit : un seul des deux paraît, sous l'entête des heures. */
+  ok("avec le réglage, la table des moments remplace la bande sous l'entête des heures",
+    await pg.evaluate(() => {
+      const b = document.querySelector("#ecran #bande");
+      return !!b && !!b.querySelector(".mt") && !b.querySelector(".bande-ligne")
+        && b.querySelector(".bande-tete h3")?.textContent === "Les 24 prochaines heures"
+        && !!b.querySelector("[data-temps]") && document.querySelectorAll("#ecran .mt").length === 1;
+    }));
   ok("l'accueil porte les moments", moTitres.length >= 3, moTitres.join(" | "));
-  ok("les moments ferment le contenu de l'accueil", await pg.evaluate(() => {
+  /* Depuis la version 195, la table ouvre le jour, à la place de la bande :
+     avant les conseils et avant les portes. */
+  ok("les moments ouvrent le jour, avant les conseils et les portes", await pg.evaluate(() => {
     const mo = document.querySelector("#ecran .mt");
     const re = document.querySelector("#ecran .retenir");
-    /* La ligne des sources du pied est retirée au jalon 20 : les portes
-       ferment désormais l'accueil, et les moments viennent avant elles. */
     const pied = document.querySelector("#ecran .portes");
     if (!mo || !re || !pied) return false;
-    const apresRetenir = re.compareDocumentPosition(mo) & Node.DOCUMENT_POSITION_FOLLOWING;
-    const avantPied = mo.compareDocumentPosition(pied) & Node.DOCUMENT_POSITION_FOLLOWING;
-    return Boolean(apresRetenir) && Boolean(avantPied);
+    return Boolean(mo.compareDocumentPosition(re) & Node.DOCUMENT_POSITION_FOLLOWING)
+      && Boolean(mo.compareDocumentPosition(pied) & Node.DOCUMENT_POSITION_FOLLOWING);
   }));
 
   /* Le nom se dit comme on le dirait à l'oral tant qu'on est dans la journée en

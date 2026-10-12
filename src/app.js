@@ -903,7 +903,13 @@ function ecranAccueil() {
       + bloc("jour", "Aujourd'hui",
         /* La bande horaire : l'évolution de la journée d'un coup d'œil, qu'il
            fallait aller chercher dans « Le temps ». Jalon 10, lot 1. */
-        Bande.bandeHoraire(s, g)
+        /* Un seul des deux, version 195 : la bande ou la table des moments,
+           selon le réglage. La table garde l'entête de la bande et son
+           lien vers le détail. */
+        (Reglages.heuresAccueil() === "moments" && s
+          ? `<div class="carte bande bande-moments" id="bande"><div class="bande-tete"><h3>Les 24 prochaines heures</h3>`
+            + `<button type="button" class="bande-plus" data-temps>Plus de détails</button></div>${moments(s)}</div>`
+          : Bande.bandeHoraire(s, g))
         + (lJour.length ? `<div class="carte retenir">`
           + `<div class="conseils">${conseilsHTML(lJour)}</div></div>` : "")
         + (tuiles.length ? `<div class="bd-mesures tuiles">`
@@ -918,10 +924,9 @@ function ecranAccueil() {
 
     /* La table des moments couvre exactement les vingt-quatre heures qui
        viennent, tranche par tranche. Elle s'appelait « la journée qui vient »,
-       ce qui promettait une journée civile alors qu'elle traverse minuit. */
-    if (s) {
-      corps += bloc("h24", "Les 24 prochaines heures", `<div class="carte">${moments(s)}</div>`);
-    }
+       ce qui promettait une journée civile alors qu'elle traverse minuit.
+       Depuis la version 195, elle remplace la bande en tête du jour quand le
+       réglage la choisit, au lieu d'avoir son propre bloc. */
 
     corps += bloc("suite", titreJours(lSuite), lSuite.length
       ? `<div class="carte retenir"><div class="conseils">${conseilsHTML(lSuite)}</div></div>`

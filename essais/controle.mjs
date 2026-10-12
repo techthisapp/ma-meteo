@@ -48,7 +48,7 @@ const ecrire = () => {
 };
 const passer = async s => {
   const t0 = Date.now();
-  const T = await preparer(s.titre, s.avecPage);
+  const T = await preparer(s.titre, s.avecPage, s.reglagesPage);
   try {
     await s.default(T);
   } catch (e) {

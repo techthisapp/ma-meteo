@@ -37,10 +37,34 @@ export default async T => {
   /* La page se lit en échelle de temps : trois blocs, du plus proche au plus
      lointain, chacun répondant à une question distincte. */
   const blocs = await pg.locator("#ecran .section[data-bloc] h2").allInnerTexts();
-  ok("l'accueil se lit en trois blocs de temps",
-    blocs[0] === "Aujourd'hui" && blocs[1] === "Les 24 prochaines heures"
-    && /^(Demain|Après-demain|Demain et après-demain)$/.test(blocs[2] || ""),
+  /* Depuis la version 195, les vingt-quatre heures n'ont plus leur bloc :
+     la table des moments remplace la bande, au choix, dans le jour. */
+  ok("l'accueil se lit en deux blocs de temps, le jour et la suite",
+    blocs[0] === "Aujourd'hui" && /^(Demain|Après-demain|Demain et après-demain)$/.test(blocs[1] || "") && blocs.length === 2,
     blocs.join(" | "));
+  /* Par défaut, la bande heure par heure ; la table des moments ne paraît
+     pas en plus. */
+  ok("par défaut, l'accueil montre la bande heure par heure et pas la table des moments",
+    await pg.locator("#ecran .bande .bande-ligne").count() > 0 && await pg.locator("#ecran .mt").count() === 0);
+
+  /* Le choix se fait dans les réglages, version 195, et l'accueil le suit
+     à la fermeture de la feuille. */
+  await pg.locator("#btnReglages").click();
+  await pg.waitForTimeout(500);
+  await pg.locator('[data-heures-accueil="moments"]').click();
+  await pg.locator("#feuille-fermer").click();
+  await pg.waitForTimeout(600);
+  const apresChoix = await pg.evaluate(() => ({ mt: document.querySelectorAll("#ecran .mt").length,
+    bande: document.querySelectorAll("#ecran .bande-ligne").length,
+    garde: JSON.parse(localStorage.getItem("mameteo.reglages.v1") || "{}").heuresaccueil }));
+  await pg.locator("#btnReglages").click();
+  await pg.waitForTimeout(500);
+  await pg.locator('[data-heures-accueil="bande"]').click();
+  await pg.locator("#feuille-fermer").click();
+  await pg.waitForTimeout(600);
+  ok("le choix des prochaines heures se fait dans les réglages, et l'accueil le suit",
+    apresChoix.mt === 1 && apresChoix.bande === 0 && apresChoix.garde === "moments"
+    && await pg.locator("#ecran .bande-ligne").count() > 0, JSON.stringify(apresChoix));
 
   /* Chaque bloc ne parle que de sa fenêtre. Le premier s'arrête à minuit, le
      dernier ne dit rien d'aujourd'hui, et son titre nomme les journées qu'il

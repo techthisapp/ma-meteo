@@ -587,6 +587,12 @@ export function vueReglages(ctx, rendre, majEtat) {
         `<button type="button" data-ecriture="${k}"${k === g.ecriture ? ' class="actif"' : ""}>${esc(n)}</button>`)
         .join("") + `</div></div>`
 
+      /* Les prochaines heures sur l'accueil, version 195. */
+      + `<div class="carte"><div class="carte-tete"><h3>Prochaines heures sur l'accueil</h3></div>`
+      + `<div class="seg">` + Reglages.HEURES_ACCUEIL.map(([k, n]) =>
+        `<button type="button" data-heures-accueil="${k}"${k === Reglages.heuresAccueil() ? ' class="actif"' : ""}>${esc(n)}</button>`)
+        .join("") + `</div></div>`
+
       + `<div class="carte"><div class="carte-tete"><h3>Pollens suivis</h3></div>`
       + Air.POLLENS.map(p => {
         const suivi = Reglages.pollenSuivi(p.cle);
@@ -684,6 +690,13 @@ export function vueReglages(ctx, rendre, majEtat) {
           dit.innerHTML = `La version ${p} est disponible. `
             + `<button type="button" class="bouton-plein" id="rgRecharger">Recharger</button>`;
           dit.querySelector("#rgRecharger").addEventListener("click", () => location.reload());
+        });
+      }
+      for (const b of bloc.querySelectorAll("[data-heures-accueil]")) {
+        b.addEventListener("click", () => {
+          Reglages.poserHeuresAccueil(b.dataset.heuresAccueil);
+          /* L'accueil, dessous, se refait aussitôt ; la feuille reste. */
+          rendre({ dessous: true });
         });
       }
       for (const b of bloc.querySelectorAll("[data-ecriture]")) {

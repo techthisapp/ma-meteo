@@ -5,6 +5,9 @@
 
 export const titre = "Une seule écriture";
 export const avecPage = true;
+/* La table des moments sur l'accueil, au lieu de la bande, depuis la
+   version 195. */
+export const reglagesPage = { heuresaccueil: "moments" };
 
 const NORM = t => (t || "").replace(/[  ]/g, " ");
 

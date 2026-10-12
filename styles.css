@@ -2440,6 +2440,11 @@ button.rangee:active{background:var(--surface-2)}
   font-size:var(--texte-legende);color:var(--etiquette-2);line-height:1.35}
 .bh-pluie::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--ic-pluie)}
 .bande-phrase{margin:8px 16px 0;font-size:var(--texte-note);color:var(--etiquette-2)}
+/* La table des moments dans la carte de la bande, version 195 : la carte n'a
+   pas de marge de côté, la bande défilant d'un bord à l'autre ; la table
+   reprend celle des cartes ordinaires. */
+.bande-moments{padding-bottom:16px}
+.bande-moments > .mt{margin:0 16px}
 
 /* Le ciel de l'accueil, plus bas que celui des autres écrans : il porte la
    température, l'état et la réponse du matin, et laisse la bande horaire et

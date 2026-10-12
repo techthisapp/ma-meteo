@@ -4,6 +4,9 @@
 
 export const titre = "Le tableau, les portes et l'eau";
 export const avecPage = true;
+/* La table des moments sur l'accueil, au lieu de la bande, depuis la
+   version 195. */
+export const reglagesPage = { heuresaccueil: "moments" };
 
 export default async T => {
   const { pg, ok, onglet, reposer } = T;

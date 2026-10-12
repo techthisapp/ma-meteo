@@ -157,7 +157,10 @@ export const reposer = async (p, plafond) => {
    contexte ouvert par la section se ferme à sa fin. */
 export const espaces = t => (typeof t === "string" ? t.replace(/[\u00A0\u202F]/g, " ") : t);
 
-export const preparer = async (titre, avecPage) => {
+/* `reglagesPage`, depuis la version 195 : une section peut demander des
+   réglages à la page principale en plus de ceux de Fain, la table des moments
+   sur l'accueil par exemple. */
+export const preparer = async (titre, avecPage, reglagesPage = null) => {
   const lignes = [];
   const dire = (...a) => lignes.push(a.join(" "));
   let n = 0, ko = 0;
@@ -187,7 +190,7 @@ export const preparer = async (titre, avecPage) => {
       permissions: ["geolocation"],
       geolocation: { latitude: 45.1885, longitude: 5.7245 },
     });
-    await ctx.addInitScript(amorce(FAIN));
+    await ctx.addInitScript(amorce(reglagesPage ? { ...FAIN, ...reglagesPage } : FAIN));
     await brancherRoutes(ctx);
     pg = await ctx.newPage();
     pg.on("pageerror", e => erreurs.push(String(e)));

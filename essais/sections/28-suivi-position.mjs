@@ -122,7 +122,7 @@ export default async T => {
     await pgVert.locator('#ecran [data-feuille="vigilance"]').count() === 0);
   ok("sans vigilance, le reste de l'accueil tient",
     await pgVert.locator("#ecran .bd-mesures").count() === 1
-    && await pgVert.locator("#ecran .mt").count() === 1);
+    && await pgVert.locator("#ecran #bande").count() === 1);
   await ctxVert.close();
 
   /* Une règle ne parle que si elle a quelque chose à dire. Sur un temps calme,
@@ -134,7 +134,7 @@ export default async T => {
     viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
     locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
   });
-  await ctxCalme.addInitScript(amorce(FAIN));
+  await ctxCalme.addInitScript(amorce({ ...FAIN, heuresaccueil: "moments" }));
   await ctxCalme.route(/api\.open-meteo\.com/, route => {
     const u = route.request().url();
     const d = JSON.parse(JSON.stringify(METEO));

@@ -331,6 +331,14 @@ export function poserEcriture(e) {
   poser({ ecriture: e });
 }
 
+/* Les prochaines heures sur l'accueil, version 195, demande de Jérôme du
+   12 octobre 2026 : la bande heure par heure et la table des moments
+   disaient la même chose en deux blocs ; un seul paraît, au choix. La bande
+   par défaut, comme avant elle ouvrait la page. */
+export const HEURES_ACCUEIL = [["bande", "Heure par heure"], ["moments", "Par moments"]];
+export const heuresAccueil = () => (etat.heuresaccueil === "moments" ? "moments" : "bande");
+export function poserHeuresAccueil(v) { poser({ heuresaccueil: v === "moments" ? "moments" : "bande" }); }
+
 /* Les écrans de la destination Le ciel. Le soleil ouvre : il parle de la journée
    en cours, quand la Lune parle d'un cycle qui déborde la journée.
 

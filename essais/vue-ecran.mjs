@@ -58,7 +58,9 @@ const REGLAGES = { commune: "Fain-lès-Moutiers", codePostal: "21500",
   ...(process.env.PREVI ? { previcarte: true } : {}),
   /* CLE pose une clé d'essai du portail de Météo-France : les faux services
      de PIAF, des observations, des forêts et des avalanches répondent. */
-  ...(process.env.CLE ? { clepiaf: "cle-d-essai-des-controles-de-ma-meteo" } : {}) };
+  ...(process.env.CLE ? { clepiaf: "cle-d-essai-des-controles-de-ma-meteo" } : {}),
+  /* HEURES=moments montre la table des moments au lieu de la bande. */
+  ...(process.env.HEURES ? { heuresaccueil: process.env.HEURES } : {}) };
 
 /* Une tuile de pluie fabriquée. La nappe est une somme d'ondes prises en
    coordonnées de monde : elle se raccorde donc d'une tuile à l'autre, et
