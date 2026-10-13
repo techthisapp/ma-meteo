@@ -46,5 +46,30 @@ export default async T => {
   const feuille = await p2.evaluate(() => ({ titre: document.getElementById("feuille-titre")?.textContent || "",
     n: document.querySelectorAll("#feuille-corps [data-bienvenue]").length }));
   ok("la présentation se rouvre depuis les réglages", feuille.titre === "Présentation" && feuille.n === 3, JSON.stringify(feuille));
+
+  /* Une feuille ouverte sur une autre se ferme toujours, version 200,
+     signalé par Jérôme le 13 octobre 2026 : la croix ferme toute la pile, la
+     flèche remonte d'une feuille, le retour du système aussi, et rien ne sort
+     de l'application. */
+  const etat = () => p2.evaluate(() => `${document.getElementById("feuille").hidden ? "fermée" : document.getElementById("feuille-titre").textContent}`);
+  const suite = [];
+  /* Une page sortie de l'application interrompt la suite des gestes : le
+     contrôle le note et conclut. */
+  try {
+  await p2.locator("#feuille-fermer").click(); await p2.waitForTimeout(600); suite.push(await etat());
+  const rouvrir = async () => {
+    await p2.locator("#btnReglages").click({ timeout: 5000 }); await p2.waitForTimeout(600);
+    await p2.locator('#feuille-corps [data-feuille="bienvenue"]').click({ timeout: 5000 }); await p2.waitForTimeout(600);
+  };
+  await rouvrir();
+  await p2.locator("#feuille-retour").click({ timeout: 5000 }); await p2.waitForTimeout(600); suite.push(await etat());
+  await p2.locator("#feuille-fermer").click({ timeout: 5000 }); await p2.waitForTimeout(600); suite.push(await etat());
+  await rouvrir();
+  await p2.goBack(); await p2.waitForTimeout(600); suite.push(await etat());
+  await p2.goBack(); await p2.waitForTimeout(600); suite.push(await etat());
+  suite.push(new URL(p2.url()).pathname);
+  } catch { suite.push(`interrompu sur ${p2.url()}`); }
+  ok("une feuille ouverte sur une autre se ferme par la croix, la flèche ou le retour, sans quitter l'application",
+    suite.join(" | ") === "fermée | Réglages | fermée | Réglages | fermée | /", suite.join(" | "));
   await c2.close();
 };

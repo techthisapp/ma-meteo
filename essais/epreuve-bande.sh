@@ -1552,6 +1552,12 @@ case "$N" in
   505) # La présentation ne se rouvre plus depuis les réglages.
      perl -0pi -e 's/,\n  bienvenue: vueBienvenue \};/ };/' src/app.js
      ATTENDU="la présentation se rouvre depuis les réglages" ;;
+  506) # La croix ne ferme que la feuille du dessus.
+     perl -0pi -e 's/function fermerTout\(\) \{\n  pile\.length = 0;\n/function fermerTout() {\n/' src/app.js
+     ATTENDU="une feuille ouverte sur une autre se ferme" ;;
+  507) # Le retour du système ne remet pas l'entrée d'historique.
+     perl -0pi -e 's/if \(pile\.length\) \{ retour\(\); history\.pushState\(\{ feuille: true \}, ""\); \}/if (pile.length) { retour(); }/' src/app.js
+     ATTENDU="une feuille ouverte sur une autre se ferme" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

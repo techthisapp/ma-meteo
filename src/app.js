@@ -1607,6 +1607,17 @@ function fermerFeuille() {
   ouvreur = null; cleOuvreur = null;
 }
 
+/* Fermer toute la pile, version 200, signalé par Jérôme le 13 octobre 2026 :
+   une seule entrée d'historique couvre la pile des feuilles. La croix la
+   consommait pour revenir à la feuille d'en dessous, et la croix suivante
+   sortait de l'application ; installée sur le téléphone, elle ne faisait plus
+   rien. La croix, le voile, le glissement et Échap ferment désormais tout ;
+   la flèche de retour remonte d'une feuille. */
+function fermerTout() {
+  pile.length = 0;
+  history.back();
+}
+
 function retour() {
   const v = pile.pop();
   if (!v) { fermerFeuille(); return; }
@@ -1640,7 +1651,7 @@ function brancherGlissement() {
     const dy = Math.max(0, ev.clientY - y0);
     const vite = dy / Math.max(1, Date.now() - t0) > 0.5;
     f.style.transform = "";
-    if (dy > f.offsetHeight / 4 || vite) history.back();
+    if (dy > f.offsetHeight / 4 || vite) fermerTout();
   };
 
   poignee.addEventListener("pointerdown", debut);
@@ -1895,9 +1906,9 @@ $("navSuivre").addEventListener("click", () => { sentir(10); Reglages.suivreCons
 $("navRevenir").addEventListener("click", () => { sentir(10); Reglages.revenir(); charger(); });
 $("navLieu").addEventListener("click", () => ouvrirFeuille("communes"));
 $("navJeton").addEventListener("click", () => { sentir(8); ouvrirFeuille("parapluie"); });
-$("feuille-fermer").addEventListener("click", () => history.back());
+$("feuille-fermer").addEventListener("click", fermerTout);
 $("feuille-retour").addEventListener("click", retour);
-$("voile").addEventListener("click", () => history.back());
+$("voile").addEventListener("click", fermerTout);
 
 /* Un chiffre de l'accueil mène à ses vingt-quatre heures : l'écran du temps
    s'ouvre en ruban, sur la voie correspondante déjà dépliée, et la page se
@@ -2025,11 +2036,17 @@ $("ecran").addEventListener("click", ev => {
 });
 
 window.addEventListener("keydown", ev => {
-  if (ev.key === "Escape" && vueCourante !== null) history.back();
+  if (ev.key === "Escape" && vueCourante !== null) fermerTout();
 });
 
 window.addEventListener("popstate", () => {
-  if (vueCourante !== null) { if (pile.length) retour(); else fermerFeuille(); return; }
+  /* Le retour du système remonte d'une feuille et remet l'entrée
+     d'historique qu'il vient de consommer : la feuille d'en dessous doit
+     pouvoir se fermer à son tour. */
+  if (vueCourante !== null) {
+    if (pile.length) { retour(); history.pushState({ feuille: true }, ""); } else fermerFeuille();
+    return;
+  }
   if (detail) quitterDetail();
 });
 
