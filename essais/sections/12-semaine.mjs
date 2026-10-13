@@ -250,8 +250,9 @@ export default async T => {
       graphe: [...document.querySelectorAll(".sg text")].some(e => e.textContent === "0°"),
       neige: [r.sol, r.iso, r.rafales].join(" ") };
   });
+  /* Depuis la version 199, une tuile sans valeur ne s'affiche pas. */
   ok("une valeur absente de la source ne s'écrit pas zéro",
-    uvTrou === "—" && trouDit.min === "—" && trouDit.max === "—" && !trouDit.nan && trouDit.gauche < 1
+    uvTrou === "absente" && trouDit.min === "—" && trouDit.max === "—" && !trouDit.nan && trouDit.gauche < 1
     && !trouDit.graphe && trouDit.neige === "  ",
     JSON.stringify({ uvTrou, ...trouDit }));
 };

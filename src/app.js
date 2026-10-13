@@ -9,7 +9,7 @@
    couches, navigation par barre d'onglets, contenu posé sur le fond, feuilles
    pour les actions temporaires. */
 
-import { nombreFr, esc, heureJour, enumerer, cleHeure, cleJour } from "./horloge.js";
+import { nombreFr, esc, heureJour, enumerer, cleHeure, cleJour, heureMinute } from "./horloge.js";
 import { surveiller } from "./typo.js";
 import { surveillerAides } from "./aide.js";
 import * as P from "./previsions.js";
@@ -32,6 +32,7 @@ import { vueReglages, vueParapluie, vueRessenti, vueActivites, vueBeauTemps, vue
 import { vueClimat } from "./vues/climat.js";
 import { vueNeige, vuePlage, vueEau } from "./vues/loisirs.js";
 import { vueRisques } from "./vues/risques.js";
+import { vueBienvenue, presentationHTML } from "./vues/bienvenue.js";
 import * as Risques from "./risques.js";
 import { moments } from "./ecritures.js";
 import * as Vig from "./vigilance.js";
@@ -386,6 +387,25 @@ function panneauVigilance() {
    Le graphe porte les neuf échéances de la source, non un tracé continu : le pas
    est de cinq minutes puis de dix, et une courbe lissée donnerait à ces neuf
    points une continuité qu'ils n'ont pas. */
+/* La pluie de l'heure, version 199, audit d'usage du 13 octobre 2026 : celle
+   que l'encart annonce, pour que la tuile, la colonne « Maint. » et le grand
+   chiffre ne la contredisent pas. Une averse en cours, ou qui commence dans
+   le quart d'heure, devient le temps du moment ; une averse plus lointaine
+   dans l'heure ne change que la tuile. */
+function pluieDeLHeure(maintenant = Date.now()) {
+  const l = Pluie.avecDeplacement(pluieProche, deplacement, maintenant);
+  const ev = l && l.dispo ? Pluie.evenement(l, maintenant) : null;
+  if (!ev || !Pluie.estPluie(ev.force)) return null;
+  if (ev.genre === "debut" && ev.t - maintenant > 3600000) return null;
+  return { maintenant: ev.genre !== "debut", proche: ev.genre !== "debut" || ev.t - maintenant <= 15 * 60000,
+    t: ev.t, force: ev.force };
+}
+const CODE_PLUIE = { 2: 61, 3: 63, 4: 65 };
+function avecPluieDeLHeure(s, ph) {
+  if (!s || !ph?.proche || [61, 63, 65, 80, 81, 82, 95, 96, 99].includes(s.code[0])) return s;
+  return { ...s, code: [CODE_PLUIE[ph.force] || 61, ...s.code.slice(1)] };
+}
+
 function panneauPluieProche() {
   const maintenant = Date.now();
   /* La suite fondue avec le déplacement des averses, version 184. */
@@ -561,7 +581,8 @@ function ecranAccueil() {
   const g = Reglages.lire();
   const c = P.chargeCourante();
   const i = P.iJour();
-  const s = P.serieHoraire();
+  const pluieHeure = pluieDeLHeure();
+  const s = avecPluieDeLHeure(P.serieHoraire(), pluieHeure);
 
   const jour = new Date().toLocaleDateString("fr-FR",
     { weekday: "long", day: "numeric", month: "long" });
@@ -810,7 +831,15 @@ function ecranAccueil() {
     const tuiles = jh ? [
       ["Ressenti", res === null ? "—" : `${res}°`, `au plus chaud ${ICI}`,
         res === null ? "" : res >= SEUILS.chaleur ? "v-chaud" : res <= SEUILS.gel ? "v-froid" : "", "t", "thermo", "soleil"],
-      mmJour >= SEUILS.lame
+      /* La pluie annoncée dans l'heure passe avant la journée, version 199 :
+         la tuile disait « 8 % de risque » sous un encart qui annonçait une
+         pluie modérée dans vingt minutes. Audit d'usage du 13 octobre 2026. */
+      pluieHeure
+        ? ["Pluie", pluieHeure.maintenant ? "En cours" : heureMinute(new Date(pluieHeure.t)),
+          pluieHeure.maintenant ? `${Pluie.INTENSITES[pluieHeure.force].nom.toLowerCase()} maintenant`
+            : `${Pluie.INTENSITES[pluieHeure.force].nom.toLowerCase()} annoncée`,
+          "v-eau", "mm", "parapluie", "pluie"]
+      : mmJour >= SEUILS.lame
         ? ["Pluie", `${nombreFr(Math.round(mmJour * 10) / 10)} mm`, ICI, mmJour >= 5 ? "v-eau" : "", "mm", "parapluie", "pluie"]
         : ["Pluie", pb === null ? "—" : `${pb} %`, `de risque ${ICI}`,
           pb >= 60 ? "v-eau" : "", "mm", "parapluie", "pluie"],
@@ -823,7 +852,10 @@ function ecranAccueil() {
       ["Pression", pres0 === null ? "—" : `${Math.round(pres0)} hPa`, tendance || "maintenant", "", "pres", "jauge", "nuage"],
       ["Air", airJour ? `${airJour.indice}` : "—",
         airJour ? `${(Air.niveauDe(airJour.indice)?.nom || "indice européen").toLowerCase()} au pire ${ICI}` : "pas de mesure", "", null, "brume", "nuage", "air"],
-    ] : [];
+    /* Une tuile sans valeur ne s'affiche pas, version 199 : « Ciel » montrait
+       un tiret au-dessus de « de nuages au plus d'ici minuit ». Audit d'usage
+       du 13 octobre 2026. */
+    ].filter(x => x[1] !== "—") : [];
     /* L'eau, jalon 18, quitte la grille des mesures du jour en version 194,
        demande de Jérôme du 12 octobre 2026 : une porte pleine largeur au bas
        de l'accueil, au-dessus de celle des risques, qui dit la restriction et
@@ -897,6 +929,18 @@ function ecranAccueil() {
       + chevron + `</button>`
       ;
 
+    /* L'accueil compact, version 200 : les tuiles et les conseils de demain
+       se replient derrière un bouton, sous les conseils du jour. */
+    const compact = Reglages.accueilCompact();
+    const tuilesHTML = (tuiles.length ? `<div class="bd-mesures tuiles">`
+          + tuiles.map(([n, v, e, c, voie, sym, teinte, feuille]) =>
+            `<button type="button" class="bd-m tuile" `
+            + (feuille ? `data-feuille="${feuille}" aria-label="${esc(n)}, ${esc(v)}, ${esc(e)}, ${TUILE_VERS[feuille]}">`
+              : `data-detail="${esc(voie)}" aria-label="${esc(n)}, ${esc(v)}, ${esc(e)}, voir heure par heure">`)
+            + `<span class="tu-pa pa-${teinte}">${ico(sym, "")}</span>`
+            + `<span class="tu-t"><i>${esc(n)}</i><b${c ? ` class="${c}"` : ""}>${valeurUnite(v)}</b>`
+            + `<em>${esc(e)}</em></span>${chevronM}</button>`).join("")
+          + `</div>` : "");
     corps += `<div class="ecran-corps">`
       + panneauVigilance()
       + panneauPluieProche()
@@ -916,15 +960,7 @@ function ecranAccueil() {
           : Bande.bandeHoraire(s, g))
         + (lJour.length ? `<div class="carte retenir">`
           + `<div class="conseils">${conseilsHTML(lJour)}</div></div>` : "")
-        + (tuiles.length ? `<div class="bd-mesures tuiles">`
-          + tuiles.map(([n, v, e, c, voie, sym, teinte, feuille]) =>
-            `<button type="button" class="bd-m tuile" `
-            + (feuille ? `data-feuille="${feuille}" aria-label="${esc(n)}, ${esc(v)}, ${esc(e)}, ${TUILE_VERS[feuille]}">`
-              : `data-detail="${esc(voie)}" aria-label="${esc(n)}, ${esc(v)}, ${esc(e)}, voir heure par heure">`)
-            + `<span class="tu-pa pa-${teinte}">${ico(sym, "")}</span>`
-            + `<span class="tu-t"><i>${esc(n)}</i><b${c ? ` class="${c}"` : ""}>${valeurUnite(v)}</b>`
-            + `<em>${esc(e)}</em></span>${chevronM}</button>`).join("")
-          + `</div>` : ""), true);
+        + (compact ? "" : tuilesHTML), true);
 
     /* La table des moments couvre exactement les vingt-quatre heures qui
        viennent, tranche par tranche. Elle s'appelait « la journée qui vient »,
@@ -932,9 +968,14 @@ function ecranAccueil() {
        Depuis la version 195, elle remplace la bande en tête du jour quand le
        réglage la choisit, au lieu d'avoir son propre bloc. */
 
-    corps += bloc("suite", titreJours(lSuite), lSuite.length
+    const suiteHTML = bloc("suite", titreJours(lSuite), lSuite.length
       ? `<div class="carte retenir"><div class="conseils">${conseilsHTML(lSuite)}</div></div>`
       : "");
+    corps += compact
+      ? (tuilesHTML || suiteHTML ? `<details class="compact-plus" data-bloc="replie">`
+        + `<summary>Mesures du jour${suiteHTML ? ` et ${esc(titreJours(lSuite).toLowerCase())}` : ""}</summary>`
+        + `${tuilesHTML}${suiteHTML}</details>` : "")
+      : suiteHTML;
 
     corps += `<div class="section" data-bloc="portes">${portesHTML}</div>`;
 
@@ -1131,8 +1172,10 @@ function jaugeHTML(j) {
 }
 function infoPorte(cle, texte, ind) {
   const j = ind?.jauge, ton = j ? null : ind?.ton || "neutre";
+  const pol = j && ind.pollen ? `<span class="titre-lu">, </span>`
+    + `<span class="pastille ton-${ind.pollen.pic ? "pic" : "saison"}" data-pollen-porte>${esc(ind.pollen.texte)}</span>` : "";
   return `<span class="porte-info${j ? " porte-jauge" : ` pastille ton-${ton}`}" data-info="${cle}">`
-    + (j ? jaugeHTML(j) : "") + `<span class="porte-txt">${esc(texte)}</span></span>`;
+    + (j ? jaugeHTML(j) : "") + `<span class="porte-txt">${esc(texte)}</span>${pol}</span>`;
 }
 /* La case du climat : les seuils des mots de `motPercentile`. */
 const caseClimat = p => (p <= 10 ? 1 : p <= 40 ? 2 : p < 60 ? 3 : p < 90 ? 4 : 5);
@@ -1170,9 +1213,14 @@ function infosPortes(g) {
   if (Number.isFinite(air?.aqi?.[0])) {
     const n = Air.niveauDe(air.aqi[0]);
     const pol = Air.enSaison(air)[0];
-    if (n) out.ind.air = { jauge: { k: n.rang + 1, teintes: TEINTES_AIR } };
+    /* Le pollen en pastille à côté de la jauge de l'air, version 199 : une
+       jauge verte sous « ambroisie au pic » se lisait comme une bonne
+       nouvelle pour une personne allergique. Audit d'usage du 13 octobre
+       2026. */
+    if (n) out.ind.air = { jauge: { k: n.rang + 1, teintes: TEINTES_AIR },
+      pollen: pol ? { texte: `${pol.nom} ${pol.etat === "pic" ? "au pic" : "en saison"}`, pic: pol.etat === "pic" } : null };
     out.air = `Air ${n ? n.nom : "mesuré"}`
-      + (pol ? `, ${pol.nom.toLowerCase()} ${pol.etat === "pic" ? "au pic" : "en saison"}` : ", sans pollen en saison");
+      + (pol ? (n ? "" : `, ${pol.nom.toLowerCase()} ${pol.etat === "pic" ? "au pic" : "en saison"}`) : ", sans pollen en saison");
   }
 
   if (Number.isFinite(g.lat)) {
@@ -1228,9 +1276,12 @@ function rendre() {
     f = {
       titre: nom === "Accueil" ? "Ma météo" : nom,
       sous: "",
-      corps: etatVide("lieu", "Aucune commune",
+      /* La présentation sous les deux boutons, version 200 : au premier
+         lancement, l'usager découvre ce que fait l'application, comment
+         l'installer, et ce qu'apporte la clé de Météo-France. */
+      corps: etatVide("lieu", "Bienvenue",
         "La prévision se lit pour une commune de France métropolitaine.",
-        "Choisir une commune", "Utiliser ma position"),
+        "Choisir une commune", "Utiliser ma position") + presentationHTML(),
     };
   } else if (charge === "chargement" && !P.chargeCourante()) {
     f = {
@@ -1459,7 +1510,8 @@ async function suivrePosition({ force } = {}) {
 const FEUILLES = { vigilance: vueVigilance, communes: vueCommunes,
   ajout: vueAjout, reglages: vueReglages, parapluie: vueParapluie,
   ressenti: vueRessenti, activites: vueActivites, beautemps: vueBeauTemps,
-  air: vueAir, climat: vueClimat, neige: vueNeige, plage: vuePlage, eau: vueEau, risques: vueRisques };
+  air: vueAir, climat: vueClimat, neige: vueNeige, plage: vuePlage, eau: vueEau, risques: vueRisques,
+  bienvenue: vueBienvenue };
 
 /* Accroches : un contenu court n'occupe pas tout l'écran. */
 const ACCROCHE = { vigilance: "moyenne", communes: "grande",

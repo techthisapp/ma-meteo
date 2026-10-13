@@ -60,7 +60,10 @@ const REGLAGES = { commune: "Fain-lès-Moutiers", codePostal: "21500",
      de PIAF, des observations, des forêts et des avalanches répondent. */
   ...(process.env.CLE ? { clepiaf: "cle-d-essai-des-controles-de-ma-meteo" } : {}),
   /* HEURES=moments montre la table des moments au lieu de la bande. */
-  ...(process.env.HEURES ? { heuresaccueil: process.env.HEURES } : {}) };
+  ...(process.env.HEURES ? { heuresaccueil: process.env.HEURES } : {}),
+  /* Version 199 : l'accueil compact, et le premier lancement sans lieu. */
+  ...(process.env.COMPACT ? { accueilcompact: true } : {}),
+  ...(process.env.SANSLIEU ? { lat: null, lon: null } : {}) };
 
 /* Une tuile de pluie fabriquée. La nappe est une somme d'ondes prises en
    coordonnées de monde : elle se raccorde donc d'une tuile à l'autre, et

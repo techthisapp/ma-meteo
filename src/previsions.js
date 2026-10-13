@@ -415,7 +415,32 @@ const lireApercus = () => {
   catch { return null; }
 };
 
+/* L'aperçu du lieu chargé, tiré des chiffres mêmes de l'accueil, version
+   199, audit d'usage du 13 octobre 2026 : l'aperçu général donnait 18° et
+   « 12° à 26° » là où l'accueil, qui lit AROME sur les premiers jours,
+   disait 17° et « 9° à 25° ». La liste des lieux et la carte reprennent donc
+   les valeurs de l'accueil pour le lieu affiché. */
+export function apercuCourant() {
+  const i = iJour();
+  const d = charge?.daily;
+  if (!d || i < 0 || !lieuCharge) return null;
+  const s = serieHoraire(0, 1, 1);
+  const jh = jourHoraire(d.time[i]);
+  const tn = jh ? jh.tn : d.temperature_2m_min?.[i] ?? null;
+  const tx = jh ? jh.tx : d.temperature_2m_max?.[i] ?? null;
+  const t = s && Number.isFinite(s.t[0]) ? s.t[0] : Number.isFinite(tn) && Number.isFinite(tx) ? (tn + tx) / 2 : null;
+  if (!Number.isFinite(t)) return null;
+  return { cle: lieuCharge, a: { t, code: s ? s.code[0] : d.weather_code?.[i], jour: s ? s.clair[0] === 1 : true, tn, tx } };
+}
+const recouvrir = r => {
+  const c = apercuCourant();
+  return c && r?.par ? { ...r, par: { ...r.par, [c.cle]: c.a } } : r;
+};
+
 export async function apercus(lieux) {
+  return recouvrir(await apercusLus(lieux));
+}
+async function apercusLus(lieux) {
   const liste = (lieux || []).filter(l => l && l.lat !== null && l.lon !== null);
   if (!liste.length) return { par: {}, age: 0 };
 
@@ -798,6 +823,10 @@ export function jourHoraire(date) {
     hum: maxDe("relative_humidity_2m"),
     uv: maxDe("uv_index"),
     res: maxDe("apparent_temperature"),
+    /* La couverture nuageuse, version 199 : elle manquait, et la tuile
+       « Ciel » de l'accueil écrivait un tiret. Audit d'usage du 13 octobre
+       2026. */
+    nua: maxDe("cloud_cover"),
     code: k.reduce((a, j) => {
       const c = val("weather_code", j);
       return c !== null && graviteCiel(c) > graviteCiel(a) ? c : a;

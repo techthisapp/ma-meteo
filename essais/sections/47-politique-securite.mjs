@@ -19,7 +19,8 @@ export default async T => {
   const permises = new Set([...directive("connect-src"), ...directive("img-src")]);
   /* Les adresses de liens construites dans le code, posées ensuite en `href` :
      des navigations, que la politique ne règle pas. */
-  const LIENS = new Set(["https://vigilance.meteofrance.fr", "https://baignades.sante.gouv.fr"]);
+  /* Le portail de Météo-France, lien de la présentation, version 199. */
+  const LIENS = new Set(["https://vigilance.meteofrance.fr", "https://baignades.sante.gouv.fr", "https://portail-api.meteofrance.fr"]);
   const sw = await (await fetch(`${RACINE_HTTP}sw.js`)).text();
   const modules = [...sw.matchAll(/"\.\/(src\/[^"]+\.js)"/g)].map(m => m[1]);
   const manquantes = new Set();

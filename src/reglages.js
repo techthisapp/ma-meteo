@@ -339,6 +339,13 @@ export const HEURES_ACCUEIL = [["bande", "Heure par heure"], ["moments", "Par mo
 export const heuresAccueil = () => (etat.heuresaccueil === "moments" ? "moments" : "bande");
 export function poserHeuresAccueil(v) { poser({ heuresaccueil: v === "moments" ? "moments" : "bande" }); }
 
+/* L'accueil compact, version 200, audit d'usage du 13 octobre 2026, choix de
+   Jérôme : un réglage, l'accueil complet par défaut. En compact, les tuiles
+   des mesures et les conseils de demain se replient derrière un bouton. */
+export const PRESENTATIONS_ACCUEIL = [["complet", "Complet"], ["compact", "Compact"]];
+export const accueilCompact = () => etat.accueilcompact === true;
+export function poserAccueilCompact(v) { poser({ accueilcompact: v === true || v === "compact" }); }
+
 /* Les écrans de la destination Le ciel. Le soleil ouvre : il parle de la journée
    en cours, quand la Lune parle d'un cycle qui déborde la journée.
 

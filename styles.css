@@ -702,6 +702,10 @@ button.rangee:active{background:var(--surface-2)}
   border-radius:var(--rayon-plein);
 }
 .bouton-borde:active{background:var(--surface-2)}
+/* Le symbole d'un bouton bordé à la taille du texte, version 199 : le
+   bouton « Utiliser ma position » du premier lancement portait une cible de
+   la largeur du bouton. */
+.bouton-borde > svg{width:20px;height:20px;flex:0 0 auto}
 
 /* Bouton tertiaire : texte et symbole, sans surface. */
 .bouton-texte{
@@ -2762,6 +2766,10 @@ button.rangee:active{background:var(--surface-2)}
 .pastille.ton-neige{--ton:var(--ic-neige)}
 .pastille.ton-mer{--ton:var(--ic-pluie)}
 .pastille.ton-neutre{--ton:var(--etiquette-2)}
+/* Le pollen de la porte de l'air, version 199 : au pic en orange, en saison
+   en jaune. */
+.pastille.ton-pic{--ton:var(--v3)}
+.pastille.ton-saison{--ton:var(--v2)}
 .ng-dom h3{margin:0 0 var(--espace-sm)}
 .ng-st{margin-top:var(--espace-md);padding-top:var(--espace-md);border-top:1px solid var(--filet-clair)}
 .ng-tete{display:flex;justify-content:space-between;align-items:baseline;gap:var(--espace-sm)}
@@ -2941,3 +2949,29 @@ button.rangee:active{background:var(--surface-2)}
 
 /* La justesse mesurée ici, au-dessus de la liste de la semaine, version 197. */
 .sem-carte .sem-justesse{margin:0 0 var(--espace-sm)}
+
+/* La carte « Accueil » des réglages, version 200 : deux choix, chacun son
+   libellé. */
+.rg-libelle{margin:var(--espace-md) 0 var(--espace-xs);font-size:var(--texte-note);color:var(--etiquette-2)}
+#rgAccueil .rg-libelle:first-of-type{margin-top:0}
+
+/* L'accueil compact, version 200 : les tuiles et les conseils de demain
+   derrière un bouton, du même dessin que « Voir plus » de la semaine. */
+.compact-plus{margin:var(--espace-md) 0}
+.compact-plus > summary{
+  display:flex;align-items:center;justify-content:center;width:max-content;max-width:100%;margin:0 auto;
+  min-height:var(--touche);padding:0 var(--espace-lg);border-radius:var(--rayon-plein);list-style:none;cursor:pointer;
+  font-size:var(--texte-note);font-weight:var(--graisse-semibold);color:var(--accent);
+  background:color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.compact-plus > summary::-webkit-details-marker{display:none}
+.compact-plus[open] > summary{margin-bottom:var(--espace-md)}
+
+/* La présentation du premier lancement, version 200. */
+.bienvenue{display:flex;flex-direction:column;gap:var(--espace-md);margin-top:var(--espace-lg)}
+.etat-vide + .bienvenue{padding:0 var(--espace-base)}
+.bv-tete{display:flex;align-items:center;gap:var(--espace-sm);margin-bottom:var(--espace-xs)}
+.bv-tete h3{margin:0}
+.bv-ic{width:24px;height:24px;color:var(--accent);flex:0 0 auto}
+.bv-carte p{margin:var(--espace-xs) 0 0;font-size:var(--texte-sous)}
+.bv-carte p.note{font-size:var(--texte-note)}

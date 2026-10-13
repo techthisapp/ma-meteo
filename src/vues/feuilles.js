@@ -615,10 +615,19 @@ export function vueReglages(ctx, rendre, majEtat) {
         .join("") + `</div></div>`
 
       /* Les prochaines heures sur l'accueil, version 195. */
-      + `<div class="carte"><div class="carte-tete"><h3>Prochaines heures sur l'accueil</h3></div>`
+      + `<div class="carte" id="rgAccueil"><div class="carte-tete"><h3>Accueil</h3></div>`
+      + `<p class="rg-libelle">Prochaines heures</p>`
       + `<div class="seg">` + Reglages.HEURES_ACCUEIL.map(([k, n]) =>
         `<button type="button" data-heures-accueil="${k}"${k === Reglages.heuresAccueil() ? ' class="actif"' : ""}>${esc(n)}</button>`)
-        .join("") + `</div></div>`
+        .join("") + `</div>`
+      /* La présentation, version 200 : complet ou compact. */
+      + `<p class="rg-libelle">Présentation</p>`
+      + `<div class="seg">` + Reglages.PRESENTATIONS_ACCUEIL.map(([k, n]) =>
+        `<button type="button" data-presentation="${k}"${(k === "compact") === Reglages.accueilCompact() ? ' class="actif"' : ""}>${esc(n)}</button>`)
+        .join("") + `</div>`
+      + aide("En compact, l'accueil garde le temps du moment, la pluie de l'heure, les prochaines heures, les conseils "
+        + "du jour et les portes ; les mesures du jour et les conseils de demain se replient derrière un bouton.")
+      + `</div>`
 
       + `<div class="carte"><div class="carte-tete"><h3>Pollens suivis</h3></div>`
       + Air.POLLENS.map(p => {
@@ -660,6 +669,9 @@ export function vueReglages(ctx, rendre, majEtat) {
          carte, se lisait décalé et laissait un vide sous lui. */
       + `<div class="rangee rg-maj"><button type="button" class="bouton-texte rg-b" id="rgChercher">`
       + `Rechercher une mise à jour</button><span class="note" id="rgMaj" role="status"></span></div>`
+      /* La présentation du premier lancement, version 200. */
+      + `<div class="rangee"><button type="button" class="bouton-texte rg-b" data-feuille="bienvenue">`
+      + `Revoir la présentation</button></div>`
       + `</div>`
 
       + `<div class="carte"><div class="carte-tete"><h3>Données de cet appareil</h3></div>`
@@ -734,6 +746,13 @@ export function vueReglages(ctx, rendre, majEtat) {
         b.addEventListener("click", () => {
           Reglages.poserHeuresAccueil(b.dataset.heuresAccueil);
           /* L'accueil, dessous, se refait aussitôt ; la feuille reste. */
+          rendre({ dessous: true });
+        });
+      }
+      for (const b of bloc.querySelectorAll("[data-presentation]")) {
+        b.addEventListener("click", () => {
+          Reglages.poserAccueilCompact(b.dataset.presentation);
+          for (const x of bloc.querySelectorAll("[data-presentation]")) x.classList.toggle("actif", x === b);
           rendre({ dessous: true });
         });
       }

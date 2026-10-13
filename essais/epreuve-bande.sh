@@ -1519,6 +1519,39 @@ case "$N" in
   494) # La confiance abaissée ne dit pas l'écart mesuré.
      perl -0pi -e 's/ s.est écartée ici de `/ a manqué de `/' src/vues/avenir.js
      ATTENDU="la semaine dit la justesse mesurée ici et cale sa confiance" ;;
+  495) # La liste des lieux garde l'aperçu général pour le lieu affiché.
+     perl -0pi -e 's/return recouvrir\(await apercusLus\(lieux\)\);/return apercusLus(lieux);/' src/previsions.js
+     ATTENDU="la liste des lieux reprend la température et les bornes de l.accueil" ;;
+  496) # La tuile de la pluie ignore la pluie de l'heure.
+     perl -0pi -e 's/      pluieHeure\n        \? \["Pluie"/      false\n        ? ["Pluie"/' src/app.js
+     ATTENDU="une pluie annoncée dans l.heure se dit dans la tuile" ;;
+  497) # Le ciel du moment ignore l'averse en cours.
+     perl -0pi -e 's/if \(!s \|\| !ph\?\.proche \|\| /if (true || /' src/app.js
+     ATTENDU="une pluie en cours se dit dans le ciel du moment" ;;
+  498) # La journée oublie la couverture nuageuse.
+     perl -0pi -e 's/    nua: maxDe\("cloud_cover"\),\n//' src/previsions.js
+     ATTENDU="la tuile du ciel porte sa couverture" ;;
+  499) # La porte de l'air perd la pastille du pollen.
+     perl -0pi -e 's/pollen: pol \? \{ texte/pollen: false \&\& pol ? { texte/' src/app.js
+     ATTENDU="la tuile du ciel porte sa couverture, la porte de l.air son pollen" ;;
+  500) # Une tuile sans valeur s'affiche.
+     perl -0pi -e 's/\]\.filter\(x => x\[1\] !== "—"\) : \[\];/] : [];/' src/app.js
+     ATTENDU="une valeur absente de la source ne s.écrit pas zéro" ;;
+  501) # L'accueil compact garde les tuiles dehors.
+     perl -0pi -e 's/\+ \(compact \? "" : tuilesHTML\), true\);/+ tuilesHTML, true);/' src/app.js
+     ATTENDU="l.accueil compact replie les tuiles" ;;
+  502) # Le choix de la présentation ne se garde pas.
+     perl -0pi -e 's/          Reglages\.poserAccueilCompact\(b\.dataset\.presentation\);\n//' src/vues/feuilles.js
+     ATTENDU="la présentation de l.accueil se choisit dans les réglages" ;;
+  503) # La présentation ne paraît plus au premier lancement.
+     perl -0pi -e 's/"Choisir une commune", "Utiliser ma position"\) \+ presentationHTML\(\),/"Choisir une commune", "Utiliser ma position"),/' src/app.js
+     ATTENDU="au premier lancement, l.écran de bienvenue" ;;
+  504) # Le geste d'installation ignore l'iPhone.
+     perl -0pi -e 's/if \(\/iPhone\|iPad\|iPod\/\.test\(ua\)/if (false/' src/vues/bienvenue.js
+     ATTENDU="le geste d.installation suit le système" ;;
+  505) # La présentation ne se rouvre plus depuis les réglages.
+     perl -0pi -e 's/,\n  bienvenue: vueBienvenue \};/ };/' src/app.js
+     ATTENDU="la présentation se rouvre depuis les réglages" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
