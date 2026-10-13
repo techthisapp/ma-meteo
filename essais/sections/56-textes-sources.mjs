@@ -56,7 +56,8 @@ export default async T => {
   await onglet("accueil"); await reposer(pg, 800);
   await pg.locator("#btnReglages").click(); await reposer(pg, 1200);
   const reglages = await pg.evaluate(() => {
-    const c = [...document.querySelectorAll("#feuille-corps .carte")].find(x => x.querySelector("h3")?.textContent === "Sources");
+    /* Depuis la version 202, la carte des sources se replie. */
+    const c = document.getElementById("rgSources");
     return { sources: c?.textContent || "", tout: document.getElementById("feuille-corps").textContent };
   });
   const manquent = NOMS.filter(n => !reglages.sources.includes(n));

@@ -41,7 +41,7 @@ export default async T => {
     .find(x => x.querySelector("i")?.textContent.trim() === "Pluie")?.querySelector("b")?.textContent.replace(/[\u00A0\u202F]/g, " "));
   await ctxNuit.close();
   ok("la tuile de la pluie dit le plus fort risque d'ici minuit, et le dit",
-    pluie.v === `${attendu.pb} %` && pluie.sous === "de risque d'ici minuit" && pluieNuit !== "90 %",
+    pluie.v === `${attendu.pb} %` && pluie.sous === "de risque" && pluieNuit !== "90 %",
     JSON.stringify({ pluie, attendu, pluieNuit }));
 
   /* L'indice UV se nomme sur l'échelle du ruban, la pression et sa tendance
@@ -51,7 +51,7 @@ export default async T => {
     .map(v => [v.dataset.cle, v.querySelector(".mg-r")?.textContent.replace(/[  ]/g, " ") || ""])));
   const motUv = await pg.evaluate(async v => (await import("/src/previsions.js")).motUV(v), attendu.uv);
   ok("la tuile de l'indice UV et le ruban emploient la même échelle de mots",
-    uv.sous === `${motUv} d'ici minuit` && ruban.uv.endsWith(motUv), JSON.stringify({ uv, ruban: ruban.uv, motUv }));
+    uv.sous === motUv && ruban.uv.endsWith(motUv), JSON.stringify({ uv, ruban: ruban.uv, motUv }));
   ok("la tuile de la pression et le ruban disent la même valeur et la même tendance",
     pres.v === `${attendu.pres} hPa` && pres.sous === attendu.tend && ruban.pres === `${attendu.pres} hPa, ${attendu.tend}`,
     JSON.stringify({ pres, ruban: ruban.pres, attendu }));

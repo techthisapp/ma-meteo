@@ -59,7 +59,7 @@ export default async T => {
   });
   const tuileCiel = await tuile(p2, "Ciel");
   ok("la tuile du ciel porte sa couverture, la porte de l'air son pollen en pastille",
-    /^\d+ % \| de nuages au plus d'ici minuit$/.test(tuileCiel)
+    /^\d+ % \| de nuages au plus$/.test(tuileCiel)
     && /^\S+ (au pic pastille ton-pic|en saison pastille ton-saison)$/.test(autres.pol) && /^Air [a-zé ]+$/.test(autres.txt),
     JSON.stringify({ tuileCiel, ...autres }));
   await c2.close();

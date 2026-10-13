@@ -655,8 +655,9 @@ export default async T => {
   });
   if (apresPlus.boutons.length) { await pg.locator("#ecran [data-semaine-plus]").first().click(); await pg.waitForTimeout(400); }
   await onglet("accueil");
-  ok("La semaine se déplie d'un « Voir plus » commun au graphique et à la liste, jusqu'à la tendance",
-    avantPlus.boutons.length === 2 && avantPlus.boutons.every(b => b.startsWith("Voir plus"))
+  /* Un seul « Voir plus », sous la liste, depuis la version 202. */
+  ok("La semaine se déplie d'un seul « Voir plus », sous la liste, jusqu'à la tendance",
+    avantPlus.boutons.length === 1 && avantPlus.boutons.every(b => b.startsWith("Voir plus"))
     && apresPlus.tend > 10 && apresPlus.lignes > avantPlus.lignes && apresPlus.fonds === apresPlus.tend
     && apresPlus.boutons.every(b => b === "Voir moins"), JSON.stringify({ avantPlus, apresPlus }));
   ok("une journée de tendance dit la part de ses scénarios pluvieux, sans mot de confiance",
@@ -735,7 +736,7 @@ export default async T => {
     && cmpPur.bissextile === "2023-02-28", JSON.stringify(cmpPur));
   ok("le bilan de la comparaison dit l'écart de température, et la pluie au-delà de dix millimètres",
     cmpPur.chaude === "Plus chauds que les mêmes 7 jours de 2025, de 3° en moyenne au plus chaud ; plus secs, 5 mm contre 15."
-    && cmpPur.pareille === "Semblables aux mêmes 7 jours de 2025, à 0,4° près au plus chaud ; pluie comparable, 5 mm contre 9."
+    && cmpPur.pareille === "Semblables aux mêmes 7 jours de 2025, à moins d'un demi-degré en moyenne au plus chaud ; pluie comparable, 5 mm contre 9."
     && cmpPur.court === null, JSON.stringify(cmpPur));
   /* Jalon 14, lot 2 : l'adresse groupée des lieux et le bilan entre lieux. */
   const lieuxPur = await pg.evaluate(async () => {

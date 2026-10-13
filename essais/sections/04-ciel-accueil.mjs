@@ -48,10 +48,15 @@ export default async T => {
   /* Depuis le 3 octobre 2026, décision de Jérôme : les heures à venir jusqu'à
      minuit, et non plus la journée civile, dont la nuit passée portait
      l'humidité à 98 %. */
-  const portees = await pg.evaluate(() => [...document.querySelectorAll(".bd-m em")].map(e => e.textContent));
-  ok("les mesures portent sur les heures à venir jusqu'à minuit, et le disent",
+  /* Depuis la version 202, la portée se dit une fois, en tête de la grille,
+     et le lecteur d'écran l'entend sur chaque tuile. */
+  const portees = await pg.evaluate(() => ({ tete: document.querySelector("#ecran .tu-portee")?.textContent || "",
+    sous: [...document.querySelectorAll(".bd-m em")].map(e => e.textContent),
+    lus: [...document.querySelectorAll(".bd-m")].map(e => e.getAttribute("aria-label")) }));
+  ok("les mesures portent sur les heures à venir jusqu'à minuit, et le disent une fois",
     jour["Indice UV"] === "7" && jour["Humidité"] === "89 %" && jour["Vent"] === "23 km/h"
-    && portees.filter(t => /d'ici minuit/.test(t)).length >= 7,
+    && portees.tete === "Jusqu'à minuit" && !portees.sous.some(t => /minuit/.test(t))
+    && portees.lus.filter(t => /d'ici minuit/.test(t)).length >= 7,
     JSON.stringify({ jour, portees }));
   /* Chaque mesure dit sur quoi elle porte : un chiffre de journée présenté comme
      un relevé d'instant se lirait de travers. */

@@ -2981,3 +2981,34 @@ button.rangee:active{background:var(--surface-2)}
 .bv-ic{width:24px;height:24px;color:var(--accent);flex:0 0 auto}
 .bv-carte p{margin:var(--espace-xs) 0 0;font-size:var(--texte-sous)}
 .bv-carte p.note{font-size:var(--texte-note)}
+
+/* La portée des tuiles, dite une fois, version 202. */
+.tu-portee{margin:var(--espace-lg) 0 var(--espace-sm);font-size:var(--texte-note);color:var(--etiquette-2)}
+
+/* Les unités du graphique d'« À venir », version 202 : une pastille de la
+   couleur de chaque tracé devant son nom. */
+.sg-unites{margin:var(--espace-sm) 0 0;font-size:var(--texte-legende);color:var(--etiquette-2);line-height:1.6}
+.sg-u{display:inline-block;width:10px;height:3px;margin:0 4px 2px 2px;vertical-align:middle}
+.sg-u-max,.sg-u-min,.sg-u-vent{border-radius:var(--rayon-plein)}
+.sg-u-max{background:var(--ic-soleil)}
+.sg-u-min{background:var(--ic-pluie);opacity:.75}
+.sg-u-vent{background:var(--etiquette-2)}
+.sg-u-pluie{height:8px;width:8px;background:var(--ic-pluie)}
+
+/* Les groupes des réglages, version 202. */
+.rg-groupe{margin:var(--espace-lg) var(--espace-xs) var(--espace-sm);font-size:var(--texte-note);font-weight:var(--graisse-semibold);color:var(--etiquette-2)}
+.rg-groupe:first-child{margin-top:0}
+.rg-act-ic{width:22px;height:22px;flex:0 0 auto;color:var(--accent)}
+#rgSources > summary{color:var(--etiquette)}
+
+/* « Où est le beau temps », version 202 : le verdict, puis la pastille du
+   premier. */
+.bt-avis{margin:0 0 var(--espace-xs);font-weight:var(--graisse-semibold)}
+.rangee-txt .bt-pastille{font-style:normal;align-self:flex-start;margin:2px 0;padding:1px var(--espace-sm);border-radius:var(--rayon-md);font-size:var(--texte-legende);font-weight:var(--graisse-semibold);background:color-mix(in srgb, var(--ton) 16%, transparent);color:color-mix(in srgb, var(--ton) 72%, var(--etiquette))}
+
+/* La neige et la plage hors saison, version 202 : deux liens discrets sous
+   les portes. */
+.portes-hors{display:flex;flex-wrap:wrap;gap:var(--espace-sm);margin-top:var(--espace-md)}
+.porte-hors{display:inline-flex;align-items:center;gap:var(--espace-sm);min-height:var(--touche);padding:0 var(--espace-md);
+  border:0;border-radius:var(--rayon-plein);background:var(--surface);color:var(--accent);font:inherit;font-size:var(--texte-note);font-weight:var(--graisse-medium);cursor:pointer}
+.porte-hors svg{width:18px;height:18px}

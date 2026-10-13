@@ -246,7 +246,10 @@ export function vueSemaine() {
 
   return {
     titre: "À venir",
-    corps: grapheSemaine(jours, boutonSemaine(plusDispo)) + grandesLignesHTML(jours)
+    /* Un seul « Voir plus », sous la liste, version 202, audit d'usage du
+       13 octobre 2026 : le graphique portait le sien, et l'écran en montrait
+       deux pour une même action. */
+    corps: grapheSemaine(jours) + grandesLignesHTML(jours)
       + `<div class="carte sem-carte">${phraseJustesse(recent)}<div class="sem">${lignes.join("")}</div>`
       + etatTendance(g, tend) + boutonSemaine(plusDispo)
       /* Jalon 20 : l'explication derrière le « i », les modèles dans les
@@ -364,7 +367,12 @@ export function grapheSemaine(jours, basDeCarte = "") {
     + (defile ? ` width="${L}" height="${H}"` : "") + ` role="img" aria-label="${esc(resume)}">`
     + fonds + pluie + vent + ligne("tx", "sg-max") + ligne("tn", "sg-min")
     + points("tx", "sg-pmax", -7) + points("tn", "sg-pmin", 14) + noms
-    + `</svg>` + (defile ? `</div>` : "") + aide(avecVent ? "Rafales en kilomètres par heure, pluie en millimètres." : "Pluie en millimètres.") + `${basDeCarte}</div>`;
+    + `</svg>` + (defile ? `</div>` : "")
+    /* Les unités se lisent sous le dessin, version 202, audit d'usage du
+       13 octobre 2026 : elles se cachaient derrière le « i ». */
+    + `<p class="sg-unites"><i class="sg-u sg-u-max"></i>maximum <i class="sg-u sg-u-min"></i>minimum en degrés`
+    + (avecVent ? `, <i class="sg-u sg-u-vent"></i>rafales en km/h` : "") + `, <i class="sg-u sg-u-pluie"></i>pluie en mm</p>`
+    + `${basDeCarte}</div>`;
 }
 
 /* L'accord des scénarios sur une journée, écrit en toutes lettres sous ses

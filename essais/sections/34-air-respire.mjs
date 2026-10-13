@@ -210,21 +210,28 @@ export default async T => {
      différence entre les deux contextes. */
   etat.profilAir = "ambroisie";
   const [ctxPic, pgPic] = await ctxReponse(METEO_NUE);
-  const ditPic = (await phrasesConseils(pgPic, "#ecran .conseils .cj-l")).join(" | ");
+  /* Depuis la version 202, le pollen du jour se dit dans la porte de l'air,
+     une seule fois sur l'accueil. */
+  const ditPic = [...(await phrasesConseils(pgPic, "#ecran .conseils .cj-l")),
+    await pgPic.evaluate(() => document.querySelector("#ecran [data-pollen-porte]")?.textContent || "")].join(" | ");
   await ctxPic.close();
   const [ctxSansAmbroisie, pgSansAmbroisie] = await ctxReponse(METEO_NUE,
     { ...FAIN, pollensMuets: ["ambroisie"] });
-  const ditMuet = (await phrasesConseils(pgSansAmbroisie, "#ecran .conseils .cj-l")).join(" | ");
+  const ditMuet = [...(await phrasesConseils(pgSansAmbroisie, "#ecran .conseils .cj-l")),
+    await pgSansAmbroisie.evaluate(() => document.querySelector("#ecran [data-pollen-porte]")?.textContent || "")].join(" | ");
   await ctxSansAmbroisie.close();
   etat.profilAir = "base";
-  ok("un pollen du profil au pic se dit",
-    /Ambroisie au pic.*71 grains par mètre cube/.test(ditPic), ditPic);
+  ok("un pollen du profil au pic se dit, une seule fois sur l'accueil",
+    /\| Ambroisie au pic$/.test(ditPic) && (ditPic.match(/Ambroisie/g) || []).length === 1, ditPic);
   ok("le même pollen retiré du profil ne se dit plus",
     !/Ambroisie/.test(ditMuet), ditMuet);
   /* Les graminées sont en saison dans les deux contextes sans jamais atteindre
      leur pic : la saison seule ne doit rien écrire. */
-  ok("une saison sans pic ne se dit pas",
-    !/Graminées/.test(ditPic) && !/Graminées/.test(ditMuet), ditPic);
+  /* La porte de l'air, dernière de la liste, dit la saison en pastille ;
+     les conseils, eux, n'en disent rien. */
+  const conseilsSeuls = t => t.split(" | ").slice(0, -1).join(" | ");
+  ok("une saison sans pic ne se dit pas dans les conseils",
+    !/Graminées/.test(conseilsSeuls(ditPic)) && !/Graminées/.test(conseilsSeuls(ditMuet)), ditPic);
 
   /* L'air entre dans la règle d'aération. Les deux contextes portent la même
      journée fraîche de neuf à quinze heures ; seul l'air du matin change. */

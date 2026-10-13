@@ -237,8 +237,8 @@ export default async T => {
   })();
   ok("le percentile du jour est celui de la distribution de l'archive",
     Math.abs(Math.round(percentileAttendu)
-      - Number((lignesClimat[0]?.val.match(/(\d+)\s*%/) || [0, 0])[1])) <= 1,
-    `attendu ${percentileAttendu?.toFixed(1)}, écrit « ${lignesClimat[0]?.val} »`);
+      - (m => (m ? (m[1] === "chaud" ? Number(m[2]) : 100 - Number(m[2])) : -99))(/plus (chaud|frais) que (\d+) % des 18 août depuis 1950$/.exec(lignesClimat[0]?.sous || ""))) <= 1,
+    `attendu ${percentileAttendu?.toFixed(1)}, écrit « ${lignesClimat[0]?.sous} »`);
 
   ok("la médiane écrite est celle des mêmes dates",
     lignesClimat[1]?.val === `${Math.round(attenduClimat.mediane)}°`

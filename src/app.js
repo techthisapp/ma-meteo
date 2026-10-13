@@ -723,9 +723,15 @@ function ecranAccueil() {
        scénarios et les maxima : le moteur de règles reste une fonction de sa
        série et de ce qu'on lui passe. */
     const suivis = Air.POLLENS.map(p => p.cle).filter(Reglages.pollenSuivi);
-    const lJour = sJour
+    /* Le pollen se dit une fois sur l'accueil, version 202, audit d'usage du
+       13 octobre 2026 : dans la porte de l'air pour aujourd'hui, et dans les
+       conseils de demain seulement s'il s'agit d'un autre pollen que celui de
+       la porte. */
+    const polPorte = Air.enSaison(Air.alignerSur(P.serieHoraire(0, 24 - new Date().getHours(), 1)) || {})
+      .filter(p => Reglages.pollenSuivi(p.cle))[0] || null;
+    const lJour = (sJour
       ? conseils(sJour, { evenement: prochainAstre(), aujourdhui: cejour,
-        veille: P.ecartVeille(), air: Air.alignerSur(sJour), pollens: suivis }) : [];
+        veille: P.ecartVeille(), air: Air.alignerSur(sJour), pollens: suivis }) : []).filter(x => x.i !== "pollen");
     /* La neige, jalon 16 : en saison et s'il existe une station à une heure de
        route, une porte large au-dessus de la grille, et un conseil en tête des
        conseils du jour quand une chute notable s'annonce, décidé par Jérôme le
@@ -788,7 +794,8 @@ function ecranAccueil() {
         medianes: Ensemble.alignerSur(sDemain)?.q.t.med,
         air: Air.alignerSur(sDemain), pollens: suivis }) : []),
       ...(foret && depForet ? [danger(cleJour(new Date(Date.now() + 86400000)), "demain")].filter(Boolean) : []),
-    ].sort((a, b) => b.g - a.g).slice(0, LIGNES_MAX);
+    ].filter(x => !(x.i === "pollen" && polPorte && x.t.startsWith(polPorte.nom)))
+      .sort((a, b) => b.g - a.g).slice(0, LIGNES_MAX);
 
     /* Un titre peut n'être lu que par la voix de synthèse : celui des chiffres du
        jour, que la bande horaire rend redondant à l'œil et qui coûtait une
@@ -829,7 +836,7 @@ function ecranAccueil() {
     const ICI = "d'ici minuit";
     const airJour = serieJour ? Air.pire(Air.alignerSur(serieJour)) : null;
     const tuiles = jh ? [
-      ["Ressenti", res === null ? "—" : `${res}°`, `au plus chaud ${ICI}`,
+      ["Ressenti", res === null ? "—" : `${res}°`, "au plus chaud",
         res === null ? "" : res >= SEUILS.chaleur ? "v-chaud" : res <= SEUILS.gel ? "v-froid" : "", "t", "thermo", "soleil"],
       /* La pluie annoncée dans l'heure passe avant la journée, version 199 :
          la tuile disait « 8 % de risque » sous un encart qui annonçait une
@@ -840,18 +847,18 @@ function ecranAccueil() {
             : `${Pluie.INTENSITES[pluieHeure.force].nom.toLowerCase()} annoncée`,
           "v-eau", "mm", "parapluie", "pluie"]
       : mmJour >= SEUILS.lame
-        ? ["Pluie", `${nombreFr(Math.round(mmJour * 10) / 10)} mm`, ICI, mmJour >= 5 ? "v-eau" : "", "mm", "parapluie", "pluie"]
-        : ["Pluie", pb === null ? "—" : `${pb} %`, `de risque ${ICI}`,
+        ? ["Pluie", `${nombreFr(Math.round(mmJour * 10) / 10)} mm`, "attendus", mmJour >= 5 ? "v-eau" : "", "mm", "parapluie", "pluie"]
+        : ["Pluie", pb === null ? "—" : `${pb} %`, "de risque",
           pb >= 60 ? "v-eau" : "", "mm", "parapluie", "pluie"],
-      ["Vent", vent === null ? "—" : `${vent} km/h`, raf === null ? ICI : `rafales ${raf} km/h ${ICI}`,
+      ["Vent", vent === null ? "—" : `${vent} km/h`, raf === null ? "au plus" : `rafales ${raf} km/h`,
         raf >= SEUILS.rafale || vent >= SEUILS.ventMoyen ? "v-attention" : "", "v", "vent", "nuage"],
-      ["Ciel", nuaMax === null ? "—" : `${nuaMax} %`, `de nuages au plus ${ICI}`, "", "nua", "nuage", "nuage"],
-      ["Humidité", hum === null ? "—" : `${hum} %`, `au plus ${ICI}`, hum >= SEUILS.humidite ? "v-eau" : "", "hum", "goutte", "pluie"],
-      ["Indice UV", uv === null ? "—" : `${uv}`, uv === null ? ICI : `${P.motUV(uv)} ${ICI}`,
+      ["Ciel", nuaMax === null ? "—" : `${nuaMax} %`, "de nuages au plus", "", "nua", "nuage", "nuage"],
+      ["Humidité", hum === null ? "—" : `${hum} %`, "au plus", hum >= SEUILS.humidite ? "v-eau" : "", "hum", "goutte", "pluie"],
+      ["Indice UV", uv === null ? "—" : `${uv}`, uv === null ? "au plus" : P.motUV(uv),
         uv >= 8 ? "v-brulant" : uv >= SEUILS.uv ? "v-chaud" : uv >= 3 ? "v-attention" : "", "uv", "soleil", "soleil"],
       ["Pression", pres0 === null ? "—" : `${Math.round(pres0)} hPa`, tendance || "maintenant", "", "pres", "jauge", "nuage"],
       ["Air", airJour ? `${airJour.indice}` : "—",
-        airJour ? `${(Air.niveauDe(airJour.indice)?.nom || "indice européen").toLowerCase()} au pire ${ICI}` : "pas de mesure", "", null, "brume", "nuage", "air"],
+        airJour ? `${(Air.niveauDe(airJour.indice)?.nom || "indice européen").toLowerCase()} au pire` : "pas de mesure", "", null, "brume", "nuage", "air"],
     /* Une tuile sans valeur ne s'affiche pas, version 199 : « Ciel » montrait
        un tiret au-dessus de « de nuages au plus d'ici minuit ». Audit d'usage
        du 13 octobre 2026. */
@@ -927,16 +934,32 @@ function ecranAccueil() {
       + ico("alerte", "") + `<span class="rangee-txt"><b>Les risques d'ici</b>`
       + infoPorte("risques", info.risques, info.ind.risques) + `</span>`
       + chevron + `</button>`
+      /* Hors saison, la neige et la plage restent à portée, version 202,
+         audit d'usage du 13 octobre 2026 : leurs portes disparaissaient sans
+         laisser de chemin. Deux liens discrets, sous les portes. */
+      + ((!saisonNeige && nz?.proches?.length) || (!saisonPlage && pz?.proches?.length)
+        ? `<div class="portes-hors">`
+          + (!saisonNeige && nz?.proches?.length ? `<button type="button" class="porte-hors" data-feuille="neige">`
+            + ico("neige", "") + `<span>La neige et les stations</span></button>` : "")
+          + (!saisonPlage && pz?.proches?.length ? `<button type="button" class="porte-hors" data-feuille="plage">`
+            + ico("vague", "") + `<span>La mer et les plages</span></button>` : "")
+          + `</div>` : "")
       ;
 
     /* L'accueil compact, version 200 : les tuiles et les conseils de demain
        se replient derrière un bouton, sous les conseils du jour. */
     const compact = Reglages.accueilCompact();
-    const tuilesHTML = (tuiles.length ? `<div class="bd-mesures tuiles">`
+    /* La portée des tuiles se dit une fois, en tête de la grille, version
+       202, audit d'usage du 13 octobre 2026 : « d'ici minuit » se répétait
+       sous chaque valeur. La pression et la pluie de l'heure disent le
+       moment, non la soirée ; le lecteur d'écran entend la portée sur chaque
+       tuile. */
+    const portee = (n, e) => (n === "Pression" || (n === "Pluie" && pluieHeure) ? e : `${e} ${ICI}`);
+    const tuilesHTML = (tuiles.length ? `<p class="tu-portee">Jusqu'à minuit</p><div class="bd-mesures tuiles">`
           + tuiles.map(([n, v, e, c, voie, sym, teinte, feuille]) =>
             `<button type="button" class="bd-m tuile" `
-            + (feuille ? `data-feuille="${feuille}" aria-label="${esc(n)}, ${esc(v)}, ${esc(e)}, ${TUILE_VERS[feuille]}">`
-              : `data-detail="${esc(voie)}" aria-label="${esc(n)}, ${esc(v)}, ${esc(e)}, voir heure par heure">`)
+            + (feuille ? `data-feuille="${feuille}" aria-label="${esc(n)}, ${esc(v)}, ${esc(portee(n, e))}, ${TUILE_VERS[feuille]}">`
+              : `data-detail="${esc(voie)}" aria-label="${esc(n)}, ${esc(v)}, ${esc(portee(n, e))}, voir heure par heure">`)
             + `<span class="tu-pa pa-${teinte}">${ico(sym, "")}</span>`
             + `<span class="tu-t"><i>${esc(n)}</i><b${c ? ` class="${c}"` : ""}>${valeurUnite(v)}</b>`
             + `<em>${esc(e)}</em></span>${chevronM}</button>`).join("")
@@ -1198,7 +1221,8 @@ function infosPortes(g) {
     }).catch(() => {});
   }
   const s = P.serieHoraire(0, Activites.FENETRE, 8);
-  const r = s ? Activites.repondre(s, P.bilanEau(Activites.SEUILS_ACT.arrosageJours)) : [];
+  const r = (s ? Activites.repondre(s, P.bilanEau(Activites.SEUILS_ACT.arrosageJours)) : [])
+    .filter(x => Reglages.activiteSuivie(x.cle));
   const avec = r.filter(x => x.creneau).sort((a, b) => a.creneau[0] - b.creneau[0]
     || (a.cle === "linge" ? -1 : b.cle === "linge" ? 1 : 0));
   if (avec.length) {
@@ -1212,7 +1236,8 @@ function infosPortes(g) {
   const air = Air.alignerSur(P.serieHoraire(0, 24 - new Date().getHours(), 1));
   if (Number.isFinite(air?.aqi?.[0])) {
     const n = Air.niveauDe(air.aqi[0]);
-    const pol = Air.enSaison(air)[0];
+    /* Le profil d'allergies décide aussi de la porte, version 202. */
+    const pol = Air.enSaison(air).filter(p => Reglages.pollenSuivi(p.cle))[0];
     /* Le pollen en pastille à côté de la jauge de l'air, version 199 : une
        jauge verte sous « ambroisie au pic » se lisait comme une bonne
        nouvelle pour une personne allergique. Audit d'usage du 13 octobre

@@ -179,6 +179,18 @@ function brancherLieux(carte, bloc, g, date) {
 
 /* Les maximums de chaque lieu sur la période, une couleur par lieu, la
    commune affichée en trait plus épais. */
+/* Le rang du jour en phrase : le mot de `motPercentile`, puis la part des
+   mêmes dates, plus chaudes ou plus fraîches selon le côté. */
+export function phrasePercentile(p, dateLongue, an0) {
+  const mot = Climat.motPercentile(p);
+  const Mot = mot.charAt(0).toUpperCase() + mot.slice(1);
+  if (!Number.isFinite(p) || p >= 100 || p <= 0) return Mot;
+  const q = Math.round(p);
+  const part = q >= 50 ? `plus chaud que ${q} % des ${dateLongue} depuis ${an0}`
+    : `plus frais que ${100 - q} % des ${dateLongue} depuis ${an0}`;
+  return `${Mot} : ${part}`;
+}
+
 export function grapheLieux(series, lieux, aujourdhui) {
   const dates = series[0]?.jours.map(j => j.date) || [];
   const n = Math.max(1, dates.length);
@@ -286,9 +298,11 @@ export function vueClimat(ctx, rendre, majEtat) {
           .toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
         jour.innerHTML = `<div class="carte-tete"><h3>Aujourd'hui dans l'histoire</h3></div>`
           + (Number.isFinite(max) && b.percentile !== null
+            /* Le pourcentage se dit en phrase, version 202, audit d'usage du
+               13 octobre 2026 : « 25° 69 % » ne disait pas ce qu'il comptait. */
             ? `<div class="rangee"><span class="rangee-txt"><b>Maximum annoncé</b>`
-              + `<span>${esc(Climat.motPercentile(b.percentile))}</span></span>`
-              + valeur(Climat.degre(max), { doux: `${Math.round(b.percentile)} %` })
+              + `<span>${esc(phrasePercentile(b.percentile, dateLongue, b.an0))}</span></span>`
+              + valeur(Climat.degre(max))
               + `</div>`
             : `<p class="note">Le maximum du jour n'est pas connu.</p>`)
           + (b.mediane !== null

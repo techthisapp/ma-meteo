@@ -26,6 +26,7 @@ const DEFAUT = {
   jetonsPris: [],      // jetons de parapluie déjà pris, par date et instant
   biais: 0,            // ressenti personnel, en degrés, borné
   pollensMuets: [],    // pollens dont on ne veut pas être averti
+  activitesMuettes: [], // activités retirées de « Quand faire quoi », version 202
   radar: true,         // ancien réglage de la couche de pluie, repris par `nappe`
   vigicarte: true,     // la couche de vigilance sur la carte
   ventcarte: false,    // les particules de vent sur la carte
@@ -506,6 +507,19 @@ export function basculerPollen(cle) {
   const l = muets();
   poser({ pollensMuets: l.includes(cle) ? l.filter(x => x !== cle) : [...l, cle] });
   return pollenSuivi(cle);
+}
+
+/* Les activités, version 202, audit d'usage du 13 octobre 2026 : comme les
+   pollens, ce sont les activités retirées qui se gardent, la liste vide
+   valant « toutes ». Une activité au moins reste suivie. */
+const activitesMuettes = () => (Array.isArray(etat.activitesMuettes) ? etat.activitesMuettes : []);
+export const activiteSuivie = cle => !activitesMuettes().includes(cle);
+export function basculerActivite(cle, toutes = []) {
+  const l = activitesMuettes();
+  const apres = l.includes(cle) ? l.filter(x => x !== cle) : [...l, cle];
+  if (toutes.length && toutes.every(x => apres.includes(x))) return activiteSuivie(cle);
+  poser({ activitesMuettes: apres });
+  return activiteSuivie(cle);
 }
 
 /* Les jetons pris. La liste s'oublie d'elle-même : un jeton porte sa date, et

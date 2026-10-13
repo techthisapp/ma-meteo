@@ -117,7 +117,7 @@ const dansEffort = (serie, i) =>
    qui permet de décider autrement. */
 export const ACTIVITES = [
   {
-    cle: "courir", nom: "Courir", symbole: "thermo",
+    cle: "courir", nom: "Courir", symbole: "course",
     sans: "Trop chaud, trop froid ou trop mouillé sur les deux jours",
     creneau(serie, k) {
       return premierCreneau(serie, k, i => sec(serie, i) && dansEffort(serie, i)
@@ -127,7 +127,7 @@ export const ACTIVITES = [
     dit: (serie, [a]) => `${Math.round(serie.res[a])}° ressentis`,
   },
   {
-    cle: "velo", nom: "Rouler à vélo", symbole: "vent",
+    cle: "velo", nom: "Rouler à vélo", symbole: "velo",
     sans: "Vent ou pluie sur les deux jours",
     creneau(serie, k) {
       return premierCreneau(serie, k, i => sec(serie, i) && dansEffort(serie, i)
@@ -140,7 +140,7 @@ export const ACTIVITES = [
     },
   },
   {
-    cle: "linge", nom: "Étendre le linge", symbole: "soleil",
+    cle: "linge", nom: "Étendre le linge", symbole: "linge",
     sans: "Rien qui sèche assez vite sur les deux jours",
     creneau(serie, k) {
       return premierCreneau(serie, k,
@@ -153,7 +153,7 @@ export const ACTIVITES = [
     },
   },
   {
-    cle: "aerer", nom: "Aérer pour rafraîchir", symbole: "maison",
+    cle: "aerer", nom: "Aérer pour rafraîchir", symbole: "fenetre",
     sans: "L'intérieur ne va pas se réchauffer, ou l'air du dehors est dégradé",
     creneau(serie, k) { return creneauAerer(serie, k); },
     dit: (serie, [a, b]) => {
@@ -163,7 +163,7 @@ export const ACTIVITES = [
     },
   },
   {
-    cle: "arroser", nom: "Arroser", symbole: "goutte",
+    cle: "arroser", nom: "Arroser", symbole: "arrosoir",
     sans: "",   // l'arrosage porte sa propre phrase, voir `arrosage`
     creneau(serie, k) {
       return premierCreneau(serie, k, i => sec(serie, i)
@@ -173,7 +173,7 @@ export const ACTIVITES = [
     dit: () => "avant la nuit",
   },
   {
-    cle: "voiture", nom: "Laver la voiture", symbole: "coche",
+    cle: "voiture", nom: "Laver la voiture", symbole: "voiture",
     sans: "De la pluie dans les douze heures qui suivent, sur les deux jours",
     creneau(serie, k) {
       /* Une heure ne convient que si les douze qui la suivent sont sèches. Au

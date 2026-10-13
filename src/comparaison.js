@@ -160,7 +160,10 @@ export function bilan(cette, autre, annee, periode = PERIODE_DEFAUT) {
   /* Des jours ou des mois : l'accord est au masculin pluriel. */
   const sens = dtx >= 1 ? "Plus chauds" : dtx <= -1 ? "Plus frais" : "Semblables";
   const titre = sens === "Semblables"
-    ? `${sens} ${m.aux} de ${annee}, à ${fr(Math.abs(dtx))}° près au plus chaud`
+    /* Version 202, audit d'usage du 13 octobre 2026 : « à 0° près » se
+       lisait mal. L'écart se dit en clair. */
+    ? `${sens} ${m.aux} de ${annee}, ${Math.abs(dtx) < 0.5 ? "à moins d'un demi-degré"
+      : `à ${fr(Math.abs(dtx))}° d'écart`} en moyenne au plus chaud`
     : `${sens} que ${m.que} de ${annee}, de ${fr(Math.abs(dtx))}° en moyenne au plus chaud`;
   const pluie = avecPluie.length < 4 ? "pluie non comparée, archive incomplète"
     : Math.abs(p1 - p2) >= seuilPluie(avecPluie.length)

@@ -178,7 +178,8 @@ export function vueParapluie(ctx, rendre, majEtat) {
    ne permet pas de décider autrement. */
 export function vueActivites() {
   const s = P.serieHoraire(0, Activites.FENETRE, 8);
-  const r = s ? Activites.repondre(s, P.bilanEau(Activites.SEUILS_ACT.arrosageJours)) : [];
+  const r = (s ? Activites.repondre(s, P.bilanEau(Activites.SEUILS_ACT.arrosageJours)) : [])
+    .filter(a => Reglages.activiteSuivie(a.cle));
 
   if (!r.length) {
     return {
@@ -198,7 +199,7 @@ export function vueActivites() {
         + `<span>${esc(a.detail)}${a.partages ? ", scénarios partagés" : ""}</span></span>`
         + `<span class="rangee-val"><b>${esc(a.quand)}</b></span></div>`).join("")
       + `</div>`
-      + aide("Chaque activité montre le premier créneau qui lui convient."),
+      + aide("Chaque activité montre le premier créneau qui lui convient. Les activités se choisissent dans les réglages."),
   };
 }
 
@@ -380,14 +381,18 @@ export function vueBeauTemps(ctx, rendre, majEtat) {
       /* Une rangée de classement. Le nom manquant d'un point de grille est
          remplacé par sa position, laquelle situe déjà : une rangée vide en
          attendant l'interface adresse ne dirait rien. */
-      const rangee = l => {
+      const rangee = (l, k = -1) => {
         const nom = l.nom || noms.get(cle(l)) || "";
         const loin = l.km >= 1 ? BeauTemps.loinTxt(l) : "";
         const sous = [nom && loin, BeauTemps.journeeTxt(l)].filter(Boolean).join(" · ");
-        return `<div class="rangee${l.ici ? " bt-ici" : ""}">`
+        /* Le premier du classement porte sa pastille, version 202, audit
+           d'usage du 13 octobre 2026 : la liste se lisait au seul soleil, et un
+           lieu plus ensoleillé mais pluvieux paraissait mal rangé. */
+        return `<div class="rangee${l.ici ? " bt-ici" : ""}${k === 0 ? " bt-premier" : ""}">`
           + ico(icoCiel(l.code, true), "")
           + `<span class="rangee-txt"><b>${esc(nom || loin || "Ici")}`
           + (l.ici ? ico("lieu", "bt-repere") : "") + `</b>`
+          + (k === 0 ? `<i class="pastille ton-soleil bt-pastille">Le plus beau</i>` : "")
           + `<span>${esc(sous)}</span></span>`
           + valeur(BeauTemps.soleilTxt(l.soleil), { doux: "de soleil" })
           + `</div>`;
@@ -398,8 +403,16 @@ export function vueBeauTemps(ctx, rendre, majEtat) {
       const peindreLieux = () => {
         if (!dLieux) return;
         const cl = BeauTemps.classer(lieux, dLieux, j);
-        carteLieux.innerHTML = tete("Mes lieux")
-          + (cl.length ? cl.map(rangee).join("")
+        /* Le verdict d'abord, et le critère du classement. */
+        const iciC = BeauTemps.iciDans(cl), mieux = BeauTemps.mieuxQuIci(cl, iciC);
+        const quand = j ? "demain" : "aujourd'hui";
+        const verdict = !cl.length || lieux.length < 2 ? ""
+          : `<p class="bt-avis">${mieux ? `Plus beau ${quand} à ${esc(mieux.nom)}, ${esc(BeauTemps.soleilTxt(mieux.soleil))} de soleil.`
+            : iciC === cl[0] ? `Ici, ${quand}, le plus beau temps de vos lieux.`
+            : `Ici, ${quand}, le temps vaut celui de vos autres lieux.`}</p>`
+            + `<p class="note">Classés par le soleil, la pluie et la température.</p>`;
+        carteLieux.innerHTML = tete("Mes lieux") + verdict
+          + (cl.length ? cl.map((l, k) => rangee(l, lieux.length > 1 ? k : -1)).join("")
             : `<p class="note">La source n'a rien rendu pour ces lieux.</p>`)
           + (lieux.length < 2 ? `<p class="note">Ajoutez des lieux pour les comparer.</p>` : "");
       };
@@ -435,7 +448,7 @@ export function vueBeauTemps(ctx, rendre, majEtat) {
           + `<p class="note bt-verdict">${esc(mieux
             ? `Mieux ${BeauTemps.loinTxt(mieux)}.`
             : "Le beau temps est ici.")}</p>`
-          + rangees.map(rangee).join("");
+          + rangees.map(l => rangee(l)).join("");
         nommer(rangees);
       };
 
@@ -593,8 +606,12 @@ export function vueReglages(ctx, rendre, majEtat) {
      rappel automatique sur iPhone est retirée, décision de Jérôme. */
   return {
     titre: "Réglages",
+    /* Les réglages en quatre groupes, version 202, audit d'usage du
+       13 octobre 2026 : les alertes, ce qui s'affiche, la justesse et
+       Météo-France, l'application. Les sources se replient. */
     corps:
-      `<div class="carte"><div class="carte-tete"><h3>Heures d'alerte</h3></div>`
+      `<h2 class="rg-groupe">Alertes</h2>`
+      + `<div class="carte"><div class="carte-tete"><h3>Heures d'alerte</h3></div>`
       + ALERTES.map(([n, i]) => `<div class="rangee">`
         /* La dernière période finit à minuit, non à « 24 h » : c'est ainsi
            qu'on dit la fin d'une journée. */
@@ -609,6 +626,7 @@ export function vueReglages(ctx, rendre, majEtat) {
       + aide("Les moments où l'on veut être prévenu de la pluie. Chaque alerte annonce la pluie "
         + "jusqu'à la suivante, la dernière jusqu'à minuit.") + `</div>`
 
+      + `<h2 class="rg-groupe">Ce qui s'affiche</h2>`
       + `<div class="carte"><div class="carte-tete"><h3>Heure par heure</h3></div>`
       + `<div class="seg">` + Reglages.ECRITURES.map(([k, n]) =>
         `<button type="button" data-ecriture="${k}"${k === g.ecriture ? ' class="actif"' : ""}>${esc(n)}</button>`)
@@ -640,6 +658,20 @@ export function vueReglages(ctx, rendre, majEtat) {
       }).join("")
       + aide("Un pollen retiré ne s'annonce plus sur l'accueil ; la feuille de l'air le montre toujours.") + `</div>`
 
+      /* Les activités suivies, version 202. */
+      + `<div class="carte" id="rgActivites"><div class="carte-tete"><h3>Activités suivies</h3></div>`
+      + Activites.ACTIVITES.map(a => {
+        const suivie = Reglages.activiteSuivie(a.cle);
+        return `<button type="button" class="rangee rg-bascule" role="switch" `
+          + `aria-checked="${suivie}" data-activite="${esc(a.cle)}">${ico(a.symbole, "rg-act-ic")}`
+          + `<span class="rangee-txt"><b>${esc(a.nom)}</b></span>`
+          + ico("coche", suivie ? "rg-coche" : "rg-coche rg-coche-vide") + `</button>`;
+      }).join("")
+      + aide("Une activité retirée ne paraît plus dans « Quand faire quoi » ni sur sa porte. Une activité au moins reste suivie.")
+      + `</div>`
+
+      + `<h2 class="rg-groupe">Justesse et Météo-France</h2>`
+
       /* La justesse des prévisions, jalon 6 préparé au jalon 12, lot 7 : ce que
          le journal a déjà mesuré, par échéance, avec le nombre de jours
          relevés, pour que le lecteur sache si les chiffres sont assis. */
@@ -661,6 +693,7 @@ export function vueReglages(ctx, rendre, majEtat) {
       + `</div>`
 
       /* La version, et la recherche d'une plus récente à la demande. */
+      + `<h2 class="rg-groupe">Application</h2>`
       + `<div class="carte"><div class="carte-tete"><h3>Application</h3></div>`
       + `<div class="rangee"><span class="rangee-txt">Version</span>`
       + `<span class="rangee-val" id="rgVersion">${Version.numero()}</span></div>`
@@ -678,20 +711,22 @@ export function vueReglages(ctx, rendre, majEtat) {
       + `<p class="note" id="rgDonnees">Aucun compte. Les réglages, les lieux suivis et les données gardées `
       + `restent sur cet appareil.</p>`
       + (g.lat !== null ? `<div class="rangee"><span class="rangee-txt">Coordonnées du lieu</span>`
-        + `<span class="rangee-val">${esc(`${g.lat}, ${g.lon}`)}</span></div>` : "")
+        /* À la française, version 202 : une virgule décimale, un point-virgule
+           entre les deux nombres. */
+        + `<span class="rangee-val">${esc(`${String(g.lat).replace(".", ",")} ; ${String(g.lon).replace(".", ",")}`)}</span></div>` : "")
       + `<div class="rangee"><button type="button" class="bouton-texte rg-b" id="rgEffacer">`
       + `Effacer les données de cet appareil</button></div>`
       + aide("Pour lire la météo, les services de la carte « Sources » reçoivent les coordonnées du lieu "
         + "affiché, arrondies à un kilomètre environ en mode position. Le fond de la carte et le ciel ne reçoivent rien.")
       + `</div>`
 
-      + `<div class="carte"><div class="carte-tete"><h3>Sources</h3></div>`
+      + `<details class="carte plus" id="rgSources"><summary>Sources</summary>`
       /* Le sujet au-dessus, ses sources dessous, 3 octobre 2026 : en deux
          colonnes, « Vigilance, pluie dans l'heure » tenait sur trois lignes
          et les sources se tassaient à droite. */
       + sources.map(([n, v]) => `<div class="rangee rg-src"><span class="rangee-txt"><b>${esc(n)}</b>`
         + `<span>${esc(v)}</span></span></div>`).join("")
-      + `</div>`,
+      + `</details>`,
 
     brancher(bloc) {
       /* La justesse récente du lieu, version 197 : la station et ses mesures
@@ -789,6 +824,12 @@ export function vueReglages(ctx, rendre, majEtat) {
       /* Le profil d'allergies. L'écran de dessous se refait avec la feuille :
          un pollen retiré peut faire disparaître une ligne de l'accueil, et la
          voir partir sous la feuille est ce qui dit que le réglage a pris. */
+      for (const b of bloc.querySelectorAll("[data-activite]")) {
+        b.addEventListener("click", () => {
+          Reglages.basculerActivite(b.dataset.activite, Activites.ACTIVITES.map(a => a.cle));
+          rendre({ dessous: true });
+        });
+      }
       for (const b of bloc.querySelectorAll("[data-pollen]")) {
         b.addEventListener("click", () => {
           Reglages.basculerPollen(b.dataset.pollen);

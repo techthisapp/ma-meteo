@@ -1568,6 +1568,42 @@ case "$N" in
      perl -0pi -e 's/      \+ tete \+ `<\/button>`;/      + tete + ico("chevron_bas", "cj-chev") + `<\/button>`;/' src/conseils.js
      perl -0pi -e 's/^(import \{ nombreFr)/import { ico } from ".\/icones.js";\n$1/m' src/conseils.js
      ATTENDU="un conseil se lit en deux lignes, titre et précision, sans chevron" ;;
+  511) # La portée des tuiles ne se dit plus en tête de grille.
+     perl -0pi -e 's/`<p class="tu-portee">Jusqu.à minuit<\/p><div class="bd-mesures tuiles">`/`<div class="bd-mesures tuiles">`/' src/app.js
+     ATTENDU="les mesures portent sur les heures à venir jusqu.à minuit, et le disent une fois" ;;
+  512) # Le pollen se redit dans les conseils du jour.
+     perl -0pi -e 's/pollens: suivis \}\) : \[\]\)\.filter\(x => x\.i !== "pollen"\);/pollens: suivis }) : []);/' src/app.js
+     ATTENDU="un pollen du profil au pic se dit, une seule fois" ;;
+  513) # Le vélo reprend le symbole du vent.
+     perl -0pi -e 's/symbole: "velo"/symbole: "vent"/' src/activites.js
+     ATTENDU="chaque activité a son symbole" ;;
+  514) # Une activité retirée reste dans la feuille.
+     perl -0pi -e 's/\n    \.filter\(a => Reglages\.activiteSuivie\(a\.cle\)\);/;/' src/vues/feuilles.js
+     ATTENDU="chaque activité a son symbole, et une activité retirée ne paraît plus" ;;
+  515) # Toutes les activités peuvent se retirer.
+     perl -0pi -e 's/  if \(toutes\.length && toutes\.every\(x => apres\.includes\(x\)\)\) return activiteSuivie\(cle\);\n//' src/reglages.js
+     ATTENDU="une activité au moins reste suivie" ;;
+  516) # Les sources ne se replient plus.
+     perl -0pi -e 's/<details class="carte plus" id="rgSources">/<details class="carte plus" id="rgSources" open>/' src/vues/feuilles.js
+     ATTENDU="les réglages se rangent en quatre groupes" ;;
+  517) # Les coordonnées gardent le point décimal.
+     perl -0pi -e 's/String\(g\.lat\)\.replace\("\.", ","\)/String(g.lat)/' src/vues/feuilles.js
+     ATTENDU="les réglages se rangent en quatre groupes" ;;
+  518) # Le premier lieu perd sa pastille.
+     perl -0pi -e 's/\(k === 0 \? `<i class="pastille ton-soleil bt-pastille">Le plus beau<\/i>` : ""\)/""/' src/vues/feuilles.js
+     ATTENDU="le beau temps dit son verdict" ;;
+  519) # Le graphique tait ses unités.
+     perl -0pi -e 's/, <i class="sg-u sg-u-pluie"><\/i>pluie en mm/, pluie/' src/vues/avenir.js
+     ATTENDU="le graphique de la semaine dit ses unités" ;;
+  520) # Le rang du jour reprend son pourcentage nu.
+     perl -0pi -e 's/  return `\$\{Mot\} : \$\{part\}`;/  return `\${Mot} \${q} %`;/' src/vues/climat.js
+     ATTENDU="le rang du jour se dit en phrase" ;;
+  521) # Hors saison, la neige n'a plus de lien.
+     perl -0pi -e 's/\(!saisonNeige && nz\?\.proches\?\.length \? `<button/(false ? `<button/' src/app.js
+     ATTENDU="hors saison, la neige reste à portée" ;;
+  522) # La porte de l'air ignore le profil d'allergies.
+     perl -0pi -e 's/const pol = Air\.enSaison\(air\)\.filter\(p => Reglages\.pollenSuivi\(p\.cle\)\)\[0\];/const pol = Air.enSaison(air)[0];/' src/app.js
+     ATTENDU="le même pollen retiré du profil ne se dit plus" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

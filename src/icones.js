@@ -97,6 +97,20 @@ const D = {
   chevron_bas: '<path d="M6 9.5l6 6 6-6"/>',
   coche: '<path d="M4.5 12.6l4.8 4.8L19.5 7.2"/>',
   cible: '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8.4"/><path d="M12 1.6v3M12 19.4v3M1.6 12h3M19.4 12h3"/>',
+  /* Les six activités, version 202, audit d'usage du 13 octobre 2026 : un
+     thermomètre disait courir, une coche disait laver la voiture. */
+  course: '<path d="M2.8 18.2v-5.6l3.6-.9 2.6 2.9 5.6 1.4c3.3.8 5.2 1.6 6.6 3.4H3.6a.8.8 0 0 1-.8-.8z" '
+    + 'stroke-linejoin="round"/><path d="M8.4 12.6l1.3-1.5M10.6 13.8l1.3-1.5"/>',
+  velo: '<circle cx="6" cy="16" r="3.6"/><circle cx="18" cy="16" r="3.6"/>'
+    + '<path d="M6 16l3.8-6.6h6.4L18 16M9.8 9.4 13 16H6M14.8 6.6h2.6" stroke-linejoin="round"/>',
+  linge: '<path d="M2 4.8h20"/><path d="M8.2 4.8 4.6 7.2l1.6 2.6 1.6-1V18h8.4V8.8l1.6 1 1.6-2.6-3.6-2.4'
+    + 'c-.6 1.4-2 2.2-3.8 2.2S8.8 6.2 8.2 4.8z" stroke-linejoin="round"/>',
+  fenetre: '<rect x="5" y="3.6" width="14" height="16.8" rx="1.2"/><path d="M12 3.6v16.8M5 12h14"/>',
+  arrosoir: '<path d="M3.6 10.4h9.6l-.8 8.2a1.6 1.6 0 0 1-1.6 1.4H6a1.6 1.6 0 0 1-1.6-1.4z" stroke-linejoin="round"/>'
+    + '<path d="M5.4 10.4C5.4 6.6 11.4 6.6 11.4 10.4M12.8 13.6l5.8-4.8"/>'
+    + '<path d="M17.4 7.2l2.8 3.2" stroke-width="2.4"/>',
+  voiture: '<path d="M3.4 16.4v-3.4l2.1-4.6c.3-.7 1-1.2 1.8-1.2h9.4c.8 0 1.5.5 1.8 1.2l2.1 4.6v3.4z" '
+    + 'stroke-linejoin="round"/><path d="M3.4 13h17.2"/><circle cx="7.4" cy="17.4" r="1.8"/><circle cx="16.6" cy="17.4" r="1.8"/>',
   maison: '<path d="M3.4 10.6 12 3.8l8.6 6.8V19a1.6 1.6 0 0 1-1.6 1.6H5a1.6 1.6 0 0 1-1.6-1.6z" '
     + 'stroke-linejoin="round"/><path d="M9.6 20.6v-6h4.8v6"/>',
   /* La carte pliée : trois volets, deux plis. Une punaise aurait redit le
