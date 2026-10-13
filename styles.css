@@ -3012,3 +3012,11 @@ button.rangee:active{background:var(--surface-2)}
 .porte-hors{display:inline-flex;align-items:center;gap:var(--espace-sm);min-height:var(--touche);padding:0 var(--espace-md);
   border:0;border-radius:var(--rayon-plein);background:var(--surface);color:var(--accent);font:inherit;font-size:var(--texte-note);font-weight:var(--graisse-medium);cursor:pointer}
 .porte-hors svg{width:18px;height:18px}
+
+/* Les légendes de la pluie et de la vigilance, version 203. */
+.ca-lp .ca-rampe-pluie{flex:none;width:44px;height:6px;border-radius:var(--rayon-plein);
+  background:linear-gradient(90deg,#88ddee,#009ad5,#005588,#ffe000,#ff9500,#d91b00,#ff58ff)}
+.ca-lg .ca-pastille-vigi{flex:none;width:10px;height:10px;border-radius:var(--rayon-plein);margin-right:2px}
+.ca-lg .ca-vj{background:var(--v2)}
+.ca-lg .ca-vo{background:var(--v3)}
+.ca-lg .ca-vr{background:var(--v4)}

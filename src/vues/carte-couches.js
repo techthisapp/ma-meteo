@@ -441,6 +441,7 @@ export function brancherCouches(E) {
     Reglages.poserVigicarte(E.vigiAllume);
     vigi.setAttribute("aria-checked", E.vigiAllume ? "true" : "false");
     E.mention();
+    E.poserLegende();
     if (E.vigiAllume && !vigiNiveaux) lireVigi(); else E.revoir();
   });
 

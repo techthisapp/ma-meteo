@@ -242,6 +242,12 @@ export function vueCarte(ctx, rendre, majEtat) {
           const em = b.querySelector("[data-deg]");
           if (a && em) em.textContent = `${Math.round(a.t)}°`;
         });
+        /* La température élargit l'étiquette du lieu : les noms des villes
+           se reposent autour, version 203, audit d'usage du 13 octobre 2026.
+           Posés avant elle, ils passaient sous l'étiquette élargie, Nantes
+           sous Fain-lès-Moutiers. */
+        placer();
+        E.revoir?.();
       });
 
       /* Le panneau des couches. Quatre interrupteurs empilés dans la colonne

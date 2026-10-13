@@ -1604,6 +1604,12 @@ case "$N" in
   522) # La porte de l'air ignore le profil d'allergies.
      perl -0pi -e 's/const pol = Air\.enSaison\(air\)\.filter\(p => Reglages\.pollenSuivi\(p\.cle\)\)\[0\];/const pol = Air.enSaison(air)[0];/' src/app.js
      ATTENDU="le même pollen retiré du profil ne se dit plus" ;;
+  523) # La vigilance n'a plus de légende.
+     perl -0pi -e 's/    legVigi\.hidden = !E\.vigiAllume;\n//' src/vues/carte-legende.js
+     ATTENDU="la carte légende la pluie et la vigilance" ;;
+  524) # La légende de la vigilance ne suit plus l'interrupteur.
+     perl -0pi -e 's/    E\.mention\(\);\n    E\.poserLegende\(\);\n    if \(E\.vigiAllume/    E.mention();\n    if (E.vigiAllume/' src/vues/carte-couches.js
+     ATTENDU="la carte légende la pluie et la vigilance" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

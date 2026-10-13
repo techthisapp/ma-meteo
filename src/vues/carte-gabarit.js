@@ -317,6 +317,18 @@ export const gabaritCarte = g => `<div class="ca-cadre">`
   + `<span class="ca-lv-r"><i class="ca-pastille-feu"></i><span id="caFeuxNom">Foyers satellite, 7 jours</span></span>`
   + `<span class="ca-lv-r"><i class="ca-pastille-brule"></i>Surfaces brûlées</span>`
   + `</div>`
+  /* La pluie et la vigilance ont leur légende, version 203, audit d'usage
+     du 13 octobre 2026 : la carte les peignait sans dire leurs couleurs.
+     La rampe de la pluie reprend le schéma du radar, `PALETTE` de
+     src/deplacement.js. */
+  + `<div class="ca-legende ca-lv ca-lp" id="caLegPluie" hidden `
+  + `aria-label="Pluie, du bleu clair pour une pluie faible au rouge pour une pluie forte, le violet pour la grêle">`
+  + `<span class="ca-lv-r"><i class="ca-rampe-pluie"></i>Pluie, faible à forte</span>`
+  + `</div>`
+  + `<div class="ca-legende ca-lv ca-lg" id="caLegVigi" hidden aria-label="Vigilance de Météo-France, jaune, orange et rouge">`
+  + `<span class="ca-lv-r"><i class="ca-pastille-vigi ca-vj"></i><i class="ca-pastille-vigi ca-vo"></i>`
+  + `<i class="ca-pastille-vigi ca-vr"></i>Vigilance jaune, orange, rouge</span>`
+  + `</div>`
   + `<div class="ca-legende ca-lv ca-lf" id="caLegFoudre" hidden `
   + `aria-label="Foudre des trente dernières minutes, du jaune pour un éclair au rouge sombre pour vingt et plus">`
   + `<span class="ca-lv-r"><i class="ca-rampe-foudre"></i>Foudre, 30 min</span>`

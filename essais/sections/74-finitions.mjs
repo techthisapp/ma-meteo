@@ -76,6 +76,23 @@ export default async T => {
     sem.unites === "maximum minimum en degrés, rafales en km/h, pluie en mm" && sem.plus === 1, JSON.stringify(sem));
   await c.close();
 
+  /* La carte, version 203 : la pluie et la vigilance ont leur légende, qui
+     suit leur interrupteur. */
+  const [c4, p4] = await ctxReponse(() => METEO_NUE(), FAIN);
+  await reposer(p4, 1500);
+  await p4.locator('[data-onglet="carte"]').click(); await reposer(p4, 2500);
+  const leg = async () => p4.evaluate(() => ({
+    pluie: !document.getElementById("caLegPluie")?.hidden && document.getElementById("caLegPluie")?.textContent,
+    vigi: !document.getElementById("caLegVigi")?.hidden && document.getElementById("caLegVigi")?.textContent }));
+  const avant = await leg();
+  await p4.locator("#caCouches").click(); await p4.waitForTimeout(300);
+  await p4.locator("#caVigi").click(); await p4.waitForTimeout(500);
+  const apres = await leg();
+  ok("la carte légende la pluie et la vigilance, et la légende suit l'interrupteur",
+    avant.pluie === "Pluie, faible à forte" && avant.vigi === "Vigilance jaune, orange, rouge"
+    && apres.pluie === "Pluie, faible à forte" && apres.vigi === false, JSON.stringify({ avant, apres }));
+  await c4.close();
+
   /* Le climat en phrases, et la phrase des jours semblables. */
   const [c2, p2] = await ctxReponse(() => METEO_NUE(), FAIN);
   await reposer(p2, 1500);

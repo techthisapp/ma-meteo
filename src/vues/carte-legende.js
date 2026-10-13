@@ -102,6 +102,8 @@ export function brancherLegende(E) {
   const grads = bloc.querySelector("#caGrads");
   const legVent = bloc.querySelector("#caLegVent");
   const legFoudre = bloc.querySelector("#caLegFoudre");
+  const legPluie = bloc.querySelector("#caLegPluie");
+  const legVigi = bloc.querySelector("#caLegVigi");
   const legFeux = bloc.querySelector("#caLegFeux");
   const periode = bloc.querySelector("#caPeriode");
   const perCurseur = bloc.querySelector("#caPerCurseur");
@@ -185,8 +187,10 @@ export function brancherLegende(E) {
     }
     legFoudre.hidden = !E.foudreAllume;
     legVent.hidden = !E.ventAllume;
+    legPluie.hidden = !E.pluieAllume;
+    legVigi.hidden = !E.vigiAllume;
     /* La boîte se cache quand elle n'a rien à dire. */
-    boite.hidden = legende.hidden && legFeux.hidden && legFoudre.hidden && legVent.hidden;
+    boite.hidden = legende.hidden && legFeux.hidden && legFoudre.hidden && legVent.hidden && legPluie.hidden && legVigi.hidden;
     if (legVent.hidden) return;
     const rep = ECHELLES.v.filter(([v]) => v === 12 || v === 30 || v === 50);
     /* La traînée de la légende prend la couleur de sa vitesse, comme sur la
