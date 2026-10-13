@@ -13,7 +13,8 @@
    écoulées, au delà l'heure visée a disparu de la source et la comparaison
    n'aurait plus de terme. */
 
-import { cleHeure, instantParis } from "./horloge.js";
+import { cleHeure, instantParis, chercherEn } from "./horloge.js";
+import { envoi } from "./reglages.js";
 
 const CACHE = "mameteo.justesse.v1";
 
@@ -215,3 +216,98 @@ export function bilan(lignes) {
 
 /* Le nom d'une échéance en toutes lettres. */
 export const nomEcheance = e => (e < 24 ? `dans ${e} h` : e === 24 ? "à 1 jour" : `à ${e / 24} jours`);
+
+/* ---------- La justesse récente du lieu, version 197 ----------
+
+   Demande de Jérôme du 13 octobre 2026 : publier la justesse sans attendre
+   les deux mois du journal. Open-Meteo garde les prévisions émises un à sept
+   jours avant chaque heure, `temperature_2m_previous_dayN`, pour le même
+   choix de modèles que la prévision de l'application. Relevé le 13 octobre
+   2026 : accepté depuis le navigateur, aucune valeur manquante sur cinq jours.
+   Elles se confrontent à la station de Météo-France du lieu, dont le paquet
+   porte quatre à cinq jours, ou, sans clé ni station, au relevé d'Open-Meteo,
+   `temperature_2m`. Le service ne reçoit que le point arrondi. Essai du même
+   jour à Fain, station de Semur-en-Auxois, 111 heures : écart moyen de 1,2°
+   à un jour, 1,5° à trois jours, 2,5° à sept jours. */
+export const SERVICE_PASSE = "https://previous-runs-api.open-meteo.com/v1/forecast";
+export const JOURS_PASSES = 5;
+export const ECHEANCES = [1, 2, 3, 4, 5, 6, 7];
+/* Une heure pluvieuse : 0,2 mm, comme le journal. La pluie se juge sur les
+   heures où la prévision ou la mesure en porte : sur les heures sèches des
+   deux côtés, l'accord ne dit rien. */
+export const HEURES_PLUIE_MIN = 5;
+
+export function adressePassee(lat, lon) {
+  const v = ECHEANCES.map(j => `temperature_2m_previous_day${j},precipitation_previous_day${j}`).join(",");
+  return `${SERVICE_PASSE}?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,precipitation,${v}`
+    + `&past_days=${JOURS_PASSES}&forecast_days=1&timezone=GMT`;
+}
+
+/* Les prévisions passées par heure de Paris :
+   `{ "2026-10-10T21": { t0, mm0, t: [7 valeurs], mm: [7 valeurs] } }`. Les
+   heures sont demandées en temps universel et récrites ici. */
+export function lirePassees(d) {
+  const h = d?.hourly;
+  if (!Array.isArray(h?.time)) return null;
+  const out = {};
+  h.time.forEach((t, i) => {
+    out[cleHeure(new Date(`${t}:00Z`)).slice(0, 13)] = {
+      t0: h.temperature_2m?.[i] ?? null, mm0: h.precipitation?.[i] ?? null,
+      t: ECHEANCES.map(j => h[`temperature_2m_previous_day${j}`]?.[i] ?? null),
+      mm: ECHEANCES.map(j => h[`precipitation_previous_day${j}`]?.[i] ?? null),
+    };
+  });
+  return out;
+}
+
+/* Le bilan des heures écoulées : par échéance, l'écart moyen, le biais, la
+   part à deux degrés près, et la pluie juste. La mesure de la station passe
+   avant le relevé ; les heures à venir ne comptent pas. */
+export function bilanRecent(passees, mesures, maintenant = new Date()) {
+  if (!passees) return null;
+  const limite = cleHeure(maintenant).slice(0, 13);
+  const station = !!mesures && Object.keys(mesures).length > 0;
+  const heures = Object.keys(passees).filter(k => k < limite).sort();
+  const vrai = k => (station ? mesures[k] ? { t: mesures[k].t, mm: mesures[k].rr1 } : null
+    : { t: passees[k].t0, mm: passees[k].mm0 });
+  const moy = a => a.reduce((s, v) => s + v, 0) / a.length;
+  const echeances = ECHEANCES.map((j, n) => {
+    const d = [], pl = [];
+    for (const k of heures) {
+      const v = vrai(k), f = passees[k];
+      if (!v) continue;
+      if (Number.isFinite(v.t) && Number.isFinite(f.t[n])) d.push(f.t[n] - v.t);
+      if (Number.isFinite(v.mm) && Number.isFinite(f.mm[n])) {
+        const a = f.mm[n] >= SEUIL_PLUIE, b = v.mm >= SEUIL_PLUIE;
+        if (a || b) pl.push(a === b);
+      }
+    }
+    if (d.length < COUPLES_MIN) return { j, n: d.length };
+    return { j, n: d.length,
+      ecart: Math.round(moy(d.map(Math.abs)) * 10) / 10, biais: Math.round(moy(d) * 10) / 10,
+      part2: Math.round(d.filter(v => Math.abs(v) <= 2).length / d.length * 100),
+      pluie: pl.length >= HEURES_PLUIE_MIN ? Math.round(pl.filter(Boolean).length / pl.length * 100) : null,
+      heuresPluie: pl.length };
+  });
+  const comptees = heures.filter(k => vrai(k));
+  return { station, echeances, depuis: comptees[0] || null, jusqua: comptees[comptees.length - 1] || null };
+}
+
+/* La lecture, gardée une heure par lieu : les prévisions passées ne changent
+   qu'avec l'heure. */
+const recents = new Map();
+export async function chargerRecent(lat, lon, mesures, fetcheur = chercherEn(15000)) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  const cle = `${envoi(lat)},${envoi(lon)}|${cleHeure().slice(0, 13)}`;
+  let p = recents.get(cle);
+  if (!p) {
+    try {
+      const r = await fetcheur(adressePassee(envoi(lat), envoi(lon)));
+      p = r.ok ? lirePassees(await r.json()) : null;
+    } catch { p = null; }
+    if (!p) return null;
+    recents.clear();
+    recents.set(cle, p);
+  }
+  return bilanRecent(p, mesures);
+}

@@ -26,28 +26,53 @@ function etatCle() {
     : "enregistrée";
 }
 
+/* La justesse des prévisions, jalon 6. Depuis la version 197, demande de
+   Jérôme du 13 octobre 2026, la carte publie d'abord la justesse récente du
+   lieu affiché : les prévisions émises un à sept jours avant chacune des
+   heures des cinq derniers jours, confrontées à la station de Météo-France
+   ou, à défaut, au relevé d'Open-Meteo. Elle se lit à l'ouverture des
+   réglages et se pose à son arrivée. Le journal de l'appareil suit, toutes
+   communes confondues. */
+const fr1 = n => String(n).replace(".", ",");
+const ECHEANCES_MONTREES = [1, 2, 3, 5, 7];
+export function justesseRecenteHTML(b, nomStation) {
+  if (!b) return `<p class="note">Justesse récente non lue : le service ne répond pas.</p>`;
+  const vues = b.echeances.filter(e => ECHEANCES_MONTREES.includes(e.j) && e.ecart !== undefined);
+  if (!vues.length) return `<p class="note">Pas assez d'heures mesurées ces derniers jours pour juger la prévision.</p>`;
+  const qui = b.station && nomStation ? `mesures de la station de ${nomStation}`
+    : b.station ? "mesures de la station de Météo-France la plus proche" : "relevé d'Open-Meteo, sans station de Météo-France";
+  return `<p class="note rg-recente">Ici, ces cinq derniers jours, ${esc(qui)}.</p>`
+    + vues.map(e => `<div class="rangee" data-echeance="${e.j}"><span class="rangee-txt">`
+      + `<b>À ${e.j} jour${e.j > 1 ? "s" : ""}</b>`
+      + `<span>${e.part2} % à 2° près${Math.abs(e.biais) >= 0.5 ? `, ${e.biais > 0 ? "trop chaude" : "trop fraîche"} de ${fr1(Math.abs(e.biais))}°` : ""}`
+      + `${e.pluie !== null ? `, pluie juste ${e.pluie} %` : ""}</span></span>`
+      + `<span class="rangee-val"><b>± ${fr1(e.ecart)}°</b></span></div>`).join("");
+}
+
 function justesseHTML() {
   const b = Justesse.bilan(Justesse.lire().lignes);
-  const fr = n => String(n).replace(".", ",");
-  const tete = `<div class="carte"><div class="carte-tete"><h3>Justesse des prévisions</h3></div>`;
-  if (!b.jours) {
-    return tete + `<p class="note">Aucun relevé encore : la justesse se mesure jour après jour sur cet appareil.</p></div>`;
-  }
+  const tete = `<div class="carte" id="rgJustesse"><div class="carte-tete"><h3>Justesse des prévisions</h3></div>`
+    + `<div id="rgJustesseIci"><p class="note">Lecture des cinq derniers jours.</p></div>`;
   const lignes = b.paliers.filter(p => p.ecart !== undefined).map(p =>
     `<div class="rangee"><span class="rangee-txt"><b>${esc(Justesse.nomEcheance(p.e).replace(/^./, c => c.toUpperCase()))}</b>`
-    + `<span>${p.part2} % à 2° près, ${p.n} relevés${Math.abs(p.biais) >= 0.5 ? `, ${p.biais > 0 ? "trop chaude" : "trop fraîche"} de ${fr(Math.abs(p.biais))}°` : ""}`
+    + `<span>${p.part2} % à 2° près, ${p.n} relevés${Math.abs(p.biais) >= 0.5 ? `, ${p.biais > 0 ? "trop chaude" : "trop fraîche"} de ${fr1(Math.abs(p.biais))}°` : ""}`
     + `${p.pluie !== null && p.pluie !== undefined ? `, pluie juste ${p.pluie} %` : ""}</span></span>`
-    + `<span class="rangee-val"><b>± ${fr(p.ecart)}°</b></span></div>`).join("");
+    + `<span class="rangee-val"><b>± ${fr1(p.ecart)}°</b></span></div>`).join("");
   /* Sans phrase sur le délai, retirée à la demande de Jérôme le 27 septembre
      2026 : la carte donne les chiffres et la façon de les lire. Depuis la
      version 187, la station de Météo-France qui mesure se nomme, et la pluie
      se juge aussi. */
   const noms = b.stations.map(Observations.nomDe).filter(Boolean);
-  const station = noms.length ? `<p class="note rg-station">Mesures de la station de ${esc(noms.map(n => n.replace(/_SAPC$/, "")).join(", "))}.</p>` : "";
-  return tete + station + lignes
-    + aide("Écart moyen entre la température annoncée et celle mesurée, à 6 h et à 15 h ; part des heures où la pluie "
-      + "annoncée ou non à 0,2 mm est tombée ou non. Les mesures viennent de la station de Météo-France la plus proche "
-      + "quand la clé de Météo-France est saisie, sinon d'un relevé d'Open-Meteo.") + `</div>`;
+  const station = noms.length ? ` Mesures de la station de ${esc(noms.map(Observations.nomPropre).join(", "))}.` : "";
+  const journal = !b.jours
+    ? `<p class="note rg-journal">Sur cet appareil, aucun relevé encore : le journal se remplit jour après jour.</p>`
+    : `<p class="note rg-journal rg-station">Sur cet appareil, toutes communes confondues, depuis le ${esc(jourLong(b.depuis))}.${station}</p>` + lignes;
+  return tete + journal
+    + aide("Écart moyen entre la température annoncée et celle mesurée, et part des heures tombées à 2° près. "
+      + "La pluie juste compte, parmi les heures où la pluie était annoncée ou est tombée, à 0,2 mm, celles où les deux "
+      + "s'accordent. Ici : toutes les heures des cinq derniers jours, prévues un à sept jours avant. Sur cet appareil : "
+      + "les prévisions que l'application a montrées, à 6 h et à 15 h. Les mesures viennent de la station de "
+      + "Météo-France la plus proche quand la clé de Météo-France est saisie, sinon d'un relevé d'Open-Meteo.") + `</div>`;
 }
 
 /* ---------- Le rappel de parapluie ---------- */
@@ -537,6 +562,8 @@ export function vueReglages(ctx, rendre, majEtat) {
     ["Danger d'incendie", "avec une clé, météo des forêts de Météo-France et de l'Office national des forêts"],
     ["Mesures des stations", "avec une clé, observations des stations de Météo-France, horaires pour la justesse, "
       + "toutes les six minutes pour la mesure du moment ; sinon relevé d'Open-Meteo"],
+    /* Version 197 : le service reçoit le point arrondi. */
+    ["Justesse récente", "prévisions émises un à sept jours plus tôt, gardées par Open-Meteo"],
     /* Un service muet le dit ici aussi, audit, constat 2.6. */
     ["Vigilance, pluie dans l'heure", (() => {
       const l = Vig.etatLecture();
@@ -655,6 +682,17 @@ export function vueReglages(ctx, rendre, majEtat) {
       + `</div>`,
 
     brancher(bloc) {
+      /* La justesse récente du lieu, version 197 : la station et ses mesures
+         d'abord, quand la clé le permet, puis les prévisions passées. */
+      const ici = bloc.querySelector("#rgJustesseIci");
+      if (ici && Number.isFinite(g.lat)) {
+        (async () => {
+          const o = await Observations.duLieu(g.lat, g.lon, Number(c?.elevation)).catch(() => null);
+          const r = await Justesse.chargerRecent(g.lat, g.lon, o?.mesures || null);
+          if (!ici.isConnected) return;
+          ici.innerHTML = justesseRecenteHTML(r, o ? Observations.nomPropre(o.station.nom) : null);
+        })();
+      } else if (ici) ici.remove();
       /* Efface tout ce que l'application garde sur l'appareil : réglages, lieux
          suivis, dernier relevé de position, prévisions et caches. La copie hors
          ligne de l'application elle-même reste. Audit du 1er octobre 2026,

@@ -1492,6 +1492,21 @@ case "$N" in
   485) # La pastille perd son fond teinté.
      perl -0pi -e 's/  background:color-mix\(in srgb, var\(--ton\) 16%, transparent\);\n//' styles.css
      ATTENDU="les portes portent leurs indicateurs" ;;
+  486) # Les prévisions passées restent en temps universel.
+     perl -0pi -e 's/cleHeure\(new Date\(`\$\{t\}:00Z`\)\)/cleHeure(new Date(`\${t}:00`))/' src/justesse.js
+     ATTENDU="les prévisions passées se rangent à l.heure de Paris" ;;
+  487) # La station est ignorée par la justesse récente.
+     perl -0pi -e 's/const station = !!mesures && Object/const station = false \&\& !!mesures \&\& Object/' src/justesse.js
+     ATTENDU="avec la clé, la justesse récente du lieu se juge sur la station" ;;
+  488) # La pluie se juge aussi sur les heures sèches.
+     perl -0pi -e 's/if \(a \|\| b\) pl\.push\(a === b\);/pl.push(a === b);/' src/justesse.js
+     ATTENDU="avec la clé, la justesse récente du lieu se juge sur la station" ;;
+  489) # Le service muet ne se dit pas.
+     perl -0pi -e 's/if \(!b\) return `<p class="note">Justesse récente non lue : le service ne répond pas\.<\/p>`;/if (!b) return "";/' src/vues/feuilles.js
+     ATTENDU="sans réponse du service, la justesse récente le dit" ;;
+  490) # Le biais change de signe.
+     perl -0pi -e 's/d\.push\(f\.t\[n\] - v\.t\)/d.push(v.t - f.t[n])/' src/justesse.js
+     ATTENDU="sans clé, la justesse récente du lieu se juge sur le relevé" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

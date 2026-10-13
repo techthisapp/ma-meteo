@@ -60,6 +60,36 @@ export default async T => {
 
   ok("sans clé, rien ne part vers les observations",
     etat.appelsObs.length === 0, `${etat.appelsObs.length} appels`);
+
+  /* La justesse récente, version 197 : les prévisions passées se lisent en
+     temps universel et se rangent à l'heure de Paris. */
+  ok("les prévisions passées se rangent à l'heure de Paris, une valeur par échéance",
+    await p0.evaluate(async () => {
+      const J = await import("/src/justesse.js");
+      const h = { time: ["2026-08-17T13:00"], temperature_2m: [17], precipitation: [0.4] };
+      for (let n = 1; n <= 7; n++) { h[`temperature_2m_previous_day${n}`] = [18 + n]; h[`precipitation_previous_day${n}`] = [n === 2 ? 1 : 0]; }
+      return JSON.stringify(J.lirePassees({ hourly: h }));
+    }) === JSON.stringify({ "2026-08-17T15": { t0: 17, mm0: 0.4, t: [19, 20, 21, 22, 23, 24, 25], mm: [0, 1, 0, 0, 0, 0, 0] } }));
+
+  /* Sans clé, la justesse récente se juge sur le relevé d'Open-Meteo, 17 °C
+     face aux 18,4 °C annoncés un jour avant. */
+  const justesseRecente = async p => {
+    await p.evaluate(() => document.getElementById("btnReglages").click());
+    await p.waitForFunction(() => !/Lecture des cinq/.test(document.getElementById("rgJustesseIci")?.textContent || "x"), null, { timeout: 8000 }).catch(() => {});
+    return p.evaluate(() => {
+      const ici = document.getElementById("rgJustesseIci");
+      return { note: ici?.querySelector(".note")?.textContent || "",
+        lignes: [...(ici?.querySelectorAll(".rangee") || [])].map(r => r.innerText.replace(/\s+/g, " ").trim()),
+        journal: document.querySelector("#rgJustesse .rg-journal")?.textContent || "" };
+    });
+  };
+  const sansCle = await justesseRecente(p0);
+  ok("sans clé, la justesse récente du lieu se juge sur le relevé d'Open-Meteo",
+    sansCle.note === "Ici, ces cinq derniers jours, relevé d'Open-Meteo, sans station de Météo-France."
+    && sansCle.lignes[0] === "À 1 jour 100 % à 2° près, trop chaude de 1,4°, pluie juste 100 % ± 1,4°"
+    && sansCle.lignes.length === 5 && etat.appelsPassees.length === 1
+    && /^https:\/\/previous-runs-api\.open-meteo\.com\/v1\/forecast\?latitude=47\.5&longitude=4\.3&hourly=temperature_2m,precipitation,temperature_2m_previous_day1,precipitation_previous_day1,.*previous_day7&past_days=5&forecast_days=1&timezone=GMT$/.test(etat.appelsPassees[0]),
+    `${JSON.stringify(sansCle)} ; ${etat.appelsPassees.join(" ")}`);
   await c0.close();
 
   /* Avec la clé : le journal reçoit les mesures, et les réglages les
@@ -92,19 +122,38 @@ export default async T => {
   ok("la clé qui expire dans le mois se signale sous l'accueil",
     pied === "La clé de Météo-France expire le 28 août : à renouveler sur le portail, puis dans les réglages.", pied);
 
-  const reglages = await p1.evaluate(async () => {
-    document.getElementById("btnReglages").click();
-    await new Promise(r => setTimeout(r, 600));
-    const cartes = [...document.querySelectorAll(".carte")];
-    const j = cartes.find(c => /Justesse des prévisions/.test(c.textContent));
+  /* La justesse récente avec la clé, version 197 : la station mesure 18 °C,
+     la prévision émise N jours avant en annonçait 18 + 0,4 × N ; la pluie de
+     13 h est vue jusqu'à trois jours. */
+  const recente = await justesseRecente(p1);
+  ok("avec la clé, la justesse récente du lieu se juge sur la station, à un, deux, trois, cinq et sept jours",
+    recente.note === "Ici, ces cinq derniers jours, mesures de la station de Semur en Auxois."
+    && recente.lignes.join(" | ") === "À 1 jour 100 % à 2° près, pluie juste 100 % ± 0,4°"
+      + " | À 2 jours 100 % à 2° près, trop chaude de 0,8°, pluie juste 100 % ± 0,8°"
+      + " | À 3 jours 100 % à 2° près, trop chaude de 1,2°, pluie juste 100 % ± 1,2°"
+      + " | À 5 jours 100 % à 2° près, trop chaude de 2°, pluie juste 0 % ± 2°"
+      + " | À 7 jours 0 % à 2° près, trop chaude de 2,8°, pluie juste 0 % ± 2,8°",
+    JSON.stringify(recente));
+  const reglages = await p1.evaluate(() => {
+    const j = document.getElementById("rgJustesse");
     return { cle: document.getElementById("rgCleEtat")?.textContent || "",
       station: j?.querySelector(".rg-station")?.textContent || "",
-      ligne: j?.querySelector(".rangee")?.textContent.replace(/\s+/g, " ").trim() || "" };
+      ligne: j?.querySelector(".rg-journal ~ .rangee")?.textContent.replace(/\s+/g, " ").trim() || "" };
   });
-  ok("les réglages disent la fin de la clé, la station et la justesse mesurée, pluie comprise",
+  ok("les réglages disent la fin de la clé, la station et la justesse mesurée sur l'appareil, pluie comprise",
     reglages.cle === "valable jusqu'au 28 août 2026"
-    && reglages.station === "Mesures de la station de SEMUR EN AUXOIS."
+    && /^Sur cet appareil, toutes communes confondues, depuis le .*13 août\. Mesures de la station de Semur en Auxois\.$/.test(reglages.station)
     && /À 1 jour.*100 % à 2° près, 5 relevés, trop chaude de 2°, pluie juste 0 %.*± 2°/.test(reglages.ligne),
     JSON.stringify(reglages));
   await c1.close();
+
+  /* Un service muet le dit, sans chiffres. */
+  etat.passeesMuettes = true;
+  const [c2, p2] = await ouvrir({ ...FAIN, lat: 47.6 });
+  const muette = await justesseRecente(p2);
+  ok("sans réponse du service, la justesse récente le dit et le journal reste",
+    muette.note === "Justesse récente non lue : le service ne répond pas." && muette.lignes.length === 0
+    && /^Sur cet appareil/.test(muette.journal), JSON.stringify(muette));
+  etat.passeesMuettes = false;
+  await c2.close();
 };

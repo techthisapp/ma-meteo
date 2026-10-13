@@ -1099,6 +1099,14 @@ export const brancherFauxServices = async (c, etat) => {
     r.fulfill({ status: 200, contentType: "application/json",
       body: JSON.stringify(airDe(etat.profilAir)) });
   });
+  /* Les prévisions passées, version 197 : servies après la prévision, leur
+     domaine porte lui aussi « api.open-meteo.com ». Voir `passeesCorps`. */
+  await c.route(/previous-runs-api\.open-meteo\.com/, r => {
+    const u = r.request().url();
+    etat.appelsPassees.push(u);
+    if (etat.passeesMuettes) { r.fulfill({ status: 503, body: "non" }); return; }
+    r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(passeesCorps()) });
+  });
   /* La vigilance de tout le pays, pour la couche de la carte. Elle se sert sur
      le même service que le bulletin détaillé et donc après lui. Quelques
      départements en jaune, en orange et un en rouge, de quoi éprouver les trois
@@ -1371,6 +1379,30 @@ export const obsPaquet = () => {
   return out;
 };
 
+/* Les prévisions passées, version 197 : cinq jours écoulés et le jour figé,
+   en temps universel. Le relevé d'Open-Meteo dit 17 °C ; la prévision émise
+   N jours avant dit 18 + 0,4 × N °C, face à la station qui mesure 18 °C, soit
+   un écart de 0,4 × N degrés, à 2° près jusqu'à cinq jours et jamais à sept.
+   La pluie de 13 h en temps universel, que la station mesure, est vue à la
+   même heure jusqu'à trois jours, à 14 h au delà : juste partout, puis nulle
+   part. */
+export const passeesCorps = () => {
+  const debut = new Date(FIGE); debut.setUTCHours(0, 0, 0, 0);
+  const t0 = debut.getTime() - 5 * 86400000;
+  const time = [], hourly = { time, temperature_2m: [], precipitation: [] };
+  for (let n = 1; n <= 7; n++) { hourly[`temperature_2m_previous_day${n}`] = []; hourly[`precipitation_previous_day${n}`] = []; }
+  for (let h = 0; h < 6 * 24; h++) {
+    const t = new Date(t0 + h * 3600000), hu = t.getUTCHours();
+    time.push(t.toISOString().slice(0, 16));
+    hourly.temperature_2m.push(17); hourly.precipitation.push(hu === 13 ? 0.4 : 0);
+    for (let n = 1; n <= 7; n++) {
+      hourly[`temperature_2m_previous_day${n}`].push(Math.round((18 + 0.4 * n) * 10) / 10);
+      hourly[`precipitation_previous_day${n}`].push(hu === (n <= 3 ? 13 : 14) ? 0.4 : 0);
+    }
+  }
+  return { latitude: 47.5, longitude: 4.3, utc_offset_seconds: 0, timezone: "GMT", hourly };
+};
+
 /* La météo des forêts, version 188 : la carte faite la veille de l'heure
    figée, à 16 h 50 de Paris ; la Côte-d'Or en danger élevé aujourd'hui et
    très élevé demain, les Bouches-du-Rhône très élevé les deux jours, le reste
@@ -1459,6 +1491,7 @@ export const nouvelEtat = () => ({
   appelsPasseeJours: [],
   appelsPiaf: [],
   appelsObs: [],
+  appelsPassees: [], passeesMuettes: false,
   appelsForet: [],
   appelsBra: [],
   appelsGeorisques: [],
