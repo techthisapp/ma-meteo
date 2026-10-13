@@ -1162,7 +1162,7 @@ export default async T => {
   await pg.waitForFunction(() => /nappe très haute/.test(document.querySelector("#ecran .porte-eau")?.textContent || ""), null, { timeout: 8000 }).catch(() => {});
   const eauAcc = await pg.evaluate(() => {
     const t = document.querySelector("#ecran .porte-eau");
-    return { tuile: t ? t.textContent.replace(/\s+/g, " ").trim() : "", classe: t?.querySelector(".porte-info.v-attention") ? "v-attention" : "",
+    return { tuile: t ? t.textContent.replace(/\s+/g, " ").trim() : "", jauge: (j => (j ? `${j.dataset.niveau}/${j.dataset.sur}:${j.querySelectorAll("i.jg-on").length}` : ""))(t?.querySelector(".porte-info .jg")),
       apres: !!t && !!t.nextElementSibling?.matches(".porte-risques"),
       conseil: [...document.querySelectorAll("#ecran .cj-l")].map(l => l.dataset.phrase).find(x => /^Restriction d'eau/.test(x || "")) || "" };
   });
@@ -1184,8 +1184,10 @@ export default async T => {
     .map(b => [b.dataset.feuille, b.getAttribute("aria-label").replace(/^.*, /, "")])));
   ok("une tuile qui ouvre une feuille dit au lecteur d'écran celle qu'elle ouvre",
     tuilesVers.air === "voir l'air qu'on respire" && !tuilesVers.eau, JSON.stringify(tuilesVers));
-  ok("la porte de l'eau, au-dessus des risques, dit la restriction et la nappe ; les conseils du jour ne la redisent pas",
-    /^L'eau\s*Restriction : alerte, nappe très haute$/.test(eauAcc.tuile) && eauAcc.classe === "v-attention" && eauAcc.apres
+  /* Depuis la version 196, la jauge des quatre niveaux de restriction
+     remplace la couleur du texte : l'alerte en remplit deux. */
+  ok("la porte de l'eau, au-dessus des risques, dit la restriction et la nappe, avec sa jauge ; les conseils du jour ne la redisent pas",
+    /^L'eau\s*Restriction : alerte, nappe très haute$/.test(eauAcc.tuile) && eauAcc.jauge === "2/4:2" && eauAcc.apres
     && eauAcc.conseil === "", JSON.stringify(eauAcc));
   ok("la feuille de l'eau détaille la restriction, son arrêté, et l'état de la nappe",
     eauFeuille.surface === "Alerte" && eauFeuille.potable === "Vigilance" && eauFeuille.etat === "très haute" && eauFeuille.tendance === "stable"

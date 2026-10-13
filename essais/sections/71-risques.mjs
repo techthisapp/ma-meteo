@@ -31,12 +31,17 @@ export default async T => {
       + " | 4 | 1 | 2 | null | Inondation, Transport de marchandises dangereuses, sismicité moyenne");
 
   /* La porte de l'accueil se complète à l'arrivée des risques. */
-  const porte = await p.evaluate(() => document.querySelector('[data-feuille="risques"] [data-info="risques"]')?.textContent || "");
+  const porte = await p.evaluate(() => document.querySelector('[data-feuille="risques"] [data-info="risques"] .porte-txt')?.textContent || "");
+  const jauge = await p.evaluate(() => { const j = document.querySelector('[data-feuille="risques"] [data-info="risques"] .jg');
+    return j ? `${j.querySelectorAll("i.jg-on").length}/${j.querySelectorAll("i").length} ${j.textContent}` : ""; });
   const appels = etat.appelsGeorisques.map(u => u.replace(/^.*\/api\/v1\//, "").replace(/\?.*$/, "")).sort().join(",");
   ok("une porte de l'accueil mène aux risques, et dit les premiers",
     porte === "Inondation, Transport de marchandises dangereuses, sismicité moyenne" && appels === "gaspar/catnat,gaspar/risques,radon,rga,zonage_sismique"
     && etat.appelsGeorisques.every(u => /code_insee=38185|latlon=4\.3,47\.5/.test(u)),
     `${porte} ; ${appels} ; ${etat.appelsGeorisques.join(" ")}`);
+  /* Version 196 : la porte porte la jauge de la zone sismique, à son arrivée. */
+  ok("la porte des risques porte la jauge de la zone sismique, quatre cases pleines sur cinq à Grenoble",
+    jauge === "4/5 séisme", jauge);
 
   /* La feuille, sans nouvelle requête. */
   const avant = etat.appelsGeorisques.length;

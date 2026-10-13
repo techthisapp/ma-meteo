@@ -1471,6 +1471,27 @@ case "$N" in
   478) # Le choix des réglages ne se garde pas.
      perl -0pi -e 's/          Reglages\.poserHeuresAccueil\(b\.dataset\.heuresAccueil\);\n//' src/vues/feuilles.js
      ATTENDU="le choix des prochaines heures se fait dans les réglages" ;;
+  479) # La jauge de l'air remplit une case de moins.
+     perl -0pi -e 's/jauge: \{ k: n\.rang \+ 1, teintes: TEINTES_AIR/jauge: { k: n.rang, teintes: TEINTES_AIR/' src/app.js
+     ATTENDU="les portes portent leurs indicateurs" ;;
+  480) # La pastille de l'activité perd sa teinte.
+     perl -0pi -e 's/    out\.ind\.activites = \{ ton: "bon" \};\n//' src/app.js
+     ATTENDU="les portes portent leurs indicateurs" ;;
+  481) # La jauge de l'eau compte un niveau de moins.
+     perl -0pi -e 's/k: Math\.min\(4, rangEau\)/k: Math.min(4, rangEau) - 1/' src/app.js
+     ATTENDU="la porte de l.eau, au-dessus des risques, dit la restriction et la nappe, avec sa jauge" ;;
+  482) # La jauge des risques compte une zone de moins.
+     perl -0pi -e 's/jauge: \{ k: d\.seisme, /jauge: { k: d.seisme - 1, /' src/app.js
+     ATTENDU="la porte des risques porte la jauge de la zone sismique" ;;
+  483) # Le curseur du climat remplit les cases jusqu'à la sienne.
+     perl -0pi -e 's/\(j\.curseur \? i === j\.k - 1 : i < j\.k\)/(i < j.k)/' src/app.js
+     ATTENDU="la porte du climat place un curseur de cinq cases" ;;
+  484) # Le curseur du climat se décale d'une case.
+     perl -0pi -e 's/const caseClimat = p => \(/const caseClimat = p => 1 + (/' src/app.js
+     ATTENDU="la porte du climat place un curseur de cinq cases" ;;
+  485) # La pastille perd son fond teinté.
+     perl -0pi -e 's/  background:color-mix\(in srgb, var\(--ton\) 16%, transparent\);\n//' styles.css
+     ATTENDU="les portes portent leurs indicateurs" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

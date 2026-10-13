@@ -832,6 +832,10 @@ function ecranAccueil() {
     const infoEau = !te ? "Restrictions, nappe, rivière"
       : `${te.valeur === "Aucune" ? "Aucune restriction" : te.valeur === "—" ? "Restriction non lue" : `Restriction : ${te.valeur.toLowerCase()}`}`
         + (ez?.nappe ? `, nappe ${ez.nappe.classe}` : "");
+    /* La jauge de l'eau : les quatre niveaux de restriction, vigilance,
+       alerte, alerte renforcée et crise ; vide sans restriction. */
+    const rangEau = ez?.restriction ? ez.restriction.rang || 0 : null;
+    const indEau = Number.isFinite(rangEau) ? { jauge: { k: Math.min(4, rangEau), teintes: TEINTES_EAU } } : null;
 
     /* Les quatre portes, en grille de deux sur deux. Jérôme les a voulues tout
        en bas de l'accueil le 24 septembre 2026, après « Demain et
@@ -848,10 +852,10 @@ function ecranAccueil() {
     const portesHTML = ""
       + (saisonNeige ? `<button type="button" class="carte rangee porte porte-large" data-feuille="neige">`
         + ico("neige", "") + `<span class="rangee-txt"><b>La neige</b>`
-        + `<span>${esc(Neige.phraseNeige(nz.resumes))}</span></span>` + chevron + `</button>` : "")
+        + infoPorte("neige", Neige.phraseNeige(nz.resumes), { ton: "neige" }) + `</span>` + chevron + `</button>` : "")
       + (saisonPlage ? `<button type="button" class="carte rangee porte porte-large" data-feuille="plage">`
         + ico("vague", "") + `<span class="rangee-txt"><b>La plage</b>`
-        + `<span>${esc(Plage.phrasePlage(pz.resumes))}</span></span>` + chevron + `</button>` : "")
+        + infoPorte("plage", Plage.phrasePlage(pz.resumes), { ton: "mer" }) + `</span>` + chevron + `</button>` : "")
       + `<div class="portes">`
         /* L'écran de questions s'ouvre d'ici.
 
@@ -861,35 +865,35 @@ function ecranAccueil() {
            chevron. */
         + (s ? `<button type="button" class="carte rangee porte" data-feuille="activites">`
           + ico("horloge", "") + `<span class="rangee-txt"><b>Quand faire quoi</b>`
-          + `<span class="porte-info" data-info="activites">${esc(info.activites)}</span></span>`
+          + infoPorte("activites", info.activites, info.ind.activites) + `</span>`
           + chevron + `</button>` : "")
         + `<button type="button" class="carte rangee porte" data-feuille="beautemps">`
         + ico("lieu", "") + `<span class="rangee-txt"><b>Où est le beau temps</b>`
-        + `<span class="porte-info" data-info="beau">${esc(info.beau)}</span></span>`
+        + infoPorte("beau", info.beau, info.ind.beau) + `</span>`
         + chevron + `</button>`
         /* La troisième porte : ce qui entre dans les poumons, que le temps
            qu'il fait ne dit pas. */
         + `<button type="button" class="carte rangee porte" data-feuille="air">`
         + ico("brume", "") + `<span class="rangee-txt"><b>L'air qu'on respire</b>`
-        + `<span class="porte-info" data-info="air">${esc(info.air)}</span></span>`
+        + infoPorte("air", info.air, info.ind.air) + `</span>`
         + chevron + `</button>`
         /* La quatrième porte : la même journée, mais replacée dans
            quatre-vingts ans de relevés au même endroit. */
         + `<button type="button" class="carte rangee porte" data-feuille="climat">`
         + ico("jauge", "") + `<span class="rangee-txt"><b>Le climat d'ici</b>`
-        + `<span class="porte-info" data-info="climat">${esc(info.climat)}</span></span>`
+        + infoPorte("climat", info.climat, info.ind.climat) + `</span>`
         + chevron + `</button>`
         + `</div>`
       + `<button type="button" class="carte rangee porte porte-large porte-eau" data-feuille="eau">`
       + ico("robinet", "") + `<span class="rangee-txt"><b>L'eau</b>`
-      + `<span class="porte-info${te?.classe ? ` ${te.classe}` : ""}" data-info="eau">${esc(infoEau)}</span></span>`
+      + infoPorte("eau", infoEau, indEau) + `</span>`
       + chevron + `</button>`
       /* La cinquième porte, version 191 : les risques de la commune, que
          Géorisques recense, sur une ligne pleine largeur sous la grille de
          deux sur deux. */
       + `<button type="button" class="carte rangee porte porte-large porte-risques" data-feuille="risques">`
       + ico("alerte", "") + `<span class="rangee-txt"><b>Les risques d'ici</b>`
-      + `<span class="porte-info" data-info="risques">${esc(info.risques)}</span></span>`
+      + infoPorte("risques", info.risques, info.ind.risques) + `</span>`
       + chevron + `</button>`
       ;
 
@@ -1110,24 +1114,54 @@ function garderFocus(racine, remplacer) {
      commune est déjà sur l'appareil ; la lire d'ici coûterait trop au quota. */
 const COURT = { courir: "Courir", velo: "Vélo", linge: "Linge", aerer: "Aérer", arroser: "Arroser", voiture: "Voiture" };
 let beauLu = null;
+/* Les indicateurs des portes, version 196, demande de Jérôme du 13 octobre
+   2026 : une jauge de cases quand l'information a une échelle, une pastille
+   teintée sinon. Une jauge est `{ k, teintes }` : autant de cases que de
+   teintes, les k premières pleines ; en curseur, la seule case k pleine. Elle
+   double le texte, qui dit le niveau en toutes lettres : les lecteurs d'écran
+   ne la lisent pas. */
+const TEINTES_AIR = ["n1", "n2", "n3", "n4", "n5", "n6"];
+const TEINTES_EAU = ["n3", "n4", "n5", "n6"];
+const TEINTES_SEISME = ["n1", "n2", "n3", "n4", "n5"];
+const TEINTES_CLIMAT = ["f2", "f1", "ti", "n4", "n5"];
+function jaugeHTML(j) {
+  return `<span class="jg${j.curseur ? " jg-curseur" : ""}" aria-hidden="true" data-niveau="${j.k}" data-sur="${j.teintes.length}">`
+    + j.teintes.map((t, i) => `<i class="t-${t}${(j.curseur ? i === j.k - 1 : i < j.k) ? " jg-on" : ""}"></i>`).join("")
+    + (j.nom ? `<span class="jg-nom">${esc(j.nom)}</span>` : "") + `</span>`;
+}
+function infoPorte(cle, texte, ind) {
+  const j = ind?.jauge, ton = j ? null : ind?.ton || "neutre";
+  return `<span class="porte-info${j ? " porte-jauge" : ` pastille ton-${ton}`}" data-info="${cle}">`
+    + (j ? jaugeHTML(j) : "") + `<span class="porte-txt">${esc(texte)}</span></span>`;
+}
+/* La case du climat : les seuils des mots de `motPercentile`. */
+const caseClimat = p => (p <= 10 ? 1 : p <= 40 ? 2 : p < 60 ? 3 : p < 90 ? 4 : 5);
+/* La jauge des risques ne mesure que la zone sismique : elle le dit. */
+const indRisques = d => (d?.seisme ? { jauge: { k: d.seisme, teintes: TEINTES_SEISME, nom: "séisme" } } : null);
+
 function infosPortes(g) {
+  const gr = Risques.garde(g);
   const out = { activites: "Courir, étendre, aérer, arroser", beau: "Mes lieux et alentours",
     air: "Polluants et pollens", climat: "Records et normales",
-    risques: Risques.resume(Risques.garde(g)) || "Inondation, séisme, sol" };
+    risques: Risques.resume(gr) || "Inondation, séisme, sol",
+    ind: { risques: indRisques(gr) } };
   /* Les risques se lisent une fois en arrière-plan, et la porte se complète
      à leur arrivée. */
-  if (!Risques.garde(g)) {
+  if (!gr) {
     Risques.charger(g).then(d => {
       const el = document.querySelector('[data-info="risques"]');
       const t = Risques.resume(d);
-      if (el && t) el.textContent = t;
+      if (el && t) el.outerHTML = infoPorte("risques", t, indRisques(d));
     }).catch(() => {});
   }
   const s = P.serieHoraire(0, Activites.FENETRE, 8);
   const r = s ? Activites.repondre(s, P.bilanEau(Activites.SEUILS_ACT.arrosageJours)) : [];
   const avec = r.filter(x => x.creneau).sort((a, b) => a.creneau[0] - b.creneau[0]
     || (a.cle === "linge" ? -1 : b.cle === "linge" ? 1 : 0));
-  if (avec.length) out.activites = `${COURT[avec[0].cle] || avec[0].nom} : ${avec[0].quand}`;
+  if (avec.length) {
+    out.activites = `${COURT[avec[0].cle] || avec[0].nom} : ${avec[0].quand}`;
+    out.ind.activites = { ton: "bon" };
+  }
 
   /* L'air de l'heure en cours et les pollens d'ici minuit, alignés sur la
      série comme la feuille de l'air, 3 octobre 2026 : la charge brute
@@ -1136,6 +1170,7 @@ function infosPortes(g) {
   if (Number.isFinite(air?.aqi?.[0])) {
     const n = Air.niveauDe(air.aqi[0]);
     const pol = Air.enSaison(air)[0];
+    if (n) out.ind.air = { jauge: { k: n.rang + 1, teintes: TEINTES_AIR } };
     out.air = `Air ${n ? n.nom : "mesuré"}`
       + (pol ? `, ${pol.nom.toLowerCase()} ${pol.etat === "pic" ? "au pic" : "en saison"}` : ", sans pollen en saison");
   }
@@ -1149,10 +1184,13 @@ function infosPortes(g) {
        porte et à la feuille deux mots différents. */
     const tmax = P.jourHoraire(jour)?.tx ?? (k >= 0 ? P.chargeCourante()?.daily?.temperature_2m_max?.[k] : null);
     const b = d ? Climat.bilan({ base: d, enCours: null, annee: +jour.slice(0, 4) }, jour, tmax) : null;
-    if (b?.mot) out.climat = b.mot.charAt(0).toUpperCase() + b.mot.slice(1);
+    if (b?.mot) {
+      out.climat = b.mot.charAt(0).toUpperCase() + b.mot.slice(1);
+      out.ind.climat = { jauge: { k: caseClimat(b.percentile), teintes: TEINTES_CLIMAT, curseur: true } };
+    }
 
     const cle = `${g.lat},${g.lon}|${jour}`;
-    if (beauLu?.cle === cle) { if (beauLu.texte) out.beau = beauLu.texte; }
+    if (beauLu?.cle === cle) { if (beauLu.texte) { out.beau = beauLu.texte; out.ind.beau = { ton: "soleil" }; } }
     else {
       beauLu = { cle, texte: null };
       const ici = { nom: Reglages.nomAffiche(g) || "Ici", lat: g.lat, lon: g.lon, ici: true };
@@ -1168,7 +1206,7 @@ function infosPortes(g) {
         if (beauLu?.cle !== cle || !texte) return;
         beauLu.texte = texte;
         const el = document.querySelector('[data-info="beau"]');
-        if (el) el.textContent = texte;
+        if (el) el.outerHTML = infoPorte("beau", texte, { ton: "soleil" });
       }).catch(() => {});
     }
   }

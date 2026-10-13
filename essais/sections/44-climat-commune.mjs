@@ -318,6 +318,21 @@ export default async T => {
      récente, laquelle porte l'année en cours et change tous les jours. */
   await pgClimat.evaluate(() => document.getElementById("feuille-fermer").click());
   await pgClimat.waitForTimeout(400);
+  /* La porte du climat, version 196 : un curseur de cinq cases, du plus frais
+     au plus chaud, sur la case des mots de `motPercentile`. L'archive gardée,
+     l'accueil redessiné la porte. */
+  await pgClimat.locator('[data-onglet="accueil"]').click();
+  await reposer(pgClimat, 1500);
+  const curseur = await pgClimat.evaluate(() => {
+    const j = document.querySelector('[data-info="climat"] .jg');
+    return j ? { curseur: j.classList.contains("jg-curseur"), n: j.querySelectorAll("i").length,
+      on: [...j.querySelectorAll("i")].map((x, i) => (x.classList.contains("jg-on") ? i + 1 : 0)).filter(Boolean).join(",") } : null;
+  });
+  const p = percentileAttendu;
+  const caseAttendue = p <= 10 ? 1 : p <= 40 ? 2 : p < 60 ? 3 : p < 90 ? 4 : 5;
+  ok("la porte du climat place un curseur de cinq cases sur la case du percentile du jour",
+    curseur?.curseur === true && curseur.n === 5 && curseur.on === String(caseAttendue),
+    `${JSON.stringify(curseur)}, attendu la case ${caseAttendue} pour ${p?.toFixed(1)}`);
   const avantReouverture = etat.appelsArchive.length;
   await ouvrirClimat(pgClimat);
   ok("rouvrir la feuille ne redemande pas l'archive longue",

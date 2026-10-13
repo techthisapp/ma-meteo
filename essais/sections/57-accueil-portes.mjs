@@ -34,6 +34,18 @@ export default async T => {
     && /^Air /.test(portes.air) && !/[·]/.test(portes.air)
     && Object.values(portes).every(v => v && !/Records, normales|Mes lieux, et cent/.test(v)), JSON.stringify(portes));
 
+  /* Les indicateurs, version 196 : une pastille teintée pour l'activité et le
+     beau temps, une jauge de six cases pour l'air, une pastille neutre pour
+     le climat tant que l'archive n'est pas lue. */
+  const ind = await pg.evaluate(() => Object.fromEntries([...document.querySelectorAll("#ecran .porte-info")].map(x => {
+    const j = x.querySelector(".jg");
+    return [x.dataset.info, j ? `jauge ${j.querySelectorAll("i.jg-on").length}/${j.querySelectorAll("i").length}`
+      : (x.className.match(/ton-(\w+)/) || [0, "aucun"])[1] + (getComputedStyle(x).backgroundColor === "rgba(0, 0, 0, 0)" ? " sans fond" : "")];
+  })));
+  ok("les portes portent leurs indicateurs : pastilles teintées, jauge de l'air, pastille neutre du climat",
+    ind.activites === "bon" && ind.beau === "soleil" && ind.air === "jauge 1/6" && ind.climat === "neutre"
+    && ind.eau === "jauge 2/4" && ind.risques === "jauge 4/5", JSON.stringify(ind));
+
   /* Le robinet dit l'eau, la goutte reste à l'humidité. */
   const icones = await pg.evaluate(async () => {
     const I = await import("/src/icones.js");

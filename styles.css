@@ -70,6 +70,10 @@
   --v2:#D9A32A;
   --v3:#DB7626;
   --v4:#C22E24;
+  /* Les teintes des jauges des portes, version 196 : six niveaux du vert au
+     violet, et cinq du froid au chaud pour le climat. */
+  --niv-1:#2E9E6B;--niv-2:#7FAF2E;--niv-3:#D9A32A;--niv-4:#DB7626;--niv-5:#C22E24;--niv-6:#7A2E8C;
+  --froid-2:#2F6DB5;--froid-1:#6FA3D6;--tiede:#9AA4AE;
 
   /* Matière verre, couche navigation seulement */
   --verre-fond:color-mix(in srgb, var(--fond) 68%, transparent);
@@ -161,6 +165,8 @@
     --succes:#5FBA84;
     --attention:#E0B457;
     --erreur:#E07E63;
+    --niv-1:#5FBA84;--niv-2:#A5CC55;--niv-3:#E7B754;--niv-4:#E8904A;--niv-5:#E0614F;--niv-6:#B470C6;
+    --froid-2:#5B95D6;--froid-1:#93C0EA;--tiede:#76828E;
 
     --verre-fond:color-mix(in srgb, var(--fond) 62%, transparent);
     --ombre-feuille:0 -8px 32px rgba(0,0,0,.55);
@@ -2730,6 +2736,32 @@ button.rangee:active{background:var(--surface-2)}
 /* Les portes de l'eau et des risques, sous la grille, version 194 : le même
    écart entre elles qu'entre les rangées de la grille. */
 .porte-eau.porte-large{margin-bottom:0}
+
+/* Les indicateurs des portes, version 196, demande de Jérôme du 13 octobre
+   2026 : une jauge de cases quand l'information a une échelle, l'air, le
+   climat, l'eau et les risques ; une pastille teintée sinon. */
+.porte .porte-jauge{display:flex;flex-direction:column;gap:var(--espace-xs)}
+.porte .porte-jauge .porte-txt{color:var(--etiquette)}
+.jg{display:flex;gap:3px;align-items:center;width:100%;max-width:10rem}
+.jg i{flex:1 1 0;height:6px;border-radius:var(--rayon-plein);background:var(--surface-2)}
+.jg i.jg-on{background:var(--t)}
+.porte .jg .jg-nom{flex:0 0 auto;margin-left:var(--espace-xs);font-size:var(--texte-legende);color:var(--etiquette-3);font-weight:var(--graisse-regular)}
+.porte-large .jg{max-width:12rem}
+.jg-curseur i{background:color-mix(in srgb, var(--t) 28%, transparent)}
+.jg-curseur i.jg-on{height:10px}
+.jg .t-n1{--t:var(--niv-1)}.jg .t-n2{--t:var(--niv-2)}.jg .t-n3{--t:var(--niv-3)}
+.jg .t-n4{--t:var(--niv-4)}.jg .t-n5{--t:var(--niv-5)}.jg .t-n6{--t:var(--niv-6)}
+.jg .t-f2{--t:var(--froid-2)}.jg .t-f1{--t:var(--froid-1)}.jg .t-ti{--t:var(--tiede)}
+.porte .pastille{
+  align-self:flex-start;padding:2px var(--espace-sm);border-radius:var(--rayon-md);
+  background:color-mix(in srgb, var(--ton) 16%, transparent);
+  color:color-mix(in srgb, var(--ton) 72%, var(--etiquette));font-weight:var(--graisse-semibold);
+}
+.pastille.ton-bon{--ton:var(--succes)}
+.pastille.ton-soleil{--ton:var(--ic-soleil)}
+.pastille.ton-neige{--ton:var(--ic-neige)}
+.pastille.ton-mer{--ton:var(--ic-pluie)}
+.pastille.ton-neutre{--ton:var(--etiquette-2)}
 .ng-dom h3{margin:0 0 var(--espace-sm)}
 .ng-st{margin-top:var(--espace-md);padding-top:var(--espace-md);border-top:1px solid var(--filet-clair)}
 .ng-tete{display:flex;justify-content:space-between;align-items:baseline;gap:var(--espace-sm)}
