@@ -13,7 +13,7 @@
    écoulées, au delà l'heure visée a disparu de la source et la comparaison
    n'aurait plus de terme. */
 
-import { cleHeure, instantParis, chercherEn } from "./horloge.js";
+import { cleHeure, instantParis, chercherEn, lireGardee, ecrireGardee } from "./horloge.js";
 import { envoi } from "./reglages.js";
 
 const CACHE = "mameteo.justesse.v1";
@@ -296,7 +296,26 @@ export function bilanRecent(passees, mesures, maintenant = new Date()) {
 /* La lecture, gardée une heure par lieu : les prévisions passées ne changent
    qu'avec l'heure. */
 const recents = new Map();
+/* Le dernier bilan du lieu, gardé douze heures sur l'appareil : la semaine se
+   cale dessus, hors connexion comprise. */
+const TABLE_RECENTE = "mameteo.justesse-recente.v1";
+const GARDE_RECENTE = 12 * 3600000;
+let dernier = null;
+export function recentDe(lat, lon) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  const l = lieuDe(lat, lon);
+  if (dernier?.lieu === l) return dernier.b;
+  return lireGardee(TABLE_RECENTE, l, GARDE_RECENTE)?.b || null;
+}
 export async function chargerRecent(lat, lon, mesures, fetcheur = chercherEn(15000)) {
+  const b = await lireRecent(lat, lon, mesures, fetcheur);
+  if (b) {
+    dernier = { lieu: lieuDe(lat, lon), b };
+    ecrireGardee(TABLE_RECENTE, dernier.lieu, { t: Date.now(), b }, GARDE_RECENTE);
+  }
+  return b;
+}
+async function lireRecent(lat, lon, mesures, fetcheur) {
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
   const cle = `${envoi(lat)},${envoi(lon)}|${cleHeure().slice(0, 13)}`;
   let p = recents.get(cle);
@@ -311,3 +330,23 @@ export async function chargerRecent(lat, lon, mesures, fetcheur = chercherEn(150
   }
   return bilanRecent(p, mesures);
 }
+
+/* ---------- La confiance de la semaine calée sur la mesure, version 197 ----------
+
+   Jalon 6, point 3, demande de Jérôme du 13 octobre 2026. La confiance de la
+   semaine se lisait sur la seule dispersion des scénarios, du dixième au
+   quatre-vingt-dixième centile du maximum, avec les seuils de quatre et sept
+   degrés. Pour une erreur de loi normale, cette étendue vaut 2,56 écarts
+   types, et l'écart moyen en valeur absolue 0,8 écart type : une étendue
+   vaut donc 3,2 fois l'écart moyen qu'elle laisse attendre. L'écart mesuré
+   ici à la même échéance se convertit en étendue par ce facteur, et la
+   confiance retenue est la plus prudente des deux : quatre degrés d'étendue
+   répondent à 1,25° d'écart moyen, sept à 2,2°. Au delà de sept jours,
+   l'écart de sept jours sert de plancher, l'erreur ne faisant que croître. */
+export const FACTEUR_ETENDUE = 3.2;
+export function etendueMesuree(b, jours) {
+  const j = Math.min(7, Math.max(1, Math.round(jours)));
+  const e = b?.echeances?.find(x => x.j === j)?.ecart;
+  return Number.isFinite(e) ? Math.round(e * FACTEUR_ETENDUE * 10) / 10 : null;
+}
+export const ecartMesure = (b, jours) => b?.echeances?.find(x => x.j === Math.min(7, Math.max(1, Math.round(jours))))?.ecart ?? null;

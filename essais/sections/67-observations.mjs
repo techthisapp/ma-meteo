@@ -20,6 +20,8 @@ const JOURNAL = { v: 1, lignes: [13, 14, 15, 16, 17].map(j => ({
 
 export default async T => {
   const { nav, etat, ok, brancherRoutes, ouvrirPage, reposer } = T;
+  /* Les prévisions passées sont muettes par défaut dans les autres sections. */
+  etat.passeesMuettes = false;
   const ouvrir = async reglages => {
     const c = await nav.newContext({
       viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
@@ -145,6 +147,25 @@ export default async T => {
     && /^Sur cet appareil, toutes communes confondues, depuis le .*13 août\. Mesures de la station de Semur en Auxois\.$/.test(reglages.station)
     && /À 1 jour.*100 % à 2° près, 5 relevés, trop chaude de 2°, pluie juste 0 %.*± 2°/.test(reglages.ligne),
     JSON.stringify(reglages));
+  /* La confiance de la semaine calée sur la mesure, version 197 : la
+     prévision émise N jours avant s'écarte ici de 0,4 × N degrés, soit une
+     étendue de 1,28 × N ; à six jours et au delà, la confiance tombe à
+     « incertain » et la phrase dit l'écart mesuré. */
+  await p1.evaluate(() => document.getElementById("feuille-fermer")?.click());
+  await p1.locator('[data-onglet="semaine"]').click();
+  await reposer(p1, 2000);
+  const semaine = await p1.evaluate(() => {
+    const jours = [...document.querySelectorAll(".sem-j:not(.sem-passe)")];
+    const j6 = jours[6];
+    return { phrase: document.querySelector(".sem-justesse")?.textContent || "",
+      confs: jours.map(j => j.querySelector(".sem-conf")?.textContent || "").join(","),
+      md: j6?.querySelector(".md-sc")?.textContent || "" };
+  });
+  ok("la semaine dit la justesse mesurée ici et cale sa confiance sur elle",
+    semaine.phrase === "Ici, ces cinq derniers jours, la prévision est tombée en moyenne à 0,4° près à 1 jour, 1,2° à 3 jours et 2,8° à 7 jours."
+    && semaine.confs.split(",").slice(6, 9).every(x => x === "incertain")
+    && / La prévision à 6 jours s'est écartée ici de 2,4° en moyenne ces cinq derniers jours\.$/.test(semaine.md),
+    JSON.stringify(semaine));
   await c1.close();
 
   /* Un service muet le dit, sans chiffres. */
@@ -154,6 +175,5 @@ export default async T => {
   ok("sans réponse du service, la justesse récente le dit et le journal reste",
     muette.note === "Justesse récente non lue : le service ne répond pas." && muette.lignes.length === 0
     && /^Sur cet appareil/.test(muette.journal), JSON.stringify(muette));
-  etat.passeesMuettes = false;
   await c2.close();
 };

@@ -8,6 +8,7 @@ import { liste, moments, TRANCHES } from "../ecritures.js";
 import * as Reglages from "../reglages.js";
 import * as Ensemble from "../ensemble.js";
 import * as Scenarios from "../scenarios.js";
+import * as Justesse from "../justesse.js";
 import { angleFleche, TRACE_FLECHE } from "../fleche.js";
 import { SEUILS, grandesLignes, conseilsHTML, tendanceSuivante } from "../conseils.js";
 import { valeur, aide } from "./communs.js";
@@ -77,6 +78,9 @@ export function vueSemaine() {
      dans la liste. */
   const nPrev = c.daily.time.length;
   const finPrev = Math.min(i + 16, nPrev);
+  /* La justesse mesurée ici, version 197 : elle cale la confiance et se dit
+     au-dessus de la liste. */
+  const recent = Justesse.recentDe(g.lat, g.lon);
   let lim = -1;
   for (let k = i; k < finPrev; k++) {
     if (Scenarios.jour(c.daily.time[k]) || Ensemble.journee(c.daily.time[k])) lim = k;
@@ -173,7 +177,15 @@ export function vueSemaine() {
     const prevue = k >= i && k < nPrev;
     const sc = prevue ? Scenarios.jour(dd.time[k]) : null;
     const ens = !sc && prevue ? Ensemble.journee(dd.time[k]) : null;
-    const accord = sc ? Scenarios.accordDe(sc.etendue) : ens ? Ensemble.accordDe(ens.etendue).nom : null;
+    const accordDispersion = sc ? Scenarios.accordDe(sc.etendue) : ens ? Ensemble.accordDe(ens.etendue).nom : null;
+    /* Version 197, jalon 6, point 3 : l'écart mesuré ici à la même échéance,
+       converti en étendue, abaisse la confiance quand il dit moins que les
+       scénarios. Voir `etendueMesuree`. Aujourd'hui se juge à un jour. */
+    const em = accordDispersion ? Justesse.etendueMesuree(recent, k - i) : null;
+    const accordMesure = em !== null ? Scenarios.accordDe(em) : null;
+    const cale = accordMesure && RANG_ACCORD[accordMesure] > RANG_ACCORD[accordDispersion];
+    const accord = cale ? accordMesure : accordDispersion;
+    const cal = cale ? { nom: accord, j: Math.min(7, Math.max(1, k - i)), ecart: Justesse.ecartMesure(recent, k - i) } : null;
 
     const corps = `<span class="j"><b>${esc(nom)}</b><em>${esc(date)}</em></span>`
       /* Le nom du ciel et les mots minimum et maximum, en texte lu par les
@@ -207,7 +219,7 @@ export function vueSemaine() {
     /* Au-delà des sept jours d'heures, la journée n'a pas de moments ; si les
        scénarios la couvrent, elle se déplie sur sa seule phrase de confiance,
        pour que la comparaison des modèles se lise jusqu'au quinzième jour. */
-    const phraseLoin = !mo && k >= i && k < nPrev ? confiance(dd.time[k]) : "";
+    const phraseLoin = !mo && k >= i && k < nPrev ? confiance(dd.time[k], cal) : "";
     const tete = mo || phraseLoin
       ? `<button type="button" class="sem-r${mo ? "" : " sem-loin"}" data-jour="${esc(dd.time[k])}" `
         + `aria-expanded="false" aria-controls="${cle}">${corps}`
@@ -225,7 +237,7 @@ export function vueSemaine() {
     lignes.push(`<div class="sem-j${k === i ? " sem-auj" : ""}`
       + `${k < i ? " sem-passe" : ""}${weekEnd ? " sem-we" : ""}${k >= nPrev ? " sem-tend" : ""}">${tete}`
       + (mo ? `<div class="md" id="${cle}" hidden>${volet(mo, k === i, heureCourante)}`
-        + `${confiance(dd.time[k])}`
+        + `${confiance(dd.time[k], cal)}`
         + `<button type="button" class="sem-heures" data-jour-heures="${esc(dd.time[k])}">Voir les heures</button>`
         + `</div>`
         : phraseLoin ? `<div class="md md-loin" id="${cle}" hidden>${phraseLoin}</div>` : "")
@@ -235,7 +247,7 @@ export function vueSemaine() {
   return {
     titre: "À venir",
     corps: grapheSemaine(jours, boutonSemaine(plusDispo)) + grandesLignesHTML(jours)
-      + `<div class="carte sem-carte"><div class="sem">${lignes.join("")}</div>`
+      + `<div class="carte sem-carte">${phraseJustesse(recent)}<div class="sem">${lignes.join("")}</div>`
       + etatTendance(g, tend) + boutonSemaine(plusDispo)
       /* Jalon 20 : l'explication derrière le « i », les modèles dans les
          sources des réglages. */
@@ -363,10 +375,26 @@ export function grapheSemaine(jours, basDeCarte = "") {
 
    La ligne ne paraît que sur les journées que l'ensemble couvre entières : il
    porte sept jours annoncés et aucun jour écoulé, la table en demande neuf. */
-function confiance(date) {
-  const p = phraseConfiance(Scenarios.jour(date));
-  if (p) return p;
-  return confianceHoraire(date);
+function confiance(date, cal = null) {
+  const p = phraseConfiance(Scenarios.jour(date)) || confianceHoraire(date);
+  if (!p || !cal) return p;
+  /* La confiance abaissée par la mesure le dit, avec l'écart mesuré. */
+  return p.replace(/^<p class="md-sc">Confiance [^:]+ :/, `<p class="md-sc">Confiance ${esc(cal.nom)} :`)
+    .replace(/<\/p>$/, ` La prévision à ${cal.j} jour${cal.j > 1 ? "s" : ""} s'est écartée ici de `
+      + `${nombreFr(cal.ecart)}° en moyenne ces cinq derniers jours.</p>`);
+}
+
+const RANG_ACCORD = { bonne: 0, moyenne: 1, faible: 2 };
+
+/* La justesse mesurée ici, au-dessus de la liste, version 197, demande de
+   Jérôme du 13 octobre 2026 : à un, trois et sept jours, ce que la prévision
+   a manqué en moyenne ces cinq derniers jours. */
+export function phraseJustesse(b) {
+  const e = [1, 3, 7].map(j => [j, Justesse.ecartMesure(b, j)]).filter(([, v]) => Number.isFinite(v));
+  if (!e.length) return "";
+  const t = e.map(([j, v], n) => `${nombreFr(v)}°${n ? "" : " près"} à ${j} jour${j > 1 ? "s" : ""}`);
+  const liste = t.length > 1 ? `${t.slice(0, -1).join(", ")} et ${t[t.length - 1]}` : t[0];
+  return `<p class="note sem-justesse">Ici, ces cinq derniers jours, la prévision est tombée en moyenne à ${liste}.</p>`;
 }
 
 /* Les deux modèles, jalon 13 : la fourchette de chacun, et s'ils s'accordent.

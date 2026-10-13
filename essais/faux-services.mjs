@@ -1099,12 +1099,13 @@ export const brancherFauxServices = async (c, etat) => {
     r.fulfill({ status: 200, contentType: "application/json",
       body: JSON.stringify(airDe(etat.profilAir)) });
   });
-  /* Les prévisions passées, version 197 : servies après la prévision, leur
+  /* Les prévisions passées, version 197, coupées par défaut, ouvertes par
+     `passeesMuettes = false` : servies après la prévision, leur
      domaine porte lui aussi « api.open-meteo.com ». Voir `passeesCorps`. */
   await c.route(/previous-runs-api\.open-meteo\.com/, r => {
     const u = r.request().url();
     etat.appelsPassees.push(u);
-    if (etat.passeesMuettes) { r.fulfill({ status: 503, body: "non" }); return; }
+    if (etat.passeesMuettes) { r.abort(); return; }
     r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(passeesCorps()) });
   });
   /* La vigilance de tout le pays, pour la couche de la carte. Elle se sert sur
@@ -1491,7 +1492,7 @@ export const nouvelEtat = () => ({
   appelsPasseeJours: [],
   appelsPiaf: [],
   appelsObs: [],
-  appelsPassees: [], passeesMuettes: false,
+  appelsPassees: [], passeesMuettes: true,
   appelsForet: [],
   appelsBra: [],
   appelsGeorisques: [],

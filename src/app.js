@@ -1672,6 +1672,7 @@ async function charger() {
      Météo-France seulement, après le rendu, sans rien afficher. */
   if (r) lireObservations(g, r);
   if (r) lireMesure(g, r);
+  if (r) lireJustesseRecente(g, r);
   lireForet();
 }
 
@@ -1692,6 +1693,16 @@ async function lireMesure(g, r) {
     mesureMoment = { cle: Justesse.lieuDe(g.lat, g.lon), m };
     rendre();
   } catch { /* l'accueil se lit sans elle */ }
+}
+
+/* La justesse récente du lieu, version 197 : la confiance de la semaine se
+   cale dessus, et l'écran se refait à son arrivée s'il est ouvert. */
+async function lireJustesseRecente(g, r) {
+  try {
+    const o = Reglages.clePiaf() ? await Observations.duLieu(g.lat, g.lon, Number(r.elevation)).catch(() => null) : null;
+    const b = await Justesse.chargerRecent(g.lat, g.lon, o?.mesures || null);
+    if (b && onglet === "semaine") rendre();
+  } catch { /* la semaine garde la seule dispersion des scénarios */ }
 }
 
 async function lireObservations(g, r) {

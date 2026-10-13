@@ -1507,6 +1507,18 @@ case "$N" in
   490) # Le biais change de signe.
      perl -0pi -e 's/d\.push\(f\.t\[n\] - v\.t\)/d.push(v.t - f.t[n])/' src/justesse.js
      ATTENDU="sans clé, la justesse récente du lieu se juge sur le relevé" ;;
+  491) # La mesure ne cale plus la confiance de la semaine.
+     perl -0pi -e 's/const cale = accordMesure \&\& /const cale = false \&\& accordMesure \&\& /' src/vues/avenir.js
+     ATTENDU="la semaine dit la justesse mesurée ici et cale sa confiance" ;;
+  492) # L'écart mesuré se convertit avec un facteur moitié.
+     perl -0pi -e 's/export const FACTEUR_ETENDUE = 3\.2;/export const FACTEUR_ETENDUE = 1.6;/' src/justesse.js
+     ATTENDU="la semaine dit la justesse mesurée ici et cale sa confiance" ;;
+  493) # La justesse mesurée ne se dit plus au-dessus de la liste.
+     perl -0pi -e 's/if \(!e\.length\) return "";/return "";/' src/vues/avenir.js
+     ATTENDU="la semaine dit la justesse mesurée ici et cale sa confiance" ;;
+  494) # La confiance abaissée ne dit pas l'écart mesuré.
+     perl -0pi -e 's/ s.est écartée ici de `/ a manqué de `/' src/vues/avenir.js
+     ATTENDU="la semaine dit la justesse mesurée ici et cale sa confiance" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
