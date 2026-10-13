@@ -1558,6 +1558,16 @@ case "$N" in
   507) # Le retour du système ne remet pas l'entrée d'historique.
      perl -0pi -e 's/if \(pile\.length\) \{ retour\(\); history\.pushState\(\{ feuille: true \}, ""\); \}/if (pile.length) { retour(); }/' src/app.js
      ATTENDU="une feuille ouverte sur une autre se ferme" ;;
+  508) # L'orage n'est plus un danger.
+     perl -0pi -e 's/if \(x\.i === "orage" \|\| x\.i === "alerte"\) return "danger";/if (x.i === "alerte") return "danger";/' src/conseils.js
+     ATTENDU="la teinte d.un conseil suit sa gravité" ;;
+  509) # Le filet perd sa teinte.
+     perl -0pi -e 's/\.cj-gene\{--cj-ton:var\(--v2\)\}/.cj-gene{--cj-ton:var(--accent)}/' styles.css
+     ATTENDU="un conseil porte un filet de la teinte de sa gravité" ;;
+  510) # Le chevron revient.
+     perl -0pi -e 's/      \+ tete \+ `<\/button>`;/      + tete + ico("chevron_bas", "cj-chev") + `<\/button>`;/' src/conseils.js
+     perl -0pi -e 's/^(import \{ nombreFr)/import { ico } from ".\/icones.js";\n$1/m' src/conseils.js
+     ATTENDU="un conseil se lit en deux lignes, titre et précision, sans chevron" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

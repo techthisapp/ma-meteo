@@ -1519,14 +1519,20 @@ export default async T => {
     const voies = new Set(["t", "mm", "v", "nua", "hum", "uv", "pres"]);
     return {
       deuxLignes: html.includes("<b>Air dégradé de 16 h à 18 h</b><em>Indice 40</em>")
-        && html.includes('data-feuille="air"') && html.includes("cj-chev"),
+        && html.includes('data-feuille="air"') && !html.includes("cj-chev"),
+      /* Version 201 : la teinte suit la gravité. */
+      tons: [{ i: "orage", g: 10 }, { i: "alerte", g: 6 }, { i: "vent", g: 5 }, { i: "thermo", g: 8 }, { i: "thermo", g: 3.5 },
+        { i: "neige", g: 9.5 }, { i: "neige", g: 6 }, { i: "brume", g: 5.9 }, { i: "brume", g: 4.5 }, { i: "pollen", g: 4.2 },
+        { i: "soleil", g: 1 }, { i: "goutte", g: 9 }, { i: "jauge", g: 3.7 }].map(C.tonConseil).join(" "),
       lignes: lignes.length,
       menent: lignes.every(l => l.classList.contains("cj-porte")
         && (voies.has(l.dataset.detail) || ["air", "eau", "neige", "plage"].includes(l.dataset.feuille))),
       plages: [C.ecrirePlage(2, 0, 2, 23, 3), C.ecrirePlage(2, 13, 2, 23, 3), C.ecrirePlage(1, 3, 1, 5, 1)],
     };
   });
-  ok("un conseil se lit en deux lignes, titre et précision, avec son chevron", conseilDit.deuxLignes);
+  ok("un conseil se lit en deux lignes, titre et précision, sans chevron", conseilDit.deuxLignes);
+  ok("la teinte d'un conseil suit sa gravité : danger, attention, gêne ou information",
+    conseilDit.tons === "danger danger attention attention info attention info attention gene gene gene info info", conseilDit.tons);
   ok("chaque conseil de l'accueil mène au détail qu'il décrit",
     conseilDit.lignes > 0 && conseilDit.menent, `${conseilDit.lignes} conseils`);
   ok("une journée entière se dit « toute la journée », avec l'élision",

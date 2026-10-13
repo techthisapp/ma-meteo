@@ -230,12 +230,20 @@ export default async T => {
        pluie 8 %. Le premier signale, les deux autres non. */
     return uv.classe === "v-chaud" && hum.classe === "" && pluie.classe === "";
   }));
-  ok("le symbole d'un conseil porte la couleur de son sujet", await pg.evaluate(() => {
-    const g = document.querySelector(".cj-l .icv-goutte");
-    if (!g) return false;
-    const c = getComputedStyle(g).color;
-    return c !== getComputedStyle(document.body).color;
-  }));
+  /* Version 201 : le symbole quitte les conseils, le filet coloré à gauche
+     dit la gravité. */
+  const filets = await pg.evaluate(() => {
+    const v = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+    const rgb = c => { const d = document.createElement("i"); d.style.color = c; document.body.append(d); const r = getComputedStyle(d).color; d.remove(); return r; };
+    return [...document.querySelectorAll("#ecran .cj-l")].map(l => {
+      const ton = (l.className.match(/cj-(info|gene|attention|danger)/) || [])[1];
+      const attendu = rgb(`var(${{ info: "--ic-pluie", gene: "--v2", attention: "--v3", danger: "--v4" }[ton]})`);
+      const st = getComputedStyle(l);
+      return `${ton}:${st.borderLeftWidth}:${st.borderLeftColor === attendu}:${!!l.querySelector("svg")}`;
+    });
+  });
+  ok("un conseil porte un filet de la teinte de sa gravité, sans symbole ni chevron",
+    filets.length > 0 && filets.every(f => /^(info|gene|attention|danger):3px:true:false$/.test(f)), filets.join(" "));
   /* Jalon 10 : les quatre chiffres passent sur une ligne, et le titre 3 les garde
      au-dessus du corps de texte ; le titre 2 ne tenait pas dans une cellule. */
   ok("les chiffres des mesures sont au moins à l'échelle du titre 3", await pg.evaluate(() => {

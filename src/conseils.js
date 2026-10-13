@@ -25,7 +25,6 @@ import { nombreFr, heureTxt, esc } from "./horloge.js";
 import { plagesDe, divergencePluie, SEUIL_LAME, SEUIL_RISQUE, SEUIL_COUVERT, SEUIL_RAFALE }
   from "./previsions.js";
 import { POLLENS, DEGRADE, niveauDe, etatPollen } from "./air.js";
-import { ico } from "./icones.js";
 
 export const SEUILS = {
   /* Ces trois-là sont repris de `previsions.js`, qui les emploie aussi pour la
@@ -502,6 +501,22 @@ const DESTINATIONS = {
    donne « Air dégradé de 16 h à 18 h » et « Indice 40 ». Une phrase sans
    coupure reste d'une ligne. Le conseil qui a un détail devient un bouton
    avec un chevron. */
+/* La teinte d'une information clé, version 201, choix de Jérôme du
+   13 octobre 2026 : les conseils se lisaient comme une liste de boutons,
+   titre gras, filet et chevron. Ils prennent la forme d'un encadré « à
+   retenir » : un filet coloré à gauche, dont la teinte suit la gravité, le
+   titre et sa précision, sans chevron ni symbole. Le toucher mène toujours au
+   détail. Quatre teintes : le danger en rouge (orage, gel), l'attention en
+   orange (vent fort, chaleur, neige qui tombe, air dégradé ou brouillard), la
+   gêne en jaune (soleil, indice UV, pollens), l'information en bleu. */
+export function tonConseil(x) {
+  if (x.i === "orage" || x.i === "alerte") return "danger";
+  if (x.i === "vent" || (x.i === "thermo" && x.g >= 8) || (x.i === "neige" && x.g >= 9)
+    || (x.i === "brume" && x.g >= 5.9)) return "attention";
+  if (x.i === "pollen" || x.i === "soleil" || x.i === "brume") return "gene";
+  return "info";
+}
+
 export const conseilsHTML = l => {
   if (!l || !l.length) return "";
   return l.map(x => {
@@ -509,13 +524,13 @@ export const conseilsHTML = l => {
     const m = /^(.*?)(?:, |\. )(.*)$/.exec(phrase);
     const titre = m ? m[1] : phrase;
     const prec = m ? m[2].charAt(0).toUpperCase() + m[2].slice(1) : "";
-    const tete = ico(x.i, `cj-ic icv-${x.i}`)
-      + `<span class="cj-t"><b>${esc(titre)}</b>${prec ? `<em>${esc(prec)}</em>` : ""}</span>`;
+    const tete = `<span class="cj-t"><b>${esc(titre)}</b>${prec ? `<em>${esc(prec)}</em>` : ""}</span>`;
+    const ton = `cj-l cj-${tonConseil(x)}`;
     /* La phrase entière reste attachée au conseil : elle est ce que les
        contrôles comparent, et ce qu'une lecture à voix haute doit dire. */
-    if (!x.d) return `<p class="cj-l" data-phrase="${esc(x.t)}">${tete}</p>`;
+    if (!x.d) return `<p class="${ton}" data-phrase="${esc(x.t)}">${tete}</p>`;
     const cible = x.d.startsWith("feuille:") ? `data-feuille="${x.d.slice(8)}"` : `data-detail="${x.d}"`;
-    return `<button type="button" class="cj-l cj-porte" ${cible} data-phrase="${esc(x.t)}" aria-label="${esc(x.t)}">`
-      + tete + ico("chevron_bas", "cj-chev") + `</button>`;
+    return `<button type="button" class="${ton} cj-porte" ${cible} data-phrase="${esc(x.t)}" aria-label="${esc(x.t)}">`
+      + tete + `</button>`;
   }).join("");
 };
