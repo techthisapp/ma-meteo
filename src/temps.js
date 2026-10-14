@@ -903,6 +903,9 @@ function image(ms) {
 /* Pose la toile à animer. `null` arrête la boucle : c'est ce que fait tout
    rendu d'écran avant de remplacer le contenu. */
 export function poser(cv) {
+  /* La même toile, gardée par l'écran d'un rendu à l'autre, version 204 :
+     l'animation continue sans repartir de zéro. */
+  if (cv && cv === toileActive) { relancer(); return; }
   arreter();
   toileActive = cv || null;
   suivreEcran(toileActive);
@@ -918,6 +921,9 @@ export function arreter() {
 }
 
 export const anime = () => boucle !== null;
+/* Depuis combien de secondes l'animation en cours tourne, pour les
+   contrôles : un rendu qui la reprendrait de zéro se verrait. */
+export const ageAnimation = () => (boucle !== null && debut !== null ? (performance.now() - debut) / 1000 : 0);
 
 /* La boucle ne tourne que si la toile est à l'écran : elle continuait à trente
    images par seconde une fois le ciel sorti par le défilement. Une seule

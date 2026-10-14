@@ -1610,6 +1610,15 @@ case "$N" in
   524) # La légende de la vigilance ne suit plus l'interrupteur.
      perl -0pi -e 's/    E\.mention\(\);\n    E\.poserLegende\(\);\n    if \(E\.vigiAllume/    E.mention();\n    if (E.vigiAllume/' src/vues/carte-couches.js
      ATTENDU="la carte légende la pluie et la vigilance" ;;
+  525) # Les arrivées des sources ne se regroupent plus.
+     perl -0pi -e 's/rafraichissement = setTimeout\(\(\) => requestAnimationFrame\(\(\) => \{\n    rafraichissement = 0;\n    rendre\(\);\n    if \(vueCourante\) rendreFeuille\(\);\n  \}\), REGROUPEMENT\);/rendre(); if (vueCourante) rendreFeuille();/' src/app.js
+     ATTENDU="au démarrage, les arrivées des sources se regroupent" ;;
+  526) # Le ciel ne se garde plus d'un rendu à l'autre.
+     perl -0pi -e 's/  if \(formeCiel\(ancien\) !== formeCiel\(neuf\)\) return false;/  return false;/' src/app.js
+     ATTENDU="un rendu qui garde la forme du ciel garde l.image animée" ;;
+  527) # La même toile reprend son animation de zéro.
+     perl -0pi -e 's/  if \(cv && cv === toileActive\) \{ relancer\(\); return; \}\n//' src/temps.js
+     ATTENDU="un rendu qui garde la forme du ciel garde l.image animée" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

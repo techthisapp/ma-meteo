@@ -745,7 +745,7 @@ function ecranAccueil() {
        feuille de la neige, qui porte le bulletin. */
     const av = nz && nz.proches.length && Reglages.clePiaf() ? Avalanche.etatPour(nz.proches) : null;
     if (nz && nz.proches.length && Reglages.clePiaf() && !av) {
-      Avalanche.charger(nz.proches).then(x => { if (Avalanche.risqueFort(x)) rendre(); }).catch(() => {});
+      Avalanche.charger(nz.proches).then(x => { if (Avalanche.risqueFort(x)) rafraichir(); }).catch(() => {});
     }
     const fort = Avalanche.risqueFort(av);
     if (fort) lJour.push({ i: "alerte", g: fort.maxi >= 5 ? 7 : 5, d: "feuille:neige",
@@ -1286,6 +1286,27 @@ function infosPortes(g) {
   return out;
 }
 
+/* Reprend dans l'ancien ciel les valeurs du nouveau, quand les deux ont la
+   même forme : mêmes calques, mêmes astres. Le Soleil avance d'un dixième de
+   pour cent entre deux rendus, et la toile relit ses attributs à chaque
+   image : les recopier suffit, l'animation continue. Rend faux quand la forme
+   a changé, et le nouveau ciel est alors gardé. */
+const formeCiel = ci => [...ci.children].map(e => `${e.tagName}.${e.className}`).join("|");
+function reprendreCiel(ancien, neuf) {
+  if (formeCiel(ancien) !== formeCiel(neuf)) return false;
+  const copier = (de, vers, sauf = []) => {
+    for (const a of [...de.attributes]) if (!sauf.includes(a.name) && vers.getAttribute(a.name) !== a.value) vers.setAttribute(a.name, a.value);
+  };
+  copier(neuf, ancien);
+  [...neuf.children].forEach((n, k) => {
+    const o = ancien.children[k];
+    if (n.tagName === "CANVAS") { copier(n, o, ["width", "height", "style"]); return; }
+    copier(n, o);
+    if (n.classList.contains("ci-astre") && o.innerHTML !== n.innerHTML) o.innerHTML = n.innerHTML;
+  });
+  return true;
+}
+
 function rendre() {
   const ecran = $("ecran");
   const situe = Reglages.situe();
@@ -1355,10 +1376,19 @@ function rendre() {
   ecran.classList.toggle("ecran-carte", f.carte === true);
   ecran.classList.toggle("ecran-large", f.large === true);
   ecran.classList.toggle("ecran-detail", f.retour === true);
+  /* Le ciel de l'accueil se garde d'un rendu à l'autre quand il n'a pas
+     changé, version 204, signalé par Jérôme le 14 octobre 2026 : au
+     démarrage, chaque source arrivée refaisait l'écran, et l'image animée
+     repartait de zéro à chaque fois, d'où des à-coups. Le ciel se compare à
+     son écriture d'origine, non au document : la toile change ses propres
+     dimensions en se dessinant. */
+  const ancienCiel = ecran.querySelector(".plein-accueil > .ci");
   garderFocus(ecran, () => {
     ecran.innerHTML = (f.pleinCadre || f.carte ? "" : titreEcran(f.titre, f.sous, f.cote))
       + f.corps;
   });
+  const cielNeuf = ecran.querySelector(".plein-accueil > .ci");
+  if (cielNeuf && ancienCiel && reprendreCiel(ancienCiel, cielNeuf)) cielNeuf.replaceWith(ancienCiel);
   /* Le retour d'une page de détail prend, dans la barre de tête, la place du
      nom de la commune, comme dans les pages d'iOS. Posé au-dessus du titre, il
      descendait le ruban d'une ligne sous la ligne de flottaison. */
@@ -1697,13 +1727,17 @@ let generation = 0;
    se regroupent en un seul par image d'écran ; page masquée, il attend son
    retour au premier plan. Audit du 1er octobre 2026, constat 5.2. */
 let rafraichissement = 0;
+/* Les arrivées rapprochées se regroupent, version 204 : au démarrage, neuf
+   sources arrivaient en deux secondes et refaisaient l'écran neuf fois. Un
+   rendu attend un cinquième de seconde les autres arrivées. */
+const REGROUPEMENT = 200;
 function rafraichir() {
   if (rafraichissement) return;
-  rafraichissement = requestAnimationFrame(() => {
+  rafraichissement = setTimeout(() => requestAnimationFrame(() => {
     rafraichissement = 0;
     rendre();
     if (vueCourante) rendreFeuille();
-  });
+  }), REGROUPEMENT);
 }
 
 /* La vigilance en vigueur, gardée pour le rendu qui est synchrone. Elle se lit
@@ -1768,7 +1802,7 @@ async function charger() {
    avec la clé de Météo-France, et l'accueil se refait si elle change. */
 async function lireForet() {
   if (!Reglages.clePiaf() || Foret.derniere()) return;
-  try { if (await Foret.charger()) rendre(); } catch { /* l'accueil se lit sans elle */ }
+  try { if (await Foret.charger()) rafraichir(); } catch { /* l'accueil se lit sans elle */ }
 }
 
 /* La mesure du moment, version 192 : lue après le rendu, l'accueil se
@@ -1779,7 +1813,7 @@ async function lireMesure(g, r) {
     const m = await Observations.mesureDuMoment(g.lat, g.lon, Number(r.elevation));
     if (!m) return;
     mesureMoment = { cle: Justesse.lieuDe(g.lat, g.lon), m };
-    rendre();
+    rafraichir();
   } catch { /* l'accueil se lit sans elle */ }
 }
 
@@ -1789,7 +1823,7 @@ async function lireJustesseRecente(g, r) {
   try {
     const o = Reglages.clePiaf() ? await Observations.duLieu(g.lat, g.lon, Number(r.elevation)).catch(() => null) : null;
     const b = await Justesse.chargerRecent(g.lat, g.lon, o?.mesures || null);
-    if (b && onglet === "semaine") rendre();
+    if (b && onglet === "semaine") rafraichir();
   } catch { /* la semaine garde la seule dispersion des scénarios */ }
 }
 
@@ -1903,7 +1937,7 @@ async function lireDeplacement(g) {
     const d = await Deplacement.lire(g.lat, g.lon, idx.hote, observees);
     if (mien !== generation || !d) return;
     deplacement = d;
-    rendre();
+    rafraichir();
   } catch { /* la pluie se lit sans son sens d'arrivée */ }
 }
 
