@@ -1647,13 +1647,13 @@ case "$N" in
      # version 208, cette erreur retirait la feuille qui chevauchait le ciel,
      # que le plein ciel a remplacée.
      perl -0pi -e 's/    morphoser\(titre, nav, k\);\n//' src/app.js
-     ATTENDU="l.accueil en plein ciel porte des cartes de verre, et sa température" ;;
+     ATTENDU="l.accueil en plein ciel porte des cartes de verre, et sa température et son état passent par morphose" ;;
   537) # Les cartes de l'accueil perdent leur verre.
      perl -0pi -e 's/backdrop-filter:blur\(22px\) saturate\(1\.3\)/backdrop-filter:none/g; s/backdrop-filter:blur\(30px\) saturate\(1\.6\)/backdrop-filter:none/g' styles.css
-     ATTENDU="l.accueil en plein ciel porte des cartes de verre, et sa température" ;;
+     ATTENDU="l.accueil en plein ciel porte des cartes de verre, et sa température et son état passent par morphose" ;;
   538) # Le titre ne se réduit plus au défilement.
      perl -0pi -e 's/    titre\.style\.setProperty\("--repli", k\.toFixed\(3\)\);\n//' src/app.js
-     ATTENDU="l.accueil en plein ciel porte des cartes de verre, et sa température" ;;
+     ATTENDU="l.accueil en plein ciel porte des cartes de verre, et sa température et son état passent par morphose" ;;
   539) # Le ciel de l'accueil reprend sa place dans la page.
      perl -0pi -e 's/\.ecran-ciel \.plein-accueil > \.ci\{position:fixed;inset:0;z-index:0\}//' styles.css
      ATTENDU="le ciel de l.accueil occupe tout l.écran, fixe" ;;
@@ -1668,7 +1668,10 @@ case "$N" in
      ATTENDU="la recette du plein ciel suit la maquette" ;;
   543) # La barre de tête reste transparente sur les cartes qui défilent.
      perl -0pi -e 's/  opacity:var\(--mini,0\);\n  background:linear-gradient\(180deg,rgba\(14,24,40,\.72\)/  opacity:0;\n  background:linear-gradient(180deg,rgba(14,24,40,.72)/' styles.css
-     ATTENDU="l.accueil en plein ciel porte des cartes de verre, et sa température" ;;
+     ATTENDU="l.accueil en plein ciel porte des cartes de verre, et sa température et son état passent par morphose" ;;
+  544) # La morphose ignore le lieu et se centre par-dessus.
+     perl -0pi -e 's/const x0 = Math\.min\(Math\.max\(\(window\.innerWidth - largeur\) \/ 2, finNom\), roue\.left - 12 - largeur\);/const x0 = (window.innerWidth - largeur) \/ 2 - 60;/' src/app.js
+     ATTENDU="l.accueil en plein ciel porte des cartes de verre, et sa température et son état passent par morphose" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

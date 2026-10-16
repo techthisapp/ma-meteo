@@ -116,7 +116,12 @@ export default async T => {
     const rT = T.getBoundingClientRect(), rE = E.getBoundingClientRect();
     const r = { flou, fond: st.backgroundColor, repli: getComputedStyle(t).getPropertyValue("--repli").trim(),
       morph: getComputedStyle(T).visibility === "visible" ? `${T.textContent} ${E.textContent}` : "",
-      centre: Math.round(((rT.left + rE.right) / 2) - innerWidth / 2), dansBarre: rT.top >= nav.top - 2 && rT.bottom <= nav.bottom + 2,
+      /* Version 213 : le lieu reste à gauche ; les pièces se tiennent entre
+         lui et la roue des réglages, sans les chevaucher. */
+      apresLieu: Math.round(rT.left - document.querySelector(".nav-chev").getBoundingClientRect().right),
+      avantRoue: Math.round(document.getElementById("btnReglages").getBoundingClientRect().left - rE.right),
+      lieuVu: Number(getComputedStyle(document.querySelector(".nav-noms")).opacity),
+      dansBarre: rT.top >= nav.top - 2 && rT.bottom <= nav.bottom + 2,
       titreCache: getComputedStyle(t.querySelector(".bd-deg")).opacity === "0",
       bandeau: Number(getComputedStyle(document.getElementById("nav"), "::before").opacity) };
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -136,9 +141,9 @@ export default async T => {
   ok("la recette du plein ciel suit la maquette : barre d'onglets sombre, étiquettes en petites capitales",
     /^rgba\(14, 24, 40, 0\.4/.test(recette.onglets) && recette.etiquette === "uppercase" && recette.court === "Prochaines heures",
     JSON.stringify(recette));
-  ok("l'accueil en plein ciel porte des cartes de verre, et sa température et son état passent par morphose au centre du bandeau",
+  ok("l'accueil en plein ciel porte des cartes de verre, et sa température et son état passent par morphose dans le bandeau, à côté du lieu",
     verre.flou && /^rgba\(14, 24, 40, 0\.4/.test(verre.fond) && verre.repli === "1.000"
-    && /^\d+° \S/.test(verre.morph) && Math.abs(verre.centre) <= 12 && verre.dansBarre && verre.titreCache && verre.bandeau > 0.95
+    && /^\d+° \S/.test(verre.morph) && verre.apresLieu >= 0 && verre.avantRoue >= 0 && verre.lieuVu === 1 && verre.dansBarre && verre.titreCache && verre.bandeau > 0.95
     && !verre.morphEnHaut && verre.titreEnHaut === "visible",
     JSON.stringify(verre));
 

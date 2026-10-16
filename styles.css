@@ -3274,6 +3274,7 @@ button.rangee:active{background:var(--surface-2)}
   -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
   -webkit-mask-image:linear-gradient(180deg,#000 0%,#000 55%,transparent 100%);mask-image:linear-gradient(180deg,#000 0%,#000 55%,transparent 100%);
 }
-:root.plein-ciel .nav.sur-ciel .nav-noms{opacity:calc(1 - 2.5 * var(--mini,0))}
-:root.plein-ciel .nav.sur-ciel .nav-chev{opacity:calc(1 - 2.5 * var(--mini,0))}
+/* Le lieu reste à gauche, version 213, demande de Jérôme : il s'abrège au
+   besoin pour laisser la place à la température et à l'état. */
+:root.plein-ciel .nav-noms{min-width:0}
 .ecran-ciel .plein-titre > .pt-rep,.ecran-ciel .plein-titre > i{animation-fill-mode:backwards}

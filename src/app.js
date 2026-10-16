@@ -1507,8 +1507,10 @@ function morphoser(titre, nav, k) {
   const boite = $("navMorph");
   const T = $("morphT"), E = $("morphE");
   const srcT = titre?.querySelector(".bd-deg"), srcE = titre?.querySelector(".bd-ciel");
+  const noms = nav.querySelector(".nav-noms");
   if (!titre || !srcT || !srcE || k <= 0) {
     boite.classList.remove("en-cours");
+    if (noms) noms.style.maxWidth = "";
     if (srcT) srcT.style.opacity = "";
     if (srcE) srcE.style.opacity = "";
     return;
@@ -1528,7 +1530,21 @@ function morphoser(titre, nav, k) {
      déborde de sa boîte. */
   const wT = T.offsetWidth, wE = E.offsetWidth;
   const largeur = wT * sT + 10 + wE * sE;
-  const x0 = (window.innerWidth - largeur) / 2;
+  /* Centré quand la place le permet ; sinon juste à droite du lieu, qui
+     reste à gauche et s'abrège pour tenir avant la roue des réglages. */
+  /* La limite à droite : le jeton du parapluie s'il paraît, sinon la roue. */
+  const roue = { left: Math.min(...[$("btnReglages"), $("navJeton")]
+    .filter(el => el && !el.hidden && el.offsetParent).map(el => el.getBoundingClientRect().left)) };
+  const nomG = noms.getBoundingClientRect().left;
+  const naturel = noms.scrollWidth;
+  /* La flèche qui suit le nom, avec son écart ; le bouton du lieu, lui,
+     s'étend jusqu'aux commandes de droite. */
+  const chev = nav.querySelector(".nav-chev");
+  const queue = chev ? chev.getBoundingClientRect().right - noms.getBoundingClientRect().right : 24;
+  const place = Math.max(60, roue.left - 12 - largeur - 14 - queue - nomG);
+  noms.style.maxWidth = `${Math.round(naturel + (Math.min(naturel, place) - naturel) * e)}px`;
+  const finNom = nomG + Math.min(naturel, place) + queue + 14;
+  const x0 = Math.min(Math.max((window.innerWidth - largeur) / 2, finNom), roue.left - 12 - largeur);
   const cy = corps.top + corps.height / 2;
   /* Les chiffres s'assoient plus bas que le centre de leur boîte, et l'état
      tient dans une cible de quarante-quatre points : un léger décalage
