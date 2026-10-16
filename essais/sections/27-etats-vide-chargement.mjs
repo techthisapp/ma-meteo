@@ -374,8 +374,11 @@ export default async T => {
     window.cancelAnimationFrame = caf;
     return { haut, bas, retour, avant, pireAvant, apres };
   });
-  ok("le ciel animé s'arrête hors de l'écran et reprend à son retour",
-    animeDit.haut && !animeDit.bas && animeDit.retour, JSON.stringify(animeDit));
+  /* Depuis la version 209, le ciel de l'accueil reste fixe à l'écran au
+     défilement : il continue de s'animer. Il s'arrête quand l'application
+     passe en arrière-plan, contrôle suivant. */
+  ok("le ciel animé de l'accueil reste fixe et animé au défilement, et reprend à son retour",
+    animeDit.haut && animeDit.bas && animeDit.retour, JSON.stringify(animeDit));
   ok("un retour au premier plan ne lance pas de seconde boucle d'animation",
     animeDit.avant > 0 && animeDit.apres === 1, JSON.stringify(animeDit));
 

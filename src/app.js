@@ -1046,6 +1046,11 @@ function ecranAccueil() {
     titre: g.commune ? jour.charAt(0).toUpperCase() + jour.slice(1) : "Ma météo",
     sous: "",
     pleinCadre: plein,
+    /* Le ciel en plein écran, version 209, choix de Jérôme du 16 octobre 2026
+       sur maquette : le ciel animé reste fixe derrière tout l'accueil, les
+       cartes défilent dessus en verre sombre. */
+    cielPlein: plein,
+    resumeCiel: plein ? `${Math.round(s ? s.t[0] : 0)}°` : "",
     corps: bandeauHorsLigne() + corps,
     brancher(bloc) {
       Feu.poser(bloc.querySelector("#ciFeu"));
@@ -1304,6 +1309,7 @@ function infosPortes(g) {
    pour cent entre deux rendus, et la toile relit ses attributs à chaque
    image : les recopier suffit, l'animation continue. Rend faux quand la forme
    a changé, et le nouveau ciel est alors gardé. */
+const COMPRESSION_CIEL = 0.5;
 const formeCiel = ci => [...ci.children].map(e => `${e.tagName}.${e.className}`).join("|");
 function reprendreCiel(ancien, neuf) {
   if (formeCiel(ancien) !== formeCiel(neuf)) return false;
@@ -1389,6 +1395,9 @@ function rendre() {
   ecran.classList.toggle("ecran-carte", f.carte === true);
   ecran.classList.toggle("ecran-large", f.large === true);
   ecran.classList.toggle("ecran-detail", f.retour === true);
+  ecran.classList.toggle("ecran-ciel", f.cielPlein === true);
+  document.documentElement.classList.toggle("plein-ciel", f.cielPlein === true);
+  $("navMini").textContent = f.resumeCiel || "";
   /* Le ciel de l'accueil se garde d'un rendu à l'autre quand il n'a pas
      changé, version 204, signalé par Jérôme le 14 octobre 2026 : au
      démarrage, chaque source arrivée refaisait l'écran, et l'image animée
@@ -1402,6 +1411,13 @@ function rendre() {
   });
   const cielNeuf = ecran.querySelector(".plein-accueil > .ci");
   if (cielNeuf && ancienCiel && reprendreCiel(ancienCiel, cielNeuf)) cielNeuf.replaceWith(ancienCiel);
+  /* En plein ciel, l'astre et sa lueur se tiennent dans la moitié haute de
+     l'écran, version 209 : à leur hauteur d'avant, rapportée à tout l'écran,
+     ils passaient derrière les cartes. */
+  if (f.cielPlein) {
+    const toile = ecran.querySelector(".plein-accueil #ciTemps");
+    if (toile && toile.dataset.ay) toile.dataset.ay = (Number(toile.dataset.ay) * COMPRESSION_CIEL).toFixed(4);
+  }
   /* Le retour d'une page de détail prend, dans la barre de tête, la place du
      nom de la commune, comme dans les pages d'iOS. Posé au-dessus du titre, il
      descendait le ruban d'une ligne sous la ligne de flottaison. */
@@ -1477,6 +1493,16 @@ function majPose() {
   const nav = $("nav");
   const hauteurNav = nav.getBoundingClientRect().height;
   const ciel = $("ecran").querySelector(".ci");
+
+  /* Le plein ciel de l'accueil, version 209 : le grand chiffre se réduit et
+     s'efface au défilement, et la barre de tête prend la température en
+     petit. */
+  const titre = $("ecran").classList.contains("ecran-ciel") ? $("ecran").querySelector(".plein-titre") : null;
+  if (titre) {
+    const k = Math.min(1, Math.max(0, window.scrollY) / 220);
+    titre.style.setProperty("--repli", k.toFixed(3));
+    nav.classList.toggle("avec-mini", k >= 0.8);
+  } else nav.classList.remove("avec-mini");
 
   if (ciel) {
     const surCiel = ciel.getBoundingClientRect().bottom > hauteurNav;

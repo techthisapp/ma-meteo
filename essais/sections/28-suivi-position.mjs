@@ -498,14 +498,15 @@ export default async T => {
      La mesure porte sur l'image composée, voiles compris, non sur la seule toile :
      la capture repasse par le navigateur, qui sait décoder un PNG. */
   const cliche = (await pgCouvert.locator(".ci").screenshot()).toString("base64");
-  /* Depuis la version 208, le bas du ciel se fond sous la feuille, qui le
-     chevauche, et le titre remonte d'autant : les quatre hauteurs mesurées
-     remontent avec lui. */
+  /* Depuis la version 209, le ciel occupe tout l'écran et le titre se tient
+     dans sa moitié haute : la mesure porte sur les lignes du titre, de la
+     date aux bornes du jour. */
   const bandes = await pgCouvert.evaluate(() => {
     const ci = document.querySelector(".plein-accueil > .ci").getBoundingClientRect();
-    const corps = document.querySelector(".plein-accueil + .ecran-corps").getBoundingClientRect();
-    const releve = Math.max(0, ci.bottom - corps.top) / ci.height;
-    return [0.68, 0.76, 0.84, 0.92].map(f => f - releve);
+    const d = document.querySelector(".plein-titre > i").getBoundingClientRect();
+    const b = document.querySelector(".plein-titre .bd-bornes").getBoundingClientRect();
+    const a = (d.top - ci.top) / ci.height, z = (b.bottom - ci.top) / ci.height;
+    return [0, 1, 2, 3].map(k => a + (z - a) * k / 3);
   });
   /* Le cliché se décode dans une page vierge : la politique de sécurité de
      l'application refuse les images en `data:`, depuis la version 139. */

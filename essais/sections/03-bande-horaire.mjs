@@ -1557,9 +1557,14 @@ export default async T => {
       cellules: cellules.length, rangees: hauts.size, colonnes: gauches.size,
     };
   });
-  ok("le ciel de l'accueil est plus bas que celui des autres écrans",
-    lot2.rapport !== null && lot2.rapport <= 250 / 390 + 0.01,
-    lot2.rapport === null ? "ciel introuvable" : `rapport ${lot2.rapport.toFixed(3)}`);
+  /* Depuis la version 209, le ciel de l'accueil occupe tout l'écran, fixe. */
+  const plein = await pg.evaluate(() => {
+    const ci = document.querySelector("#ecran .plein-accueil .ci");
+    const r = ci?.getBoundingClientRect();
+    return ci ? { fixe: getComputedStyle(ci).position === "fixed", haut: Math.round(r.height), ecran: innerHeight, large: Math.round(r.width), largeur: innerWidth } : null;
+  });
+  ok("le ciel de l'accueil occupe tout l'écran, fixe",
+    !!plein && plein.fixe && plein.haut === plein.ecran && plein.large === plein.largeur, JSON.stringify(plein));
   /* Jalon 11 : les quatre chiffres sur une ligne deviennent huit tuiles sur deux
      colonnes, une par paramètre suivi. */
   /* Du 30 septembre au 12 octobre 2026, une neuvième tuile, l'eau, prenait

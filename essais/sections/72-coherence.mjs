@@ -99,16 +99,25 @@ export default async T => {
     && replie.mini >= 6 && replie.bouton === "Mesures du jour et demain"
     && replie.bande && replie.portes && replie.dansPli && deplie.tuiles && deplie.demain && deplie.mini === 0 && deplie.bouton === "Réduire",
     JSON.stringify({ replie, deplie }));
-  /* Version 208 : la suite de l'accueil remonte sur le bas du ciel, bord
-     arrondi, et le ciel se fond vers elle. */
-  const haut = await p3.evaluate(() => {
-    const ci = document.querySelector(".plein-accueil > .ci"), corps = document.querySelector(".plein-accueil + .ecran-corps");
-    const a = ci.getBoundingClientRect(), b = corps.getBoundingClientRect();
-    return { chevauche: Math.round(a.bottom - b.top), rayon: getComputedStyle(corps).borderTopLeftRadius,
-      fondu: getComputedStyle(ci, "::after").backgroundImage.startsWith("linear-gradient") };
+  /* Version 209 : l'accueil en plein ciel. Les cartes sont de verre sombre,
+     le titre se réduit au défilement et la barre de tête prend la
+     température en petit. */
+  const verre = await p3.evaluate(async () => {
+    const c = document.querySelector("#ecran .ecran-corps .carte");
+    const st = getComputedStyle(c);
+    const flou = (st.backdropFilter || st.webkitBackdropFilter || "none") !== "none";
+    window.scrollTo({ top: 400, behavior: "instant" });
+    await new Promise(r => setTimeout(r, 200));
+    const t = document.querySelector(".plein-titre");
+    const mini = document.getElementById("navMini");
+    const r = { flou, fond: st.backgroundColor, repli: getComputedStyle(t).getPropertyValue("--repli").trim(),
+      opacite: Number(getComputedStyle(t).opacity), mini: mini.checkVisibility() ? mini.textContent : "" };
+    window.scrollTo({ top: 0, behavior: "instant" });
+    return r;
   });
-  ok("la suite de l'accueil remonte sur le bas du ciel, bord arrondi, et le ciel s'y fond",
-    haut.chevauche >= 16 && haut.rayon === "20px" && haut.fondu, JSON.stringify(haut));
+  ok("l'accueil en plein ciel porte des cartes de verre, réduit son titre au défilement et met la température dans la barre de tête",
+    verre.flou && /^rgba\(14, 24, 40, 0\.5/.test(verre.fond) && verre.repli === "1.000" && verre.opacite < 0.2 && /^\d+°$/.test(verre.mini),
+    JSON.stringify(verre));
 
   /* Le réglage se fait dans la carte « Accueil » des réglages, et l'accueil
      se refait aussitôt. */

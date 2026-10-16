@@ -17,8 +17,11 @@ export default async T => {
   });
   ok("toute cible interactive tient 44 pt", petites.length === 0, petites.join(" | "));
 
+  /* Depuis la version 209, l'accueil en plein ciel prend le fond du ciel,
+     le jeton `--fond-ciel`. */
   ok("le fond du corps est celui du token", await pg.evaluate(() => {
-    const attendu = getComputedStyle(document.documentElement).getPropertyValue("--fond").trim();
+    const ciel = document.documentElement.classList.contains("plein-ciel");
+    const attendu = getComputedStyle(document.documentElement).getPropertyValue(ciel ? "--fond-ciel" : "--fond").trim();
     const el = document.createElement("div");
     el.style.color = attendu; document.body.append(el);
     const norm = getComputedStyle(el).color; el.remove();
@@ -41,14 +44,17 @@ export default async T => {
      n'est pas écrite n'en est plus une. Depuis la version 140, les commandes
      posées sur la carte, panneau des couches, légendes et bouton des sources,
      sont de la couche navigation de la carte et prennent le verre. */
-  ok("le verre est réservé à la couche navigation et à la réponse du matin",
+  /* Depuis la version 209, choix de Jérôme du 16 octobre 2026, les cartes de
+     l'accueil en plein ciel sont aussi de verre. */
+  ok("le verre est réservé à la couche navigation, à la réponse du matin et aux cartes de l'accueil en plein ciel",
     await pg.evaluate(() => {
       const flous = [...document.querySelectorAll("body *")].filter(e => {
         const s = getComputedStyle(e);
         const f = s.backdropFilter || s.webkitBackdropFilter || "none";
         return f !== "none" && f !== "";
       });
-      return flous.every(e => e.closest(".nav, .onglets, .ca-panneau, .ca-legendes, .ca-src") || e.matches(".pt-rep"));
+      return flous.every(e => e.closest(".nav, .onglets, .ca-panneau, .ca-legendes, .ca-src") || e.matches(".pt-rep")
+        || e.closest(".ecran-ciel .ecran-corps"));
     }));
 
   const horsEchelle = await pg.evaluate(() => {

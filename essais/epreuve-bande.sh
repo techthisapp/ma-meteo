@@ -1643,9 +1643,23 @@ case "$N" in
   535) # Les mesures en petit disparaissent du compact.
      perl -0pi -e 's/\+ \(tuiles\.length \? `<span class="mini-mesures">/+ (false ? `<span class="mini-mesures">/' src/app.js
      ATTENDU="l.accueil compact montre les mesures en petit" ;;
-  536) # La suite de l'accueil ne remonte plus sur le ciel.
-     perl -0pi -e 's/position:relative;z-index:2;margin-top:calc\(-1 \* var\(--rayon-xl\)\);/position:relative;z-index:2;/' styles.css
-     ATTENDU="la suite de l.accueil remonte sur le bas du ciel" ;;
+  536) # La barre de tête ne prend plus la température en petit. Jusqu'à la
+     # version 208, cette erreur retirait la feuille qui chevauchait le ciel,
+     # que le plein ciel a remplacée.
+     perl -0pi -e 's/    nav\.classList\.toggle\("avec-mini", k >= 0\.8\);\n//' src/app.js
+     ATTENDU="l.accueil en plein ciel porte des cartes de verre" ;;
+  537) # Les cartes de l'accueil perdent leur verre.
+     perl -0pi -e 's/  -webkit-backdrop-filter:blur\(22px\) saturate\(1\.3\);backdrop-filter:blur\(22px\) saturate\(1\.3\);\n\}/}/' styles.css
+     ATTENDU="l.accueil en plein ciel porte des cartes de verre" ;;
+  538) # Le titre ne se réduit plus au défilement.
+     perl -0pi -e 's/    titre\.style\.setProperty\("--repli", k\.toFixed\(3\)\);\n//' src/app.js
+     ATTENDU="l.accueil en plein ciel porte des cartes de verre" ;;
+  539) # Le ciel de l'accueil reprend sa place dans la page.
+     perl -0pi -e 's/\.ecran-ciel \.plein-accueil > \.ci\{position:fixed;inset:0;z-index:0\}//' styles.css
+     ATTENDU="le ciel de l.accueil occupe tout l.écran, fixe" ;;
+  540) # Le voile du titre en plein ciel disparaît.
+     perl -0pi -e 's/\.ecran-ciel \.plein-accueil > \.ci \.ci-voile-haut\{height:56%;/.ecran-ciel .plein-accueil > .ci .ci-voile-haut{height:0;/' styles.css
+     ATTENDU="le titre reste lisible sur un plafond de plein jour" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
