@@ -1053,7 +1053,7 @@ function ecranAccueil() {
        sur maquette : le ciel animé reste fixe derrière tout l'accueil, les
        cartes défilent dessus en verre sombre. */
     cielPlein: plein,
-    resumeCiel: plein ? `${Math.round(s ? s.t[0] : 0)}°` : "",
+    resumeCiel: plein ? `${Math.round(s ? s.t[0] : 0)}° · ${tempsDe(s ? s.code[0] : 0)[1]}` : "",
     corps: bandeauHorsLigne() + corps,
     brancher(bloc) {
       Feu.poser(bloc.querySelector("#ciFeu"));
@@ -1504,8 +1504,11 @@ function majPose() {
   if (titre) {
     const k = Math.min(1, Math.max(0, window.scrollY) / 220);
     titre.style.setProperty("--repli", k.toFixed(3));
-    nav.classList.toggle("avec-mini", k >= 0.8);
-  } else nav.classList.remove("avec-mini");
+    /* Version 211, demande de Jérôme : la température et l'état passent en
+       haut en fondu enchaîné avec le bloc qui s'efface, au fil du doigt. Ils
+       prennent, sous le nom du lieu, la place du département. */
+    nav.style.setProperty("--mini", Math.min(1, Math.max(0, (k - 0.35) / 0.5)).toFixed(3));
+  } else nav.style.setProperty("--mini", "0");
 
   if (ciel) {
     const surCiel = ciel.getBoundingClientRect().bottom > hauteurNav;

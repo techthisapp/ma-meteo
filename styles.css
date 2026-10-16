@@ -3176,8 +3176,6 @@ button.rangee:active{background:var(--surface-2)}
 .accueil-compact.ecran-corps [data-bloc="portes"] .porte{border:0}
 .ecran-ciel .section > h2,.ecran-ciel .tu-portee,.ecran-ciel .pied-ecran{color:var(--etiquette-2);text-shadow:0 1px 8px rgba(0,0,0,.35)}
 /* La barre de tête : la température en petit, une fois le titre réduit. */
-.nav-mini{display:none;font-size:var(--texte-sous);font-weight:var(--graisse-medium);opacity:.86;white-space:nowrap}
-.nav.avec-mini .nav-mini{display:inline}
 .ecran-ciel .plein-accueil .ci-astre{top:calc(var(--ay) * .5)}
 /* Le voile du haut porte le titre en plein ciel, version 209 : la date, le
    grand chiffre, l'état et les bornes s'écrivent en blanc dans la moitié
@@ -3253,3 +3251,32 @@ button.rangee:active{background:var(--surface-2)}
 .ecran-ciel .pt-rep .pt-l{display:block;text-align:center;padding:var(--espace-xs) 0}
 .ecran-ciel .pt-rep .pt-l > svg{display:inline-block;vertical-align:-3px;margin-right:8px}
 .ecran-ciel .pt-rep .pt-l > span{display:inline}
+
+/* La température et l'état en haut, version 211 : sous le nom du lieu, à la
+   place du département, en fondu enchaîné avec le grand bloc qui s'efface et
+   remonte. Le passage suit le défilement. */
+.nav-noms{position:relative}
+.nav-mini{display:none}
+:root.plein-ciel .nav-mini{
+  display:block;position:absolute;left:0;bottom:0;right:0;
+  font-size:var(--texte-note);font-weight:var(--graisse-semibold);
+  opacity:var(--mini,0);transform:translateY(calc((1 - var(--mini,0)) * 8px));pointer-events:none;
+}
+:root.plein-ciel .nav-dep{opacity:calc(.72 * (1 - var(--mini,0)));transform:translateY(calc(var(--mini,0) * -6px))}
+:root.plein-ciel .nav-dep[hidden] ~ .nav-mini{position:static}
+.ecran-ciel .plein-accueil > .plein-titre{
+  transform:translateY(calc(-36px * var(--repli,0))) scale(calc(1 - .32 * var(--repli,0)));
+}
+/* La barre de tête du plein ciel prend son verre sombre à mesure que la
+   température y arrive, version 211 : les cartes qui glissent dessous ne se
+   lisent plus à travers. Le bloc du titre s'efface avant de l'atteindre. */
+:root.plein-ciel .nav.sur-ciel{
+  background:rgba(14,24,40,calc(.62 * var(--mini,0)));
+  -webkit-backdrop-filter:blur(calc(24px * var(--mini,0))) saturate(1.4);backdrop-filter:blur(calc(24px * var(--mini,0))) saturate(1.4);
+  border-bottom-color:rgba(255,255,255,calc(.16 * var(--mini,0)));
+}
+.ecran-ciel .plein-accueil > .plein-titre{opacity:calc(1 - 1.7 * var(--repli,0))}
+/* Le département s'efface d'abord, la température arrive ensuite : les deux
+   ne se superposent pas. */
+:root.plein-ciel .nav-dep{opacity:calc(.72 * (1 - 2.2 * var(--mini,0)))}
+:root.plein-ciel .nav-mini{opacity:calc((var(--mini,0) - .45) / .55)}

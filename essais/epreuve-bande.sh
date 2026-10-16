@@ -1646,7 +1646,7 @@ case "$N" in
   536) # La barre de tête ne prend plus la température en petit. Jusqu'à la
      # version 208, cette erreur retirait la feuille qui chevauchait le ciel,
      # que le plein ciel a remplacée.
-     perl -0pi -e 's/    nav\.classList\.toggle\("avec-mini", k >= 0\.8\);\n//' src/app.js
+     perl -0pi -e 's/    nav\.style\.setProperty\("--mini", Math\.min[^\n]*\n//' src/app.js
      ATTENDU="l.accueil en plein ciel porte des cartes de verre" ;;
   537) # Les cartes de l'accueil perdent leur verre.
      perl -0pi -e 's/  -webkit-backdrop-filter:blur\(22px\) saturate\(1\.3\);backdrop-filter:blur\(22px\) saturate\(1\.3\);\n\}/}/' styles.css
@@ -1666,6 +1666,9 @@ case "$N" in
   542) # La barre d'onglets garde son verre clair en plein ciel.
      perl -0pi -e 's/:root\.plein-ciel \.onglets\{background:rgba\(14,24,40,\.48\);/:root.plein-ciel .onglets{/' styles.css
      ATTENDU="la recette du plein ciel suit la maquette" ;;
+  543) # La barre de tête reste transparente sur les cartes qui défilent.
+     perl -0pi -e 's/  background:rgba\(14,24,40,calc\(\.62 \* var\(--mini,0\)\)\);\n//' styles.css
+     ATTENDU="l.accueil en plein ciel porte des cartes de verre" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

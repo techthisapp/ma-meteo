@@ -111,8 +111,12 @@ export default async T => {
     const t = document.querySelector(".plein-titre");
     const mini = document.getElementById("navMini");
     const r = { flou, fond: st.backgroundColor, repli: getComputedStyle(t).getPropertyValue("--repli").trim(),
-      opacite: Number(getComputedStyle(t).opacity), mini: mini.checkVisibility() ? mini.textContent : "" };
+      opacite: Number(getComputedStyle(t).opacity), mini: mini.checkVisibility() ? mini.textContent : "",
+      miniOpacite: Number(getComputedStyle(mini).opacity),
+      barre: Number((/rgba\([^)]*,\s*([\d.]+)\)/.exec(getComputedStyle(document.getElementById("nav")).backgroundColor) || [0, 0])[1]) };
     window.scrollTo({ top: 0, behavior: "instant" });
+    await new Promise(r => setTimeout(r, 200));
+    r.miniEnHaut = Number(getComputedStyle(mini).opacity);
     return r;
   });
   /* Version 210, recette contre la maquette : la barre d'onglets en verre
@@ -127,7 +131,8 @@ export default async T => {
     /^rgba\(14, 24, 40, 0\.4/.test(recette.onglets) && recette.etiquette === "uppercase" && recette.court === "Prochaines heures",
     JSON.stringify(recette));
   ok("l'accueil en plein ciel porte des cartes de verre, réduit son titre au défilement et met la température dans la barre de tête",
-    verre.flou && /^rgba\(14, 24, 40, 0\.4/.test(verre.fond) && verre.repli === "1.000" && verre.opacite < 0.2 && /^\d+°$/.test(verre.mini),
+    verre.flou && /^rgba\(14, 24, 40, 0\.4/.test(verre.fond) && verre.repli === "1.000" && verre.opacite < 0.2 && /^\d+° · \S/.test(verre.mini)
+    && verre.miniOpacite > 0.95 && verre.miniEnHaut < 0.05 && verre.barre > 0.5,
     JSON.stringify(verre));
 
   /* Le réglage se fait dans la carte « Accueil » des réglages, et l'accueil
