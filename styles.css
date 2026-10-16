@@ -3047,3 +3047,20 @@ button.rangee:active{background:var(--surface-2)}
    mesures se rapproche. */
 .accueil-compact .bande-phrase{display:none}
 .accueil-compact .compact-plus{margin:var(--espace-sm) 0}
+
+/* Le ciel de l'accueil grandit avec ce qu'il porte, version 206, signalé par
+   Jérôme le 16 octobre 2026 à Pantin : la réponse du matin sur deux lignes,
+   parapluie et tenue, plus la mesure de la station, dépassaient la hauteur
+   fixe du ciel, et le haut de la réponse passait sous la barre de tête. Le
+   ciel garde sa hauteur au minimum, une cale de la proportion d'origine, et
+   s'allonge quand le titre en demande plus ; le titre ne monte jamais
+   au-dessus de la barre de tête. */
+.plein-accueil{display:grid}
+.plein-accueil::before{content:"";grid-area:1 / 1;padding-top:calc(250 / 390 * 100%)}
+:root.en-consultation .plein-accueil::before{padding-top:calc(250 / 390 * 100% + var(--consult-haut))}
+.plein-accueil > .ci{position:absolute;inset:0;aspect-ratio:auto}
+.plein-accueil > .plein-titre{
+  grid-area:1 / 1;position:relative;left:auto;right:auto;bottom:auto;align-self:end;
+  margin:0 var(--marge) var(--espace-lg);
+  padding-top:calc(var(--haut) + var(--nav-haut) + var(--consult-haut) + var(--espace-sm));
+}

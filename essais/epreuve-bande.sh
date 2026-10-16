@@ -1625,6 +1625,9 @@ case "$N" in
   529) # Les portes du compact reprennent deux colonnes.
      perl -0pi -e 's/\.accueil-compact \.portes\{display:flex;flex-direction:column;gap:0\}/.accueil-compact .portes{gap:0}/' styles.css
      ATTENDU="l.accueil compact resserre la pluie de l.heure" ;;
+  530) # Le ciel de l'accueil reprend sa hauteur fixe.
+     perl -0pi -e 's/\.plein-accueil\{display:grid\}.*?padding-top:calc\(var\(--haut\) \+ var\(--nav-haut\) \+ var\(--consult-haut\) \+ var\(--espace-sm\)\);\n\}\n//s' styles.css
+     ATTENDU="le ciel de l.accueil grandit avec une longue réponse" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

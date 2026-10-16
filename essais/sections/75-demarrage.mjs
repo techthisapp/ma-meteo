@@ -52,5 +52,23 @@ export default async T => {
      avant les trois rendus des réglages, posés en un peu plus d'une seconde. */
   ok("un rendu qui garde la forme du ciel garde l'image animée, sans la reprendre de zéro",
     ciel.meme && ciel.age > 2.5, JSON.stringify(ciel));
+
+  /* Le ciel grandit avec ce qu'il porte, version 206 : une réponse de trois
+     lignes et la mesure de la station restent sous la barre de tête, et le
+     grand chiffre reste dans le ciel. */
+  const haut = await p.evaluate(async () => {
+    const rep = document.querySelector(".pt-rep");
+    const l = rep.querySelector(".pt-l");
+    rep.append(l.cloneNode(true), l.cloneNode(true));
+    const m = document.createElement("p"); m.className = "bd-mesure"; m.textContent = "21° mesurés à la station, il y a 7 min";
+    document.querySelector(".bd-etat").append(m);
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const nav = document.getElementById("nav").getBoundingClientRect();
+    const r = rep.getBoundingClientRect(), ci = document.querySelector(".plein-accueil > .ci").getBoundingClientRect();
+    const deg = document.querySelector(".bd-deg").getBoundingClientRect();
+    return { nav: Math.round(nav.bottom), rep: Math.round(r.top), ciel: Math.round(ci.bottom), chiffre: Math.round(deg.bottom) };
+  });
+  ok("le ciel de l'accueil grandit avec une longue réponse du matin, qui reste sous la barre de tête",
+    haut.rep >= haut.nav && haut.chiffre <= haut.ciel, JSON.stringify(haut));
   await c.close();
 };
