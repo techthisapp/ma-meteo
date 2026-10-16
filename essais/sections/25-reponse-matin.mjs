@@ -17,23 +17,23 @@ export default async T => {
   ok("sans objet à prendre, elle n'a qu'une ligne",
     await pg.locator(".pt-rep .pt-l").count() === 1,
     String(await pg.locator(".pt-rep .pt-l").count()));
-  /* Elle traverse la largeur au-dessus de la ligne de date. En dessous, elle
-     rencontrerait le grand chiffre et les bornes du jour. */
-  ok("elle est posée au-dessus de la ligne de date et du grand chiffre",
+  /* Depuis la version 210, accueil en plein ciel, demande de Jérôme : elle
+     se pose sous les bornes du jour, centrée, sans encadré, comme sur la
+     maquette. */
+  ok("elle est posée sous les bornes du jour, centrée, sans encadré",
     await pg.evaluate(() => {
       const r = document.querySelector(".pt-rep")?.getBoundingClientRect();
-      const jour = document.querySelector(".plein-titre > i")?.getBoundingClientRect();
-      const deg = document.querySelector(".bd-deg")?.getBoundingClientRect();
-      const ciel = document.querySelector(".ci")?.getBoundingClientRect();
-      if (!r || !jour || !deg || !ciel) return "un élément manque";
-      if (r.bottom > jour.top + 0.5) return "l'encart déborde sur la ligne de date";
-      if (r.bottom > deg.top + 0.5) return "l'encart déborde sur le grand chiffre";
-      if (r.top < ciel.top || r.bottom > ciel.bottom) return "l'encart sort du ciel";
-      if (r.width < ciel.width * 0.7) return "l'encart ne traverse pas la largeur";
+      const bornes = document.querySelector(".plein-titre .bd-bornes")?.getBoundingClientRect();
+      if (!r || !bornes) return "un élément manque";
+      if (r.top < bornes.bottom - 0.5) return "l'encart passe au-dessus des bornes";
+      const milieu = (r.left + r.right) / 2;
+      if (Math.abs(milieu - innerWidth / 2) > 4) return "l'encart n'est pas centré";
+      const st = getComputedStyle(document.querySelector(".pt-rep"));
+      if (st.backgroundColor !== "rgba(0, 0, 0, 0)" || (st.backdropFilter || st.webkitBackdropFilter || "none") !== "none") return "l'encart garde sa matière";
       return "";
     }) === "", await pg.evaluate(() => {
       const r = document.querySelector(".pt-rep")?.getBoundingClientRect();
-      return r ? `${Math.round(r.width)} sur ${Math.round(r.height)}` : "absent";
+      return r ? `${Math.round(r.width)} sur ${Math.round(r.height)} à ${Math.round(r.top)}` : "absent";
     }));
   /* Chaque ligne est une cible propre : l'objet mène au rappel d'agenda, la tenue
      au réglage du ressenti. Une seule cible pour les deux enverrait l'un des deux

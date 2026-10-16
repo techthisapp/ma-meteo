@@ -1658,8 +1658,14 @@ case "$N" in
      perl -0pi -e 's/\.ecran-ciel \.plein-accueil > \.ci\{position:fixed;inset:0;z-index:0\}//' styles.css
      ATTENDU="le ciel de l.accueil occupe tout l.écran, fixe" ;;
   540) # Le voile du titre en plein ciel disparaît.
-     perl -0pi -e 's/\.ecran-ciel \.plein-accueil > \.ci \.ci-voile-haut\{height:56%;/.ecran-ciel .plein-accueil > .ci .ci-voile-haut{height:0;/' styles.css
+     perl -0pi -e 's/\.ecran-ciel \.plein-accueil > \.ci \.ci-voile-haut\{height:66%;/.ecran-ciel .plein-accueil > .ci .ci-voile-haut{height:0;/' styles.css
      ATTENDU="le titre reste lisible sur un plafond de plein jour" ;;
+  541) # La réponse du matin remonte dans son encadré au-dessus de la date.
+     perl -0pi -e 's/\.ecran-ciel \.plein-titre > \.pt-rep\{\n  order:3;/.ecran-ciel .plein-titre > .pt-rep{\n  order:0;/' styles.css
+     ATTENDU="elle est posée sous les bornes du jour" ;;
+  542) # La barre d'onglets garde son verre clair en plein ciel.
+     perl -0pi -e 's/:root\.plein-ciel \.onglets\{background:rgba\(14,24,40,\.48\);/:root.plein-ciel .onglets{/' styles.css
+     ATTENDU="la recette du plein ciel suit la maquette" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

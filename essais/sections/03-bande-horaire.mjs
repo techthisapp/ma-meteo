@@ -394,7 +394,7 @@ export default async T => {
       calmes: compte(heure.map(() => 30)),
       fortes: compte(heure.map((_, k) => (k === 3 ? 55 : 30))),
       fond: !!bande?.querySelector(".bh-fond"),
-      titre: bande?.querySelector(".bande-tete h3")?.textContent || "",
+      titre: bande?.querySelector(".bande-tete h3 .bande-long")?.textContent || "",
     };
   });
   ok("la flèche du vent montre où il va",

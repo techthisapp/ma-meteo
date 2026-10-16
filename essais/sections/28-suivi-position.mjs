@@ -539,15 +539,19 @@ export default async T => {
   ok("le titre reste lisible sur un plafond de plein jour",
     lisible >= 3.2, `contraste ${lisible.toFixed(2)} pour un blanc sur le ciel`);
 
-  /* L'encart de la réponse du matin est écrit en blanc lui aussi, à la place
-     qu'il occupe dans le ciel. Ce qui le rend lisible n'est pas sa matière, qui
-     est fixe, mais la bande où il est posé : le voile bas couvre à cette hauteur
-     plus de la moitié du ciel. Le contrôle mesure donc le contraste composé à sa
-     place, et tombe si l'encart quitte cette bande pour le milieu du ciel, où les
-     deux voiles se rejoignent au plus faible. La mesure prend les rangs de
-     rembourrage, au-dessus et en dessous du texte. */
-  const clicheRep = (await pgCouvert.locator(".pt-rep").screenshot()).toString("base64");
-  const lisibleRep = await pgCliche.evaluate(async b64 => {
+  /* La réponse du matin est écrite en blanc elle aussi. Depuis la version
+     210, elle se pose sans encadré sous les bornes du jour, sur le ciel : la
+     mesure porte sur le ciel à ses côtés, à la hauteur de ses lignes, dans le
+     bord droit où le texte centré ne va pas. */
+  const bandesRep = await pgCouvert.evaluate(() => {
+    const ci = document.querySelector(".plein-accueil > .ci").getBoundingClientRect();
+    /* Les bandes de rembourrage, au-dessus et au-dessous du texte : une
+       ligne longue occupe toute la largeur. */
+    const r = document.querySelector(".pt-rep .pt-l").getBoundingClientRect();
+    const r2 = [...document.querySelectorAll(".pt-rep .pt-l")].pop().getBoundingClientRect();
+    return [r.top + 1, r.top + 2.5, r2.bottom - 2.5, r2.bottom - 1].map(y => (y - ci.top) / ci.height);
+  });
+  const lisibleRep = await pgCliche.evaluate(async ([b64, bandes]) => {
     const img = new Image();
     img.src = "data:image/png;base64," + b64;
     await img.decode();
@@ -559,20 +563,17 @@ export default async T => {
     const d = x.getImageData(0, 0, W, H).data;
     const lin = v => (v / 255 <= 0.03928 ? v / 255 / 12.92 : (((v / 255) + 0.055) / 1.055) ** 2.4);
     const lum = k => 0.2126 * lin(d[k]) + 0.7152 * lin(d[k + 1]) + 0.0722 * lin(d[k + 2]);
-    /* Les rangs de rembourrage, au-dessus et en dessous du texte, et seulement le
-       tiers central en largeur : aux coins, le rayon de la carte laisse voir le
-       ciel nu, qui n'est pas la matière que l'on mesure. */
-    let haut = 0;
-    for (const f of [0.10, 0.16, 0.84, 0.90]) {
+    let pire = 99;
+    for (const f of bandes) {
       const y = Math.round(H * f);
-      for (let px = Math.round(W * 0.35); px < W * 0.65; px += 2) {
-        haut = Math.max(haut, lum((y * W + px) * 4));
-      }
+      let haut = 0;
+      for (let px = Math.round(W * 0.10); px < W * 0.90; px += 2) haut = Math.max(haut, lum((y * W + px) * 4));
+      pire = Math.min(pire, 1.05 / (haut + 0.05));
     }
-    return 1.05 / (haut + 0.05);
-  }, clicheRep);
-  ok("l'encart de la réponse reste lisible sur un plafond de plein jour",
-    lisibleRep >= 3.2, `contraste ${lisibleRep.toFixed(2)} pour un blanc sur la matière`);
+    return pire;
+  }, [cliche, bandesRep]);
+  ok("la réponse du matin reste lisible sur un plafond de plein jour",
+    lisibleRep >= 3.2, `contraste ${lisibleRep.toFixed(2)} pour un blanc sur le ciel`);
 
   await ctxCouvert.close();
 

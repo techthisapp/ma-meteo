@@ -183,7 +183,10 @@ export function bandeHoraire(s, g, maintenant = new Date()) {
 
   const phrase = phraseBande(s, n);
   return `<div class="carte bande" id="bande">`
-    + `<div class="bande-tete"><h3>Maintenant et prochaines heures</h3>`
+    /* En plein ciel, l'étiquette courte de la maquette, version 210 : en
+       petites capitales, la longue passait sur deux lignes. */
+    + `<div class="bande-tete"><h3><span class="bande-long">Maintenant et prochaines heures</span>`
+    + `<span class="bande-court" aria-hidden="true">Prochaines heures</span></h3>`
     + `<button type="button" class="bande-plus" data-temps>Plus de détails</button></div>`
     + `<div class="bande-defil"><div class="bande-rang" style="width:${x}px">`
     /* La colonne du moment présent se détache sur un fond léger, sur toute la

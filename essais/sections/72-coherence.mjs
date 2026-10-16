@@ -115,8 +115,19 @@ export default async T => {
     window.scrollTo({ top: 0, behavior: "instant" });
     return r;
   });
+  /* Version 210, recette contre la maquette : la barre d'onglets en verre
+     sombre, les étiquettes des cartes en petites capitales. */
+  const recette = await p3.evaluate(() => {
+    const o = getComputedStyle(document.querySelector(".onglets")).backgroundColor;
+    const e = document.querySelector("#ecran .pp-etiq, #ecran .bande-tete h3");
+    const court = document.querySelector("#ecran .bande-court");
+    return { onglets: o, etiquette: e ? getComputedStyle(e).textTransform : "", court: court && court.checkVisibility() ? court.textContent : "" };
+  });
+  ok("la recette du plein ciel suit la maquette : barre d'onglets sombre, étiquettes en petites capitales",
+    /^rgba\(14, 24, 40, 0\.4/.test(recette.onglets) && recette.etiquette === "uppercase" && recette.court === "Prochaines heures",
+    JSON.stringify(recette));
   ok("l'accueil en plein ciel porte des cartes de verre, réduit son titre au défilement et met la température dans la barre de tête",
-    verre.flou && /^rgba\(14, 24, 40, 0\.5/.test(verre.fond) && verre.repli === "1.000" && verre.opacite < 0.2 && /^\d+°$/.test(verre.mini),
+    verre.flou && /^rgba\(14, 24, 40, 0\.4/.test(verre.fond) && verre.repli === "1.000" && verre.opacite < 0.2 && /^\d+°$/.test(verre.mini),
     JSON.stringify(verre));
 
   /* Le réglage se fait dans la carte « Accueil » des réglages, et l'accueil

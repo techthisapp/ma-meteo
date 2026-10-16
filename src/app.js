@@ -506,6 +506,9 @@ function panneauPluieProche() {
 
   return `<div class="section pp">`
     + `<div class="carte pp-c">`
+    /* L'étiquette de la carte, en plein ciel seulement, version 210, comme sur
+       la maquette. */
+    + `<p class="pp-etiq" aria-hidden="true">${ico("goutte", "")}Pluie dans l'heure</p>`
     + `<p class="pp-tete">${ico("goutte", "pp-ic")}<b>${esc(dit.titre).replace(/\d\d h(?: \d\d)?/g, '<span class="pp-heure">$&</span>')}</b>`
     + (dit.delai ? `<span class="pp-delai">${esc(dit.delai)}</span>` : "") + `</p>`
     + (sous.length ? `<p class="pp-sous">${sous.join(" ")}</p>` : "")

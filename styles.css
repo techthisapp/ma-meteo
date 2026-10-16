@@ -3182,9 +3182,74 @@ button.rangee:active{background:var(--surface-2)}
 /* Le voile du haut porte le titre en plein ciel, version 209 : la date, le
    grand chiffre, l'état et les bornes s'écrivent en blanc dans la moitié
    haute, qu'un plafond de plein jour rend très claire. */
-.ecran-ciel .plein-accueil > .ci .ci-voile-haut{height:56%;
+.ecran-ciel .plein-accueil > .ci .ci-voile-haut{height:66%;
   background:linear-gradient(180deg,rgba(14,24,40,calc(.40 + .20 * var(--ci-clarte,0))) 0%,
-    rgba(14,24,40,calc(.30 + .26 * var(--ci-clarte,0))) 55%,rgba(14,24,40,0) 100%)}
+    rgba(14,24,40,calc(.32 + .28 * var(--ci-clarte,0))) 62%,rgba(14,24,40,0) 100%)}
 /* L'apparition du titre garde son effet sans figer sa dernière image : figée,
    elle l'emportait sur la réduction au défilement. */
 .ecran-ciel .plein-accueil > .plein-titre{animation-fill-mode:backwards}
+
+/* Les conseils du matin sous le titre, version 210, demande de Jérôme du
+   16 octobre 2026, comme sur la maquette : sous les bornes du jour, centrés,
+   sans encadré. Chaque ligne garde sa cible. */
+.ecran-ciel .plein-accueil > .plein-titre{display:flex;flex-direction:column;align-items:center}
+.ecran-ciel .plein-titre > i{order:1}
+.ecran-ciel .plein-titre > .pt-temps{order:2}
+.ecran-ciel .plein-titre > .pt-rep{
+  order:3;margin:var(--espace-md) 0 0;padding:0;width:auto;max-width:100%;
+  background:none;border:0;-webkit-backdrop-filter:none;backdrop-filter:none;gap:0;
+}
+.ecran-ciel .pt-rep .pt-l{justify-content:center;min-height:var(--touche);font-size:var(--texte-corps);font-weight:var(--graisse-semibold)}
+
+/* Plus de verre, version 210 : un verre plus translucide, plus flou et plus
+   saturé, avec un reflet de lumière en haut ; le voile du bas, fixe, garde la
+   lecture par ciel clair. */
+.ecran-ciel{--surface:rgba(14,24,40,.40)}
+.ecran-ciel .carte,.ecran-ciel .bd-m,.ecran-ciel .compact-plus > summary,.ecran-ciel [data-bloc="portes"] .porte,
+.ecran-ciel .portes-hors .porte-hors{
+  background-image:linear-gradient(180deg,rgba(255,255,255,.12) 0%,rgba(255,255,255,.03) 40%,rgba(255,255,255,0) 100%);
+  border:1px solid rgba(255,255,255,.20);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 8px 28px rgba(4,10,22,.22);
+  -webkit-backdrop-filter:blur(30px) saturate(1.6);backdrop-filter:blur(30px) saturate(1.6);
+}
+.accueil-compact.ecran-corps [data-bloc="portes"] .porte{border:0;box-shadow:none;background-image:none}
+.ecran-ciel .accueil-compact [data-bloc="portes"],.accueil-compact.ecran-corps [data-bloc="portes"]{
+  background-image:linear-gradient(180deg,rgba(255,255,255,.12) 0%,rgba(255,255,255,0) 40%);
+  border:1px solid rgba(255,255,255,.20);
+  -webkit-backdrop-filter:blur(30px) saturate(1.6);backdrop-filter:blur(30px) saturate(1.6);
+}
+.ecran-ciel .pt-rep .pt-l{font-size:var(--texte-appel);text-align:center}
+.ecran-ciel .pt-rep .pt-l > span{text-wrap:balance}
+
+/* La recette de l'écran contre la maquette, version 210. La barre d'onglets
+   prend le verre sombre des cartes ; les cartes portent une étiquette en
+   petites capitales, filet dessous ; les conseils du jour s'intitulent « À
+   retenir ». */
+:root.plein-ciel .onglets{background:rgba(14,24,40,.48);border-top-color:rgba(255,255,255,.16);
+  -webkit-backdrop-filter:blur(26px) saturate(1.5);backdrop-filter:blur(26px) saturate(1.5)}
+:root.plein-ciel .onglet{color:rgba(255,255,255,.72)}
+:root.plein-ciel .onglet[aria-current="page"]{color:#FFFFFF}
+.pp-etiq{display:none}
+.ecran-ciel .pp-etiq,.ecran-ciel .bande-tete h3,.ecran-ciel [data-bloc="jour"] .carte.retenir::before{
+  display:flex;align-items:center;gap:6px;margin:0;
+  font-size:var(--texte-legende);font-weight:var(--graisse-semibold);letter-spacing:.05em;text-transform:uppercase;color:var(--etiquette-3);
+}
+.ecran-ciel .pp-etiq{padding-bottom:var(--espace-sm);margin-bottom:var(--espace-md);border-bottom:1px solid var(--filet)}
+.ecran-ciel .pp-etiq svg{width:14px;height:14px}
+.ecran-ciel .pp-tete .pp-ic{display:none}
+.ecran-ciel .bande-tete{padding-bottom:var(--espace-sm);margin:0 16px var(--espace-sm);padding-left:0;padding-right:0;border-bottom:1px solid var(--filet)}
+.ecran-ciel [data-bloc="jour"] .carte.retenir::before{content:"À retenir";padding-bottom:var(--espace-sm);margin-bottom:var(--espace-md);border-bottom:1px solid var(--filet)}
+.ecran-ciel .tu-portee{
+  font-size:var(--texte-legende);font-weight:var(--graisse-semibold);letter-spacing:.05em;text-transform:uppercase;color:var(--etiquette-2)}
+.bande-court{display:none}
+.ecran-ciel .bande-court{display:inline}
+.ecran-ciel .bande-long{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.ecran-ciel .bande-plus{white-space:nowrap}
+.ecran-ciel .plein-titre > .pt-rep{align-items:center}
+.ecran-ciel .pt-rep .pt-l{width:auto;max-width:100%}
+.ecran-ciel .pt-rep .pt-l > span{flex:0 1 auto;min-width:0}
+/* Une ligne longue se replie : l'icône reste en tête de son texte, le tout
+   centré, version 210. */
+.ecran-ciel .pt-rep .pt-l{display:block;text-align:center;padding:var(--espace-xs) 0}
+.ecran-ciel .pt-rep .pt-l > svg{display:inline-block;vertical-align:-3px;margin-right:8px}
+.ecran-ciel .pt-rep .pt-l > span{display:inline}
