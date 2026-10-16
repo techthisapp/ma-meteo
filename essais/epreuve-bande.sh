@@ -1646,14 +1646,14 @@ case "$N" in
   536) # La barre de tête ne prend plus la température en petit. Jusqu'à la
      # version 208, cette erreur retirait la feuille qui chevauchait le ciel,
      # que le plein ciel a remplacée.
-     perl -0pi -e 's/    nav\.style\.setProperty\("--mini", Math\.min[^\n]*\n//' src/app.js
-     ATTENDU="l.accueil en plein ciel porte des cartes de verre" ;;
+     perl -0pi -e 's/    morphoser\(titre, nav, k\);\n//' src/app.js
+     ATTENDU="l.accueil en plein ciel porte des cartes de verre, et sa température" ;;
   537) # Les cartes de l'accueil perdent leur verre.
-     perl -0pi -e 's/  -webkit-backdrop-filter:blur\(22px\) saturate\(1\.3\);backdrop-filter:blur\(22px\) saturate\(1\.3\);\n\}/}/' styles.css
-     ATTENDU="l.accueil en plein ciel porte des cartes de verre" ;;
+     perl -0pi -e 's/backdrop-filter:blur\(22px\) saturate\(1\.3\)/backdrop-filter:none/g; s/backdrop-filter:blur\(30px\) saturate\(1\.6\)/backdrop-filter:none/g' styles.css
+     ATTENDU="l.accueil en plein ciel porte des cartes de verre, et sa température" ;;
   538) # Le titre ne se réduit plus au défilement.
      perl -0pi -e 's/    titre\.style\.setProperty\("--repli", k\.toFixed\(3\)\);\n//' src/app.js
-     ATTENDU="l.accueil en plein ciel porte des cartes de verre" ;;
+     ATTENDU="l.accueil en plein ciel porte des cartes de verre, et sa température" ;;
   539) # Le ciel de l'accueil reprend sa place dans la page.
      perl -0pi -e 's/\.ecran-ciel \.plein-accueil > \.ci\{position:fixed;inset:0;z-index:0\}//' styles.css
      ATTENDU="le ciel de l.accueil occupe tout l.écran, fixe" ;;
@@ -1667,8 +1667,8 @@ case "$N" in
      perl -0pi -e 's/:root\.plein-ciel \.onglets\{background:rgba\(14,24,40,\.48\);/:root.plein-ciel .onglets{/' styles.css
      ATTENDU="la recette du plein ciel suit la maquette" ;;
   543) # La barre de tête reste transparente sur les cartes qui défilent.
-     perl -0pi -e 's/  background:rgba\(14,24,40,calc\(\.62 \* var\(--mini,0\)\)\);\n//' styles.css
-     ATTENDU="l.accueil en plein ciel porte des cartes de verre" ;;
+     perl -0pi -e 's/  opacity:var\(--mini,0\);\n  background:linear-gradient\(180deg,rgba\(14,24,40,\.72\)/  opacity:0;\n  background:linear-gradient(180deg,rgba(14,24,40,.72)/' styles.css
+     ATTENDU="l.accueil en plein ciel porte des cartes de verre, et sa température" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

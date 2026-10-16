@@ -109,14 +109,20 @@ export default async T => {
     window.scrollTo({ top: 400, behavior: "instant" });
     await new Promise(r => setTimeout(r, 200));
     const t = document.querySelector(".plein-titre");
-    const mini = document.getElementById("navMini");
+    /* Version 212 : la morphose. Les deux pièces du bandeau, centrées dans
+       la barre de tête, à l'heure du titre caché ; le bandeau fondu levé. */
+    const nav = document.getElementById("nav").getBoundingClientRect();
+    const T = document.getElementById("morphT"), E = document.getElementById("morphE");
+    const rT = T.getBoundingClientRect(), rE = E.getBoundingClientRect();
     const r = { flou, fond: st.backgroundColor, repli: getComputedStyle(t).getPropertyValue("--repli").trim(),
-      opacite: Number(getComputedStyle(t).opacity), mini: mini.checkVisibility() ? mini.textContent : "",
-      miniOpacite: Number(getComputedStyle(mini).opacity),
-      barre: Number((/rgba\([^)]*,\s*([\d.]+)\)/.exec(getComputedStyle(document.getElementById("nav")).backgroundColor) || [0, 0])[1]) };
+      morph: getComputedStyle(T).visibility === "visible" ? `${T.textContent} ${E.textContent}` : "",
+      centre: Math.round(((rT.left + rE.right) / 2) - innerWidth / 2), dansBarre: rT.top >= nav.top - 2 && rT.bottom <= nav.bottom + 2,
+      titreCache: getComputedStyle(t.querySelector(".bd-deg")).opacity === "0",
+      bandeau: Number(getComputedStyle(document.getElementById("nav"), "::before").opacity) };
     window.scrollTo({ top: 0, behavior: "instant" });
     await new Promise(r => setTimeout(r, 200));
-    r.miniEnHaut = Number(getComputedStyle(mini).opacity);
+    r.morphEnHaut = getComputedStyle(T).visibility === "visible";
+    r.titreEnHaut = getComputedStyle(t.querySelector(".bd-deg")).opacity === "1" ? "visible" : "cache";
     return r;
   });
   /* Version 210, recette contre la maquette : la barre d'onglets en verre
@@ -130,9 +136,10 @@ export default async T => {
   ok("la recette du plein ciel suit la maquette : barre d'onglets sombre, étiquettes en petites capitales",
     /^rgba\(14, 24, 40, 0\.4/.test(recette.onglets) && recette.etiquette === "uppercase" && recette.court === "Prochaines heures",
     JSON.stringify(recette));
-  ok("l'accueil en plein ciel porte des cartes de verre, réduit son titre au défilement et met la température dans la barre de tête",
-    verre.flou && /^rgba\(14, 24, 40, 0\.4/.test(verre.fond) && verre.repli === "1.000" && verre.opacite < 0.2 && /^\d+° · \S/.test(verre.mini)
-    && verre.miniOpacite > 0.95 && verre.miniEnHaut < 0.05 && verre.barre > 0.5,
+  ok("l'accueil en plein ciel porte des cartes de verre, et sa température et son état passent par morphose au centre du bandeau",
+    verre.flou && /^rgba\(14, 24, 40, 0\.4/.test(verre.fond) && verre.repli === "1.000"
+    && /^\d+° \S/.test(verre.morph) && Math.abs(verre.centre) <= 12 && verre.dansBarre && verre.titreCache && verre.bandeau > 0.95
+    && !verre.morphEnHaut && verre.titreEnHaut === "visible",
     JSON.stringify(verre));
 
   /* Le réglage se fait dans la carte « Accueil » des réglages, et l'accueil

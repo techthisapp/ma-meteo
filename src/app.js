@@ -1053,7 +1053,6 @@ function ecranAccueil() {
        sur maquette : le ciel animé reste fixe derrière tout l'accueil, les
        cartes défilent dessus en verre sombre. */
     cielPlein: plein,
-    resumeCiel: plein ? `${Math.round(s ? s.t[0] : 0)}° · ${tempsDe(s ? s.code[0] : 0)[1]}` : "",
     corps: bandeauHorsLigne() + corps,
     brancher(bloc) {
       Feu.poser(bloc.querySelector("#ciFeu"));
@@ -1400,7 +1399,11 @@ function rendre() {
   ecran.classList.toggle("ecran-detail", f.retour === true);
   ecran.classList.toggle("ecran-ciel", f.cielPlein === true);
   document.documentElement.classList.toggle("plein-ciel", f.cielPlein === true);
-  $("navMini").textContent = f.resumeCiel || "";
+  /* Les deux pièces de la morphose reprennent le texte du titre. */
+  const titreT = ecran.querySelector(".ecran-ciel .plein-titre .bd-deg, .plein-titre .bd-deg");
+  const titreE = ecran.querySelector(".plein-titre .bd-ciel");
+  $("morphT").textContent = f.cielPlein && titreT ? titreT.textContent : "";
+  $("morphE").textContent = f.cielPlein && titreE ? titreE.textContent : "";
   /* Le ciel de l'accueil se garde d'un rendu à l'autre quand il n'a pas
      changé, version 204, signalé par Jérôme le 14 octobre 2026 : au
      démarrage, chaque source arrivée refaisait l'écran, et l'image animée
@@ -1492,6 +1495,61 @@ $("onglets").addEventListener("click", ev => {
    Sur un écran à bandeau plein cadre, c'est le ciel qui passe sous la barre :
    elle reste transparente et blanche tant qu'il est dessous, et ne reprend sa
    matière de verre qu'une fois le bandeau dépassé. */
+/* La morphose du plein ciel, version 212, demande de Jérôme du 16 octobre
+   2026 : au fil du doigt, la température et l'état quittent le titre et
+   voyagent en rétrécissant jusqu'au centre du bandeau du haut, côte à côte.
+   Les pièces du bandeau partent de la place que le titre occupe à l'instant,
+   puis rejoignent leur place finale : le mouvement suit le défilement dans
+   les deux sens. Le reste du titre s'efface. */
+const TAILLE_FIN = { t: 24, e: 15 };
+const adoucir = k => k * k * (3 - 2 * k);
+function morphoser(titre, nav, k) {
+  const boite = $("navMorph");
+  const T = $("morphT"), E = $("morphE");
+  const srcT = titre?.querySelector(".bd-deg"), srcE = titre?.querySelector(".bd-ciel");
+  if (!titre || !srcT || !srcE || k <= 0) {
+    boite.classList.remove("en-cours");
+    if (srcT) srcT.style.opacity = "";
+    if (srcE) srcE.style.opacity = "";
+    return;
+  }
+  boite.classList.add("en-cours");
+  /* Transparents, non cachés : le toucher les atteint encore à travers les
+     pièces du bandeau, qui le laissent passer. */
+  srcT.style.opacity = "0";
+  srcE.style.opacity = "0";
+  const e = adoucir(k);
+  const rT = srcT.getBoundingClientRect(), rE = srcE.getBoundingClientRect();
+  const fT = parseFloat(getComputedStyle(srcT).fontSize), fE = parseFloat(getComputedStyle(srcE).fontSize);
+  T.style.fontSize = `${fT}px`; E.style.fontSize = `${fE}px`;
+  const sT = TAILLE_FIN.t / fT, sE = TAILLE_FIN.e / fE;
+  const corps = nav.querySelector(".nav-corps").getBoundingClientRect();
+  /* Les largeurs sont celles des pièces qui voyagent : le degré du titre
+     déborde de sa boîte. */
+  const wT = T.offsetWidth, wE = E.offsetWidth;
+  const largeur = wT * sT + 10 + wE * sE;
+  const x0 = (window.innerWidth - largeur) / 2;
+  const cy = corps.top + corps.height / 2;
+  /* Les chiffres s'assoient plus bas que le centre de leur boîte, et l'état
+     tient dans une cible de quarante-quatre points : un léger décalage
+     aligne les deux à l'arrivée. */
+  const poser = (el, r, s, xFin, dy) => {
+    const x = r.left + (xFin - r.left) * e;
+    /* Le départ ne remonte jamais au-dessus de l'arrivée : le titre, emporté
+       par le défilement, sort de l'écran par le haut. */
+    const yFin = cy - r.height * s / 2 + dy;
+    const y0 = Math.max(r.top, yFin);
+    const y = y0 + (yFin - y0) * e;
+    const echelle = 1 + (s - 1) * e;
+    el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${echelle.toFixed(4)})`;
+    return { x, echelle };
+  };
+  const t = poser(T, rT, sT, x0, -2);
+  /* L'état suit le bord droit du chiffre qui rétrécit : ils ne se
+     chevauchent pas en chemin. */
+  poser(E, rE, sE, Math.max(t.x + wT * t.echelle + 10 * e, x0 + wT * sT + 10), 8);
+}
+
 function majPose() {
   const nav = $("nav");
   const hauteurNav = nav.getBoundingClientRect().height;
@@ -1504,11 +1562,9 @@ function majPose() {
   if (titre) {
     const k = Math.min(1, Math.max(0, window.scrollY) / 220);
     titre.style.setProperty("--repli", k.toFixed(3));
-    /* Version 211, demande de Jérôme : la température et l'état passent en
-       haut en fondu enchaîné avec le bloc qui s'efface, au fil du doigt. Ils
-       prennent, sous le nom du lieu, la place du département. */
-    nav.style.setProperty("--mini", Math.min(1, Math.max(0, (k - 0.35) / 0.5)).toFixed(3));
-  } else nav.style.setProperty("--mini", "0");
+    nav.style.setProperty("--mini", k.toFixed(3));
+    morphoser(titre, nav, k);
+  } else { nav.style.setProperty("--mini", "0"); morphoser(null, nav, 0); }
 
   if (ciel) {
     const surCiel = ciel.getBoundingClientRect().bottom > hauteurNav;
