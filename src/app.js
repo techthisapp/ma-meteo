@@ -964,7 +964,9 @@ function ecranAccueil() {
             + `<span class="tu-t"><i>${esc(n)}</i><b${c ? ` class="${c}"` : ""}>${valeurUnite(v)}</b>`
             + `<em>${esc(e)}</em></span>${chevronM}</button>`).join("")
           + `</div>` : "");
-    corps += `<div class="ecran-corps">`
+    /* L'accueil compact se resserre aussi par le style, version 205 : la
+       pluie de l'heure sans sa phrase ni sa légende, les portes en liste. */
+    corps += `<div class="ecran-corps${compact ? " accueil-compact" : ""}">`
       + panneauVigilance()
       + panneauPluieProche()
       /* Sous les avis urgents, la bande horaire, puis les conseils du jour,

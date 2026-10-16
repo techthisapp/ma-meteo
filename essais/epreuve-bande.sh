@@ -1619,6 +1619,12 @@ case "$N" in
   527) # La même toile reprend son animation de zéro.
      perl -0pi -e 's/  if \(cv && cv === toileActive\) \{ relancer\(\); return; \}\n//' src/temps.js
      ATTENDU="un rendu qui garde la forme du ciel garde l.image animée" ;;
+  528) # L'accueil compact ne se resserre plus.
+     perl -0pi -e 's/<div class="ecran-corps\$\{compact \? " accueil-compact" : ""\}">/<div class="ecran-corps">/' src/app.js
+     ATTENDU="l.accueil compact resserre la pluie de l.heure" ;;
+  529) # Les portes du compact reprennent deux colonnes.
+     perl -0pi -e 's/\.accueil-compact \.portes\{display:flex;flex-direction:column;gap:0\}/.accueil-compact .portes{gap:0}/' styles.css
+     ATTENDU="l.accueil compact resserre la pluie de l.heure" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

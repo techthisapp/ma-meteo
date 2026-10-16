@@ -3020,3 +3020,30 @@ button.rangee:active{background:var(--surface-2)}
 .ca-lg .ca-vj{background:var(--v2)}
 .ca-lg .ca-vo{background:var(--v3)}
 .ca-lg .ca-vr{background:var(--v4)}
+
+/* L'accueil compact, version 205, demande de Jérôme du 16 octobre 2026.
+   La pluie de l'heure garde son titre, son délai, son ruban et le lien vers
+   la carte ; sa phrase et sa légende se taisent. Les portes passent en une
+   liste de rangées, une seule carte, l'indicateur sous le titre. */
+.accueil-compact .pp-sous,.accueil-compact .pp-legende{display:none}
+.accueil-compact .pp-pied{justify-content:flex-end}
+.accueil-compact [data-bloc="portes"]{background:var(--surface);border-radius:var(--rayon-carte);overflow:hidden}
+.accueil-compact .portes{display:flex;flex-direction:column;gap:0}
+.accueil-compact [data-bloc="portes"] .porte{
+  flex-direction:row;align-items:center;gap:var(--espace-md);margin:0;
+  padding:var(--espace-md) var(--espace-base);background:none;box-shadow:none;border-radius:initial;
+}
+.accueil-compact [data-bloc="portes"] .porte + .porte,
+.accueil-compact .portes + .porte,
+.accueil-compact [data-bloc="portes"] > .porte-large + .portes > .porte:first-child{box-shadow:inset 0 1px 0 var(--filet-clair)}
+.accueil-compact .portes .porte > svg:last-child{position:static}
+.accueil-compact .portes .porte .rangee-txt b{font-size:var(--texte-corps)}
+.accueil-compact .portes-hors{padding:0 var(--espace-base) var(--espace-md)}
+/* Le premier et le dernier conseil touchent le bord de leur carte, version
+   205 : la marge du filet s'ajoutait à celle de la carte, un vide en haut. */
+.conseils > .cj-l:first-child{margin-top:0}
+.conseils > .cj-l:last-child{margin-bottom:0}
+/* En compact, la phrase sous la bande redit les conseils, et le bouton des
+   mesures se rapproche. */
+.accueil-compact .bande-phrase{display:none}
+.accueil-compact .compact-plus{margin:var(--espace-sm) 0}

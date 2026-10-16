@@ -67,6 +67,7 @@ export default async T => {
 
   /* L'accueil compact, version 199 : les tuiles et les conseils de demain
      se replient derrière un bouton, l'essentiel reste. */
+  etat.profilPluie = "debut";
   const [c3, p3] = await ctxReponse(() => METEO_NUE(), { ...FAIN, accueilcompact: true });
   await reposer(p3, 2500);
   const lire = () => p3.evaluate(() => {
@@ -76,6 +77,16 @@ export default async T => {
       tuiles: vu("#ecran .tuile"), demain: vu('#ecran [data-bloc="suite"]'), bande: vu("#ecran #bande"),
       portes: vu("#ecran .porte"), dansPli: !!d?.querySelector(".tuiles") && !!d?.querySelector('[data-bloc="suite"]') };
   });
+  /* Version 205 : la pluie de l'heure sans sa phrase ni sa légende, la
+     phrase de la bande tue, les portes en une liste d'une colonne. */
+  const resserre = await p3.evaluate(() => {
+    const vu = sel => [...document.querySelectorAll(sel)].some(x => x.checkVisibility());
+    const portes = [...document.querySelectorAll("#ecran .portes .porte")].map(x => Math.round(x.getBoundingClientRect().left));
+    return { pluie: vu("#ecran .pp-c"), phrase: vu("#ecran .bande-phrase"), legende: vu("#ecran .pp-legende"), sous: vu("#ecran .pp-sous"),
+      colonnes: new Set(portes).size, n: portes.length };
+  });
+  ok("l'accueil compact resserre la pluie de l'heure, tait la phrase de la bande et range les portes en liste",
+    resserre.pluie && !resserre.phrase && !resserre.legende && !resserre.sous && resserre.n >= 3 && resserre.colonnes === 1, JSON.stringify(resserre));
   const replie = await lire();
   await p3.locator("#ecran details.compact-plus > summary").click();
   const deplie = await lire();
@@ -97,4 +108,5 @@ export default async T => {
   ok("la présentation de l'accueil se choisit dans les réglages et se garde",
     !complet.pli && complet.tuiles && complet.garde === false && complet.actif === "complet", JSON.stringify(complet));
   await c3.close();
+  etat.profilPluie = "sec";
 };
