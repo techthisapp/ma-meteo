@@ -3064,3 +3064,11 @@ button.rangee:active{background:var(--surface-2)}
   margin:0 var(--marge) var(--espace-lg);
   padding-top:calc(var(--haut) + var(--nav-haut) + var(--consult-haut) + var(--espace-sm));
 }
+
+/* L'astre derrière le texte de l'accueil, version 207 : adouci, il laisse
+   lire l'état du ciel et les bornes du jour. */
+.ci-astre.derriere{opacity:.5;transition:opacity var(--duree-std)}
+
+/* Le résultat de la recherche de mise à jour, version 207 : sous le bouton,
+   le message sur sa ligne, le bouton de rechargement dessous. */
+.rg-maj #rgMaj{flex-basis:100%;display:flex;flex-direction:column;align-items:flex-start;gap:var(--espace-sm)}

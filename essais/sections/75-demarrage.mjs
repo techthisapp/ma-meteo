@@ -70,5 +70,52 @@ export default async T => {
   });
   ok("le ciel de l'accueil grandit avec une longue réponse du matin, qui reste sous la barre de tête",
     haut.rep >= haut.nav && haut.chiffre <= haut.ciel, JSON.stringify(haut));
+  /* Version 207 : un astre bas, dans la moitié du ciel qui porte le texte,
+     s'adoucit ; haut, il garde son éclat. */
+  const astres = await p.evaluate(async () => {
+    const A = await import("/src/vues/astres.js"), Te = await import("/src/temps.js");
+    const g = { lat: 47.5, lon: 4.3 };
+    const p = Te.depuis(0, 0, 0);
+    const soir = A.bandeauAccueil(g, new Date("2026-08-18T19:30:00+02:00"), p, 0).ciel;
+    const midi = A.bandeauAccueil(g, new Date("2026-08-18T13:30:00+02:00"), p, 0).ciel;
+    return { soir: /ci-astre[^"]* derriere/.test(soir), midi: /ci-astre[^"]* derriere/.test(midi), seuil: A.SEUIL_TEXTE };
+  });
+  ok("un astre bas, derrière le texte de l'accueil, s'adoucit ; haut, il garde son éclat",
+    astres.soir && !astres.midi, JSON.stringify(astres));
   await c.close();
+
+  /* Une version plus récente publiée, version 207 : l'avis flottant
+     recharge la page, signalé par Jérôme le 16 octobre 2026, et les réglages
+     disent la version sur sa ligne, le bouton dessous. */
+  const c2 = await nav.newContext({
+    viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+    locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+  });
+  await c2.addInitScript(amorceGardee(FAIN, FIGE));
+  await brancherRoutes(c2);
+  await c2.route(/api\.rainviewer\.com/, r => r.abort());
+  await c2.route(/\/sw\.js\?v=/, r => r.fulfill({ status: 200, contentType: "text/javascript", body: 'const VERSION = "ma-meteo-v999";' }));
+  const p2 = await c2.newPage();
+  await ouvrirPage(p2);
+  await p2.waitForFunction(() => { const e = document.getElementById("majAvis"); return !!e && !e.hidden; }, null, { timeout: 9000 }).catch(() => {});
+  await p2.evaluate(() => { window.__avant = 1; });
+  const avis = await p2.evaluate(() => document.getElementById("majAvis")?.textContent || "");
+  await Promise.all([p2.waitForEvent("load", { timeout: 9000 }).catch(() => null),
+    p2.locator('#majAvis [data-action="recharger"]').click({ timeout: 3000 }).catch(() => {})]);
+  const recharge = await p2.evaluate(() => window.__avant === undefined).catch(() => false);
+  ok("l'avis d'une version plus récente recharge la page",
+    /La version 999 est disponible/.test(avis) && recharge, JSON.stringify({ avis, recharge }));
+  await reposer(p2, 2000);
+  await p2.locator("#btnReglages").click(); await p2.waitForTimeout(600);
+  await p2.locator("#rgChercher").click();
+  await p2.waitForFunction(() => /disponible/.test(document.getElementById("rgMaj")?.textContent || ""), null, { timeout: 6000 }).catch(() => {});
+  const maj = await p2.evaluate(() => {
+    const t = document.querySelector("#rgMaj span")?.getBoundingClientRect(), b = document.getElementById("rgRecharger")?.getBoundingClientRect();
+    const ch = document.getElementById("rgChercher").getBoundingClientRect();
+    return { texte: document.querySelector("#rgMaj span")?.textContent || "", sousChercher: t ? t.top >= ch.bottom - 1 : false,
+      boutonDessous: t && b ? b.top >= t.bottom - 1 : false };
+  });
+  ok("les réglages disent la version disponible sous la recherche, le bouton de rechargement dessous",
+    maj.texte === "La version 999 est disponible." && maj.sousChercher && maj.boutonDessous, JSON.stringify(maj));
+  await c2.close();
 };

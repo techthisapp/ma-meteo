@@ -772,9 +772,12 @@ export function vueReglages(ctx, rendre, majEtat) {
           const p = await Version.publiee();
           if (p === null) { dit.textContent = "La recherche n'a pas abouti, hors ligne peut-être."; return; }
           if (p <= Version.numero()) { dit.textContent = "Cette version est la plus récente."; return; }
-          dit.innerHTML = `La version ${p} est disponible. `
+          /* Le message sur sa ligne, le bouton dessous, version 207 : les deux
+             se serraient sur la ligne du bouton de recherche. */
+          dit.innerHTML = `<span>La version ${p} est disponible.</span>`
             + `<button type="button" class="bouton-plein" id="rgRecharger">Recharger</button>`;
-          dit.querySelector("#rgRecharger").addEventListener("click", () => location.reload());
+          const b = dit.querySelector("#rgRecharger");
+          b.addEventListener("click", () => Version.recharger(b));
         });
       }
       for (const b of bloc.querySelectorAll("[data-heures-accueil]")) {

@@ -10,6 +10,7 @@
 
 import { heureTxt, heureDecimaleParis } from "./horloge.js";
 import { SEUILS } from "./conseils.js";
+import { SEUIL_LAME } from "./previsions.js";
 
 /* La gêne. Une bruine à un dixième de millimètre par heure ne trempe personne,
    et un jeton qui paraîtrait pour elle finirait par ne plus se lire. Un demi-
@@ -67,15 +68,27 @@ const cleJour = d => `${d.getFullYear()}-`
    du seuil de gêne. Une averse de quatorze heures et une autre de dix-neuf
    heures sont deux salves, et les fondre en une seule ferait annoncer cinq
    heures de pluie là où il en tombe deux. */
+/* Une salve s'étend aux heures de pluie qui la touchent, version 207,
+   signalé par Jérôme le 16 octobre 2026 à Paris : le conseil disait « Pluie
+   de 19 h à 22 h » et le parapluie « 21 h à 22 h », seule la dernière heure
+   passant le demi-millimètre. Une heure gênante décide qu'il faut le
+   parapluie ; la pluie qui l'entoure, au seuil du conseil, dit pour quand. */
 function salvesDe(serie, jour, h0, h1, hMin) {
   const heures = [];
   let mm = 0, raf = 0;
+  const mouillee = k => serie.jour[k] === jour && serie.heure[k] >= hMin && chevauche(serie.heure[k], h0, h1)
+    && (serie.mm[k] || 0) >= SEUIL_LAME;
+  const prises = new Set();
   for (let k = 0; k < serie.n; k++) {
     if (serie.jour[k] !== jour) continue;
     const h = serie.heure[k];
     if (!chevauche(h, h0, h1) || h < hMin) continue;
     if ((serie.mm[k] || 0) < GENE) continue;
-    heures.push(h);
+    for (let j = k; j >= 0 && mouillee(j); j--) prises.add(j);
+    for (let j = k + 1; j < serie.n && mouillee(j); j++) prises.add(j);
+  }
+  for (const k of prises) {
+    heures.push(serie.heure[k]);
     mm = Math.max(mm, serie.mm[k] || 0);
     raf = Math.max(raf, serie.raf[k] || 0);
   }

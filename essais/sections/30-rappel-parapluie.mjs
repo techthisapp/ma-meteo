@@ -433,6 +433,19 @@ export default async T => {
       const R = await import("/src/reglages.js");
       return JSON.stringify(R.lire().alertes);
     }));
+
+  /* Version 207 : le créneau du parapluie couvre toute l'averse qui entoure
+     l'heure gênante, comme le conseil de la pluie. De 19 h à 22 h, 0,2 mm,
+     0,3 mm puis 0,7 mm : une seule heure passe le demi-millimètre, le
+     parapluie dit pourtant 19 h à 22 h. */
+  ok("le créneau du parapluie couvre toute l'averse, comme le conseil de la pluie",
+    await pgRepris.evaluate(async () => {
+      const Pl = await import("/src/parapluie.js");
+      const heure = [17, 18, 19, 20, 21, 22, 23];
+      const serie = { n: 7, jour: heure.map(() => "2026-08-18"), heure, mm: [0, 0, 0.2, 0.3, 0.7, 0, 0], raf: heure.map(() => 10) };
+      const p = Pl.periodesPluvieuses(serie, [7.5, 17], new Date("2026-08-18T09:00:00+02:00"))[0];
+      return p ? `${p.h0}-${p.h1}` : "aucune";
+    }) === "19-22");
   await ctxRepris.close();
   /* ---------- Le ressenti et le silence de la réponse ---------- */
 };

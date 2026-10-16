@@ -109,7 +109,7 @@ function panneauCiel(c, astres, temps = "", clarte = 0) {
     + `--ci-clarte:${clarte.toFixed(3)}">`
     + `<div class="ci-etoiles" aria-hidden="true">${ETOILES}</div>`
     + astres.filter(a => a.corps).map(a =>
-      `<div class="ci-astre${a.sous ? " sous" : ""}" `
+      `<div class="ci-astre${a.sous ? " sous" : ""}${a.derriere ? " derriere" : ""}" `
       + `style="--ax:${a.x.toFixed(1)}%;--ay:${a.y.toFixed(1)}%">${a.corps}</div>`).join("")
     + temps
     + `<div class="ci-sol"></div><div class="ci-horizon"></div>`
@@ -224,6 +224,7 @@ function bandeauLune(g, maintenant, phase) {
    sa lueur : elle n'est pas dessinée, elle ne se voit pas davantage dans le vrai
    ciel, et les deux disques se recouvriraient. Et de nuit la Lune reste
    dessinée sous l'horizon, faute de quoi le panneau serait vide. */
+export const SEUIL_TEXTE = 45;
 export function bandeauAccueil(g, maintenant, p, vent) {
   const ps = Astres.position("soleil", maintenant, g.lat, g.lon);
   const pl = Astres.position("lune", maintenant, g.lat, g.lon);
@@ -269,6 +270,11 @@ export function bandeauAccueil(g, maintenant, p, vent) {
      calculait depuis le début sur une clarté nulle, c'est-à-dire jamais réglée.
      L'écran la pose sur le cadre, où tout ce qui est écrit sur le ciel la lit. */
   const clarte = Temps.clarteDe(c, p);
+  /* L'astre s'adoucit derrière le texte, version 207, demande de Jérôme du
+     16 octobre 2026 : bas sur l'horizon, le Soleil passait sous l'état du
+     ciel et les bornes du jour, qui se lisaient mal. La moitié basse du
+     ciel de l'accueil porte le texte. */
+  for (const a of astres) a.derriere = a.y > SEUIL_TEXTE;
   return { ciel: panneauCiel(c, astres, toile, clarte), clarte };
 }
 

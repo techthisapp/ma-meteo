@@ -1628,6 +1628,18 @@ case "$N" in
   530) # Le ciel de l'accueil reprend sa hauteur fixe.
      perl -0pi -e 's/\.plein-accueil\{display:grid\}.*?padding-top:calc\(var\(--haut\) \+ var\(--nav-haut\) \+ var\(--consult-haut\) \+ var\(--espace-sm\)\);\n\}\n//s' styles.css
      ATTENDU="le ciel de l.accueil grandit avec une longue réponse" ;;
+  531) # Le parapluie ne couvre plus que les heures gênantes.
+     perl -0pi -e 's/    for \(let j = k; j >= 0 && mouillee\(j\); j--\) prises\.add\(j\);\n    for \(let j = k \+ 1; j < serie\.n && mouillee\(j\); j\+\+\) prises\.add\(j\);/    prises.add(k);/' src/parapluie.js
+     ATTENDU="le créneau du parapluie couvre toute l.averse" ;;
+  532) # L'astre bas ne s'adoucit plus.
+     perl -0pi -e 's/for \(const a of astres\) a\.derriere = a\.y > SEUIL_TEXTE;/for (const a of astres) a.derriere = false;/' src/vues/astres.js
+     ATTENDU="un astre bas, derrière le texte de l.accueil, s.adoucit" ;;
+  533) # Le bouton de l'avis ne recharge plus.
+     perl -0pi -e 's/      if \(ev\.target\.closest\(.\[data-action="recharger"\].\)\) Version\.recharger\(ev\.target\.closest\("button"\)\);\n    \}\);/    });/' src/app.js
+     ATTENDU="l.avis d.une version plus récente recharge la page" ;;
+  534) # La version disponible se serre sur la ligne de recherche.
+     perl -0pi -e 's/\.rg-maj #rgMaj\{flex-basis:100%;display:flex;flex-direction:column;align-items:flex-start;gap:var\(--espace-sm\)\}//' styles.css
+     ATTENDU="les réglages disent la version disponible sous la recherche" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

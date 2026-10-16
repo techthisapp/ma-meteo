@@ -224,8 +224,12 @@ function poserAvisMaj() {
     el.className = "mise-a-jour";
     el.setAttribute("role", "status");
     document.body.appendChild(el);
+    /* L'avis vit hors de l'écran depuis la version 193 : l'écoute des clics de
+       l'écran ne l'atteint pas, et son bouton « Recharger » ne faisait rien
+       jusqu'à la version 207, signalé par Jérôme le 16 octobre 2026. */
     el.addEventListener("click", ev => {
       if (ev.target.closest("[data-fermer]")) { avisFerme = versionPlusRecente; el.hidden = true; }
+      if (ev.target.closest('[data-action="recharger"]')) Version.recharger(ev.target.closest("button"));
     });
   }
   el.innerHTML = `<span>La version ${versionPlusRecente} est disponible.</span>`
@@ -2093,7 +2097,7 @@ $("ecran").addEventListener("click", ev => {
   }
   const a = ev.target.closest('[data-action="geo"]');
   if (a) situerParPosition(a);
-  if (ev.target.closest('[data-action="recharger"]')) location.reload();
+  if (ev.target.closest('[data-action="recharger"]')) Version.recharger(ev.target.closest("button"));
 });
 
 window.addEventListener("keydown", ev => {

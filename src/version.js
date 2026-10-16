@@ -12,7 +12,7 @@
    c'est de savoir qu'elle existe pendant que l'application reste ouverte en
    arrière-plan, parfois des jours sur iPhone. Demandé le 23 septembre 2026. */
 
-export const VERSION = "ma-meteo-v206";
+export const VERSION = "ma-meteo-v207";
 
 export const numeroDe = v => {
   const m = /-v(\d+)$/.exec(v || "");
@@ -41,4 +41,15 @@ export async function plusRecente(fetcheur = fetch) {
   const p = await publiee(fetcheur);
   const n = numero();
   return p !== null && n !== null && p > n ? p : null;
+}
+
+/* Recharger sur la version publiée : l'agent de service relit d'abord sa
+   coque, puis la page se recharge, le réseau passant avant le cache. */
+export async function recharger(bouton) {
+  if (bouton) { bouton.setAttribute("aria-busy", "true"); bouton.textContent = "Rechargement…"; }
+  try {
+    const r = await navigator.serviceWorker?.getRegistration?.();
+    await Promise.race([r?.update?.(), new Promise(f => setTimeout(f, 3000))]);
+  } catch { /* la page se recharge de toute façon */ }
+  location.reload();
 }
