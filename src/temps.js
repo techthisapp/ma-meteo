@@ -642,7 +642,10 @@ for (let k = 0; k < 300; k++) {
 export function dessiner(cv, t) {
   const L = cv.clientWidth, H = cv.clientHeight;
   if (!L || !H) return;
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  /* La toile plein écran de l'accueil se dessine moins fin, version 214 :
+     les nuages sont flous, et la moitié des pixels en moins allège chaque
+     image. */
+  const dpr = Math.min(Number(cv.dataset.dprMax) || 2, Math.min(2, window.devicePixelRatio || 1));
   if (cv.width !== Math.round(L * dpr)) {
     cv.width = Math.round(L * dpr); cv.height = Math.round(H * dpr);
   }
@@ -887,6 +890,7 @@ const PAS = 33;
 let toileActive = null;
 let boucle = null;
 let debut = null;
+let tCourant = 0;
 let derniere = 0;
 
 const figee = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -894,10 +898,13 @@ const figee = () => window.matchMedia("(prefers-reduced-motion: reduce)").matche
 function image(ms) {
   if (!toileActive || !toileActive.isConnected) { arreter(); return; }
   boucle = requestAnimationFrame(image);
-  if (debut === null) debut = ms;
+  /* Une reprise repart de l'instant atteint, non de zéro : sans quoi les
+     nuages sautaient à chaque pause, version 214. */
+  if (debut === null) debut = ms - tCourant * 1000;
   if (ms - derniere < PAS) return;
   derniere = ms;
-  dessiner(toileActive, (ms - debut) / 1000);
+  tCourant = (ms - debut) / 1000;
+  dessiner(toileActive, tCourant);
 }
 
 /* Pose la toile à animer. `null` arrête la boucle : c'est ce que fait tout
@@ -911,6 +918,7 @@ export function poser(cv) {
   suivreEcran(toileActive);
   if (!toileActive) return;
   if (figee()) { dessiner(toileActive, 4.2); return; }
+  tCourant = 0;
   debut = null;
   derniere = 0;
   boucle = requestAnimationFrame(image);
@@ -934,8 +942,16 @@ export const ageAnimation = () => (boucle !== null && debut !== null ? (performa
 let observateur = null;
 let horsEcran = false;
 
+/* La pause pendant le défilement, version 214 : le doigt qui glisse et la
+   toile qui se peint se disputaient les images. */
+let suspendu = false;
+export function suspendre(v) {
+  suspendu = v;
+  if (v) arreter(); else relancer();
+}
+
 function relancer() {
-  if (!toileActive || !toileActive.isConnected || figee() || document.hidden || horsEcran || boucle !== null) return;
+  if (suspendu || !toileActive || !toileActive.isConnected || figee() || document.hidden || horsEcran || boucle !== null) return;
   debut = null;
   boucle = requestAnimationFrame(image);
 }

@@ -1649,7 +1649,7 @@ case "$N" in
      perl -0pi -e 's/    morphoser\(titre, nav, k\);\n//' src/app.js
      ATTENDU="l.accueil en plein ciel porte des cartes de verre, et sa température et son état passent par morphose" ;;
   537) # Les cartes de l'accueil perdent leur verre.
-     perl -0pi -e 's/backdrop-filter:blur\(22px\) saturate\(1\.3\)/backdrop-filter:none/g; s/backdrop-filter:blur\(30px\) saturate\(1\.6\)/backdrop-filter:none/g' styles.css
+     perl -0pi -e 's/backdrop-filter:blur\(22px\) saturate\(1\.3\)/backdrop-filter:none/g; s/backdrop-filter:blur\(20px\) saturate\(1\.6\)/backdrop-filter:none/g' styles.css
      ATTENDU="l.accueil en plein ciel porte des cartes de verre, et sa température et son état passent par morphose" ;;
   538) # Le titre ne se réduit plus au défilement.
      perl -0pi -e 's/    titre\.style\.setProperty\("--repli", k\.toFixed\(3\)\);\n//' src/app.js
@@ -1672,6 +1672,12 @@ case "$N" in
   544) # La morphose ignore le lieu et se centre par-dessus.
      perl -0pi -e 's/const x0 = Math\.min\(Math\.max\(\(window\.innerWidth - largeur\) \/ 2, finNom\), roue\.left - 12 - largeur\);/const x0 = (window.innerWidth - largeur) \/ 2 - 60;/' src/app.js
      ATTENDU="l.accueil en plein ciel porte des cartes de verre, et sa température et son état passent par morphose" ;;
+  545) # Le ciel continue de s'animer pendant le glissement.
+     perl -0pi -e 's/    if \(!repriseCiel\) Temps\.suspendre\(true\);\n//' src/app.js
+     ATTENDU="le ciel se met en pause pendant le glissement" ;;
+  546) # La reprise du ciel repart de zéro.
+     perl -0pi -e 's/if \(debut === null\) debut = ms - tCourant \* 1000;/if (debut === null) debut = ms;/' src/temps.js
+     ATTENDU="le ciel se met en pause pendant le glissement" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

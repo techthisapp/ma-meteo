@@ -53,6 +53,22 @@ export default async T => {
   ok("un rendu qui garde la forme du ciel garde l'image animée, sans la reprendre de zéro",
     ciel.meme && ciel.age > 2.5, JSON.stringify(ciel));
 
+  /* Version 214 : le ciel se met en pause le temps du glissement, puis
+     reprend de l'instant atteint. */
+  const pause = await p.evaluate(async () => {
+    const T = await import("/src/temps.js");
+    const avant = T.ageAnimation();
+    window.scrollTo(0, 120); window.dispatchEvent(new Event("scroll"));
+    await new Promise(r => setTimeout(r, 60));
+    const pendant = T.anime();
+    await new Promise(r => setTimeout(r, 450));
+    const apres = T.anime(), age = T.ageAnimation();
+    window.scrollTo(0, 0);
+    return { avant: Math.round(avant * 10) / 10, pendant, apres, age: Math.round(age * 10) / 10 };
+  });
+  ok("le ciel se met en pause pendant le glissement et reprend de l'instant atteint",
+    !pause.pendant && pause.apres && pause.age >= pause.avant, JSON.stringify(pause));
+
   /* Le ciel grandit avec ce qu'il porte, version 206 : une réponse de trois
      lignes et la mesure de la station restent sous la barre de tête, et le
      grand chiffre reste dans le ciel. */

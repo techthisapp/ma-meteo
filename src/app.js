@@ -1422,6 +1422,7 @@ function rendre() {
      ils passaient derrière les cartes. */
   if (f.cielPlein) {
     const toile = ecran.querySelector(".plein-accueil #ciTemps");
+    if (toile) toile.dataset.dprMax = "1.5";
     if (toile && toile.dataset.ay) toile.dataset.ay = (Number(toile.dataset.ay) * COMPRESSION_CIEL).toFixed(4);
   }
   /* Le retour d'une page de détail prend, dans la barre de tête, la place du
@@ -1449,6 +1450,9 @@ function rendre() {
     });
   }
 
+  /* Un rendu peut déplacer le titre : la morphose se remesure. */
+  oublierMorph();
+  morphActif = false;
   majPose();
 }
 
@@ -1503,49 +1507,80 @@ $("onglets").addEventListener("click", ev => {
    les deux sens. Le reste du titre s'efface. */
 const TAILLE_FIN = { t: 24, e: 15 };
 const adoucir = k => k * k * (3 - 2 * k);
-function morphoser(titre, nav, k) {
-  const boite = $("navMorph");
+
+/* Version 214, la morphose rendue fluide, signalé par Jérôme le 17 octobre
+   2026 : chaque image mesurait la page puis la modifiait, ce qui forçait le
+   navigateur à refaire la mise en page à chaque pas du doigt. Les mesures se
+   prennent désormais une fois, au rendu et au changement de taille, en
+   coordonnées de la page ; chaque image ne fait plus que de l'arithmétique et
+   des déplacements que la carte graphique compose seule. */
+let geoMorph = null;
+const oublierMorph = () => { geoMorph = null; };
+function mesurerMorph(titre, nav) {
+  const srcT = titre.querySelector(".bd-deg"), srcE = titre.querySelector(".bd-ciel");
+  if (!srcT || !srcE) return null;
   const T = $("morphT"), E = $("morphE");
-  const srcT = titre?.querySelector(".bd-deg"), srcE = titre?.querySelector(".bd-ciel");
   const noms = nav.querySelector(".nav-noms");
-  if (!titre || !srcT || !srcE || k <= 0) {
-    boite.classList.remove("en-cours");
-    if (noms) noms.style.maxWidth = "";
-    if (srcT) srcT.style.opacity = "";
-    if (srcE) srcE.style.opacity = "";
-    return;
-  }
-  boite.classList.add("en-cours");
-  /* Transparents, non cachés : le toucher les atteint encore à travers les
-     pièces du bandeau, qui le laissent passer. */
-  srcT.style.opacity = "0";
-  srcE.style.opacity = "0";
-  const e = adoucir(k);
+  noms.style.maxWidth = "";
+  const y = window.scrollY;
   const rT = srcT.getBoundingClientRect(), rE = srcE.getBoundingClientRect();
   const fT = parseFloat(getComputedStyle(srcT).fontSize), fE = parseFloat(getComputedStyle(srcE).fontSize);
   T.style.fontSize = `${fT}px`; E.style.fontSize = `${fE}px`;
   const sT = TAILLE_FIN.t / fT, sE = TAILLE_FIN.e / fE;
-  const corps = nav.querySelector(".nav-corps").getBoundingClientRect();
   /* Les largeurs sont celles des pièces qui voyagent : le degré du titre
      déborde de sa boîte. */
   const wT = T.offsetWidth, wE = E.offsetWidth;
   const largeur = wT * sT + 10 + wE * sE;
-  /* Centré quand la place le permet ; sinon juste à droite du lieu, qui
-     reste à gauche et s'abrège pour tenir avant la roue des réglages. */
+  const corps = nav.querySelector(".nav-corps").getBoundingClientRect();
   /* La limite à droite : le jeton du parapluie s'il paraît, sinon la roue. */
-  const roue = { left: Math.min(...[$("btnReglages"), $("navJeton")]
-    .filter(el => el && !el.hidden && el.offsetParent).map(el => el.getBoundingClientRect().left)) };
-  const nomG = noms.getBoundingClientRect().left;
+  const droite = Math.min(...[$("btnReglages"), $("navJeton")]
+    .filter(el => el && !el.hidden && el.offsetParent).map(el => el.getBoundingClientRect().left));
+  const rNoms = noms.getBoundingClientRect();
   const naturel = noms.scrollWidth;
   /* La flèche qui suit le nom, avec son écart ; le bouton du lieu, lui,
      s'étend jusqu'aux commandes de droite. */
   const chev = nav.querySelector(".nav-chev");
-  const queue = chev ? chev.getBoundingClientRect().right - noms.getBoundingClientRect().right : 24;
-  const place = Math.max(60, roue.left - 12 - largeur - 14 - queue - nomG);
-  noms.style.maxWidth = `${Math.round(naturel + (Math.min(naturel, place) - naturel) * e)}px`;
-  const finNom = nomG + Math.min(naturel, place) + queue + 14;
-  const x0 = Math.min(Math.max((window.innerWidth - largeur) / 2, finNom), roue.left - 12 - largeur);
-  const cy = corps.top + corps.height / 2;
+  const queue = chev ? chev.getBoundingClientRect().right - rNoms.right : 24;
+  const place = Math.max(60, droite - 12 - largeur - 14 - queue - rNoms.left);
+  const nomFin = Math.min(naturel, place);
+  /* Centré quand la place le permet ; sinon juste à droite du lieu, qui
+     reste à gauche et s'abrège pour tenir avant les commandes de droite. */
+  const x0 = Math.min(Math.max((window.innerWidth - largeur) / 2, rNoms.left + nomFin + queue + 14), droite - 12 - largeur);
+  return { srcT, srcE, T, E, noms, sT, sE, wT, x0, nomFin: nomFin < naturel ? nomFin : null,
+    cy: corps.top + corps.height / 2,
+    t: { left: rT.left, top: rT.top + y, h: rT.height }, e: { left: rE.left, top: rE.top + y, h: rE.height } };
+}
+
+let morphActif = false;
+function morphoser(titre, nav, k) {
+  const boite = $("navMorph");
+  if (!titre || k <= 0) {
+    if (morphActif) {
+      boite.classList.remove("en-cours");
+      if (geoMorph) {
+        geoMorph.noms.style.maxWidth = "";
+        geoMorph.srcT.style.opacity = ""; geoMorph.srcE.style.opacity = "";
+      }
+      morphActif = false;
+    }
+    return;
+  }
+  if (!geoMorph || !geoMorph.srcT.isConnected) geoMorph = mesurerMorph(titre, nav);
+  const g = geoMorph;
+  if (!g) return;
+  /* Les écritures qui touchent la mise en page ne se font qu'au passage du
+     repos à la morphose, non à chaque image. Le nom s'abrège par une
+     transition. */
+  if (!morphActif) {
+    boite.classList.add("en-cours");
+    /* Transparents, non cachés : le toucher les atteint encore à travers les
+       pièces du bandeau, qui le laissent passer. */
+    g.srcT.style.opacity = "0"; g.srcE.style.opacity = "0";
+    if (g.nomFin !== null) g.noms.style.maxWidth = `${Math.round(g.nomFin)}px`;
+    morphActif = true;
+  }
+  const e = adoucir(k);
+  const y = window.scrollY;
   /* Les chiffres s'assoient plus bas que le centre de leur boîte, et l'état
      tient dans une cible de quarante-quatre points : un léger décalage
      aligne les deux à l'arrivée. */
@@ -1553,50 +1588,66 @@ function morphoser(titre, nav, k) {
     const x = r.left + (xFin - r.left) * e;
     /* Le départ ne remonte jamais au-dessus de l'arrivée : le titre, emporté
        par le défilement, sort de l'écran par le haut. */
-    const yFin = cy - r.height * s / 2 + dy;
-    const y0 = Math.max(r.top, yFin);
-    const y = y0 + (yFin - y0) * e;
+    const yFin = g.cy - r.h * s / 2 + dy;
+    const y0 = Math.max(r.top - y, yFin);
+    const yy = y0 + (yFin - y0) * e;
     const echelle = 1 + (s - 1) * e;
-    el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${echelle.toFixed(4)})`;
+    el.style.transform = `translate3d(${x.toFixed(1)}px, ${yy.toFixed(1)}px, 0) scale(${echelle.toFixed(4)})`;
     return { x, echelle };
   };
-  const t = poser(T, rT, sT, x0, -2);
+  const t = poser(g.T, g.t, g.sT, g.x0, -2);
   /* L'état suit le bord droit du chiffre qui rétrécit : ils ne se
      chevauchent pas en chemin. */
-  poser(E, rE, sE, Math.max(t.x + wT * t.echelle + 10 * e, x0 + wT * sT + 10), 8);
+  poser(g.E, g.e, g.sE, Math.max(t.x + g.wT * t.echelle + 10 * e, g.x0 + g.wT * g.sT + 10), 8);
 }
 
+/* Les lectures d'abord, les écritures ensuite : une lecture après une
+   écriture force la mise en page. */
 function majPose() {
   const nav = $("nav");
   const hauteurNav = nav.getBoundingClientRect().height;
-  const ciel = $("ecran").querySelector(".ci");
+  const ecran = $("ecran");
+  const ciel = ecran.querySelector(".ci");
+  const basCiel = ciel ? ciel.getBoundingClientRect().bottom : null;
+  const h1 = !ciel ? ecran.querySelector(".titre-ecran h1") : null;
+  const basH1 = h1 ? h1.getBoundingClientRect().bottom : null;
 
   /* Le plein ciel de l'accueil, version 209 : le grand chiffre se réduit et
      s'efface au défilement, et la barre de tête prend la température en
      petit. */
-  const titre = $("ecran").classList.contains("ecran-ciel") ? $("ecran").querySelector(".plein-titre") : null;
+  const titre = ecran.classList.contains("ecran-ciel") ? ecran.querySelector(".plein-titre") : null;
   if (titre) {
     const k = Math.min(1, Math.max(0, window.scrollY) / 220);
+    morphoser(titre, nav, k);
     titre.style.setProperty("--repli", k.toFixed(3));
     nav.style.setProperty("--mini", k.toFixed(3));
-    morphoser(titre, nav, k);
   } else { nav.style.setProperty("--mini", "0"); morphoser(null, nav, 0); }
 
   if (ciel) {
-    const surCiel = ciel.getBoundingClientRect().bottom > hauteurNav;
+    const surCiel = basCiel > hauteurNav;
     nav.classList.toggle("sur-ciel", surCiel);
     nav.classList.toggle("pose", !surCiel);
     return;
   }
-
   nav.classList.remove("sur-ciel");
-  const h1 = $("ecran").querySelector(".titre-ecran h1");
   if (!h1) { nav.classList.remove("pose"); return; }
-  const bas = h1.getBoundingClientRect().bottom;
-  nav.classList.toggle("pose", bas < hauteurNav);
+  nav.classList.toggle("pose", basH1 < hauteurNav);
 }
-window.addEventListener("scroll", majPose, { passive: true });
-window.addEventListener("resize", majPose);
+/* Au rythme de l'affichage : un seul calcul par image, quel que soit le
+   nombre d'événements de défilement. */
+let poseDemandee = 0, repriseCiel = 0;
+window.addEventListener("scroll", () => {
+  /* Le ciel animé se met en pause le temps du glissement, et reprend un
+     instant après, sans repartir de zéro. */
+  if ($("ecran").classList.contains("ecran-ciel")) {
+    if (!repriseCiel) Temps.suspendre(true);
+    clearTimeout(repriseCiel);
+    repriseCiel = setTimeout(() => { repriseCiel = 0; Temps.suspendre(false); }, 180);
+  }
+  if (poseDemandee) return;
+  poseDemandee = requestAnimationFrame(() => { poseDemandee = 0; majPose(); });
+}, { passive: true });
+window.addEventListener("resize", () => { oublierMorph(); majPose(); });
 
 /* La fenêtre du ruban vaut vingt-quatre heures en portrait et quarante-huit dès
    que la largeur le permet : basculer l'appareil change donc le dessin, non la
