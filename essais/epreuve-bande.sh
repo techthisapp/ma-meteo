@@ -1640,6 +1640,12 @@ case "$N" in
   534) # La version disponible se serre sur la ligne de recherche.
      perl -0pi -e 's/\.rg-maj #rgMaj\{flex-basis:100%;display:flex;flex-direction:column;align-items:flex-start;gap:var\(--espace-sm\)\}//' styles.css
      ATTENDU="les réglages disent la version disponible sous la recherche" ;;
+  535) # Les mesures en petit disparaissent du compact.
+     perl -0pi -e 's/\+ \(tuiles\.length \? `<span class="mini-mesures">/+ (false ? `<span class="mini-mesures">/' src/app.js
+     ATTENDU="l.accueil compact montre les mesures en petit" ;;
+  536) # La suite de l'accueil ne remonte plus sur le ciel.
+     perl -0pi -e 's/position:relative;z-index:2;margin-top:calc\(-1 \* var\(--rayon-xl\)\);/position:relative;z-index:2;/' styles.css
+     ATTENDU="la suite de l.accueil remonte sur le bas du ciel" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

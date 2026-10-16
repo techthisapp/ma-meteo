@@ -1001,8 +1001,15 @@ function ecranAccueil() {
       ? `<div class="carte retenir"><div class="conseils">${conseilsHTML(lSuite)}</div></div>`
       : "");
     corps += compact
+      /* Les mesures restent visibles en petit, version 208, choix de Jérôme
+         du 16 octobre 2026 : une grille de valeurs clés, et un appui les
+         agrandit en tuiles complètes, avec les conseils de demain. */
       ? (tuilesHTML || suiteHTML ? `<details class="compact-plus" data-bloc="replie">`
-        + `<summary>Mesures du jour${suiteHTML ? ` et ${esc(titreJours(lSuite).toLowerCase())}` : ""}</summary>`
+        + `<summary aria-label="Agrandir les mesures du jour${suiteHTML ? ` et ${esc(titreJours(lSuite).toLowerCase())}` : ""}">`
+        + (tuiles.length ? `<span class="mini-mesures">${tuiles.map(([n, v]) =>
+          `<span class="mm-c"><i>${esc(n)}</i><b>${valeurUnite(v)}</b></span>`).join("")}</span>` : "")
+        + `<span class="mm-plus"><span class="mm-ouvrir">Mesures du jour${suiteHTML ? ` et ${esc(titreJours(lSuite).toLowerCase())}` : ""}</span>`
+        + `<span class="mm-fermer">Réduire</span>${ico("chevron_bas", "mm-chev")}</span></summary>`
         + `${tuilesHTML}${suiteHTML}</details>` : "")
       : suiteHTML;
 

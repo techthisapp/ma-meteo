@@ -3072,3 +3072,45 @@ button.rangee:active{background:var(--surface-2)}
 /* Le résultat de la recherche de mise à jour, version 207 : sous le bouton,
    le message sur sa ligne, le bouton de rechargement dessous. */
 .rg-maj #rgMaj{flex-basis:100%;display:flex;flex-direction:column;align-items:flex-start;gap:var(--espace-sm)}
+
+/* Le haut de l'accueil, version 208, choix de Jérôme du 16 octobre 2026 :
+   le bas du ciel se fond vers le fond de la page, et la suite de l'écran
+   remonte dessus, bord arrondi. Le titre se relève d'autant. */
+.plein-accueil > .ci::after{
+  content:"";position:absolute;left:0;right:0;bottom:0;height:40px;z-index:1;pointer-events:none;
+  background:linear-gradient(180deg,transparent 0%,color-mix(in srgb, var(--fond) 70%, transparent) 100%);
+}
+.plein-accueil > .plein-titre{margin-bottom:calc(var(--espace-lg) + var(--rayon-xl))}
+.plein-accueil + .ecran-corps{
+  position:relative;z-index:2;margin-top:calc(-1 * var(--rayon-xl));
+  background:var(--fond);border-radius:var(--rayon-xl) var(--rayon-xl) 0 0;
+}
+
+/* Les mesures en petit de l'accueil compact, version 208 : quatre colonnes,
+   le nom au-dessus, la valeur dessous ; le tout agrandit au toucher. */
+.compact-plus > summary.compact-mesures,.compact-plus > summary:has(.mini-mesures){
+  display:flex;flex-direction:column;align-items:stretch;width:auto;max-width:none;margin:0;
+  padding:var(--espace-md) var(--espace-base);border-radius:var(--rayon-carte);
+  background:var(--surface);color:var(--etiquette);font-weight:var(--graisse-regular);
+}
+.mini-mesures{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--espace-sm) var(--espace-xs)}
+.mm-c{display:flex;flex-direction:column;min-width:0}
+.mm-c i{font-style:normal;font-size:var(--texte-legende2);color:var(--etiquette-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mm-c b{font-size:var(--texte-sous);font-weight:var(--graisse-semibold)}
+.mm-plus{display:flex;align-items:center;justify-content:center;gap:var(--espace-xs);margin-top:var(--espace-md);
+  min-height:var(--touche);color:var(--accent);font-size:var(--texte-note);font-weight:var(--graisse-semibold)}
+.mm-chev{width:14px;height:14px;transition:transform var(--duree-std)}
+.compact-plus[open] .mm-chev{transform:rotate(180deg)}
+.compact-plus .mm-fermer,.compact-plus[open] .mm-ouvrir,.compact-plus[open] .mini-mesures{display:none}
+.compact-plus[open] .mm-fermer{display:inline}
+.compact-plus[open] > summary .mm-plus{margin-top:0}
+/* Le voile de lisibilité suit le titre relevé, version 208 : le titre monte
+   de la hauteur du bord de la feuille, le voile monte avec lui, à hauteur
+   inchangée ; ce qu'il laisse dessous passe sous la feuille. */
+.plein-accueil .ci-voile-bas{
+  bottom:var(--rayon-xl);
+  background:linear-gradient(0deg,
+    rgba(22,34,52,calc(.54 + .22 * var(--ci-clarte,0))) 0%,
+    rgba(22,34,52,calc(.34 + .32 * var(--ci-clarte,0))) 50%,
+    rgba(22,34,52,0) 100%);
+}

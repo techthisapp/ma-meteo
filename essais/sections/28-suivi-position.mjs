@@ -498,10 +498,19 @@ export default async T => {
      La mesure porte sur l'image composée, voiles compris, non sur la seule toile :
      la capture repasse par le navigateur, qui sait décoder un PNG. */
   const cliche = (await pgCouvert.locator(".ci").screenshot()).toString("base64");
+  /* Depuis la version 208, le bas du ciel se fond sous la feuille, qui le
+     chevauche, et le titre remonte d'autant : les quatre hauteurs mesurées
+     remontent avec lui. */
+  const bandes = await pgCouvert.evaluate(() => {
+    const ci = document.querySelector(".plein-accueil > .ci").getBoundingClientRect();
+    const corps = document.querySelector(".plein-accueil + .ecran-corps").getBoundingClientRect();
+    const releve = Math.max(0, ci.bottom - corps.top) / ci.height;
+    return [0.68, 0.76, 0.84, 0.92].map(f => f - releve);
+  });
   /* Le cliché se décode dans une page vierge : la politique de sécurité de
      l'application refuse les images en `data:`, depuis la version 139. */
   const pgCliche = await ctxCouvert.newPage();
-  const lisible = await pgCliche.evaluate(async b64 => {
+  const lisible = await pgCliche.evaluate(async ([b64, bandes]) => {
     const img = new Image();
     img.src = "data:image/png;base64," + b64;
     await img.decode();
@@ -516,7 +525,7 @@ export default async T => {
     /* Le quart droit du bandeau, à hauteur du titre : le texte n'y va pas, et
        c'est le pixel le plus clair qui donne le pire contraste. */
     let pire = 99;
-    for (const f of [0.68, 0.76, 0.84, 0.92]) {
+    for (const f of bandes) {
       const y = Math.round(H * f);
       let haut = 0;
       for (let px = Math.round(W * 0.78); px < W * 0.97; px += 2) {
@@ -525,7 +534,7 @@ export default async T => {
       pire = Math.min(pire, 1.05 / (haut + 0.05));
     }
     return pire;
-  }, cliche);
+  }, [cliche, bandes]);
   ok("le titre reste lisible sur un plafond de plein jour",
     lisible >= 3.2, `contraste ${lisible.toFixed(2)} pour un blanc sur le ciel`);
 

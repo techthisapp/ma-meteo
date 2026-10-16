@@ -73,7 +73,11 @@ export default async T => {
   const lire = () => p3.evaluate(() => {
     const d = document.querySelector("#ecran details.compact-plus");
     const vu = sel => [...document.querySelectorAll(sel)].some(x => x.checkVisibility());
-    return { resume: d?.querySelector("summary")?.textContent || "", ouvert: d?.open ?? null,
+    /* Version 208 : les mesures en petit, visibles repliées, et le bouton
+       qui dit ce qu'il agrandit. */
+    return { resume: d?.querySelector("summary")?.getAttribute("aria-label") || "", ouvert: d?.open ?? null,
+      mini: vu("#ecran .mini-mesures .mm-c") ? document.querySelectorAll("#ecran .mini-mesures .mm-c").length : 0,
+      bouton: [...(d?.querySelectorAll(".mm-plus > span") || [])].filter(x => x.checkVisibility()).map(x => x.textContent).join(""),
       tuiles: vu("#ecran .tuile"), demain: vu('#ecran [data-bloc="suite"]'), bande: vu("#ecran #bande"),
       portes: vu("#ecran .porte"), dansPli: !!d?.querySelector(".tuiles") && !!d?.querySelector('[data-bloc="suite"]') };
   });
@@ -90,10 +94,21 @@ export default async T => {
   const replie = await lire();
   await p3.locator("#ecran details.compact-plus > summary").click();
   const deplie = await lire();
-  ok("l'accueil compact replie les tuiles et les conseils de demain derrière un bouton, et garde l'essentiel",
-    replie.resume === "Mesures du jour et demain" && replie.ouvert === false && !replie.tuiles && !replie.demain
-    && replie.bande && replie.portes && replie.dansPli && deplie.tuiles && deplie.demain,
+  ok("l'accueil compact montre les mesures en petit, et un appui les agrandit en tuiles avec les conseils de demain",
+    replie.resume === "Agrandir les mesures du jour et demain" && replie.ouvert === false && !replie.tuiles && !replie.demain
+    && replie.mini >= 6 && replie.bouton === "Mesures du jour et demain"
+    && replie.bande && replie.portes && replie.dansPli && deplie.tuiles && deplie.demain && deplie.mini === 0 && deplie.bouton === "Réduire",
     JSON.stringify({ replie, deplie }));
+  /* Version 208 : la suite de l'accueil remonte sur le bas du ciel, bord
+     arrondi, et le ciel se fond vers elle. */
+  const haut = await p3.evaluate(() => {
+    const ci = document.querySelector(".plein-accueil > .ci"), corps = document.querySelector(".plein-accueil + .ecran-corps");
+    const a = ci.getBoundingClientRect(), b = corps.getBoundingClientRect();
+    return { chevauche: Math.round(a.bottom - b.top), rayon: getComputedStyle(corps).borderTopLeftRadius,
+      fondu: getComputedStyle(ci, "::after").backgroundImage.startsWith("linear-gradient") };
+  });
+  ok("la suite de l'accueil remonte sur le bas du ciel, bord arrondi, et le ciel s'y fond",
+    haut.chevauche >= 16 && haut.rayon === "20px" && haut.fondu, JSON.stringify(haut));
 
   /* Le réglage se fait dans la carte « Accueil » des réglages, et l'accueil
      se refait aussitôt. */
