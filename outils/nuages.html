@@ -1,0 +1,131 @@
+<!doctype html><meta charset="utf-8"><canvas id="c"></canvas>
+<script>
+/* Le rendu volumique des textures de nuages, version 216 : une couche de
+   nuage vue d'en dessous, la lumière tombant d'en haut à gauche, raccordée sur
+   ses quatre bords pour défiler sans fin. Rouge : lumière directe ; vert :
+   lumière diffuse ; bleu : épaisseur ; alpha : opacité, valeurs non
+   prémultipliées. La forme est un bruit fractal gonflé par trois octaves de
+   cellules, la forme en choux-fleurs des nuages ; la lumière est atténuée
+   selon la loi de Beer le long de six pas vers le Soleil. Page chargée par
+   `construire-nuages.mjs`. */
+const FS = `#version 300 es
+precision highp float;
+uniform vec2 uTaille; uniform float uLigne0;
+uniform float uF, uEtire, uCouv, uErosion, uBase, uSommet, uEpais, uDens, uWorley, uGraine, uGrain, uAmas;
+out vec4 sortie;
+float h31(vec3 p){ p = fract(p * vec3(0.1031, 0.1030, 0.0973) + uGraine * 0.0137); p += dot(p, p.yxz + 33.33); return fract((p.x + p.y) * p.z); }
+vec3 h33(vec3 p){ return vec3(h31(p), h31(p + 17.1), h31(p + 41.7)); }
+float vbruit(vec3 p, vec2 per){
+  vec3 i = floor(p), f = fract(p); vec3 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+  float r = 0.0;
+  float a[8];
+  for (int k = 0; k < 8; k++) {
+    vec3 o = vec3(float(k & 1), float((k >> 1) & 1), float((k >> 2) & 1));
+    vec3 c = i + o; c.xy = mod(c.xy, per);
+    a[k] = h31(c);
+  }
+  return mix(mix(mix(a[0], a[1], u.x), mix(a[2], a[3], u.x), u.y), mix(mix(a[4], a[5], u.x), mix(a[6], a[7], u.x), u.y), u.z);
+}
+float fbm(vec3 p, vec2 per, int oct){
+  float s = 0.0, a = 0.5, n = 0.0;
+  for (int i = 0; i < 7; i++) { if (i >= oct) break; s += a * vbruit(p, per); n += a; p *= 2.0; per *= 2.0; a *= 0.5; }
+  return s / n;
+}
+float worley(vec3 p, vec2 per){
+  vec3 i = floor(p), f = fract(p); float d = 1.0;
+  for (int x = -1; x <= 1; x++) for (int y = -1; y <= 1; y++) for (int z = -1; z <= 1; z++) {
+    vec3 o = vec3(x, y, z); vec3 c = i + o; vec3 cw = c; cw.xy = mod(cw.xy, per);
+    vec3 pt = o + h33(cw) - f; d = min(d, dot(pt, pt));
+  }
+  return sqrt(d);
+}
+float remap(float v, float a, float b){ return clamp((v - a) / (b - a), 0.0, 1.0); }
+/* La densité au point (x, y) du carreau, x et y entre 0 et 1, à la hauteur h
+   dans la couche, entre 0 et 1. */
+float densite(vec3 q, int oct){
+  float h = q.z;
+  vec2 per = vec2(uF, uF * uEtire);
+  vec3 p = vec3(q.x * per.x, q.y * per.y, h * uEpais * uF);
+  /* Bruit fractal gonflé par trois octaves de cellules : la forme en
+     choux-fleurs des nuages. */
+  float perl = (fbm(p, per, oct) - 0.5) * 2.2 + 0.5;
+  float wf = 0.625 * (1.0 - worley(p, per)) + 0.25 * (1.0 - worley(p * 2.0, per * 2.0)) + 0.125 * (1.0 - worley(p * 4.0, per * 4.0));
+  float forme = remap(perl, (wf - 1.0) * uWorley, 1.0);
+  vec2 perA = max(vec2(1.0), floor(per * 0.5 + 0.5));
+  float amas = fbm(vec3(q.x * perA.x, q.y * perA.y, 3.7), perA, 3);
+  float couv = clamp(uCouv * mix(1.0, 0.3 + 1.4 * amas, uAmas), 0.0, 1.0);
+  float profil = smoothstep(uBase, uBase + 0.1, h) * smoothstep(uSommet, mix(uBase, uSommet, 0.3), h);
+  float d = remap(forme * profil, 1.0 - couv, 1.0) * couv;
+  if (d <= 0.0) return 0.0;
+  vec3 pe = p * 5.0 * uGrain; vec2 pere = per * 5.0 * uGrain;
+  float er = 0.6 * (1.0 - worley(pe, pere)) + 0.4 * fbm(pe * 2.0, pere * 2.0, 2);
+  d = remap(d, uErosion * er, 1.0);
+  return d;
+}
+void main(){
+  vec2 uv = vec2(gl_FragCoord.x, gl_FragCoord.y + uLigne0) / uTaille;
+  const int N = 96;
+  float pas = 1.0 / float(N);
+  vec3 L = normalize(vec3(-0.75, 0.55, 0.62));
+  float T = 1.0, dir = 0.0, amb = 0.0, epais = 0.0;
+  float j = h31(vec3(gl_FragCoord.xy, 1.0));
+  for (int i = 0; i < N; i++) {
+    float h = (float(i) + j) * pas;
+    float d = densite(vec3(uv, h), 5);
+    if (d <= 0.0) continue;
+    float s = d * uDens * pas;
+    /* Profondeur optique vers la lumière, en six pas qui s'allongent. */
+    float tau = 0.0; float l = 0.0;
+    for (int k = 1; k <= 6; k++) {
+      float dl = 0.035 * float(k);
+      l += dl;
+      vec3 r = vec3(uv + L.xy * l * uEpais, h + L.z * l);
+      if (r.z > 1.0) break;
+      tau += densite(r, 3) * uDens * dl;
+    }
+    float direct = exp(-tau) * 0.85 + exp(-tau * 0.25) * 0.15;
+    float ambiant = mix(0.35, 1.0, h) * exp(-tau * 0.12);
+    float a = T * (1.0 - exp(-s));
+    dir += a * direct; amb += a * ambiant; epais += a * h;
+    T *= exp(-s);
+    if (T < 0.01) break;
+  }
+  float al = 1.0 - T;
+  if (al < 0.002) { sortie = vec4(0.0); return; }
+  sortie = vec4(clamp(dir / al, 0.0, 1.0), clamp(amb / al, 0.0, 1.0), clamp(1.0 - T * 0.0 - epais / al, 0.0, 1.0), al);
+}`;
+const cv = document.getElementById("c");
+const g = cv.getContext("webgl2", { premultipliedAlpha: false, preserveDrawingBuffer: true, alpha: true });
+function programme(src) {
+  const c = (t, s) => { const o = g.createShader(t); g.shaderSource(o, s); g.compileShader(o); if (!g.getShaderParameter(o, g.COMPILE_STATUS)) throw new Error(g.getShaderInfoLog(o)); return o; };
+  const p = g.createProgram();
+  g.attachShader(p, c(g.VERTEX_SHADER, `#version 300 es
+in vec2 a; void main(){ gl_Position = vec4(a, 0.0, 1.0); }`));
+  g.attachShader(p, c(g.FRAGMENT_SHADER, src)); g.linkProgram(p); return p;
+}
+const prog = programme(FS);
+const tampon = g.createBuffer(); g.bindBuffer(g.ARRAY_BUFFER, tampon);
+g.bufferData(g.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), g.STATIC_DRAW);
+window.rendre = async (taille, reglages) => {
+  cv.width = taille; cv.height = taille;
+  const p = prog;
+  g.useProgram(p);
+  const loc = g.getAttribLocation(p, "a"); g.enableVertexAttribArray(loc); g.vertexAttribPointer(loc, 2, g.FLOAT, false, 0, 0);
+  g.uniform2f(g.getUniformLocation(p, "uTaille"), taille, taille);
+  for (const [k, v] of Object.entries(reglages)) { const u = g.getUniformLocation(p, k); if (u) g.uniform1f(u, v); }
+  g.viewport(0, 0, taille, taille);
+  g.clearColor(0, 0, 0, 0); g.clear(g.COLOR_BUFFER_BIT);
+  g.enable(g.SCISSOR_TEST);
+  /* Par bandes de 32 lignes, pour ne pas dépasser le temps qu'accorde la
+     carte graphique à un seul tracé. */
+  for (let y = 0; y < taille; y += 32) {
+    g.scissor(0, y, taille, 32);
+    g.uniform1f(g.getUniformLocation(p, "uLigne0"), 0);
+    g.drawArrays(g.TRIANGLES, 0, 3);
+    g.finish();
+    await new Promise(r => setTimeout(r, 0));
+  }
+  g.disable(g.SCISSOR_TEST);
+  return cv.toDataURL("image/webp", 0.86);
+};
+</script>

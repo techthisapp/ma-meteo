@@ -13,6 +13,8 @@
    non derrière. Elle suit le même contrat que `feu.js` et `relief.js`, une
    toile animée à la fois, trente images par seconde, arrêt hors écran. */
 
+import * as CielGL from "./ciel-gl.js";
+
 const melangeRVB = (a, b, t) => a.map((v, k) => Math.round(v + (b[k] - v) * t));
 const rgba = (v, a) => `rgba(${v[0]},${v[1]},${v[2]},${a})`;
 const borne = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -895,16 +897,57 @@ let derniere = 0;
 
 const figee = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+/* Le ciel en WebGL, version 216 : une toile qui porte `data-gl` est peinte
+   par la carte graphique, à chaque image de l'écran, si le navigateur le
+   permet ; le dessin sur toile reste le repli. Le peintre est gardé avec sa
+   toile, qu'un rendu d'écran peut garder d'un rendu à l'autre. */
+const peintres = new WeakMap();
+function peintreDe(cv) {
+  if (!cv || cv.dataset.gl !== "1") return null;
+  if (!peintres.has(cv)) {
+    let p = null;
+    try { p = CielGL.peintre(cv); } catch { p = null; }
+    peintres.set(cv, p);
+  }
+  return peintres.get(cv);
+}
+export const enWebGL = cv => Boolean(cv && peintres.get(cv));
+
+/* L'état du ciel pour le peintre, refait seulement quand la toile change. */
+const signatures = new WeakMap();
+function etatPour(cv, p) {
+  const sig = Object.values(cv.dataset).join("|");
+  if (signatures.get(cv) === sig) return;
+  signatures.set(cv, sig);
+  const d = lire(cv);
+  const couv = Math.max(d.cumulus, d.nappe);
+  p.poser({
+    ...d,
+    teinte: couleurs(d.ciel, couv, plombDe(d)),
+    voile: voileDe(d),
+    /* Le tirage change toutes les trois heures : le même ciel d'un rendu à
+       l'autre, un autre mélange de nuages dans la journée. */
+    graine: Math.floor(Date.now() / (3 * 3600e3)),
+  });
+}
+
+function peindre(cv, t, ms) {
+  const p = peintres.get(cv);
+  if (p) { etatPour(cv, p); p.peindre(t, ms); return; }
+  dessiner(cv, t);
+}
+
 function image(ms) {
   if (!toileActive || !toileActive.isConnected) { arreter(); return; }
   boucle = requestAnimationFrame(image);
   /* Une reprise repart de l'instant atteint, non de zéro : sans quoi les
      nuages sautaient à chaque pause, version 214. */
   if (debut === null) debut = ms - tCourant * 1000;
-  if (ms - derniere < PAS) return;
+  const gl = enWebGL(toileActive);
+  if (!gl && ms - derniere < PAS) return;
   derniere = ms;
   tCourant = (ms - debut) / 1000;
-  dessiner(toileActive, tCourant);
+  peindre(toileActive, tCourant, ms);
 }
 
 /* Pose la toile à animer. `null` arrête la boucle : c'est ce que fait tout
@@ -917,7 +960,14 @@ export function poser(cv) {
   toileActive = cv || null;
   suivreEcran(toileActive);
   if (!toileActive) return;
-  if (figee()) { dessiner(toileActive, 4.2); return; }
+  const p = peintreDe(toileActive);
+  if (figee()) {
+    const fixe = toileActive;
+    peindre(fixe, 4.2);
+    /* Figé, le ciel WebGL se repeint une fois les nuages chargés. */
+    if (p) p.surPret = () => { if (fixe.isConnected) peindre(fixe, 4.2); };
+    return;
+  }
   tCourant = 0;
   debut = null;
   derniere = 0;
@@ -946,6 +996,9 @@ let horsEcran = false;
    toile qui se peint se disputaient les images. */
 let suspendu = false;
 export function suspendre(v) {
+  /* Le ciel WebGL ne se suspend pas : la carte graphique le peint sans
+     disputer les images au doigt, et ses plans glissent avec la page. */
+  if (v && enWebGL(toileActive)) return;
   suspendu = v;
   if (v) arreter(); else relancer();
 }

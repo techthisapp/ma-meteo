@@ -23,6 +23,7 @@ Ce fichier se lit au début de chaque session. Le détail des décisions vit dan
 | `src/stations.js`, `src/plages.js` | Les listes embarquées des stations de ski et des plages, produites par `outils/` |
 | `outils/` | Les scripts de construction des listes embarquées |
 | `donnees/relief.webp`, `relief.json`, `rivieres.json`, `villes.json` | Le fond enrichi de la carte depuis la version 142, produit par `node outils/construire-fond.mjs` et dessiné par `src/fond.js` |
+| `donnees/nuages/*.webp`, `src/ciel-gl.js` | Le ciel WebGL de l'accueil plein ciel depuis la version 216 : six textures de nuages calculées par un rendu volumique, `node outils/construire-nuages.mjs`, posées en plusieurs plans par `src/ciel-gl.js` ; `src/temps.js` garde la boucle et le dessin sur toile en repli. Le banc coupe ce ciel d'office, `__cielSimple`, sauf la section 76 qui pose `__cielGL` ; `CIELGL=1` le montre dans `vue-ecran.mjs` |
 | `essais/` | La suite de contrôles : `controle.mjs` la lance, `banc.mjs` prépare chaque section, `faux-services.mjs` répond à la place des vraies sources, `sections/` porte une section par fichier ; `vue-ecran.mjs` fait les captures avec les mêmes faux services |
 | `docs/` | La feuille de route, l'état de reprise, les consignes du projet |
 
@@ -98,14 +99,14 @@ installe Playwright 1.63.0, puis `npx playwright install chromium`.
 
 | Commande | Effet |
 |---|---|
-| `bash essais/passe.sh 8137` | La suite complète, sur une copie du dépôt dans `/tmp/passe-<port>` ; trois minutes, 1284 contrôles à la version 215 |
+| `bash essais/passe.sh 8137` | La suite complète, sur une copie du dépôt dans `/tmp/passe-<port>` ; trois minutes, 1291 contrôles à la version 216 |
 | `SECTIONS="carte,vent" bash essais/passe.sh 8137` | Les seules sections dont le titre ou le nom de fichier contient l'un des motifs |
 | `JUSQUA="La bande horaire" bash essais/passe.sh 8137` | La suite jusqu'à la fin d'une section |
 | `PARALLELE=1 CHRONO=1 bash essais/passe.sh 8137` | Une section à la fois, avec le temps de chacune ; trois passent côte à côte par défaut |
 | `bash essais/epreuve-bande.sh <n>` | Une erreur volontaire : le script introduit l'erreur numéro n dans une copie, ne passe que la section qui porte le contrôle attendu, et vérifie qu'il échoue. Verdicts possibles : vue, non vue, non appliquée, ou épreuve interrompue |
 
 Les erreurs volontaires sont numérotées dans `essais/epreuve-bande.sh` ; la
-dernière porte le numéro 549. Tout contrôle nouveau a son erreur volontaire, et
+dernière porte le numéro 556. Tout contrôle nouveau a son erreur volontaire, et
 une erreur volontaire éprouvée pendant que son contrôle échoue déjà sur le bon
 code doit être repassée.
 
@@ -165,6 +166,7 @@ Règles apprises à l'usage :
 |---|---|---|
 | Stations de ski | `curl -o /tmp/ski_areas.geojson https://tiles.openskimap.org/geojson/ski_areas.geojson` puis `python3 outils/construire-stations.py /tmp/ski_areas.geojson` | À refaire chaque saison ; les stations se rangent sous leur domaine d'après les emprises |
 | Fond de la carte | `node outils/construire-fond.mjs`, ou avec `villes`, `relief` ou `rivieres` pour une seule partie | Quelques minutes. Cours d'eau de la BD CARTO de l'IGN, nommés et d'au moins vingt kilomètres ; la BD TOPO ne donne que des fragments. Relief d'après les tuiles Terrarium, ombrage calculé dans le Chromium de Playwright |
+| Nuages du ciel | `node outils/construire-nuages.mjs`, ou avec une liste de sortes | Une dizaine de secondes, sans réseau. Rendu volumique dans le Chromium de Playwright, sur la carte graphique du Mac ; les réglages de chaque sorte sont en tête du script |
 | Plages | `python3 outils/construire-plages.py` | Plusieurs minutes quand le service d'adresses répond ; il l'abandonne après vingt échecs. Il lance ensuite `node outils/orienter-plages.mjs`, qui ajoute à chaque plage française la direction de la mer, calculée sur les contours embarqués, sans réseau |
 
 ## Écriture
@@ -190,7 +192,7 @@ Les consignes détaillées du projet sont dans `docs/consignes/`.
 
 ## État au 8 octobre 2026
 
-Version 215, publiée depuis Claude Code. Jalons livrés : 1 à 4, 7 à 18, dont 14, la comparaison ; 15, les
+Version 216, publiée depuis Claude Code. Jalons livrés : 1 à 4, 7 à 18, dont 14, la comparaison ; 15, les
 plages ; 16, la neige ; 17, la semaine au plus loin ; 18, les couches de la
 carte et l'eau ; 19, la carte enrichie, livré
 en versions 140 à 153, repris en versions 154 et 155. Jalon 20, textes,

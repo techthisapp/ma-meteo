@@ -1528,6 +1528,10 @@ export const envelopperNavigateur = nav => {
   const nouveauContexte = nav.newContext.bind(nav);
   nav.newContext = async (...a) => {
     const c = await nouveauContexte(...a);
+    /* Le ciel WebGL de l'accueil, version 216, est coupé d'office : les
+       contrôles du ciel lisent le dessin sur toile. La section qui éprouve le
+       ciel WebGL pose `__cielGL`. */
+    await c.addInitScript(() => { window.__cielSimple = true; });
     await c.route(/^https?:\/\/(?!localhost[:/]|127\.0\.0\.1[:/])/, r => {
       const u = new URL(r.request().url());
       sortantes.push(`${u.host}${u.pathname}`);

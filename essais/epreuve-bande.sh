@@ -1687,6 +1687,27 @@ case "$N" in
   549) # Le titre ne s'efface pas au défilement.
      perl -0pi -e 's/animation:effacerTitre linear both;/animation:none;/' styles.css
      ATTENDU="l.accueil en plein ciel porte des cartes de verre, et sa température et son état passent par morphose" ;;
+  550) # L'accueil plein ciel ne demande pas le ciel WebGL.
+     perl -0pi -e 's/    if \(toile\) toile\.dataset\.gl = "1";\n//' src/app.js
+     ATTENDU="l.accueil plein ciel peint son ciel en WebGL, et l.anime" ;;
+  551) # Le programme du ciel ne peint rien.
+     perl -0pi -e 's/  gl_FragColor = acc;/  gl_FragColor = vec4(0.0);/' src/ciel-gl.js
+     ATTENDU="le ciel WebGL montre des nuages, la toile lue n.est pas unie" ;;
+  552) # Un ciel couvert se peint en cumulus.
+     perl -0pi -e 's/plan\("stratus", 0\.05,/plan("cumulus", 0.05,/' src/ciel-gl.js
+     ATTENDU="les plans de nuages suivent le temps : cumulus, nappe, lambeaux sous la pluie" ;;
+  553) # Le tirage ne change rien.
+     perl -0pi -e 's/const v = \(\(graine % 3\) \+ 3\) % 3;/const v = 0;/' src/ciel-gl.js
+     ATTENDU="le même temps se peint en plusieurs variantes selon le tirage" ;;
+  554) # Le ciel WebGL se met en pause au glissement.
+     perl -0pi -e 's/  if \(v && enWebGL\(toileActive\)\) return;\n//' src/temps.js
+     ATTENDU="le ciel WebGL continue de s.animer pendant le glissement" ;;
+  555) # Une texture manque à la coque hors ligne.
+     perl -0pi -e 's/  "\.\/donnees\/nuages\/alto\.webp",\n//' sw.js
+     ATTENDU="les six textures de nuages existent et sont dans la coque hors ligne" ;;
+  556) # Le banc ne coupe plus le ciel WebGL : le repli n'est plus éprouvé.
+     perl -0pi -e 's/const simple = \(\) => globalThis\.__cielSimple === true && globalThis\.__cielGL !== true;/const simple = () => false;/' src/ciel-gl.js
+     ATTENDU="sans WebGL, le ciel garde son dessin sur toile" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

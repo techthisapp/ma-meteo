@@ -2,7 +2,7 @@
    réponse d'API : une prévision périmée servie sans le dire vaut moins qu'un
    message d'indisponibilité. */
 
-const VERSION = "ma-meteo-v215";
+const VERSION = "ma-meteo-v216";
 const DELAI_RESEAU = 3000;
 const COQUE = [
   "./",
@@ -41,6 +41,7 @@ const COQUE = [
   "./src/feu.js",
   "./src/relief.js",
   "./src/temps.js",
+  "./src/ciel-gl.js",
   "./src/vigilance.js",
   "./src/ensemble.js",
   "./src/scenarios.js",
@@ -101,6 +102,12 @@ const COQUE = [
   "./donnees/relief.json",
   "./donnees/rivieres.json",
   "./donnees/villes.json",
+  "./donnees/nuages/cumulus.webp",
+  "./donnees/nuages/dense.webp",
+  "./donnees/nuages/stratus.webp",
+  "./donnees/nuages/alto.webp",
+  "./donnees/nuages/fractus.webp",
+  "./donnees/nuages/cirrus.webp",
 ];
 
 /* Un téléchargement incomplet fait échouer l'installation : l'agent précédent

@@ -1423,6 +1423,9 @@ function rendre() {
   if (f.cielPlein) {
     const toile = ecran.querySelector(".plein-accueil #ciTemps");
     if (toile) toile.dataset.dprMax = "1.5";
+    /* Le ciel plein écran est peint en WebGL quand le navigateur le permet,
+       version 216 : textures de nuages en plusieurs plans, `ciel-gl.js`. */
+    if (toile) toile.dataset.gl = "1";
     if (toile && toile.dataset.ay) toile.dataset.ay = (Number(toile.dataset.ay) * COMPRESSION_CIEL).toFixed(4);
   }
   /* Le retour d'une page de détail prend, dans la barre de tête, la place du

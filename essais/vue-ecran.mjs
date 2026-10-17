@@ -34,7 +34,10 @@ await new Promise(r => serveur.listen(8141, r));
 
 const nav = await chromium.launch({
   executablePath: process.env.CHROMIUM || undefined,
-  args: ["--no-sandbox", "--disable-dev-shm-usage"],
+  /* CIELGL montre le ciel WebGL de l'accueil, version 216, peint par la
+     carte graphique du Mac. */
+  args: ["--no-sandbox", "--disable-dev-shm-usage",
+    ...(process.env.CIELGL ? ["--use-angle=metal", "--enable-gpu", "--ignore-gpu-blocklist"] : [])],
 });
 const sortantes = envelopperNavigateur(nav);
 
@@ -122,6 +125,7 @@ for (const theme of ["light", "dark"]) {
     colorScheme: theme,
   });
   await ctx.addInitScript(amorceA(REGLAGES, FIGE));
+  if (process.env.CIELGL) await ctx.addInitScript(() => { window.__cielGL = true; });
   /* Les faux services des contrôles, l'air au profil de l'ambroisie, puis les
      charges propres aux captures, posées après pour passer devant. */
   await brancherFauxServices(ctx, Object.assign(nouvelEtat(), { profilAir: "ambroisie",
@@ -254,6 +258,9 @@ for (const theme of ["light", "dark"]) {
   }
 
   const cle = process.env.ECRAN || "soleil";
+  /* SONDE évalue une expression dans la page et l'écrit, pour chercher
+     d'où vient un défaut d'affichage. */
+  if (process.env.SONDE) console.log(JSON.stringify(await pg.evaluate(process.env.SONDE)));
   if (process.env.OUVRIRVOIE) {
     await pg.locator(`[data-voie="${process.env.OUVRIRVOIE}"]`).click();
     await pg.waitForTimeout(500);
