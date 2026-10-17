@@ -134,4 +134,29 @@ export default async T => {
   ok("les réglages disent la version disponible sous la recherche, le bouton de rechargement dessous",
     maj.texte === "La version 999 est disponible." && maj.sousChercher && maj.boutonDessous, JSON.stringify(maj));
   await c2.close();
+
+  /* Version 219 : une prévision lente arrive quand même. Le 17 octobre 2026,
+     Open-Meteo mettait jusqu'à dix secondes à calculer les journées, et
+     l'accueil restait sur « Prévision indisponible ». La réponse des journées
+     est ici retenue douze secondes. */
+  const c3 = await nav.newContext({
+    viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+    locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+  });
+  await c3.addInitScript(amorceGardee(FAIN, FIGE));
+  await brancherRoutes(c3);
+  await c3.route(/api\.rainviewer\.com/, r => r.abort());
+  await c3.route(/api\.open-meteo\.com\/v1\/forecast\?.*daily=/, async r => {
+    await new Promise(z => setTimeout(z, 12000));
+    await r.fallback().catch(() => {});
+  });
+  const p3 = await c3.newPage();
+  await ouvrirPage(p3);
+  const lente = await p3.waitForFunction(() => {
+    const d = document.querySelector(".plein-titre .bd-deg");
+    return d && /^\d+/.test(d.textContent.trim()) && !/indisponible/i.test(document.getElementById("ecran").textContent);
+  }, null, { timeout: 25000 }).then(() => true).catch(() => false);
+  const texte = await p3.evaluate(() => document.getElementById("ecran").textContent.slice(0, 120));
+  ok("une prévision lente de douze secondes arrive quand même à l'accueil", lente, texte);
+  await c3.close();
 };

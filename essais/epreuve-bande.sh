@@ -1732,6 +1732,12 @@ case "$N" in
   564) # La barre d'état reste opaque.
      perl -0pi -e 's/content="black-translucent"/content="default"/' index.html
      ATTENDU="l.application installée occupe tout l.écran, jusque sous la barre d.état" ;;
+  565) # La prévision garde le délai commun de dix secondes.
+     perl -0pi -e 's/export const DELAI_PREVISION = 20000;/export const DELAI_PREVISION = 10000;/' src/previsions.js
+     ATTENDU="une prévision lente de douze secondes arrive quand même à l.accueil" ;;
+  566) # Un délai dépassé se retente : un service muet retient l'écran quarante secondes.
+     perl -0pi -e 's/      if \(e\?\.name === "AbortError"\) return null;\n//' src/previsions.js
+     ATTENDU="une prévision qui ne répond pas rend la main en moins de vingt-cinq secondes" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

@@ -541,7 +541,8 @@ export default async T => {
   await ctxDiffere.close();
 
   /* Audit du 1er octobre 2026, constat 1.3. Une prévision qui ne répond pas
-     rend la main en moins de vingt-cinq secondes, deux essais de dix au plus ;
+     rend la main en moins de vingt-cinq secondes, un seul essai de vingt
+     secondes depuis la version 219 ;
      le faux service retient sa réponse trente secondes. Puis un refus du quota
      attend le délai demandé avant le second essai, et une erreur 404 ne se
      réessaie pas. */

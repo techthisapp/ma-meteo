@@ -305,10 +305,18 @@ function horaireRepris(cle) {
    feuille. L'horaire est donc réessayé une fois, AROME part après le premier
    couple plutôt qu'avec lui, et une série qui manque est reprise de la dernière
    charge connue tant qu'elle couvre l'heure en cours. */
+/* Le délai de la prévision, version 219 : le 17 octobre 2026, Open-Meteo
+   mettait de six à dix secondes à calculer les journées, et la requête
+   tombait sous le délai commun de dix secondes. L'accueil restait sur
+   « Prévision indisponible ». Vingt secondes laissent passer un service
+   lent ; un délai dépassé ne se retente pas, pour qu'un service muet rende
+   la main en moins de vingt-cinq secondes, comme avant. */
+export const DELAI_PREVISION = 20000;
+
 async function prendre(url, essais) {
   for (let k = 0; k <= essais; k++) {
     try {
-      const r = await chercher(url);
+      const r = await chercher(url, {}, DELAI_PREVISION);
       if (r.ok) return recaler(await r.json());
       /* Un refus du quota ou une panne du serveur attend avant de réessayer, le
          temps que le service demande par Retry-After, cinq secondes au plus ;
@@ -317,7 +325,10 @@ async function prendre(url, essais) {
          1er octobre 2026, constat 1.3. */
       if (r.status !== 429 && r.status < 500) return null;
       if (k < essais) await attendre(Math.min(5000, 1000 * (Number(r.headers.get("Retry-After")) || 2)));
-    } catch { /* réseau indisponible ou trop lent, on retente */ }
+    } catch (e) {
+      /* Un délai dépassé ne se retente pas ; une coupure du réseau, si. */
+      if (e?.name === "AbortError") return null;
+    }
   }
   return null;
 }
