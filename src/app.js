@@ -1515,7 +1515,7 @@ const adoucir = k => k * k * (3 - 2 * k);
    coordonnées de la page ; chaque image ne fait plus que de l'arithmétique et
    des déplacements que la carte graphique compose seule. */
 let geoMorph = null;
-const oublierMorph = () => { geoMorph = null; };
+const oublierMorph = () => { for (const a of geoMorph?.animations || []) a.cancel(); geoMorph = null; };
 function mesurerMorph(titre, nav) {
   const srcT = titre.querySelector(".bd-deg"), srcE = titre.querySelector(".bd-ciel");
   if (!srcT || !srcE) return null;
@@ -1551,6 +1551,42 @@ function mesurerMorph(titre, nav) {
     t: { left: rT.left, top: rT.top + y, h: rT.height }, e: { left: rE.left, top: rE.top + y, h: rE.height } };
 }
 
+/* Les animations liées au défilement, version 215 : là où le navigateur les
+   connaît, le parcours des deux pièces est calculé une fois, sur vingt
+   étapes, et remis au navigateur, qui le fait avancer lui-même au fil du
+   défilement, hors du fil de la page. Le JavaScript ne s'occupe plus que du
+   passage du repos à la morphose. Ailleurs, le calcul par image reste. */
+const DEFILE_NATIF = typeof window.ScrollTimeline === "function" && CSS.supports?.("animation-timeline: scroll()");
+const COURSE = 220;
+function trajetMorph(g, k) {
+  const e = adoucir(k), y = COURSE * k;
+  const etape = (r, s, xFin, dy) => {
+    const x = r.left + (xFin - r.left) * e;
+    const yFin = g.cy - r.h * s / 2 + dy;
+    const y0 = Math.max(r.top - y, yFin);
+    return { x, y: y0 + (yFin - y0) * e, echelle: 1 + (s - 1) * e };
+  };
+  const t = etape(g.t, g.sT, g.x0, -2);
+  /* Un écart plus large en chemin : entre deux étapes, le navigateur
+     interpole en ligne droite. */
+  const v = etape(g.e, g.sE, Math.max(t.x + g.wT * t.echelle + 16 * e, g.x0 + g.wT * g.sT + 10), 8);
+  const ecrit = a => `translate3d(${a.x.toFixed(1)}px, ${a.y.toFixed(1)}px, 0) scale(${a.echelle.toFixed(4)})`;
+  return { t: ecrit(t), e: ecrit(v) };
+}
+function animerMorph(g) {
+  for (const a of g.animations || []) a.cancel();
+  const total = Math.max(1, document.scrollingElement.scrollHeight - window.innerHeight);
+  const fin = Math.min(1, COURSE / total);
+  const imgT = [], imgE = [];
+  for (let n = 0; n <= 20; n++) {
+    const k = n / 20, p = trajetMorph(g, k);
+    imgT.push({ offset: k * fin, transform: p.t }); imgE.push({ offset: k * fin, transform: p.e });
+  }
+  if (fin < 1) { imgT.push({ offset: 1, transform: imgT[20].transform }); imgE.push({ offset: 1, transform: imgE[20].transform }); }
+  const timeline = new ScrollTimeline({ source: document.scrollingElement, axis: "block" });
+  g.animations = [g.T.animate(imgT, { timeline, fill: "both" }), g.E.animate(imgE, { timeline, fill: "both" })];
+}
+
 let morphActif = false;
 function morphoser(titre, nav, k) {
   const boite = $("navMorph");
@@ -1565,7 +1601,10 @@ function morphoser(titre, nav, k) {
     }
     return;
   }
-  if (!geoMorph || !geoMorph.srcT.isConnected) geoMorph = mesurerMorph(titre, nav);
+  if (!geoMorph || !geoMorph.srcT.isConnected) {
+    geoMorph = mesurerMorph(titre, nav);
+    if (geoMorph && DEFILE_NATIF) animerMorph(geoMorph);
+  }
   const g = geoMorph;
   if (!g) return;
   /* Les écritures qui touchent la mise en page ne se font qu'au passage du
@@ -1579,6 +1618,7 @@ function morphoser(titre, nav, k) {
     if (g.nomFin !== null) g.noms.style.maxWidth = `${Math.round(g.nomFin)}px`;
     morphActif = true;
   }
+  if (DEFILE_NATIF) return;
   const e = adoucir(k);
   const y = window.scrollY;
   /* Les chiffres s'assoient plus bas que le centre de leur boîte, et l'état
@@ -1619,8 +1659,12 @@ function majPose() {
   if (titre) {
     const k = Math.min(1, Math.max(0, window.scrollY) / 220);
     morphoser(titre, nav, k);
-    titre.style.setProperty("--repli", k.toFixed(3));
-    nav.style.setProperty("--mini", k.toFixed(3));
+    /* En natif, les fondus avancent seuls, par le CSS ; ailleurs, par ces
+       deux variables. */
+    if (!DEFILE_NATIF) {
+      titre.style.setProperty("--repli", k.toFixed(3));
+      nav.style.setProperty("--mini", k.toFixed(3));
+    }
   } else { nav.style.setProperty("--mini", "0"); morphoser(null, nav, 0); }
 
   if (ciel) {

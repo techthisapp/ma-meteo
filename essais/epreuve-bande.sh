@@ -1678,6 +1678,15 @@ case "$N" in
   546) # La reprise du ciel repart de zéro.
      perl -0pi -e 's/if \(debut === null\) debut = ms - tCourant \* 1000;/if (debut === null) debut = ms;/' src/temps.js
      ATTENDU="le ciel se met en pause pendant le glissement" ;;
+  547) # La morphose native n'est jamais posée sur le défilement.
+     perl -0pi -e 's/if \(geoMorph && DEFILE_NATIF\) animerMorph\(geoMorph\);//' src/app.js
+     ATTENDU="l.accueil en plein ciel porte des cartes de verre, et sa température et son état passent par morphose" ;;
+  548) # Le bandeau du haut ne se lève pas au défilement.
+     perl -0pi -e 's/animation:leverBandeau linear both;/animation:none;/' styles.css
+     ATTENDU="l.accueil en plein ciel porte des cartes de verre, et sa température et son état passent par morphose" ;;
+  549) # Le titre ne s'efface pas au défilement.
+     perl -0pi -e 's/animation:effacerTitre linear both;/animation:none;/' styles.css
+     ATTENDU="l.accueil en plein ciel porte des cartes de verre, et sa température et son état passent par morphose" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

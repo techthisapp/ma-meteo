@@ -3282,3 +3282,17 @@ button.rangee:active{background:var(--surface-2)}
 .nav-morph > span{will-change:transform}
 :root.plein-ciel .nav.sur-ciel::before{will-change:opacity}
 :root.plein-ciel .nav-noms{transition:max-width var(--duree-std) var(--ressort)}
+
+/* Les fondus liés au défilement, version 215 : le navigateur les fait
+   avancer lui-même. Le bandeau se lève sur la course de la morphose, le
+   titre s'efface sur ses premiers quatre-vingt-dix points. */
+@supports (animation-timeline: scroll()) {
+  :root.plein-ciel .nav.sur-ciel::before{
+    opacity:0;animation:leverBandeau linear both;animation-timeline:scroll(root);animation-range:0px 220px;
+  }
+  .ecran-ciel .plein-titre > i,.ecran-ciel .plein-titre > .pt-rep,.ecran-ciel .pt-temps .bd-bornes,.ecran-ciel .pt-temps .bd-mesure{
+    opacity:1;animation:effacerTitre linear both;animation-timeline:scroll(root);animation-range:0px 92px;
+  }
+}
+@keyframes leverBandeau{from{opacity:0}to{opacity:1}}
+@keyframes effacerTitre{from{opacity:1}to{opacity:0}}

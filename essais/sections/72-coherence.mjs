@@ -114,7 +114,7 @@ export default async T => {
     const nav = document.getElementById("nav").getBoundingClientRect();
     const T = document.getElementById("morphT"), E = document.getElementById("morphE");
     const rT = T.getBoundingClientRect(), rE = E.getBoundingClientRect();
-    const r = { flou, fond: st.backgroundColor, repli: getComputedStyle(t).getPropertyValue("--repli").trim(),
+    const r = { flou, fond: st.backgroundColor, repli: Number(getComputedStyle(t.querySelector(":scope > i")).opacity).toFixed(2),
       morph: getComputedStyle(T).visibility === "visible" ? `${T.textContent} ${E.textContent}` : "",
       /* Version 213 : le lieu reste à gauche ; les pièces se tiennent entre
          lui et la roue des réglages, sans les chevaucher. */
@@ -142,7 +142,7 @@ export default async T => {
     /^rgba\(14, 24, 40, 0\.4/.test(recette.onglets) && recette.etiquette === "uppercase" && recette.court === "Prochaines heures",
     JSON.stringify(recette));
   ok("l'accueil en plein ciel porte des cartes de verre, et sa température et son état passent par morphose dans le bandeau, à côté du lieu",
-    verre.flou && /^rgba\(14, 24, 40, 0\.4/.test(verre.fond) && verre.repli === "1.000"
+    verre.flou && /^rgba\(14, 24, 40, 0\.4/.test(verre.fond) && verre.repli === "0.00"
     && /^\d+° \S/.test(verre.morph) && verre.apresLieu >= 0 && verre.avantRoue >= 0 && verre.lieuVu === 1 && verre.dansBarre && verre.titreCache && verre.bandeau > 0.95
     && !verre.morphEnHaut && verre.titreEnHaut === "visible",
     JSON.stringify(verre));
