@@ -28,7 +28,7 @@ const FS = `
 precision highp float;
 uniform vec2 uRes; uniform float uT, uDefile, uApparition;
 uniform vec3 uHaut, uBas, uClair, uSombre, uAstre;
-uniform float uNuit, uChaud, uPluie, uNeige, uVent, uOrage, uN, uHalo, uMiroir, uBrouillard, uVoile;
+uniform float uNuit, uChaud, uPluie, uNeige, uVent, uOrage, uN, uHalo, uMiroir, uBrouillard, uVoile, uDoux;
 uniform vec4 uC[4]; // sorte, profondeur, couverture, opacité
 uniform vec4 uD[4]; // ombre, libre, graine, libre
 uniform sampler2D uTex[4];
@@ -48,6 +48,21 @@ void main(){
   vec3 lum = soleil ? mix(vec3(1.0, 0.94, 0.82), vec3(1.0, 0.72, 0.45), uChaud) : vec3(0.82, 0.86, 0.95);
   float ouvert = 1.0 - smoothstep(0.35, 0.9, uVoile);
   float bloom = exp(-d * d * 30.0) * 0.45 + exp(-d * 4.5) * 0.12;
+  bool jour = soleil && uNuit < 0.5;
+
+  /* Le cœur du Soleil, surexposé, posé avant les nuages : un nuage qui passe
+     devant le cache. Il remplace le disque du panneau, que la feuille de
+     style rend transparent sous ce ciel. Bas sur l'horizon, derrière le
+     texte, il s'adoucit comme le disque, version 207. */
+  const float RC = 0.026;
+  if (jour) {
+    float coeur = smoothstep(RC, RC * 0.72, d);
+    float auree = exp(-d * d * 700.0) * 0.9;
+    float a0 = max(coeur, auree) * mix(1.0, 0.7, uDoux);
+    vec3 blancChaud = mix(vec3(1.0, 0.99, 0.96), lum, 0.25);
+    acc = vec4(blancChaud * a0, a0);
+  }
+  float nuageA = 0.0;
 
   float eclair = 0.0;
   if (uOrage > 0.0) eclair = pow(max(0.0, sin(uT * 0.9) * sin(uT * 2.7 + 1.3) * sin(uT * 0.37)), 6.0);
@@ -74,6 +89,7 @@ void main(){
     teinte += vec3(0.8, 0.84, 1.0) * eclair * exp(-length(p - lueur) * 2.2) * (0.6 + 0.6 * t.a);
     teinte = mix(teinte, ciel, (1.0 - prof) * 0.28);
     acc = vec4(teinte * dens, dens) + acc * (1.0 - dens);
+    nuageA = dens + nuageA * (1.0 - dens);
   }
 
   /* Le brouillard, une nappe laiteuse qui dérive lentement. */
@@ -84,13 +100,24 @@ void main(){
     acc = vec4(lait * fb, fb) + acc * (1.0 - fb);
   }
 
-  /* L'astre sous un ciel ouvert : éblouissement, rayons discrets, halo irisé
-     sous un voile mince, et reflets d'objectif sur l'axe qui va du Soleil au
-     centre de l'écran. Lumière ajoutée, sans opacité. */
-  if (soleil && uNuit < 0.5) {
-    float ang = atan(p.y - a.y, p.x - a.x);
-    float rayons = (pow(abs(sin(ang * 5.0 + 0.4)), 24.0) + pow(abs(sin(ang * 8.0 + 1.7)), 40.0) * 0.6) * exp(-d * 6.0);
-    vec3 eclat = lum * (bloom * 0.55 + rayons * 0.06) * ouvert;
+  /* L'astre sous un ciel ouvert : éblouissement en trois couches, rayons
+     fins de longueurs inégales qui naissent hors du cœur et tournent très
+     lentement, halo irisé sous un voile mince, reflets d'objectif sur l'axe
+     qui va du Soleil au centre de l'écran. Lumière ajoutée, atténuée là où
+     un nuage passe devant. */
+  if (jour) {
+    float ang = atan(p.y - a.y, p.x - a.x) + uT * 0.004;
+    float k = ang / 6.2832 * 46.0;
+    float id = floor(k);
+    float largeur = 0.12 + 0.22 * h21(vec2(id, 5.0));
+    float trait = 1.0 - smoothstep(0.0, largeur, abs(fract(k) - 0.5));
+    float longueur = 0.05 + 0.2 * h21(vec2(id, 3.0)) * h21(vec2(id, 11.0));
+    float rayons = trait * exp(-(d - RC) / longueur) * smoothstep(RC * 1.1, RC * 2.6, d);
+    float eclatBloom = exp(-d * d * 160.0) * 0.55 + exp(-d * d * 22.0) * 0.28 + exp(-d * 5.0) * 0.1;
+    float doux = mix(1.0, 0.7, uDoux);
+    vec3 eclat = lum * (eclatBloom + rayons * 0.16) * ouvert * (1.0 - nuageA * 0.7) * doux;
+    /* La lueur blanche du cœur traverse un nuage mince. */
+    eclat += vec3(1.0, 0.98, 0.94) * exp(-d * d * 450.0) * 0.6 * (1.0 - nuageA * 0.55) * doux * ouvert;
     if (uHalo > 0.0) {
       float x = (d - 0.34) / 0.028;
       vec3 iris = clamp(vec3(x + 0.6, 1.0 - abs(x) * 1.2, 0.6 - x), 0.0, 1.0);
@@ -102,7 +129,7 @@ void main(){
       float rr = k == 0 ? 0.035 : k == 1 ? 0.06 : k == 2 ? 0.025 : 0.08;
       float dg = length(p - (a + axe * tk));
       float anneau = smoothstep(rr, rr * 0.7, dg) * 0.6 + smoothstep(rr * 1.05, rr, dg) * smoothstep(rr * 0.85, rr, dg) * 0.8;
-      eclat += vec3(0.75, 0.85, 1.0) * anneau * 0.035 * ouvert * ouvert;
+      eclat += vec3(0.75, 0.85, 1.0) * anneau * 0.035 * ouvert * ouvert * doux;
     }
     acc.rgb += eclat;
   }
@@ -203,7 +230,7 @@ export function peintre(cv) {
     g.enableVertexAttribArray(loc); g.vertexAttribPointer(loc, 2, g.FLOAT, false, 0, 0);
     U = {};
     for (const n of ["uRes", "uT", "uDefile", "uApparition", "uHaut", "uBas", "uClair", "uSombre", "uAstre", "uNuit", "uChaud",
-      "uPluie", "uNeige", "uVent", "uOrage", "uN", "uHalo", "uMiroir", "uBrouillard", "uVoile", "uC", "uD", "uBrume"]) {
+      "uPluie", "uNeige", "uVent", "uOrage", "uN", "uHalo", "uMiroir", "uBrouillard", "uVoile", "uDoux", "uC", "uD", "uBrume"]) {
       U[n] = g.getUniformLocation(prog, n);
     }
     g.uniform1iv(g.getUniformLocation(prog, "uTex"), [0, 1, 2, 3]);
@@ -258,6 +285,7 @@ export function peintre(cv) {
     g.uniform1f(U.uVent, e.vent); g.uniform1f(U.uOrage, e.orage ? 1 : 0);
     g.uniform1f(U.uBrouillard, Math.min(0.85, e.brouillard));
     g.uniform1f(U.uVoile, e.voile);
+    g.uniform1f(U.uDoux, e.derriere ? 1 : 0);
     const plans = plansDe(e, e.graine);
     g.uniform1f(U.uHalo, plans.some(p => p.tex === "cirrus") && e.cumulus < 0.3 && e.nappe < 0.3 ? 0.7 : 0);
     const C = new Float32Array(16), D = new Float32Array(16);

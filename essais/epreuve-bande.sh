@@ -1708,6 +1708,9 @@ case "$N" in
   556) # Le banc ne coupe plus le ciel WebGL : le repli n'est plus éprouvé.
      perl -0pi -e 's/const simple = \(\) => globalThis\.__cielSimple === true && globalThis\.__cielGL !== true;/const simple = () => false;/' src/ciel-gl.js
      ATTENDU="sans WebGL, le ciel garde son dessin sur toile" ;;
+  557) # Le disque plat du Soleil reste visible sous le ciel WebGL.
+     perl -0pi -e 's/\.ci:has\(\.ci-temps\[data-webgl\]\) \.ci-feu\{opacity:0\}//' styles.css
+     ATTENDU="sous le ciel WebGL, le disque plat du Soleil laisse la place au Soleil peint" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

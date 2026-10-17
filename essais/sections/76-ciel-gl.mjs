@@ -50,6 +50,15 @@ export default async T => {
   ok("l'accueil plein ciel peint son ciel en WebGL, et l'anime",
     etat.gl === "1" && etat.webgl && etat.anime, JSON.stringify(etat));
 
+  /* Le Soleil est peint par la carte graphique, version 217 : le disque
+     plat du panneau reste en place pour le toucher, mais transparent. */
+  const disque = await p.evaluate(() => {
+    const f = document.getElementById("ciFeu");
+    return f ? getComputedStyle(f).opacity : "absent";
+  });
+  ok("sous le ciel WebGL, le disque plat du Soleil laisse la place au Soleil peint",
+    disque === "0" || disque === "absent", disque);
+
   /* Des nuages se voient : la toile, photographiée seule, n'est pas
      uniforme. Le ciel d'essai de Fain porte un tiers de cumulus. */
   /* La toile se lit dans l'image même où elle vient d'être peinte : le

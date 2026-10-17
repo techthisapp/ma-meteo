@@ -908,6 +908,9 @@ function peintreDe(cv) {
     let p = null;
     try { p = CielGL.peintre(cv); } catch { p = null; }
     peintres.set(cv, p);
+    /* La feuille de style rend le disque du Soleil transparent sous ce ciel,
+       qui peint le sien. */
+    if (p) cv.dataset.webgl = "1";
   }
   return peintres.get(cv);
 }
@@ -916,7 +919,8 @@ export const enWebGL = cv => Boolean(cv && peintres.get(cv));
 /* L'état du ciel pour le peintre, refait seulement quand la toile change. */
 const signatures = new WeakMap();
 function etatPour(cv, p) {
-  const sig = Object.values(cv.dataset).join("|");
+  const derriere = Boolean(cv.parentElement?.querySelector(".ci-astre.derriere #ciFeu"));
+  const sig = Object.values(cv.dataset).join("|") + derriere;
   if (signatures.get(cv) === sig) return;
   signatures.set(cv, sig);
   const d = lire(cv);
@@ -925,6 +929,7 @@ function etatPour(cv, p) {
     ...d,
     teinte: couleurs(d.ciel, couv, plombDe(d)),
     voile: voileDe(d),
+    derriere,
     /* Le tirage change toutes les trois heures : le même ciel d'un rendu à
        l'autre, un autre mélange de nuages dans la journée. */
     graine: Math.floor(Date.now() / (3 * 3600e3)),

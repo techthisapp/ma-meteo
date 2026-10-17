@@ -3071,6 +3071,10 @@ button.rangee:active{background:var(--surface-2)}
 /* L'astre derrière le texte de l'accueil, version 207 : adouci, il laisse
    lire l'état du ciel et les bornes du jour. */
 .ci-astre.derriere{opacity:.5;transition:opacity var(--duree-std)}
+/* Sous le ciel WebGL, version 217, le Soleil est peint par la carte
+   graphique : le disque du panneau reste en place, transparent, pour le
+   toucher qui l'ouvre en plein écran. */
+.ci:has(.ci-temps[data-webgl]) .ci-feu{opacity:0}
 
 /* Le résultat de la recherche de mise à jour, version 207 : sous le bouton,
    le message sur sa ligne, le bouton de rechargement dessous. */
