@@ -2,7 +2,7 @@
    2026 : l'accueil semblait sauter plusieurs fois au démarrage, l'image
    animée du ciel surtout. Section écrite le 14 octobre 2026 ; elle part d'un
    état neuf préparé par essais/banc.mjs. */
-import { FIGE, FAIN, amorceGardee } from "../faux-services.mjs";
+import { FIGE, FAIN, METEO, amorceGardee } from "../faux-services.mjs";
 
 export const titre = "Le démarrage sans à-coups";
 export const avecPage = false;
@@ -159,4 +159,61 @@ export default async T => {
   const texte = await p3.evaluate(() => document.getElementById("ecran").textContent.slice(0, 120));
   ok("une prévision lente de douze secondes arrive quand même à l'accueil", lente, texte);
   await c3.close();
+
+  /* Version 220 : les journées se lisent en plusieurs requêtes parallèles,
+     et la prévision gardée s'affiche aussitôt à l'ouverture. */
+  const c4 = await nav.newContext({
+    viewport: { width: 390, height: 844 }, deviceScaleFactor: 2,
+    locale: "fr-FR", timezoneId: "Europe/Paris", isMobile: true, hasTouch: true,
+  });
+  await c4.addInitScript(amorceGardee(FAIN, FIGE));
+  await brancherRoutes(c4);
+  await c4.route(/api\.rainviewer\.com/, r => r.abort());
+  let retenue = 0;
+  const jours = [];
+  await c4.route(/api\.open-meteo\.com\/v1\/forecast\?.*daily=/, async r => {
+    const groupe = new URL(r.request().url()).searchParams.get("daily");
+    jours.push({ t: Date.now(), groupe });
+    if (retenue) await new Promise(z => setTimeout(z, retenue));
+    /* Chaque réponse ne porte que les colonnes demandées, comme la vraie
+       source : la réunion des groupes se voit. */
+    const garder = new Set(["time", ...groupe.split(",")]);
+    const d = { ...METEO, hourly: undefined, hourly_units: undefined,
+      daily: Object.fromEntries(Object.entries(METEO.daily).filter(([c]) => garder.has(c))) };
+    await r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(d) }).catch(() => {});
+  });
+  const p4 = await c4.newPage();
+  await ouvrirPage(p4);
+  await reposer(p4, 3000);
+  await p4.waitForFunction(() => !!localStorage.getItem("mameteo.previsions.v1"), null, { timeout: 15000 }).catch(() => {});
+  const groupes = await p4.evaluate(() => {
+    const d = JSON.parse(localStorage.getItem("mameteo.previsions.v1") || "null")?.d?.daily || null;
+    return d ? ["weather_code", "temperature_2m_max", "precipitation_sum", "wind_speed_10m_max", "et0_fao_evapotranspiration"].filter(c => !Array.isArray(d[c])) : ["charge absente"];
+  });
+  /* Les cinq premières requêtes sont celles de la première lecture. */
+  const premieres = jours.slice(0, 5);
+  const ecartJours = premieres.length > 1 ? Math.max(...premieres.map(j => j.t)) - Math.min(...premieres.map(j => j.t)) : null;
+  ok("les journées se lisent en plusieurs requêtes parallèles, toutes leurs colonnes réunies",
+    new Set(premieres.map(j => j.groupe)).size === 5 && ecartJours < 400 && groupes.length === 0,
+    JSON.stringify({ requetes: jours.length, ecartJours, manquantes: groupes }));
+
+  /* La prévision gardée date d'une heure passée : l'ouverture la montre
+     aussitôt, pendant que la nouvelle, retenue huit secondes, arrive. */
+  await p4.evaluate(() => {
+    const k = "mameteo.previsions.v1";
+    const v = JSON.parse(localStorage.getItem(k));
+    v.h = "autre-heure"; v.t = Date.now() - 2 * 3600e3;
+    localStorage.setItem(k, JSON.stringify(v));
+  });
+  retenue = 8000;
+  await p4.reload();
+  await p4.waitForTimeout(1500);
+  const aussitot = await p4.evaluate(() => {
+    const d = document.querySelector(".plein-titre .bd-deg");
+    return { temp: d ? d.textContent.trim() : null, lecture: /Lecture de la prévision/.test(document.getElementById("ecran").textContent) };
+  });
+  ok("à l'ouverture, la prévision gardée s'affiche aussitôt, la nouvelle la remplace ensuite",
+    aussitot.temp && /^\d+/.test(aussitot.temp) && !aussitot.lecture, JSON.stringify(aussitot));
+  retenue = 0;
+  await c4.close();
 };

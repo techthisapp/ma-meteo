@@ -35,6 +35,20 @@ const QUOTIDIEN = [
   "et0_fao_evapotranspiration",
 ].join(",");
 
+/* Les journées se lisent en plusieurs requêtes parallèles, version 220 :
+   Open-Meteo calcule les colonnes d'une requête l'une après l'autre, et le
+   17 octobre 2026 la requête entière demandait neuf secondes, quand chaque
+   colonne seule en demandait d'une à trois et demie. En parallèle, la lecture
+   ne dure que le temps du groupe le plus lent. Le premier groupe est
+   indispensable ; un autre qui manque laisse ses colonnes vides. */
+const GROUPES_QUOTIDIEN = [
+  ["weather_code", "sunrise", "sunset", "daylight_duration"],
+  ["temperature_2m_max", "temperature_2m_min"],
+  ["precipitation_sum", "precipitation_probability_max"],
+  ["wind_speed_10m_max", "wind_gusts_10m_max", "wind_direction_10m_dominant"],
+  ["et0_fao_evapotranspiration"],
+];
+
 const HORAIRE = [
   "temperature_2m", "apparent_temperature", "dew_point_2m",
   "relative_humidity_2m", "precipitation", "precipitation_probability",
@@ -333,6 +347,20 @@ async function prendre(url, essais) {
   return null;
 }
 
+/* La prévision gardée, servie d'abord, version 220 : à l'ouverture,
+   l'accueil la montre aussitôt, puis la remplace par la nouvelle. Elle doit
+   être du même lieu, de la même forme, couvrir l'heure et le jour en cours,
+   et dater de moins de douze heures. Rend null sinon. */
+const GARDE_ECRAN = 12 * 3600e3;
+const cleDe = (lat, lon) => `${lat},${lon}|${JOURS}j|${JOURS_AROME}a|${PASSE_H}p|${COLONNES}c|apaise1|recale1`;
+export function gardeeDabord({ lat, lon }) {
+  if (lat === null || lat === undefined) return null;
+  const g = chargeGardee(cleDe(lat, lon));
+  if (!g || !(Date.now() - g.t < GARDE_ECRAN)) return null;
+  charge = g.d; heureCharge = g.h; lieuCharge = `${lat},${lon}`;
+  return charge;
+}
+
 export async function charger({ lat, lon }) {
   if (lat === null || lat === undefined) { charge = null; lieuCharge = null; return null; }
   /* La charge d'un autre lieu est oubliée dès la demande : l'écran montre
@@ -343,7 +371,7 @@ export async function charger({ lat, lon }) {
   /* La clé porte aussi la règle de lecture du temps sensible : une charge
      écrite avant elle porte les codes bruts, et la servir ferait reparaître la
      bruine qu'un seul modèle voit jusqu'à la fin de l'heure. */
-  const cle = `${lat},${lon}|${JOURS}j|${JOURS_AROME}a|${PASSE_H}p|${COLONNES}c|apaise1|recale1`;
+  const cle = cleDe(lat, lon);
   try {
     const c = JSON.parse(localStorage.getItem(CACHE) || "null");
     if (c && c.cle === cle && c.h === heureCle() && Date.now() - c.t < TTL) {
@@ -360,7 +388,7 @@ export async function charger({ lat, lon }) {
      AROME ne va pas au delà d'environ soixante-neuf heures. Le lui demander sur
      sept jours ne rendrait que des colonnes vides : sa requête reste à trois
      jours, et la fusion laisse le modèle global au delà. */
-  const uq = `${base}&daily=${QUOTIDIEN}&past_days=${PASSE}&forecast_days=${JOURS_QUOTIDIENS}`;
+  const uq = g => `${base}&daily=${g.join(",")}&past_days=${PASSE}&forecast_days=${JOURS_QUOTIDIENS}`;
   const uh = `${base}&hourly=${HORAIRE}&past_days=${PASSE_H}&forecast_days=${JOURS}`;
   /* AROME porte aussi les journées écoulées : sans elles, la fusion collait sa
      série sur les mauvaises heures, l'une commençant à minuit du jour en cours
@@ -370,8 +398,16 @@ export async function charger({ lat, lon }) {
     + `&models=${AROME.join(",")}`;
 
   try {
-    const [q, h] = await Promise.all([prendre(uq, 1), prendre(uh, 1)]);
+    const [h, ...qs] = await Promise.all([prendre(uh, 1), ...GROUPES_QUOTIDIEN.map(g => prendre(uq(g), 1))]);
+    const q = qs[0];
     if (!q?.daily) throw new Error("quotidien indisponible");
+    for (const autre of qs.slice(1)) {
+      /* Un groupe n'apporte que ses colonnes, et seulement si ses dates sont
+         celles du premier. */
+      const d = autre?.daily;
+      if (!d || d.time?.length !== q.daily.time.length || d.time[0] !== q.daily.time[0]) continue;
+      for (const [c, v] of Object.entries(d)) if (c !== "time") q.daily[c] = v;
+    }
     /* La charge se construit à part et ne remplace celle du module qu'à la
        fin, si aucune demande plus récente n'est partie entre-temps. */
     const neuve = q;

@@ -1990,7 +1990,9 @@ async function charger() {
   vigilance = null;
   ctx.vigilance = null;
   if (!Reglages.situe()) { charge = "vide"; rendre(); return; }
-  charge = "chargement";
+  /* La prévision gardée s'affiche aussitôt, version 220 ; la nouvelle la
+     remplace dès qu'elle arrive. */
+  charge = P.gardeeDabord({ lat: g.lat, lon: g.lon }) ? "pret" : "chargement";
   rendre();
   const r = await P.charger({ lat: g.lat, lon: g.lon });
   if (mien !== generation) return;

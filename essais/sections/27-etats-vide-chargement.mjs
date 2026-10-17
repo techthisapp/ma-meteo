@@ -555,7 +555,7 @@ export default async T => {
   await ctxDelais.route(/api\.open-meteo\.com/, async route => {
     const u = route.request().url();
     const quoi = u.includes("models=") ? "arome" : u.includes("daily=") ? "jour" : "heure";
-    appelsDelais.push({ quoi, t: Date.now(), mode: modeDelais });
+    appelsDelais.push({ quoi, t: Date.now(), mode: modeDelais, groupe: new URL(u).searchParams.get("daily") });
     try {
       if (modeDelais === "muet") {
         await new Promise(r => setTimeout(r, 30000));
@@ -585,11 +585,14 @@ export default async T => {
     delaisDit.muet.ms < 25000 && delaisDit.muet.rendu, JSON.stringify(delaisDit));
   modeDelais = "refus";
   await pgDelais.evaluate(async () => { const P = await import("/src/previsions.js"); await P.charger({ lat: 46.5, lon: 5 }); });
+  /* Depuis la version 220, les journées se lisent en cinq groupes : seul le
+     groupe refusé se redemande. */
   const jours = appelsDelais.filter(x => x.mode === "refus" && x.quoi === "jour");
+  const refuse = jours.filter(x => x.groupe === jours[0]?.groupe);
   const heures = appelsDelais.filter(x => x.mode === "refus" && x.quoi === "heure");
-  delaisDit.refus = { jours: jours.length, ecart: jours.length > 1 ? jours[1].t - jours[0].t : null, heures: heures.length };
+  delaisDit.refus = { jours: jours.length, refuse: refuse.length, ecart: refuse.length > 1 ? refuse[1].t - refuse[0].t : null, heures: heures.length };
   ok("un refus du quota attend avant le second essai, et une erreur 404 ne se réessaie pas",
-    delaisDit.refus.jours === 2 && delaisDit.refus.ecart >= 900 && delaisDit.refus.heures === 1, JSON.stringify(delaisDit));
+    delaisDit.refus.jours === 6 && delaisDit.refus.refuse === 2 && delaisDit.refus.ecart >= 900 && delaisDit.refus.heures === 1, JSON.stringify(delaisDit));
   await ctxDelais.close();
 
   /* Audit du 1er octobre 2026, constat 1.7 : le département vient du contexte

@@ -1738,6 +1738,15 @@ case "$N" in
   566) # Un délai dépassé se retente : un service muet retient l'écran quarante secondes.
      perl -0pi -e 's/      if \(e\?\.name === "AbortError"\) return null;\n//' src/previsions.js
      ATTENDU="une prévision qui ne répond pas rend la main en moins de vingt-cinq secondes" ;;
+  567) # L'accueil attend la nouvelle prévision sans montrer la gardée.
+     perl -0pi -e 's/  charge = P\.gardeeDabord\(\{ lat: g\.lat, lon: g\.lon \}\) \? "pret" : "chargement";/  charge = "chargement";/' src/app.js
+     ATTENDU="à l.ouverture, la prévision gardée s.affiche aussitôt, la nouvelle la remplace ensuite" ;;
+  568) # Les journées se lisent en une seule requête.
+     perl -0pi -e 's/\.\.\.GROUPES_QUOTIDIEN\.map\(g => prendre\(uq\(g\), 1\)\)/prendre(uq(GROUPES_QUOTIDIEN.flat()), 1)/' src/previsions.js
+     ATTENDU="les journées se lisent en plusieurs requêtes parallèles, toutes leurs colonnes réunies" ;;
+  569) # Les groupes des journées ne sont pas réunis.
+     perl -0pi -e 's/      for \(const \[c, v\] of Object\.entries\(d\)\) if \(c !== "time"\) q\.daily\[c\] = v;//' src/previsions.js
+     ATTENDU="les journées se lisent en plusieurs requêtes parallèles, toutes leurs colonnes réunies" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
