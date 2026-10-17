@@ -37,6 +37,8 @@ export default async T => {
 
   const c = await contexte(true);
   const p = await c.newPage();
+  const demandes = [];
+  p.on("request", q => { if (/open-meteo\.com\/v1\/forecast/.test(q.url()) && q.url().includes("hourly=")) demandes.push(decodeURIComponent(q.url())); });
   await ouvrirPage(p);
   await reposer(p, 3000);
   await p.waitForTimeout(800);
@@ -99,6 +101,85 @@ export default async T => {
     JSON.stringify(plans));
   ok("le même temps se peint en plusieurs variantes selon le tirage",
     new Set(plans.autre).size >= 2, plans.autre.join(" | "));
+
+  /* Les trois étages de nuages de la prévision, version 218, arrivent sur
+     la toile : l'heure en cours et la suivante. Les faux services portent les
+     nuages bas égaux à la couverture totale. */
+  const etages = await p.evaluate(() => {
+    const t = document.getElementById("ciTemps");
+    return { etages: t.dataset.etages, couv: t.dataset.couv };
+  });
+  const e6 = (etages.etages || "").split(",").map(Number);
+  const demande = demandes.some(u => ["cloud_cover_low", "cloud_cover_mid", "cloud_cover_high"].every(c => u.includes(c)));
+  ok("les trois étages de nuages, bas, moyens et hauts, arrivent au ciel de l'accueil",
+    demande && e6.length === 6 && e6.every(Number.isFinite) && Math.abs(e6[0] - Number(etages.couv) * 100) <= 1 && e6[4] === 25,
+    JSON.stringify({ ...etages, demande }));
+
+  /* La part du ciel couverte suit la couverture annoncée, à dix points près.
+     Un écran ne voit qu'une dizaine de nuages, et sa part couverte varie au
+     fil des minutes comme dans un vrai ciel : la mesure se fait sur une
+     toile élargie à plusieurs carreaux de texture, la moyenne que l'œil voit
+     passer. */
+  const couverture = await p.evaluate(async () => {
+    const t = document.getElementById("ciTemps");
+    t.style.width = "2400px";
+    await new Promise(r => setTimeout(r, 300));
+    const lire = () => new Promise(res => requestAnimationFrame(() => {
+      const v = document.createElement("canvas"); v.width = 480; v.height = 160;
+      const x = v.getContext("2d"); x.drawImage(t, 0, 0, 480, 160);
+      const d = x.getImageData(0, 0, 480, 160).data;
+      let k = 0, m = 0;
+      for (let i = 3; i < d.length; i += 4) { if (d[i] > 128) k++; m++; }
+      res(100 * k / m);
+    }));
+    const out = {};
+    for (const n of [10, 25, 50, 75, 90]) {
+      t.dataset.etages = [n, n, 0, 0, 0, 0].join(",");
+      let s = 0;
+      for (let j = 0; j < 3; j++) { await new Promise(r => setTimeout(r, 500)); s += await lire(); }
+      out[n] = Math.round(s / 3);
+    }
+    t.style.width = "";
+    return out;
+  });
+  ok("la part du ciel couverte suit la couverture annoncée, à dix points près",
+    Object.entries(couverture).every(([n, v]) => Math.abs(v - Number(n)) <= 10), JSON.stringify(couverture));
+
+  /* Chaque étage a ses nuages, et le passage à l'heure suivante est
+     progressif. */
+  const sortes = await p.evaluate(async () => {
+    const G = await import("/src/ciel-gl.js");
+    const E = await import("/src/etalonnage-nuages.js");
+    const base = { cumulus: 0, nappe: 0, lame: 0, genre: "", brouillard: 0, orage: false };
+    const noms = e => G.plansDe({ ...base, etages: e }, 0).map(x => `${x.tex}@${x.prof}`);
+    /* L'étalonnage : au seuil rendu, la part de la texture au-dessus est la
+       part demandée, à un trente-deuxième près. */
+    const ecarts = [];
+    for (const [tex, c] of [["cumulus", 0.3], ["dense", 0.6], ["alto", 0.5], ["stratus", 0.9], ["cirrus", 0.15]]) {
+      const s = G.seuil(tex, c).s;
+      const part = E.QUANTILES[tex].filter(q => q > s).length / 33;
+      ecarts.push(Math.abs(part - c));
+    }
+    return {
+      hauts: noms({ b: 0, m: 0, h: 0.15 }), voile: noms({ b: 0, m: 0, h: 0.7 }),
+      moyens: noms({ b: 0, m: 0.5, h: 0 }), bas: noms({ b: 0.95, m: 0, h: 0 }),
+      demi: G.etagesA([20, 80, 0, 40, 10, 10], 0.5),
+      ecart: Math.max(...ecarts),
+    };
+  });
+  ok("chaque étage a ses nuages : cirrus ou voile en haut, altocumulus au milieu, nappe en bas",
+    sortes.hauts.join() === "cirrus@0" && sortes.voile.join() === "stratus@0"
+    && sortes.moyens.join() === "alto@0.3" && sortes.bas.every(n => n.startsWith("stratus") || n.startsWith("dense")),
+    JSON.stringify(sortes));
+  ok("les étages glissent vers ceux de l'heure suivante au fil des minutes",
+    sortes.demi && Math.abs(sortes.demi.b - 0.5) < 0.001 && Math.abs(sortes.demi.m - 0.2) < 0.001, JSON.stringify(sortes.demi));
+  ok("le seuil de chaque texture vient de son étalonnage",
+    sortes.ecart <= 1 / 32 + 0.01, sortes.ecart.toFixed(3));
+
+  /* L'application installée dessine jusque sous la barre d'état. */
+  const page = fs.readFileSync(path.join(RACINE, "index.html"), "utf8");
+  ok("l'application installée occupe tout l'écran, jusque sous la barre d'état",
+    /apple-mobile-web-app-status-bar-style" content="black-translucent"/.test(page) && /viewport-fit=cover/.test(page));
 
   /* Le ciel WebGL ne se met pas en pause au glissement : ses plans glissent
      avec la page. */

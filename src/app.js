@@ -665,6 +665,11 @@ function ecranAccueil() {
        fond de page, la lisibilité : un chiffre orange sur un ciel de couchant
        ne se lit plus. */
     const params = Temps.depuis(code, s ? s.nua[0] : null, s ? s.mm[0] : null);
+    /* Les trois étages de nuages de l'heure en cours et de la suivante : le
+       ciel WebGL passe de l'une à l'autre au fil des minutes, version 218. */
+    if (s && s.nuaB?.length > 1 && s.nuaM?.length > 1 && s.nuaH?.length > 1) {
+      params.etages = [s.nuaB[0], s.nuaB[1], s.nuaM[0], s.nuaM[1], s.nuaH[0], s.nuaH[1]];
+    }
     plein = true;
     const bd = bandeauAccueil(g, new Date(), params, s ? s.v[0] : 0);
     /* Le ciel de l'accueil est plus bas que celui des autres écrans : la bande

@@ -309,6 +309,15 @@ button:disabled,button[aria-disabled="true"],input:disabled{
   transition:border-color var(--duree-micro) ease;
 }
 .nav.pose{border-bottom-color:var(--verre-filet)}
+/* L'application installée dessine jusque sous la barre d'état, version 218 :
+   l'heure et la batterie s'y écrivent en blanc. Sur un écran clair, une bande
+   sombre sous la barre d'état les garde lisibles ; dans le navigateur, la
+   marge du haut est nulle et la bande aussi. */
+@media (prefers-color-scheme:light){
+  :root:not(.plein-ciel) .nav:not(.sur-ciel){
+    background-image:linear-gradient(180deg,rgba(18,26,38,.62) 0,rgba(18,26,38,.62) var(--haut),transparent var(--haut));
+  }
+}
 
 /* Sur un bandeau plein cadre, la barre de tête laisse voir le ciel : pas de
    matière, pas de filet, texte blanc. Elle reprend son verre dès que le

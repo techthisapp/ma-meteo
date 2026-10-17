@@ -39,6 +39,9 @@ const HORAIRE = [
   "temperature_2m", "apparent_temperature", "dew_point_2m",
   "relative_humidity_2m", "precipitation", "precipitation_probability",
   "weather_code", "cloud_cover", "pressure_msl", "wind_speed_10m",
+  /* Les trois étages de nuages, bas, moyens et hauts, pour le ciel WebGL de
+     l'accueil, version 218 : chaque plan de nuages suit le sien. */
+  "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high",
   "wind_gusts_10m", "wind_direction_10m", "uv_index", "is_day",
   /* L'évapotranspiration de référence, en millimètres par heure. C'est la
      vitesse à laquelle l'eau s'en va, et elle décide du séchage du linge.
@@ -635,6 +638,7 @@ export function serieHoraire(depart = 0, duree = 24, minimum = 8) {
     hum: p("relative_humidity_2m"), mm: p("precipitation", true),
     pb: p("precipitation_probability"), code: p("weather_code"),
     nua: p("cloud_cover"), pres: p("pressure_msl"),
+    nuaB: p("cloud_cover_low"), nuaM: p("cloud_cover_mid"), nuaH: p("cloud_cover_high"),
     v: p("wind_speed_10m"), raf: p("wind_gusts_10m"), dir: p("wind_direction_10m"),
     uv: p("uv_index"), clair: p("is_day"),
     /* La vitesse à laquelle l'eau s'en va. Une heure sans valeur vaut zéro et

@@ -126,6 +126,20 @@ window.rendre = async (taille, reglages) => {
     await new Promise(r => setTimeout(r, 0));
   }
   g.disable(g.SCISSOR_TEST);
-  return cv.toDataURL("image/webp", 0.86);
+  /* L'étalonnage : la répartition de l'opacité, lue sur l'image réduite de
+     moitié, celle que la carte graphique échantillonne pour les plans
+     lointains. Trente-trois quantiles, de zéro à un. */
+  const px = new Uint8Array(taille * taille * 4);
+  g.readPixels(0, 0, taille, taille, g.RGBA, g.UNSIGNED_BYTE, px);
+  const m = taille / 2, alpha = new Float32Array(m * m);
+  for (let y = 0; y < m; y++) for (let x = 0; x < m; x++) {
+    let s = 0;
+    for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) s += px[((2 * y + dy) * taille + 2 * x + dx) * 4 + 3];
+    alpha[y * m + x] = s / 4 / 255;
+  }
+  alpha.sort();
+  const quantiles = [];
+  for (let k = 0; k <= 32; k++) quantiles.push(Math.round(alpha[Math.min(alpha.length - 1, Math.floor(k / 32 * alpha.length))] * 1000) / 1000);
+  return { image: cv.toDataURL("image/webp", 0.86), quantiles };
 };
 </script>

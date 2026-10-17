@@ -71,7 +71,7 @@ export function depuis(code, nua, mm) {
   const lame = mouille ? borne((mm ?? 0) * 1.6, 1.2, 10) : 0;
 
   return {
-    cumulus, nappe, lame, brouillard, orage,
+    cumulus, nappe, lame, brouillard, orage, couv: n,
     genre: mouille ? (neige ? "neige" : "pluie") : "",
   };
 }
@@ -138,6 +138,11 @@ export function attributs(p, ciel, vent, astre) {
     "data-astre": astre ? astre.sorte : "",
     "data-ax": astre ? astre.x.toFixed(4) : "",
     "data-ay": astre ? astre.y.toFixed(4) : "",
+    /* La couverture totale, et les trois étages de l'heure en cours et de
+       la suivante quand la prévision les porte : le ciel WebGL s'en sert,
+       version 218. */
+    "data-couv": Number.isFinite(p.couv) ? p.couv.toFixed(3) : "",
+    "data-etages": Array.isArray(p.etages) ? p.etages.map(v => Math.round(Number(v) || 0)).join(",") : "",
   };
   return Object.entries(a).map(([c, v]) => `${c}="${v}"`).join(" ");
 }
@@ -158,6 +163,8 @@ function lire(cv) {
       nuit: Number(d.nuit) || 0, chaud: Number(d.chaud) || 0,
     },
     astre: d.astre ? { sorte: d.astre, x: Number(d.ax), y: Number(d.ay) } : null,
+    couv: d.couv === undefined || d.couv === "" ? null : Number(d.couv),
+    etages: d.etages ? d.etages.split(",").map(Number) : null,
   };
 }
 
@@ -920,7 +927,9 @@ export const enWebGL = cv => Boolean(cv && peintres.get(cv));
 const signatures = new WeakMap();
 function etatPour(cv, p) {
   const derriere = Boolean(cv.parentElement?.querySelector(".ci-astre.derriere #ciFeu"));
-  const sig = Object.values(cv.dataset).join("|") + derriere;
+  /* La minute compte : les étages de nuages glissent vers l'heure suivante. */
+  const minute = new Date().getMinutes();
+  const sig = Object.values(cv.dataset).join("|") + derriere + minute;
   if (signatures.get(cv) === sig) return;
   signatures.set(cv, sig);
   const d = lire(cv);
@@ -930,6 +939,7 @@ function etatPour(cv, p) {
     teinte: couleurs(d.ciel, couv, plombDe(d)),
     voile: voileDe(d),
     derriere,
+    etages: CielGL.etagesA(d.etages, minute / 60),
     /* Le tirage change toutes les trois heures : le même ciel d'un rendu à
        l'autre, un autre mélange de nuages dans la journée. */
     graine: Math.floor(Date.now() / (3 * 3600e3)),

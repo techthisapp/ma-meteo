@@ -1711,6 +1711,27 @@ case "$N" in
   557) # Le disque plat du Soleil reste visible sous le ciel WebGL.
      perl -0pi -e 's/\.ci:has\(\.ci-temps\[data-webgl\]\) \.ci-feu\{opacity:0\}//' styles.css
      ATTENDU="sous le ciel WebGL, le disque plat du Soleil laisse la place au Soleil peint" ;;
+  558) # Les étages de nuages ne vont pas jusqu'au ciel.
+     perl -0pi -e 's/      params\.etages = \[s\.nuaB\[0\]/      params.etagesPerdus = [s.nuaB[0]/' src/app.js
+     ATTENDU="les trois étages de nuages, bas, moyens et hauts, arrivent au ciel de l.accueil" ;;
+  559) # La prévision ne demande plus les nuages bas.
+     perl -0pi -e 's/  "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high",/  "cloud_cover_mid", "cloud_cover_high",/' src/previsions.js
+     ATTENDU="les trois étages de nuages, bas, moyens et hauts, arrivent au ciel de l.accueil" ;;
+  560) # Le seuil ignore l'étalonnage.
+     perl -0pi -e 's/  if \(!Q\) return \{ s: 1 - c, l: 0\.06 \};/  return { s: 1 - c, l: 0.06 };/' src/ciel-gl.js
+     ATTENDU="le seuil de chaque texture vient de son étalonnage" ;;
+  561) # La couverture n'est plus étalonnée à l'écran : le seuil est fixe.
+     perl -0pi -e 's/float dens = smoothstep\(c\.z - e\.y, c\.z \+ e\.y, t\.a\)/float dens = smoothstep(0.06, 0.18, t.a)/' src/ciel-gl.js
+     ATTENDU="la part du ciel couverte suit la couverture annoncée, à dix points près" ;;
+  562) # Les nuages hauts deviennent des cumulus.
+     perl -0pi -e 's/    if \(E\.h <= 0\.18\) plan\("cirrus", 0, E\.h, 0\.45, 0\);/    if (E.h <= 0.18) plan("cumulus", 0, E.h, 0.45, 0);/' src/ciel-gl.js
+     ATTENDU="chaque étage a ses nuages : cirrus ou voile en haut, altocumulus au milieu, nappe en bas" ;;
+  563) # Les étages sautent d'une heure à l'autre.
+     perl -0pi -e 's/  const k = Math\.max\(0, Math\.min\(1, f\)\);/  const k = 0;/' src/ciel-gl.js
+     ATTENDU="les étages glissent vers ceux de l.heure suivante au fil des minutes" ;;
+  564) # La barre d'état reste opaque.
+     perl -0pi -e 's/content="black-translucent"/content="default"/' index.html
+     ATTENDU="l.application installée occupe tout l.écran, jusque sous la barre d.état" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

@@ -15,6 +15,12 @@ import { fileURLToPath } from "node:url";
 
 const ICI = path.dirname(fileURLToPath(import.meta.url));
 export const METEO = JSON.parse(fs.readFileSync(path.join(ICI, "meteo.json"), "utf8"));
+/* Les trois étages de nuages, version 218 : la charge enregistrée ne les
+   porte pas. Les nuages bas reprennent la couverture totale, les moyens en
+   portent les deux cinquièmes, les hauts un quart du ciel. */
+METEO.hourly.cloud_cover_low = METEO.hourly.cloud_cover.map(v => v);
+METEO.hourly.cloud_cover_mid = METEO.hourly.cloud_cover.map(v => Math.round(v * 0.4));
+METEO.hourly.cloud_cover_high = METEO.hourly.cloud_cover.map(() => 25);
 
 // Horloge figée au 18 août 2026, 9 h, heure de Paris.
 export const FIGE = new Date("2026-08-18T09:00:00+02:00").getTime();

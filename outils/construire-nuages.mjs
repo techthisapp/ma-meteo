@@ -20,18 +20,25 @@ const SORTIE = path.join(ICI, "..", "donnees", "nuages");
 
 const BASE = { uF: 4, uEtire: 1, uCouv: 0.5, uErosion: 0.35, uBase: 0.05, uSommet: 0.95, uEpais: 0.35, uDens: 9, uWorley: 0.5, uGraine: 1, uGrain: 1, uAmas: 0.6 };
 const SORTES = {
-  cumulus: { ...BASE, uF: 3, uCouv: 0.5, uErosion: 0.35, uWorley: 1.0, uDens: 12, uAmas: 0.9, uGraine: 3 },
-  dense: { ...BASE, uF: 3, uCouv: 0.78, uErosion: 0.28, uWorley: 0.9, uDens: 14, uAmas: 0.5, uGraine: 7 },
+  cumulus: { ...BASE, uF: 3, uCouv: 0.5, uErosion: 0.35, uWorley: 1.0, uDens: 12, uAmas: 0.35, uGraine: 3 },
+  dense: { ...BASE, uF: 3, uCouv: 0.78, uErosion: 0.28, uWorley: 0.9, uDens: 14, uAmas: 0.25, uGraine: 7 },
   stratus: { ...BASE, uF: 3, uEtire: 2, uCouv: 0.9, uErosion: 0.18, uWorley: 0.75, uDens: 9, uAmas: 0.35, uGraine: 11, uGrain: 0.6 },
-  alto: { ...BASE, uF: 8, uCouv: 0.6, uErosion: 0.3, uWorley: 1.0, uDens: 11, uAmas: 1, uBase: 0.25, uSommet: 0.75, uGraine: 5, uGrain: 0.5 },
-  fractus: { ...BASE, uF: 3, uEtire: 2, uCouv: 0.55, uErosion: 0.55, uWorley: 0.7, uDens: 11, uAmas: 0.8, uGraine: 13, uGrain: 1.4 },
+  alto: { ...BASE, uF: 8, uCouv: 0.6, uErosion: 0.3, uWorley: 1.0, uDens: 11, uAmas: 0.45, uBase: 0.25, uSommet: 0.75, uGraine: 5, uGrain: 0.5 },
+  fractus: { ...BASE, uF: 3, uEtire: 2, uCouv: 0.55, uErosion: 0.55, uWorley: 0.7, uDens: 11, uAmas: 0.45, uGraine: 13, uGrain: 1.4 },
   /* Les cirrus sont une couche mince très étirée : rendus en fibres à plat,
      ils faisaient penser à des rides sur l'eau. */
-  cirrus: { ...BASE, uF: 2, uEtire: 12, uCouv: 0.62, uErosion: 0.5, uWorley: 0.3, uDens: 8, uAmas: 1, uBase: 0.35, uSommet: 0.65, uGraine: 2, uGrain: 1 },
+  cirrus: { ...BASE, uF: 2, uEtire: 12, uCouv: 0.62, uErosion: 0.5, uWorley: 0.3, uDens: 8, uAmas: 0.6, uBase: 0.35, uSommet: 0.65, uGraine: 2, uGrain: 1 },
 };
 
 const seules = process.argv[2] ? process.argv[2].split(",") : Object.keys(SORTES);
 fs.mkdirSync(SORTIE, { recursive: true });
+
+/* L'étalonnage des sortes déjà faites est gardé : refaire une seule sorte ne
+   perd pas celui des autres. */
+const MODULE = path.join(ICI, "..", "src", "etalonnage-nuages.js");
+let etalon = {};
+if (fs.existsSync(MODULE)) etalon = { ...(await import(pathToFileURL(MODULE).href + `?t=${Date.now()}`)).QUANTILES };
+
 const nav = await chromium.launch({ args: ["--use-angle=metal", "--enable-gpu", "--ignore-gpu-blocklist"] });
 const page = await nav.newPage();
 page.on("pageerror", e => console.error("erreur de la page :", e.message));
@@ -39,9 +46,25 @@ await page.goto(pathToFileURL(path.join(ICI, "nuages.html")).href);
 for (const s of seules) {
   if (!SORTES[s]) { console.error(`sorte inconnue : ${s}`); continue; }
   const t0 = Date.now();
-  const d = await page.evaluate(r => window.rendre(1024, r), SORTES[s]);
-  const b = Buffer.from(d.split(",")[1], "base64");
+  const r = await page.evaluate(x => window.rendre(1024, x), SORTES[s]);
+  const b = Buffer.from(r.image.split(",")[1], "base64");
   fs.writeFileSync(path.join(SORTIE, `${s}.webp`), b);
-  console.log(`${s} : ${Math.round(b.length / 1024)} ko, ${Date.now() - t0} ms`);
+  etalon[s] = r.quantiles;
+  const couverte = r.quantiles.findIndex(q => q > 0.02);
+  console.log(`${s} : ${Math.round(b.length / 1024)} ko, ${Date.now() - t0} ms, couverture au plus ${couverte < 0 ? 0 : Math.round(100 - couverte / 32 * 100)} %`);
 }
 await nav.close();
+
+const lignes = Object.keys(SORTES).filter(n => etalon[n]).map(n => `  ${n}: [${etalon[n].join(", ")}],`);
+fs.writeFileSync(MODULE, `/* L'étalonnage des textures de nuages, produit par
+   \`node outils/construire-nuages.mjs\` : ne pas modifier à la main.
+
+   Pour chaque texture, trente-trois quantiles de l'opacité, de zéro à un :
+   le quantile de rang k est l'opacité sous laquelle tombe la part k sur
+   trente-deux de la texture. Le ciel WebGL en déduit le seuil qui couvre
+   exactement la part de ciel annoncée, version 218. */
+export const QUANTILES = {
+${lignes.join("\n")}
+};
+`);
+console.log("étalonnage écrit");

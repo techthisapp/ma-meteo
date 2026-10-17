@@ -20,6 +20,8 @@
    `temps.js` garde la boucle, la pause hors écran et le dessin sur toile en
    repli : sans WebGL, ou quand la toile ne le demande pas, rien ne change. */
 
+import { QUANTILES } from "./etalonnage-nuages.js";
+
 const TEXTURES = ["cumulus", "dense", "stratus", "alto", "fractus", "cirrus"];
 const SORTE = { cumulus: 0, dense: 0, stratus: 1, cirrus: 2, alto: 3, fractus: 4 };
 
@@ -29,8 +31,8 @@ precision highp float;
 uniform vec2 uRes; uniform float uT, uDefile, uApparition;
 uniform vec3 uHaut, uBas, uClair, uSombre, uAstre;
 uniform float uNuit, uChaud, uPluie, uNeige, uVent, uOrage, uN, uHalo, uMiroir, uBrouillard, uVoile, uDoux;
-uniform vec4 uC[4]; // sorte, profondeur, couverture, opacité
-uniform vec4 uD[4]; // ombre, libre, graine, libre
+uniform vec4 uC[4]; // sorte, profondeur, seuil d'opacité, opacité
+uniform vec4 uD[4]; // ombre, largeur du bord, graine, libre
 uniform sampler2D uTex[4];
 uniform sampler2D uBrume;
 float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
@@ -77,9 +79,13 @@ void main(){
     vec2 q = p / carreau;
     q.x = q.x * uMiroir;
     q.x += uT * vent * mix(0.35, 2.4, prof) * 2.4 + e.z * 0.13;
-    q.y += uDefile * mix(0.15, 1.1, prof) / carreau + e.z * 0.071;
+    /* Un relief à peine sensible au défilement, version 218 : le ciel reste
+       fixe, seuls les plans proches glissent un peu. */
+    q.y += uDefile * mix(0.0, 0.1, prof) / carreau + e.z * 0.071;
     vec4 t = texture2D(uTex[i], q);
-    float dens = smoothstep(0.06, 0.7, t.a * mix(0.6, 1.5, c.z)) * c.w * (abs(c.x - 2.0) < 0.5 ? 0.6 : 1.0) * uApparition;
+    /* Le seuil vient de l'étalonnage de la texture : la part de ciel couverte
+       est celle qu'annonce la prévision. */
+    float dens = smoothstep(c.z - e.y, c.z + e.y, t.a) * c.w * uApparition;
     if (dens < 0.003) continue;
     /* Sous un ciel ouvert, l'ombre des nuages reste claire, éclairée par le
        bleu du ciel ; sous un ciel fermé, elle prend le gris de la couche. */
@@ -178,30 +184,67 @@ const chargement = Promise.all(TEXTURES.map(n => new Promise(ok => {
    ciel-ci : `__cielSimple` est posé par le banc d'essai. */
 const simple = () => globalThis.__cielSimple === true && globalThis.__cielGL !== true;
 
-/* Les plans d'un ciel, d'après les grandeurs de `temps.js`. La variante, tirée
-   de la graine, change le mélange d'un tirage à l'autre : un ciel de beau
-   temps est tantôt fait de cumulus, tantôt de bancs d'altocumulus sous des
-   cirrus. */
+/* Les trois étages de l'heure en cours glissent vers ceux de l'heure
+   suivante au fil des minutes, version 218 : bas, moyens, hauts, de zéro à
+   un. Rend null quand la prévision ne les porte pas. */
+export function etagesA(brut, f) {
+  if (!Array.isArray(brut) || brut.length !== 6 || brut.some(v => !Number.isFinite(v))) return null;
+  const k = Math.max(0, Math.min(1, f));
+  const v = i => (brut[i] + (brut[i + 1] - brut[i]) * k) / 100;
+  return { b: v(0), m: v(2), h: v(4) };
+}
+
+/* Le seuil d'opacité qui couvre la part c de la texture, d'après son
+   étalonnage. Au delà de ce que la texture couvre, le seuil passe sous zéro
+   et le plan se ferme peu à peu en nappe. Rend aussi la largeur du bord :
+   étroite près de zéro, pour qu'un seuil bas ne voile pas tout le ciel. */
+export function seuil(tex, c) {
+  const Q = QUANTILES[tex];
+  const x = Math.max(0, Math.min(1, 1 - c)) * 32;
+  if (!Q) return { s: 1 - c, l: 0.06 };
+  const k = Math.min(31, Math.floor(x));
+  const v = Q[k] + (Q[k + 1] - Q[k]) * (x - k);
+  if (v > 0.015) return { s: v, l: Math.min(0.06, v * 0.8) };
+  const vide = Math.max(1, Q.findIndex(q => q > 0.015)) / 32;
+  const manque = Math.max(0, Math.min(1, (vide - (1 - c)) / vide));
+  return { s: 0.015 - manque * 0.14, l: 0.06 };
+}
+
+/* La couverture de chacun de deux plans qui, superposés, couvrent c. */
+const moitie = c => 1 - Math.sqrt(1 - Math.max(0, Math.min(1, c)));
+
+/* Les plans d'un ciel, du lointain au proche, quatre au plus. Avec les trois
+   étages de la prévision, chaque plan suit le sien : les hauts en cirrus, ou
+   en voile de cirrostratus au delà de ce que couvrent les fibres ; les moyens
+   en altocumulus, ou en nappe ; les bas en deux plans de cumulus, de cumulus
+   denses ou de stratus selon la couverture, et en lambeaux sous la pluie.
+   Sans les étages, la couverture totale va aux nuages bas. La variante, tirée
+   de la graine, change le mélange des nuages bas d'un tirage à l'autre. */
 export function plansDe(d, graine) {
   const v = ((graine % 3) + 3) % 3;
-  const plans = [];
-  const plan = (tex, prof, couv, op, ombre) => plans.push({ tex, prof, couv, op, ombre });
+  const E = d.etages || { b: Number.isFinite(d.couv) ? d.couv : Math.max(d.cumulus, d.nappe), m: 0, h: 0 };
   const pluie = d.lame > 0 || d.orage;
-  const ombre = Math.min(0.9, 0.3 + d.nappe * 0.2 + (pluie ? 0.3 : 0) + (d.orage ? 0.2 : 0));
-  if (d.nappe < 0.85 && d.cumulus < 0.7 && !pluie && (v !== 1 || d.cumulus < 0.15)) {
-    plan("cirrus", 0, 0.35 + 0.4 * (1 - d.cumulus), 0.55, 0);
+  const ombre = Math.min(0.9, 0.3 + E.b * 0.25 + (pluie ? 0.3 : 0) + (d.orage ? 0.2 : 0));
+  const plans = [];
+  const plan = (tex, prof, couv, op, om) => {
+    if (couv < 0.02) return;
+    const t = seuil(tex, couv);
+    plans.push({ tex, prof, couv, seuil: t.s, bord: t.l, op, ombre: om });
+  };
+  if (E.h >= 0.02) {
+    if (E.h <= 0.18) plan("cirrus", 0, E.h, 0.45, 0);
+    else plan("stratus", 0, E.h, 0.32, 0);
   }
-  if (d.nappe > 0.02) {
-    plan("stratus", 0.05, 0.5 + 0.5 * d.nappe, Math.min(1, d.nappe * 1.4), ombre);
-    if (d.nappe > 0.5) plan(v === 2 && !pluie ? "alto" : "dense", 0.45, 0.4 + 0.4 * d.nappe, 1, ombre);
+  if (E.m >= 0.02) plan(E.m <= 0.7 ? "alto" : "stratus", 0.3, E.m, 0.95, ombre * 0.8);
+  if (E.b >= 0.02) {
+    const c = moitie(E.b);
+    const sorte = cb => (cb > 0.85 ? "stratus" : cb > 0.42 ? "dense" : "cumulus");
+    const loin = E.b > 0.85 ? "stratus" : sorte(c);
+    plan(loin, 0.6, c, 1, ombre);
+    if (pluie) plan("fractus", 0.95, Math.min(0.55, c), 0.92, Math.min(0.95, ombre + 0.1));
+    else plan(v === 1 && c > 0.1 ? "dense" : sorte(c), 0.92, c, 1, ombre);
   }
-  if (d.cumulus > 0.02) {
-    const mi = d.cumulus >= 0.55 ? "dense" : v === 1 ? "alto" : "cumulus";
-    plan(mi, 0.45, Math.min(0.9, d.cumulus * 0.85), 1, ombre);
-    if (plans.length < 4 && d.cumulus > 0.12) plan(d.cumulus >= 0.55 ? "dense" : "cumulus", 0.9, d.cumulus * 0.6, 1, ombre);
-  }
-  if (pluie && plans.length < 4) plan("fractus", 0.95, Math.min(0.75, 0.3 + d.lame * 0.05), 0.92, Math.min(0.95, ombre + 0.1));
-  return plans.slice(0, 4);
+  return plans.slice(-4);
 }
 
 /* Le peintre d'une toile, ou null quand WebGL manque. */
@@ -287,14 +330,14 @@ export function peintre(cv) {
     g.uniform1f(U.uVoile, e.voile);
     g.uniform1f(U.uDoux, e.derriere ? 1 : 0);
     const plans = plansDe(e, e.graine);
-    g.uniform1f(U.uHalo, plans.some(p => p.tex === "cirrus") && e.cumulus < 0.3 && e.nappe < 0.3 ? 0.7 : 0);
+    g.uniform1f(U.uHalo, plans.some(p => p.tex === "cirrus" || (p.tex === "stratus" && p.prof === 0)) && plans.every(p => p.prof === 0 || p.couv < 0.3) ? 0.7 : 0);
     const C = new Float32Array(16), D = new Float32Array(16);
     plans.forEach((p, i) => {
-      C.set([SORTE[p.tex], p.prof, p.couv, p.op], i * 4);
+      C.set([SORTE[p.tex], p.prof, p.seuil, p.op], i * 4);
       /* Le décalage du tirage reste petit : ajouté tel quel, un nombre de
          l'ordre de cent mille dépassait la précision de la carte graphique,
          et les nuages sortaient en pavés. */
-      D.set([p.ombre, 0, ((e.graine * 0.618034) % 1) * 7 + i * 3.7, 0], i * 4);
+      D.set([p.ombre, p.bord, ((e.graine * 0.618034) % 1) * 7 + i * 3.7, 0], i * 4);
     });
     g.uniform4fv(U.uC, C); g.uniform4fv(U.uD, D); g.uniform1f(U.uN, plans.length);
     plans.forEach((p, i) => { g.activeTexture(g.TEXTURE0 + i); g.bindTexture(g.TEXTURE_2D, tex[p.tex] || null); });
