@@ -26,7 +26,10 @@ export default async T => {
   const normal = await mesure();
   ok("le plein écran retire les barres et donne toute la hauteur à la carte, le même bouton les ramène",
     plein.nav === "none" && plein.onglets === "none" && plein.haut === plein.fenetre && plein.presse === "true"
-    && normal.nav !== "none" && normal.onglets !== "none" && normal.haut < normal.fenetre - 80 && normal.presse === "false",
+    /* Hors plein écran, la carte descend sous les boutons flottants du bas
+       depuis la version 229 : seule la barre du haut la raccourcit. */
+    && normal.nav !== "none" && normal.onglets !== "none" && normal.haut <= normal.fenetre - 44 && normal.haut >= normal.fenetre - 60
+    && normal.presse === "false",
     JSON.stringify({ plein, normal }));
 
   /* La mémoire : un cadrage sur Fain se retrouve en revenant d'un autre

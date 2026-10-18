@@ -1319,7 +1319,7 @@ button.rangee:active{background:var(--surface-2)}
    rembourrage de la couche de contenu est repris ici, en hauteur seulement, la
    toile allant d'un bord à l'autre. */
 .ecran-carte{
-  padding:calc(var(--haut) + var(--nav-haut) + var(--consult-haut)) 0 var(--onglets-mesure);
+  padding:calc(var(--haut) + var(--nav-haut) + var(--consult-haut)) 0 0;
   gap:0;max-width:none;
 }
 /* La carte en plein écran, jalon 19, lot 7 : les deux barres se retirent, le
@@ -1334,8 +1334,10 @@ button.rangee:active{background:var(--surface-2)}
 :root.carte-plein .ca-pied{bottom:calc(var(--bas) + var(--espace-base))}
 .ca-cadre{
   position:relative;overflow:hidden;
-  height:calc(100vh - var(--haut) - var(--nav-haut) - var(--consult-haut) - var(--onglets-mesure));
-  height:calc(100dvh - var(--haut) - var(--nav-haut) - var(--consult-haut) - var(--onglets-mesure));
+  /* Depuis la version 229, la carte descend jusqu'au bas de l'écran, sous
+     les boutons flottants de la barre du bas, comme chez Apple. */
+  height:calc(100vh - var(--haut) - var(--nav-haut) - var(--consult-haut));
+  height:calc(100dvh - var(--haut) - var(--nav-haut) - var(--consult-haut));
   min-height:260px;
 }
 /* La toile ne rend pas la main au défilement : sans cela, un glissement
@@ -1654,7 +1656,9 @@ button.rangee:active{background:var(--surface-2)}
 /* L'échelle, la mention des sources et la chronologie, au pied de la carte. Une
    carte sans échelle ne dit pas si l'averse est à dix kilomètres ou à cent. */
 .ca-pied{
-  position:absolute;left:calc(var(--marge) + var(--gauche));right:calc(var(--marge) + var(--droite));bottom:var(--espace-base);
+  position:absolute;left:calc(var(--marge) + var(--gauche));right:calc(var(--marge) + var(--droite));
+  /* Le pied se tient au-dessus des boutons flottants de la barre du bas. */
+  bottom:calc(var(--onglets-mesure) + var(--espace-xs));
   display:flex;flex-direction:column;gap:var(--espace-sm);
 }
 .ca-bas{

@@ -1778,6 +1778,9 @@ case "$N" in
   587) # Les boutons ronds gardent leur libellé écrit.
      perl -0pi -e 's/>\$\{ico\(symbole, ""\)\}<\/button>/>\$\{ico(symbole, "")\}<span>\$\{esc(nom)\}<\/span><\/button>/' src/app.js
      ATTENDU="la barre du bas porte la carte ronde à gauche, l.interrupteur au centre et le ciel rond à droite" ;;
+  588) # La carte s'arrête de nouveau au-dessus de la barre du bas.
+     perl -0pi -e 's/  height:calc\(100dvh - var\(--haut\) - var\(--nav-haut\) - var\(--consult-haut\)\);/  height:calc(100dvh - var(--haut) - var(--nav-haut) - var(--consult-haut) - var(--onglets-mesure));/' styles.css
+     ATTENDU="le plein écran retire les barres et donne toute la hauteur à la carte, le même bouton les ramène" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
