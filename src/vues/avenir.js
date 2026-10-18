@@ -39,23 +39,28 @@ const RISQUE_MARQUE = 30;
 const GOUTTE = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3.2c3.9 4.6 6.2 7.9 6.2 10.8a6.2 6.2 0 0 1-12.4 0c0-2.9 2.3-6.2 6.2-10.8z"/></svg>`;
 const mmTexte = mm => (!(mm >= SEUILS.lame) ? "0 mm" : `${nombreFr(Math.round(mm * 10) / 10)} mm`);
 
-/* Les vingt-quatre heures d'une journée en petites barres, la nuit sur un
-   fond plus sombre. La hauteur suit la racine de l'intensité, plafonnée à
-   huit millimètres par heure : une petite pluie reste visible. */
+/* Une journée en douze barres, une par tranche de deux heures, version 231,
+   demande de Jérôme : la barre prend l'heure la plus forte de sa tranche, la
+   nuit un fond plus sombre. La hauteur suit la racine de l'intensité,
+   plafonnée à huit millimètres par heure : une petite pluie reste visible. */
 function barresJour(h) {
   if (!h?.pluieH) return `<span class="sp-mini sp-vide" aria-hidden="true"></span>`;
-  return `<span class="sp-mini" aria-hidden="true">` + h.pluieH.map((v, k) =>
-    `<i${h.jourH?.[k] === 0 ? ' class="sp-nuit"' : ""}>`
+  const tranches = [...Array(12)].map((_, t) => Math.max(h.pluieH[2 * t] || 0, h.pluieH[2 * t + 1] || 0));
+  return `<span class="sp-mini" aria-hidden="true">` + tranches.map((v, t) =>
+    `<i${h.jourH?.[2 * t] === 0 && h.jourH?.[2 * t + 1] === 0 ? ' class="sp-nuit"' : ""}>`
     + (v >= SEUILS.lame ? `<b class="${niveauHeure(v)}" style="height:${Math.max(12, Math.min(1, Math.sqrt(v / 8)) * 100).toFixed(0)}%"></b>` : "")
     + `</i>`).join("") + `</span>`;
 }
 
 /* La pluie jour par jour, en tête du mode pluie : une colonne par journée à
    venir, dix au plus, le cumul au-dessus, le risque et le nom dessous. */
+/* L'interrupteur se tient en haut à droite du premier bloc, version 231,
+   demande de Jérôme : sur la pluie jour par jour, ou sur le graphique des
+   températures. */
 function pluieJours(jours) {
   const l = jours.filter(j => !j.passe && !j.tend).slice(0, 10);
   if (l.length < 2) return "";
-  return `<div class="carte sp-carte"><h2 class="sp-titre">Pluie jour par jour</h2>`
+  return `<div class="carte sp-carte"><div class="sem-tete"><h2 class="sp-titre">Pluie jour par jour</h2>${basculeSemaine(true)}</div>`
     + `<p class="sp-sous">Cumul et risque sur ${l.length} jours</p><div class="sp-jours" style="grid-template-columns:repeat(${l.length},minmax(0,1fr))">`
     + l.map(j => {
       const mm = Number.isFinite(j.mm) ? j.mm : 0, pb = Number.isFinite(j.pb) ? Math.round(j.pb) : 0;
@@ -306,8 +311,8 @@ export function vueSemaine() {
     /* Un seul « Voir plus », sous la liste, version 202, audit d'usage du
        13 octobre 2026 : le graphique portait le sien, et l'écran en montrait
        deux pour une même action. */
-    corps: (pluie ? pluieJours(jours) : grapheSemaine(jours)) + grandesLignesHTML(jours)
-      + `<div class="carte sem-carte${pluie ? " sem-pluie" : ""}"><div class="sem-tete"><h2 class="sp-titre">Les jours à venir</h2>${basculeSemaine(pluie)}</div>`
+    corps: (pluie ? pluieJours(jours) : grapheSemaine(jours, "", basculeSemaine(false))) + grandesLignesHTML(jours)
+      + `<div class="carte sem-carte${pluie ? " sem-pluie" : ""}">`
       + `${phraseJustesse(recent)}<div class="sem">${lignes.join("")}</div>`
       + (pluie ? `<p class="sp-legende"><span><i class="sp-faible"></i>faible</span><span><i class="sp-moderee"></i>modérée</span><span><i class="sp-forte"></i>forte</span><span><i class="sp-nuit"></i>nuit</span></p>` : "")
       + etatTendance(g, tend) + boutonSemaine(plusDispo)
@@ -341,7 +346,7 @@ function grandesLignesHTML(jours) {
   return l.length ? `<div class="carte retenir sem-lignes"><div class="conseils">${conseilsHTML(l)}</div></div>` : "";
 }
 
-export function grapheSemaine(jours, basDeCarte = "") {
+export function grapheSemaine(jours, basDeCarte = "", outil = "") {
   const n = jours.length;
   if (n < 2) return "";
   /* Trois bandes depuis le 28 septembre 2026 : les températures, puis le vent,
@@ -420,7 +425,7 @@ export function grapheSemaine(jours, basDeCarte = "") {
     + `${Math.round(Math.max(...txAvenir))} degrés au plus chaud` : "Températures inconnues")
     + (total >= SEUILS.lame ? `, ${nombreFr(total)} millimètres de pluie en tout` : ", sans pluie")
     + (avecVent && rafMax > 0 ? `, vent jusqu'à ${Math.round(rafMax)} kilomètres par heure.` : ".");
-  return `<div class="carte sem-graphe"><div class="bande-tete"><h3>${avecVent ? "Températures, vent et pluie" : "Températures et pluie"}</h3></div>`
+  return `<div class="carte sem-graphe"><div class="bande-tete"><h3>${avecVent ? "Températures, vent et pluie" : "Températures et pluie"}</h3>${outil}</div>`
     + (defile ? `<div class="sg-defil">` : "")
     + `<svg class="sg${defile ? " sg-large" : ""}" viewBox="0 0 ${L} ${H}"`
     + (defile ? ` width="${L}" height="${H}"` : "") + ` role="img" aria-label="${esc(resume)}">`

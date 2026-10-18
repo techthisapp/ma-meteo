@@ -1785,13 +1785,19 @@ case "$N" in
      perl -0pi -e 's/  if \(modeS\) \{ poserModeSemaine\(modeS\.dataset\.semaineMode\); rendre\(\); return; \}/  if (modeS) return;/' src/app.js
      ATTENDU="le mode pluie de « À venir » montre les heures de pluie, le cumul et le risque, se garde, et rend les températures" ;;
   590) # Le mode pluie garde le graphique des températures en tête.
-     perl -0pi -e 's/corps: \(pluie \? pluieJours\(jours\) : grapheSemaine\(jours\)\)/corps: grapheSemaine(jours)/' src/vues/avenir.js
+     perl -0pi -e 's/corps: \(pluie \? pluieJours\(jours\) : grapheSemaine\(jours, "", basculeSemaine\(false\)\)\)/corps: grapheSemaine(jours, "", basculeSemaine(pluie))/' src/vues/avenir.js
      ATTENDU="le mode pluie de « À venir » montre les heures de pluie, le cumul et le risque, se garde, et rend les températures" ;;
   591) # Le choix du mode ne se garde pas.
      perl -0pi -e 's/export const poserModeSemaine = m => Reglages\.poser\(\{ semainepluie: m === "pluie" \}\);/let modeLocal = false;\nexport const poserModeSemaine = m => { modeLocal = m === "pluie"; };/; s/export const modePluie = \(\) => Reglages\.lire\(\)\.semainepluie === true;/export const modePluie = () => modeLocal;/' src/vues/avenir.js
      ATTENDU="le mode pluie de « À venir » montre les heures de pluie, le cumul et le risque, se garde, et rend les températures" ;;
   592) # Les journées perdent leurs heures de pluie.
      perl -0pi -e 's/    pluieH: k\.map\(j => val\("precipitation", j\) \|\| 0\),\n//' src/previsions.js
+     ATTENDU="le mode pluie de « À venir » montre les heures de pluie, le cumul et le risque, se garde, et rend les températures" ;;
+  593) # Les journées reviennent à vingt-quatre barres.
+     perl -0pi -e 's/const tranches = \[\.\.\.Array\(12\)\]\.map\(\(_, t\) => Math\.max\(h\.pluieH\[2 \* t\] \|\| 0, h\.pluieH\[2 \* t \+ 1\] \|\| 0\)\);/const tranches = h.pluieH;/' src/vues/avenir.js
+     ATTENDU="le mode pluie de « À venir » montre les heures de pluie, le cumul et le risque, se garde, et rend les températures" ;;
+  594) # L'interrupteur quitte le graphique des températures.
+     perl -0pi -e 's/grapheSemaine\(jours, "", basculeSemaine\(false\)\)/grapheSemaine(jours)/' src/vues/avenir.js
      ATTENDU="le mode pluie de « À venir » montre les heures de pluie, le cumul et le risque, se garde, et rend les températures" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac

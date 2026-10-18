@@ -442,7 +442,9 @@ export default async T => {
       passes: g ? g.querySelectorAll(".sg-passe").length : 0,
       passesListe: document.querySelectorAll("#ecran .sem-j.sem-passe").length,
       auj: g ? g.querySelectorAll(".sg-auj").length : 0,
-      borne: g ? getComputedStyle(g.querySelector("svg")).maxWidth : "",
+      /* Le dessin du graphique, non le symbole de l'interrupteur posé dans
+         son en-tête depuis la version 231. */
+      borne: g ? getComputedStyle(g.querySelector("svg.sg")).maxWidth : "",
       resume: (/aria-label="([^"]*)"/.exec(essai) || [])[1] || "",
     };
   });

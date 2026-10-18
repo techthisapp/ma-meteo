@@ -186,12 +186,15 @@ export default async T => {
   /* Version 230 : le mode pluie de « À venir ». La bascule passe aux
      barres des heures, au cumul et au risque, se garde dans les réglages, et
      ramène les températures. */
-  await p3.locator('[data-semaine-mode="pluie"]').click();
+  /* Un appui qui rend la main si la bascule manque : le contrôle échoue alors
+     au lieu d'interrompre la section. */
+  await p3.evaluate(() => document.querySelector('[data-semaine-mode="pluie"]')?.click());
   await p3.waitForTimeout(600);
   const pluieS = await p3.evaluate(async () => {
     const P = await import("/src/previsions.js");
     const lignes = [...document.querySelectorAll(".sem-pluie .sem-j")];
-    const avecHeures = lignes.filter(l => l.querySelectorAll(".sp-mini i").length === 24);
+    /* Douze barres, une par tranche de deux heures, depuis la version 231. */
+    const avecHeures = lignes.filter(l => l.querySelectorAll(".sp-mini i").length === 12);
     /* Le cumul écrit est celui des heures de la journée. */
     const demain = lignes.find(l => /Demain/.test(l.textContent));
     const jourD = demain?.querySelector("[data-jour]")?.dataset.jour;
@@ -199,15 +202,18 @@ export default async T => {
     return { haut: !!document.querySelector(".sp-carte .sp-jours") && !document.querySelector(".sem-graphe, .graphe-sem"),
       lignes: lignes.length, avecHeures: avecHeures.length,
       cumul: demain?.querySelector(".sp-cumul")?.textContent || "", attendu: h ? `${(Math.round(h.mm * 10) / 10).toString().replace(".", ",")} mm` : "",
-      presse: document.querySelector('[data-semaine-mode="pluie"]').getAttribute("aria-pressed"),
+      presse: document.querySelector('[data-semaine-mode="pluie"]')?.getAttribute("aria-pressed") || "",
+      /* L'interrupteur, en haut du premier bloc depuis la version 231. */
+      place: !!document.querySelector(".sp-carte .sem-tete .sp-bascule") && !document.querySelector(".sem-carte .sp-bascule"),
       garde: JSON.parse(localStorage.getItem("mameteo.reglages.v1")).semainepluie === true };
   });
-  await p3.locator('[data-semaine-mode="temp"]').click();
+  await p3.evaluate(() => document.querySelector('[data-semaine-mode="temp"]')?.click());
   await p3.waitForTimeout(600);
-  const retour = await p3.evaluate(() => ({ mini: document.querySelectorAll(".sp-mini").length, haut: !!document.querySelector(".sp-carte") }));
+  const retour = await p3.evaluate(() => ({ mini: document.querySelectorAll(".sp-mini").length, haut: !!document.querySelector(".sp-carte"),
+    place: !!document.querySelector(".sem-graphe .bande-tete .sp-bascule") }));
   ok("le mode pluie de « À venir » montre les heures de pluie, le cumul et le risque, se garde, et rend les températures",
     pluieS.haut && pluieS.avecHeures >= 5 && pluieS.cumul && (pluieS.attendu === "0 mm" ? pluieS.cumul === "0 mm" : pluieS.cumul === pluieS.attendu)
-    && pluieS.presse === "true" && pluieS.garde && retour.mini === 0 && !retour.haut,
+    && pluieS.presse === "true" && pluieS.garde && retour.mini === 0 && !retour.haut && pluieS.place && retour.place,
     JSON.stringify({ pluieS, retour }));
   await p3.locator('[data-onglet="accueil"]').click();
   await p3.waitForTimeout(500);

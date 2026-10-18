@@ -3339,6 +3339,7 @@ button.rangee:active{background:var(--surface-2)}
    seul. */
 :root{--sp-faible:#7FD3F2;--sp-moderee:#4A86F2;--sp-forte:#9C6BF0;--sp-risque:#64D2FF;--sp-piste:rgba(255,255,255,.10);--sp-piste-nuit:rgba(0,0,0,.28)}
 .sem-tete{display:flex;align-items:center;justify-content:space-between;gap:var(--espace-md);margin-bottom:var(--espace-sm)}
+.sem-graphe .bande-tete{align-items:center}
 .sp-titre{margin:0;font-size:var(--texte-legende);font-weight:var(--graisse-semibold);letter-spacing:.05em;text-transform:uppercase;color:var(--etiquette-3)}
 .sp-sous{margin:2px 0 var(--espace-md);font-size:var(--texte-note);color:var(--etiquette-3)}
 .sp-bascule{display:flex;gap:2px;padding:3px;border-radius:var(--rayon-plein);background:var(--surface-2);flex:none}
@@ -3361,12 +3362,12 @@ button.rangee:active{background:var(--surface-2)}
 .sp-legende i{display:inline-block;width:10px;height:10px;border-radius:var(--rayon-sm);margin-right:5px;vertical-align:-1px}
 .sp-legende i.sp-nuit{background:var(--sp-piste-nuit)}
 .sem-pluie .sem-r{gap:var(--espace-sm)}
-.sp-mini{flex:1 1 auto;min-width:0;display:grid;grid-template-columns:repeat(24,minmax(0,1fr));gap:1.5px;height:30px;align-items:end}
+.sp-mini{flex:1 1 auto;min-width:0;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:3px;height:30px;align-items:end}
 .sp-mini i{display:block;height:100%;border-radius:var(--rayon-sm);background:var(--sp-piste);position:relative;overflow:hidden}
 .sp-mini i.sp-nuit{background:var(--sp-piste-nuit)}
 .sp-mini b{position:absolute;left:0;right:0;bottom:0;border-radius:var(--rayon-sm)}
 .sp-cumul{flex:0 0 auto;width:60px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;font-weight:var(--graisse-semibold)}
-.sp-risque{flex:0 0 auto;width:56px;display:flex;align-items:center;justify-content:flex-end;gap:3px;white-space:nowrap;font-variant-numeric:tabular-nums;font-weight:var(--graisse-semibold)}
+.sp-risque{flex:0 0 auto;width:56px;display:flex;align-items:center;justify-content:flex-end;gap:0;white-space:nowrap;font-variant-numeric:tabular-nums;font-weight:var(--graisse-semibold)}
 .sp-risque svg{width:13px;height:13px;color:var(--sp-risque)}
 .sp-sec{color:var(--etiquette-3);font-weight:var(--graisse-medium)}
 
