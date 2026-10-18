@@ -1656,7 +1656,7 @@ case "$N" in
      perl -0pi -e 's/\.ecran-ciel \.plein-titre > \.pt-rep\{\n  order:3;/.ecran-ciel .plein-titre > .pt-rep{\n  order:0;/' styles.css
      ATTENDU="elle est posée sous les bornes du jour" ;;
   542) # La barre d'onglets perd la teinte du ciel en plein ciel.
-     perl -0pi -e 's/:root\.plein-ciel \.onglets\{background:rgb\(var\(--teinte-ciel, 14 24 40\) \/ \.62\)\}//' styles.css
+     perl -0pi -e 's/:root\.plein-ciel \.onglet-rond,:root\.plein-ciel \.onglets-inter\{background:rgb\(var\(--teinte-ciel, 14 24 40\) \/ \.50\)\}//' styles.css
      ATTENDU="la recette du plein ciel suit la maquette" ;;
   545) # Le ciel continue de s'animer pendant le glissement.
      perl -0pi -e 's/    if \(!repriseCiel\) Temps\.suspendre\(true\);\n//' src/app.js
@@ -1769,6 +1769,15 @@ case "$N" in
   584) # Les fins de semaine gardent leur fond sur le ciel.
      perl -0pi -e 's/\.ecran-ciel \.sem-j,\.ecran-ciel \.sem-j\.sem-we\{background:none;border-radius:initial\}//' styles.css
      ATTENDU="« À venir » prend le format de l.accueil : ciel fixe, en-tête réduit, blocs teintés, journées sans fond" ;;
+  585) # La carte et le ciel échangent leurs places.
+     perl -0pi -e 's/(\.onglets\{\n  position:fixed;)/$1flex-direction:row-reverse;/' styles.css
+     ATTENDU="la barre du bas porte la carte ronde à gauche, l.interrupteur au centre et le ciel rond à droite" ;;
+  586) # Les boutons de la carte et du ciel perdent leur rondeur.
+     perl -0pi -e 's/\.onglet-rond\{width:var\(--onglets-haut\);height:var\(--onglets-haut\);border-radius:50%;flex:0 0 auto\}/.onglet-rond{width:var(--onglets-haut);height:var(--onglets-haut);border-radius:var(--rayon-md);flex:0 0 auto}/' styles.css
+     ATTENDU="la barre du bas porte la carte ronde à gauche, l.interrupteur au centre et le ciel rond à droite" ;;
+  587) # Les boutons ronds gardent leur libellé écrit.
+     perl -0pi -e 's/>\$\{ico\(symbole, ""\)\}<\/button>/>\$\{ico(symbole, "")\}<span>\$\{esc(nom)\}<\/span><\/button>/' src/app.js
+     ATTENDU="la barre du bas porte la carte ronde à gauche, l.interrupteur au centre et le ciel rond à droite" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

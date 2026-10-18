@@ -12,9 +12,27 @@ export default async T => {
      elle vient après. */
   ok("la barre d'onglets porte quatre destinations",
     await pg.locator(".onglet").count() === 4, String(await pg.locator(".onglet").count()));
-  const nomsOnglets = (await pg.locator(".onglet span").allInnerTexts()).join(",");
+  /* Depuis la version 228, la carte et le ciel sont des boutons ronds, nommés
+     pour VoiceOver ; l'accueil et « À venir » forment l'interrupteur du
+     centre. */
+  const nomsOnglets = (await pg.evaluate(() => [...document.querySelectorAll("#onglets [data-onglet]")]
+    .map(b => b.getAttribute("aria-label") || b.textContent.trim()))).join(",");
   ok("les destinations sont les bonnes",
-    nomsOnglets === "Accueil,À venir,Le ciel,La carte", nomsOnglets);
+    nomsOnglets === "La carte,Accueil,À venir,Le ciel", nomsOnglets);
+  /* Version 228 : la carte ronde à gauche, l'interrupteur au centre, le ciel
+     rond à droite, chacun d'au moins 44 points, les ronds sans libellé. */
+  const barre = await pg.evaluate(() => {
+    const r = sel => document.querySelector(sel).getBoundingClientRect();
+    const carte = r('#onglets [data-onglet="carte"]'), ciel = r('#onglets [data-onglet="ciel"]'), inter = r("#onglets .onglets-inter");
+    const st = getComputedStyle(document.querySelector('#onglets [data-onglet="carte"]'));
+    return { ordre: carte.right <= inter.left && inter.right <= ciel.left,
+      centre: Math.round(inter.left + inter.width / 2 - window.innerWidth / 2),
+      ronds: [carte, ciel].every(x => Math.abs(x.width - x.height) < 1 && x.width >= 44) && st.borderTopLeftRadius === "50%",
+      muets: [...document.querySelectorAll("#onglets .onglet-rond")].every(b => !b.textContent.trim() && b.getAttribute("aria-label")),
+      inter: [...document.querySelectorAll("#onglets .onglets-inter [data-onglet]")].map(b => b.dataset.onglet).join(",") };
+  });
+  ok("la barre du bas porte la carte ronde à gauche, l'interrupteur au centre et le ciel rond à droite",
+    barre.ordre && Math.abs(barre.centre) <= 2 && barre.ronds && barre.muets && barre.inter === "accueil,semaine", JSON.stringify(barre));
   ok("aucun libellé d'onglet n'est tronqué", await pg.evaluate(() =>
     [...document.querySelectorAll(".onglet span")]
       .every(e => e.scrollWidth <= e.clientWidth + 1)));

@@ -147,13 +147,13 @@ export default async T => {
   /* Version 210, recette contre la maquette : la barre d'onglets en verre
      sombre, les étiquettes des cartes en petites capitales. */
   const recette = await p3.evaluate(() => {
-    const o = getComputedStyle(document.querySelector(".onglets")).backgroundColor;
+    const o = getComputedStyle(document.querySelector(".onglets-inter")).backgroundColor;
     const e = document.querySelector("#ecran .pp-etiq, #ecran .bande-tete h3");
     const court = document.querySelector("#ecran .bande-court");
     return { onglets: o, etiquette: e ? getComputedStyle(e).textTransform : "", court: court && court.checkVisibility() ? court.textContent : "" };
   });
   ok("la recette du plein ciel suit la maquette : barre d'onglets teintée du ciel, étiquettes en petites capitales",
-    /0\.62\)$/.test(recette.onglets) && recette.etiquette === "uppercase" && recette.court === "Prochaines heures",
+    /0\.5\)$/.test(recette.onglets) && recette.etiquette === "uppercase" && recette.court === "Prochaines heures",
     JSON.stringify(recette));
   ok("l'accueil en plein ciel porte des blocs teintés du ciel, sans bord, et un en-tête au lieu centré qui se réduit en une ligne au défilement",
     verre.flou && /^rgba\(\d+, \d+, \d+, 0\.56\)$/.test(verre.fond) && verre.bord === "0px" && Math.abs(verre.centre) <= 8

@@ -399,30 +399,40 @@ button:disabled,button[aria-disabled="true"],input:disabled{
 .nav-act svg{width:22px;height:22px}
 .nav-act:active{background:var(--surface-2)}
 
-/* Barre d'onglets */
+/* Barre du bas, version 228, à la manière de l'application Météo d'iOS : la
+   carte et le ciel en boutons ronds aux deux bords, l'interrupteur entre
+   l'accueil et « À venir » au centre. Les pièces flottent en verre ; le
+   conteneur, transparent, ne prend pas le toucher entre elles. */
 .onglets{
   position:fixed;left:0;right:0;bottom:0;z-index:20;
-  display:flex;align-items:stretch;
-  padding:0 var(--droite) var(--bas) var(--gauche);
-  background:var(--verre-fond);
-  backdrop-filter:var(--verre-flou);
-  -webkit-backdrop-filter:var(--verre-flou);
-  border-top:1px solid var(--verre-filet);
+  display:flex;align-items:center;justify-content:space-between;gap:var(--espace-md);
+  padding:var(--espace-sm) calc(var(--marge) + var(--droite)) calc(var(--bas) + var(--espace-sm)) calc(var(--marge) + var(--gauche));
+  pointer-events:none;
 }
 .onglet{
-  flex:1 1 0;min-width:0;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
-  min-height:var(--onglets-haut);padding:var(--espace-sm) var(--espace-xs);
-  color:var(--etiquette-3);
+  pointer-events:auto;display:inline-flex;align-items:center;justify-content:center;
+  color:var(--etiquette);
+  background:var(--verre-fond);border:1px solid var(--verre-filet);
+  -webkit-backdrop-filter:var(--verre-flou);backdrop-filter:var(--verre-flou);
+  box-shadow:0 6px 20px rgba(4,10,22,.14);
 }
-.onglet svg{width:24px;height:24px;flex:0 0 auto}
-.onglet span{
-  font-size:var(--texte-legende2);font-weight:var(--graisse-medium);
-  letter-spacing:.005em;max-width:100%;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+.onglet-rond{width:var(--onglets-haut);height:var(--onglets-haut);border-radius:50%;flex:0 0 auto}
+.onglet-rond svg{width:24px;height:24px}
+.onglet-rond[aria-current="page"]{color:var(--accent)}
+.onglets-inter{
+  pointer-events:auto;display:flex;align-items:center;gap:2px;padding:3px;height:var(--onglets-haut);
+  border-radius:var(--rayon-plein);
+  background:var(--verre-fond);border:1px solid var(--verre-filet);
+  -webkit-backdrop-filter:var(--verre-flou);backdrop-filter:var(--verre-flou);
+  box-shadow:0 6px 20px rgba(4,10,22,.14);min-width:0;
 }
-.onglet[aria-current="page"]{color:var(--accent)}
-.onglet[aria-current="page"] svg{stroke-width:1.9}
+.onglet-seg{
+  height:100%;min-width:0;padding:0 var(--espace-lg);border-radius:var(--rayon-plein);
+  background:none;border:0;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;
+  color:var(--etiquette-2);
+}
+.onglet-seg span{font-size:var(--texte-corps);font-weight:var(--graisse-semibold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.onglet-seg[aria-current="page"]{background:var(--surface-2);color:var(--etiquette)}
 .onglet:active{opacity:.55}
 
 /* ---------- 4. Couche contenu ---------- */
@@ -2249,11 +2259,7 @@ button.rangee:active{background:var(--surface-2)}
     left:50%;transform:translate(-50%,100%);width:min(560px,100%);
   }
   .feuille.ouverte{transform:translate(-50%,0)}
-  .onglets{
-    left:50%;transform:translateX(-50%);
-    width:min(var(--large-max),100%);
-    border-left:1px solid var(--verre-filet);border-right:1px solid var(--verre-filet);
-  }
+  .onglets{left:50%;transform:translateX(-50%);width:min(var(--large-max),100%)}
 }
 
 /* Texte fortement agrandi : les grilles se déplient plutôt que de casser. La
@@ -3238,10 +3244,10 @@ button.rangee:active{background:var(--surface-2)}
    prend le verre sombre des cartes ; les cartes portent une étiquette en
    petites capitales, filet dessous ; les conseils du jour s'intitulent « À
    retenir ». */
-:root.plein-ciel .onglets{background:rgba(14,24,40,.48);border-top-color:rgba(255,255,255,.16);
-  -webkit-backdrop-filter:blur(26px) saturate(1.5);backdrop-filter:blur(26px) saturate(1.5)}
-:root.plein-ciel .onglet{color:rgba(255,255,255,.72)}
-:root.plein-ciel .onglet[aria-current="page"]{color:#FFFFFF}
+
+:root.plein-ciel .onglet,:root.plein-ciel .onglets-inter{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.22);color:#FFFFFF}
+:root.plein-ciel .onglet-seg{background:none;border:0;color:rgba(255,255,255,.78)}
+:root.plein-ciel .onglet-seg[aria-current="page"]{background:rgba(255,255,255,.26);color:#FFFFFF}
 .pp-etiq{display:none}
 .ecran-ciel .pp-etiq,.ecran-ciel .bande-tete h3,.ecran-ciel [data-bloc="jour"] .carte.retenir::before{
   display:flex;align-items:center;gap:6px;margin:0;
@@ -3321,7 +3327,7 @@ button.rangee:active{background:var(--surface-2)}
   -webkit-backdrop-filter:blur(44px) saturate(1.4);backdrop-filter:blur(44px) saturate(1.4);
 }
 .ecran-ciel .pp-etiq,.ecran-ciel .bande-tete,.ecran-ciel [data-bloc="jour"] .carte.retenir::before{border-bottom:0}
-:root.plein-ciel .onglets{background:rgb(var(--teinte-ciel, 14 24 40) / .62)}
+:root.plein-ciel .onglet-rond,:root.plein-ciel .onglets-inter{background:rgb(var(--teinte-ciel, 14 24 40) / .50)}
 /* « À venir » au format de l'accueil, version 227 : l'en-tête réduit
    d'emblée, la liste commence sous lui. */
 /* Sur le ciel, les journées ne sont séparées que par un filet : le fond des

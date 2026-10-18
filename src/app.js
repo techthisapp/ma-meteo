@@ -1533,7 +1533,7 @@ function poserOnglet(nom) {
      et la feuille ouverte ensuite ne se refermait plus au retour. */
   if (detail) { detail = null; history.back(); }
   onglet = nom;
-  for (const b of $("onglets").children) {
+  for (const b of $("onglets").querySelectorAll("[data-onglet]")) {
     const actif = b.dataset.onglet === onglet;
     if (actif) b.setAttribute("aria-current", "page");
     else b.removeAttribute("aria-current");
@@ -1544,10 +1544,25 @@ function poserOnglet(nom) {
 
 /* ---------- Couche navigation ---------- */
 
-$("onglets").innerHTML = ONGLETS.map(([cle, symbole, nom]) =>
-  `<button type="button" class="onglet" data-onglet="${cle}"`
-  + `${cle === onglet ? ' aria-current="page"' : ""}>`
-  + ico(symbole, "") + `<span>${esc(nom)}</span></button>`).join("");
+/* La barre du bas à la manière de l'application Météo d'iOS, version 228,
+   demande de Jérôme du 18 octobre 2026 : la carte à gauche et le ciel à
+   droite, en boutons ronds portant leur seul symbole ; au centre, un
+   interrupteur entre l'accueil et ce qui vient. Le tout flotte en verre au
+   bas de l'écran, sans barre de fond. */
+const onglet1 = cle => ONGLETS.find(o => o[0] === cle);
+const boutonRond = cle => {
+  const [, symbole, nom] = onglet1(cle);
+  return `<button type="button" class="onglet onglet-rond" data-onglet="${cle}" aria-label="${esc(nom)}"`
+    + `${cle === onglet ? ' aria-current="page"' : ""}>${ico(symbole, "")}</button>`;
+};
+const segment = cle => {
+  const [, , nom] = onglet1(cle);
+  return `<button type="button" class="onglet onglet-seg" data-onglet="${cle}"`
+    + `${cle === onglet ? ' aria-current="page"' : ""}><span>${esc(nom)}</span></button>`;
+};
+$("onglets").innerHTML = boutonRond("carte")
+  + `<div class="onglets-inter" role="group" aria-label="Aujourd'hui ou à venir">${segment("accueil")}${segment("semaine")}</div>`
+  + boutonRond("ciel");
 
 $("onglets").addEventListener("click", ev => {
   const b = ev.target.closest("[data-onglet]");

@@ -74,7 +74,7 @@ export default async T => {
   await pgCarte.waitForTimeout(400);
   const cadreBord = await pgCarte.locator("#caToile").boundingBox();
   {
-    const y = cadreBord.y + cadreBord.height / 2 + 200;
+    const y = cadreBord.y + cadreBord.height / 2 + 120;
     const x = cadreBord.x + cadreBord.width / 2;
     await pgCarte.mouse.move(x, y);
     await pgCarte.mouse.down();
@@ -189,7 +189,7 @@ export default async T => {
   /* Le geste part d'un point libre : au centre exact se tient le repère du lieu
      courant, et l'appui y ouvrirait la commune au lieu de déplacer la carte. */
   const dep = { x: cadreCarte.x + cadreCarte.width / 2,
-    y: cadreCarte.y + cadreCarte.height / 2 + 200 };
+    y: cadreCarte.y + cadreCarte.height / 2 + 120 };
   await pgCarte.mouse.move(dep.x, dep.y);
   await pgCarte.mouse.down();
   await pgCarte.mouse.move(dep.x - 90, dep.y - 60, { steps: 6 });
