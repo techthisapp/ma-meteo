@@ -990,7 +990,13 @@ export function poser(cv) {
 }
 
 export function arreter() {
-  if (boucle !== null) { cancelAnimationFrame(boucle); boucle = null; }
+  if (boucle !== null) {
+    /* L'instant atteint se note à l'arrêt, et non à la dernière image peinte,
+       qui peut dater d'une demi-seconde sur un appareil chargé : la reprise
+       reculait d'autant, version 221. */
+    if (debut !== null) tCourant = Math.max(tCourant, (performance.now() - debut) / 1000);
+    cancelAnimationFrame(boucle); boucle = null;
+  }
 }
 
 export const anime = () => boucle !== null;
