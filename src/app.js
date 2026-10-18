@@ -24,7 +24,7 @@ import * as Temps from "./temps.js";
 /* Les écrans viennent chacun de son fichier. La carte et le ciel n'en font pas
    partie : ils se chargent à la première ouverture de leur onglet, plus bas. */
 import { vueTemps } from "./vues/heures.js";
-import { vueSemaine, basculerSemaine, semaineEstEtendue } from "./vues/avenir.js";
+import { vueSemaine, basculerSemaine, semaineEstEtendue, poserModeSemaine } from "./vues/avenir.js";
 import { vueVigilance } from "./vues/vigilance.js";
 import { bandeauAccueil } from "./vues/astres.js";
 import { vueCommunes, vueAjout } from "./vues/lieux.js";
@@ -2246,6 +2246,9 @@ $("ecran").addEventListener("click", ev => {
   if (ev.target.closest("[data-temps]")) { ouvrirLeTemps(); return; }
   /* « Voir plus » de La semaine, jalon 17 : la tendance se lit au premier
      dépliage, puis l'écran se redessine. */
+  /* La bascule entre les températures et la pluie, version 230. */
+  const modeS = ev.target.closest("[data-semaine-mode]");
+  if (modeS) { poserModeSemaine(modeS.dataset.semaineMode); rendre(); return; }
   if (ev.target.closest("[data-semaine-plus]")) {
     if (basculerSemaine()) {
       const g = Reglages.lire();

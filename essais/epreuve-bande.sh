@@ -1781,6 +1781,18 @@ case "$N" in
   588) # La carte s'arrête de nouveau au-dessus de la barre du bas.
      perl -0pi -e 's/  height:calc\(100dvh - var\(--haut\) - var\(--nav-haut\) - var\(--consult-haut\)\);/  height:calc(100dvh - var(--haut) - var(--nav-haut) - var(--consult-haut) - var(--onglets-mesure));/' styles.css
      ATTENDU="le plein écran retire les barres et donne toute la hauteur à la carte, le même bouton les ramène" ;;
+  589) # La bascule de « À venir » ne fait rien.
+     perl -0pi -e 's/  if \(modeS\) \{ poserModeSemaine\(modeS\.dataset\.semaineMode\); rendre\(\); return; \}/  if (modeS) return;/' src/app.js
+     ATTENDU="le mode pluie de « À venir » montre les heures de pluie, le cumul et le risque, se garde, et rend les températures" ;;
+  590) # Le mode pluie garde le graphique des températures en tête.
+     perl -0pi -e 's/corps: \(pluie \? pluieJours\(jours\) : grapheSemaine\(jours\)\)/corps: grapheSemaine(jours)/' src/vues/avenir.js
+     ATTENDU="le mode pluie de « À venir » montre les heures de pluie, le cumul et le risque, se garde, et rend les températures" ;;
+  591) # Le choix du mode ne se garde pas.
+     perl -0pi -e 's/export const poserModeSemaine = m => Reglages\.poser\(\{ semainepluie: m === "pluie" \}\);/let modeLocal = false;\nexport const poserModeSemaine = m => { modeLocal = m === "pluie"; };/; s/export const modePluie = \(\) => Reglages\.lire\(\)\.semainepluie === true;/export const modePluie = () => modeLocal;/' src/vues/avenir.js
+     ATTENDU="le mode pluie de « À venir » montre les heures de pluie, le cumul et le risque, se garde, et rend les températures" ;;
+  592) # Les journées perdent leurs heures de pluie.
+     perl -0pi -e 's/    pluieH: k\.map\(j => val\("precipitation", j\) \|\| 0\),\n//' src/previsions.js
+     ATTENDU="le mode pluie de « À venir » montre les heures de pluie, le cumul et le risque, se garde, et rend les températures" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

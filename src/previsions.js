@@ -878,6 +878,10 @@ export function jourHoraire(date) {
        « Ciel » de l'accueil écrivait un tiret. Audit d'usage du 13 octobre
        2026. */
     nua: maxDe("cloud_cover"),
+    /* Les vingt-quatre heures de pluie, et le jour ou la nuit de chacune, pour
+       le mode pluie de « À venir », version 230. */
+    pluieH: k.map(j => val("precipitation", j) || 0),
+    jourH: k.map(j => val("is_day", j)),
     code: k.reduce((a, j) => {
       const c = val("weather_code", j);
       return c !== null && graviteCiel(c) > graviteCiel(a) ? c : a;

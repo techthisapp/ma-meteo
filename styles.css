@@ -3334,6 +3334,42 @@ button.rangee:active{background:var(--surface-2)}
 :root.plein-ciel .onglet-rond,:root.plein-ciel .onglets-inter{background:rgb(var(--teinte-ciel, 14 24 40) / .50)}
 /* « À venir » au format de l'accueil, version 227 : l'en-tête réduit
    d'emblée, la liste commence sous lui. */
+/* Le mode pluie de « À venir », version 230, choix de Jérôme sur maquette :
+   trois intensités, cyan, bleu et violet, comme le radar ; le risque en cyan
+   seul. */
+:root{--sp-faible:#7FD3F2;--sp-moderee:#4A86F2;--sp-forte:#9C6BF0;--sp-risque:#64D2FF;--sp-piste:rgba(255,255,255,.10);--sp-piste-nuit:rgba(0,0,0,.28)}
+.sem-tete{display:flex;align-items:center;justify-content:space-between;gap:var(--espace-md);margin-bottom:var(--espace-sm)}
+.sp-titre{margin:0;font-size:var(--texte-legende);font-weight:var(--graisse-semibold);letter-spacing:.05em;text-transform:uppercase;color:var(--etiquette-3)}
+.sp-sous{margin:2px 0 var(--espace-md);font-size:var(--texte-note);color:var(--etiquette-3)}
+.sp-bascule{display:flex;gap:2px;padding:3px;border-radius:var(--rayon-plein);background:var(--surface-2);flex:none}
+.sp-bascule button{width:48px;height:var(--touche);border:0;border-radius:var(--rayon-plein);background:none;display:grid;place-items:center;color:var(--etiquette-2);cursor:pointer}
+.sp-bascule button[aria-pressed="true"]{background:rgba(255,255,255,.22);color:var(--etiquette)}
+.sp-bascule svg{width:20px;height:20px}
+.sp-jours{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:4px;text-align:center;font-variant-numeric:tabular-nums}
+.sp-jours > div{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}
+.sp-mm{font-size:var(--texte-legende2);font-weight:var(--graisse-semibold);color:var(--etiquette-2);min-height:15px}
+.sp-col{position:relative;width:100%;max-width:22px;height:96px;border-radius:var(--rayon-sm);background:var(--sp-piste);overflow:hidden}
+.sp-col b{position:absolute;left:0;right:0;bottom:0;border-radius:var(--rayon-sm)}
+.sp-pc{font-size:var(--texte-legende2);font-weight:var(--graisse-semibold);color:var(--etiquette-3);white-space:nowrap}
+.sp-pc.sp-mouille{color:var(--sp-risque)}
+.sp-j{font-size:var(--texte-legende2);color:var(--etiquette-2)}
+.sp-auj .sp-j{color:var(--etiquette);font-weight:var(--graisse-semibold)}
+.sp-faible{background:var(--sp-faible)}
+.sp-moderee{background:var(--sp-moderee)}
+.sp-forte{background:var(--sp-forte)}
+.sp-legende{display:flex;flex-wrap:wrap;gap:var(--espace-md);margin:var(--espace-md) 0 0;font-size:var(--texte-legende2);color:var(--etiquette-3)}
+.sp-legende i{display:inline-block;width:10px;height:10px;border-radius:var(--rayon-sm);margin-right:5px;vertical-align:-1px}
+.sp-legende i.sp-nuit{background:var(--sp-piste-nuit)}
+.sem-pluie .sem-r{gap:var(--espace-sm)}
+.sp-mini{flex:1 1 auto;min-width:0;display:grid;grid-template-columns:repeat(24,minmax(0,1fr));gap:1.5px;height:30px;align-items:end}
+.sp-mini i{display:block;height:100%;border-radius:var(--rayon-sm);background:var(--sp-piste);position:relative;overflow:hidden}
+.sp-mini i.sp-nuit{background:var(--sp-piste-nuit)}
+.sp-mini b{position:absolute;left:0;right:0;bottom:0;border-radius:var(--rayon-sm)}
+.sp-cumul{flex:0 0 auto;width:60px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;font-weight:var(--graisse-semibold)}
+.sp-risque{flex:0 0 auto;width:56px;display:flex;align-items:center;justify-content:flex-end;gap:3px;white-space:nowrap;font-variant-numeric:tabular-nums;font-weight:var(--graisse-semibold)}
+.sp-risque svg{width:13px;height:13px;color:var(--sp-risque)}
+.sp-sec{color:var(--etiquette-3);font-weight:var(--graisse-medium)}
+
 /* Sur le ciel, les journées ne sont séparées que par un filet : le fond des
    fins de semaine et des journées passées faisait des cases dans le verre. */
 .ecran-ciel .sem-j,.ecran-ciel .sem-j.sem-we{background:none;border-radius:initial}

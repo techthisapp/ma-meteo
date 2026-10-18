@@ -12,6 +12,7 @@ import * as Justesse from "../justesse.js";
 import { angleFleche, TRACE_FLECHE } from "../fleche.js";
 import { SEUILS, grandesLignes, conseilsHTML, tendanceSuivante } from "../conseils.js";
 import { valeur, aide } from "./communs.js";
+import { SEUILS_REPLI } from "../pluieproche.js";
 
 /* ---------- La table de la semaine ---------- */
 
@@ -23,6 +24,54 @@ let semaineEtendue = false;
 export const basculerSemaine = () => (semaineEtendue = !semaineEtendue);
 
 export const semaineEstEtendue = () => semaineEtendue;
+
+/* Le mode pluie de « À venir », version 230, choisi par Jérôme le 18 octobre
+   2026 sur maquette : une bascule entre les températures et la pluie, gardée
+   d'une visite à l'autre. */
+export const modePluie = () => Reglages.lire().semainepluie === true;
+export const poserModeSemaine = m => Reglages.poser({ semainepluie: m === "pluie" });
+
+/* Les trois intensités : les seuils de Météo-France pour une heure, ceux du
+   cumul pour une journée. Le risque se marque d'une goutte dès 30 %. */
+const niveauHeure = mm => (mm >= SEUILS_REPLI.forte ? "sp-forte" : mm >= SEUILS_REPLI.moderee ? "sp-moderee" : "sp-faible");
+const niveauJour = mm => (mm >= 15 ? "sp-forte" : mm >= 5 ? "sp-moderee" : "sp-faible");
+const RISQUE_MARQUE = 30;
+const GOUTTE = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3.2c3.9 4.6 6.2 7.9 6.2 10.8a6.2 6.2 0 0 1-12.4 0c0-2.9 2.3-6.2 6.2-10.8z"/></svg>`;
+const mmTexte = mm => (!(mm >= SEUILS.lame) ? "0 mm" : `${nombreFr(Math.round(mm * 10) / 10)} mm`);
+
+/* Les vingt-quatre heures d'une journée en petites barres, la nuit sur un
+   fond plus sombre. La hauteur suit la racine de l'intensité, plafonnée à
+   huit millimètres par heure : une petite pluie reste visible. */
+function barresJour(h) {
+  if (!h?.pluieH) return `<span class="sp-mini sp-vide" aria-hidden="true"></span>`;
+  return `<span class="sp-mini" aria-hidden="true">` + h.pluieH.map((v, k) =>
+    `<i${h.jourH?.[k] === 0 ? ' class="sp-nuit"' : ""}>`
+    + (v >= SEUILS.lame ? `<b class="${niveauHeure(v)}" style="height:${Math.max(12, Math.min(1, Math.sqrt(v / 8)) * 100).toFixed(0)}%"></b>` : "")
+    + `</i>`).join("") + `</span>`;
+}
+
+/* La pluie jour par jour, en tête du mode pluie : une colonne par journée à
+   venir, dix au plus, le cumul au-dessus, le risque et le nom dessous. */
+function pluieJours(jours) {
+  const l = jours.filter(j => !j.passe && !j.tend).slice(0, 10);
+  if (l.length < 2) return "";
+  return `<div class="carte sp-carte"><h2 class="sp-titre">Pluie jour par jour</h2>`
+    + `<p class="sp-sous">Cumul et risque sur ${l.length} jours</p><div class="sp-jours" style="grid-template-columns:repeat(${l.length},minmax(0,1fr))">`
+    + l.map(j => {
+      const mm = Number.isFinite(j.mm) ? j.mm : 0, pb = Number.isFinite(j.pb) ? Math.round(j.pb) : 0;
+      const h = mm < SEUILS.lame ? 0 : Math.max(6, Math.min(1, mm / 20) * 100);
+      return `<div class="${j.auj ? "sp-auj" : ""}"><span class="sp-mm">${mm < SEUILS.lame ? "" : nombreFr(Math.round(mm * 10) / 10)}</span>`
+        + `<span class="sp-col">${h ? `<b class="${niveauJour(mm)}" style="height:${h.toFixed(0)}%"></b>` : ""}</span>`
+        + `<span class="sp-pc${pb >= RISQUE_MARQUE ? " sp-mouille" : ""}">${pb}\u202F%</span>`
+        + `<span class="sp-j">${esc(j.nom)}</span>`
+        + `<span class="titre-lu">${esc(j.long)} : ${esc(mmTexte(mm))}, risque ${pb} %</span></div>`;
+    }).join("") + `</div>`
+    + `<p class="sp-legende"><span><i class="sp-faible"></i>moins de 5 mm</span><span><i class="sp-moderee"></i>5 à 15 mm</span><span><i class="sp-forte"></i>15 mm et plus</span></p></div>`;
+}
+
+const basculeSemaine = pluie => `<div class="sp-bascule" role="group" aria-label="Affichage des jours">`
+  + `<button type="button" data-semaine-mode="temp" aria-pressed="${!pluie}" aria-label="Températures">${ico("thermo", "")}</button>`
+  + `<button type="button" data-semaine-mode="pluie" aria-pressed="${pluie}" aria-label="Pluie">${GOUTTE}</button></div>`;
 
 function boutonSemaine(dispo) {
   if (semaineEtendue) return `<button type="button" class="sem-plus" data-semaine-plus aria-expanded="true">Voir moins</button>`;
@@ -106,6 +155,7 @@ export function vueSemaine() {
   const amp = Math.max(1, tmax - tmin);
 
   const maintenant = P.serieHoraire()?.t?.[0] ?? null;
+  const pluie = modePluie();
   const heureCourante = new Date().getHours();
   const jours = [];
 
@@ -187,7 +237,14 @@ export function vueSemaine() {
     const accord = cale ? accordMesure : accordDispersion;
     const cal = cale ? { nom: accord, j: Math.min(7, Math.max(1, k - i)), ecart: Justesse.ecartMesure(recent, k - i) } : null;
 
-    const corps = `<span class="j"><b>${esc(nom)}</b><em>${esc(date)}</em></span>`
+    /* En mode pluie, la rangée dit les heures de pluie, le cumul et le risque
+       le plus fort ; elle s'ouvre toujours sur les moments du jour. */
+    const pbJ = Number.isFinite(pb) ? Math.round(pb) : 0;
+    const corpsPluie = `<span class="j"><b>${esc(nom)}</b><em>${esc(date)}</em></span>`
+      + barresJour(h)
+      + `<span class="sp-cumul${mm >= SEUILS.lame ? "" : " sp-sec"}">${esc(mmTexte(mm))}</span>`
+      + `<span class="sp-risque${pbJ >= RISQUE_MARQUE ? "" : " sp-sec"}">${pbJ >= RISQUE_MARQUE ? GOUTTE : ""}${pbJ} %<span class="titre-lu"> de risque</span></span>`;
+    const corps = pluie ? corpsPluie : `<span class="j"><b>${esc(nom)}</b><em>${esc(date)}</em></span>`
       /* Le nom du ciel et les mots minimum et maximum, en texte lu par les
          lecteurs d'écran : le dessin est masqué et les bornes ne se
          nommaient pas. Audit du 1er octobre 2026, constat 4.4. */
@@ -249,8 +306,10 @@ export function vueSemaine() {
     /* Un seul « Voir plus », sous la liste, version 202, audit d'usage du
        13 octobre 2026 : le graphique portait le sien, et l'écran en montrait
        deux pour une même action. */
-    corps: grapheSemaine(jours) + grandesLignesHTML(jours)
-      + `<div class="carte sem-carte">${phraseJustesse(recent)}<div class="sem">${lignes.join("")}</div>`
+    corps: (pluie ? pluieJours(jours) : grapheSemaine(jours)) + grandesLignesHTML(jours)
+      + `<div class="carte sem-carte${pluie ? " sem-pluie" : ""}"><div class="sem-tete"><h2 class="sp-titre">Les jours à venir</h2>${basculeSemaine(pluie)}</div>`
+      + `${phraseJustesse(recent)}<div class="sem">${lignes.join("")}</div>`
+      + (pluie ? `<p class="sp-legende"><span><i class="sp-faible"></i>faible</span><span><i class="sp-moderee"></i>modérée</span><span><i class="sp-forte"></i>forte</span><span><i class="sp-nuit"></i>nuit</span></p>` : "")
       + etatTendance(g, tend) + boutonSemaine(plusDispo)
       /* Jalon 20 : l'explication derrière le « i », les modèles dans les
          sources des réglages. */
