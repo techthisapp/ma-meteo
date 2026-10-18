@@ -176,6 +176,19 @@ export default async T => {
   ok("le seuil de chaque texture vient de son étalonnage",
     sortes.ecart <= 1 / 32 + 0.01, sortes.ecart.toFixed(3));
 
+  /* Version 221 : les nuages proches traversent l'écran en une minute
+     environ par vent de 15 km/h, et la dérive reste entre zéro et un carreau
+     même après des jours d'animation. */
+  const derive = await p.evaluate(async () => {
+    const G = await import("/src/ciel-gl.js");
+    const largeur = (390 / 844) / (0.42 + 0.53 * 0.92);
+    return { traversee: largeur / G.vitesse(15, 0.92), longue: G.decalage(3e6, 15, 0.92) };
+  });
+  ok("les nuages proches traversent l'écran en une minute environ, sans hâte",
+    derive.traversee >= 40 && derive.traversee <= 240, `${Math.round(derive.traversee)} s`);
+  ok("la dérive des nuages reste bornée, même après des jours d'animation",
+    derive.longue >= 0 && derive.longue < 1, String(derive.longue));
+
   /* L'application installée dessine jusque sous la barre d'état. */
   const page = fs.readFileSync(path.join(RACINE, "index.html"), "utf8");
   ok("l'application installée occupe tout l'écran, jusque sous la barre d'état",

@@ -31,6 +31,7 @@ precision highp float;
 uniform vec2 uRes; uniform float uT, uDefile, uApparition;
 uniform vec3 uHaut, uBas, uClair, uSombre, uAstre;
 uniform float uNuit, uChaud, uPluie, uNeige, uVent, uOrage, uN, uHalo, uMiroir, uBrouillard, uVoile, uDoux;
+uniform vec4 uDecal; // la dérive de chaque plan, en carreaux, ramenée entre zéro et un
 uniform vec4 uC[4]; // sorte, profondeur, seuil d'opacité, opacité
 uniform vec4 uD[4]; // ombre, largeur du bord, graine, libre
 uniform sampler2D uTex[4];
@@ -69,7 +70,6 @@ void main(){
   float eclair = 0.0;
   if (uOrage > 0.0) eclair = pow(max(0.0, sin(uT * 0.9) * sin(uT * 2.7 + 1.3) * sin(uT * 0.37)), 6.0);
   vec2 lueur = vec2(asp * (0.3 + 0.4 * fract(floor(uT * 0.9 / 6.283) * 0.618)), 0.75);
-  float vent = 0.004 + uVent * 0.0011;
 
   for (int i = 0; i < 4; i++) {
     if (float(i) >= uN) break;
@@ -78,11 +78,20 @@ void main(){
     float carreau = mix(0.42, 0.95, prof);
     vec2 q = p / carreau;
     q.x = q.x * uMiroir;
-    q.x += uT * vent * mix(0.35, 2.4, prof) * 2.4 + e.z * 0.13;
+    /* La dérive vient du programme, déjà ramenée entre zéro et un : ajoutée
+       au temps écoulé, elle grandissait sans fin et la carte graphique
+       finissait par arrondir les coordonnées, version 221. */
+    q.x += (i == 0 ? uDecal.x : i == 1 ? uDecal.y : i == 2 ? uDecal.z : uDecal.w) + e.z * 0.13;
     /* Un relief à peine sensible au défilement, version 218 : le ciel reste
        fixe, seuls les plans proches glissent un peu. */
     q.y += uDefile * mix(0.0, 0.1, prof) / carreau + e.z * 0.071;
     vec4 t = texture2D(uTex[i], q);
+    /* Le grain des bords, version 221 : la nappe, lue trois fois plus fine,
+       creuse et gonfle les bords autour de sa médiane ; le cœur et le ciel
+       nu n'en sont pas touchés, et la part couverte reste la même. */
+    float grain = texture2D(uBrume, q * 3.3 + vec2(0.37 * float(i), 0.21)).a;
+    float bord = 1.0 - abs(2.0 * t.a - 1.0);
+    t.a = clamp(t.a + (grain - 0.87) * 0.9 * bord, 0.0, 1.0);
     /* Le seuil vient de l'étalonnage de la texture : la part de ciel couverte
        est celle qu'annonce la prévision. */
     float dens = smoothstep(c.z - e.y, c.z + e.y, t.a) * c.w * uApparition;
@@ -124,6 +133,9 @@ void main(){
     vec3 eclat = lum * (eclatBloom + rayons * 0.16) * ouvert * (1.0 - nuageA * 0.7) * doux;
     /* La lueur blanche du cœur traverse un nuage mince. */
     eclat += vec3(1.0, 0.98, 0.94) * exp(-d * d * 450.0) * 0.6 * (1.0 - nuageA * 0.55) * doux * ouvert;
+    /* Le cœur brille par lui-même, plus fort que son halo : sous le voile de
+       lecture, il paraissait gris au milieu d'un anneau clair. */
+    eclat += vec3(1.0, 0.99, 0.96) * smoothstep(RC * 1.1, RC * 0.6, d) * (1.0 - nuageA * 0.85) * doux;
     if (uHalo > 0.0) {
       float x = (d - 0.34) / 0.028;
       vec3 iris = clamp(vec3(x + 0.6, 1.0 - abs(x) * 1.2, 0.6 - x), 0.0, 1.0);
@@ -247,6 +259,14 @@ export function plansDe(d, graine) {
   return plans.slice(-4);
 }
 
+/* La dérive d'un plan, en carreaux par seconde, version 221 : un plan proche
+   traverse l'écran en une minute environ par vent faible, un plan lointain
+   en plusieurs minutes. Dix fois plus lent qu'en version 216, où les nuages
+   proches passaient en cinq secondes. */
+export const vitesse = (vent, prof) => (0.002 + vent * 0.0003) * (0.3 + 1.3 * prof);
+/* La dérive d'un plan au temps t, en carreaux, ramenée entre zéro et un. */
+export const decalage = (t, vent, prof) => (t * vitesse(vent, prof)) % 1;
+
 /* Le peintre d'une toile, ou null quand WebGL manque. */
 export function peintre(cv) {
   if (simple()) return null;
@@ -260,7 +280,7 @@ export function peintre(cv) {
     return s;
   };
   let prog, U = {}, tex = {}, pret = false, perdu = false;
-  let etat = null, echelle = 0.75, somme = 0, nb = 0, apparition = 0, avant = null;
+  let etat = null, plansPoses = [], echelle = 1, somme = 0, nb = 0, apparition = 0, avant = null;
 
   function monter() {
     prog = g.createProgram();
@@ -273,7 +293,7 @@ export function peintre(cv) {
     g.enableVertexAttribArray(loc); g.vertexAttribPointer(loc, 2, g.FLOAT, false, 0, 0);
     U = {};
     for (const n of ["uRes", "uT", "uDefile", "uApparition", "uHaut", "uBas", "uClair", "uSombre", "uAstre", "uNuit", "uChaud",
-      "uPluie", "uNeige", "uVent", "uOrage", "uN", "uHalo", "uMiroir", "uBrouillard", "uVoile", "uDoux", "uC", "uD", "uBrume"]) {
+      "uPluie", "uNeige", "uVent", "uOrage", "uN", "uHalo", "uMiroir", "uBrouillard", "uVoile", "uDoux", "uDecal", "uC", "uD", "uBrume"]) {
       U[n] = g.getUniformLocation(prog, n);
     }
     g.uniform1iv(g.getUniformLocation(prog, "uTex"), [0, 1, 2, 3]);
@@ -330,6 +350,7 @@ export function peintre(cv) {
     g.uniform1f(U.uVoile, e.voile);
     g.uniform1f(U.uDoux, e.derriere ? 1 : 0);
     const plans = plansDe(e, e.graine);
+    plansPoses = plans;
     g.uniform1f(U.uHalo, plans.some(p => p.tex === "cirrus" || (p.tex === "stratus" && p.prof === 0)) && plans.every(p => p.prof === 0 || p.couv < 0.3) ? 0.7 : 0);
     const C = new Float32Array(16), D = new Float32Array(16);
     plans.forEach((p, i) => {
@@ -375,7 +396,14 @@ export function peintre(cv) {
       g.useProgram(prog);
       g.clearColor(0, 0, 0, 0); g.clear(g.COLOR_BUFFER_BIT);
       g.uniform2f(U.uRes, cv.width, cv.height);
-      g.uniform1f(U.uT, t);
+      /* Le temps du programme reste petit, ramené sur dix minutes : la pluie
+         et les éclairs n'en gardent pas la trace. La dérive des plans se
+         calcule ici, en double précision. */
+      g.uniform1f(U.uT, t % 600);
+      g.uniform4fv(U.uDecal, [0, 1, 2, 3].map(i => {
+        const p = plansPoses[i];
+        return p ? decalage(t, etat?.vent || 0, p.prof) : 0;
+      }));
       g.uniform1f(U.uDefile, (window.scrollY || 0) / Math.max(1, window.innerHeight));
       g.uniform1f(U.uApparition, ms === undefined ? (pret ? 1 : 0) : apparition);
       g.drawArrays(g.TRIANGLES, 0, 3);

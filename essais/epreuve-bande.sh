@@ -1747,6 +1747,12 @@ case "$N" in
   569) # Les groupes des journées ne sont pas réunis.
      perl -0pi -e 's/      for \(const \[c, v\] of Object\.entries\(d\)\) if \(c !== "time"\) q\.daily\[c\] = v;//' src/previsions.js
      ATTENDU="les journées se lisent en plusieurs requêtes parallèles, toutes leurs colonnes réunies" ;;
+  570) # Les nuages reprennent leur hâte de la version 216.
+     perl -0pi -e 's/\(0\.002 \+ vent \* 0\.0003\) \* \(0\.3 \+ 1\.3 \* prof\)/(0.004 + vent * 0.0011) * (0.35 + 2.05 * prof) * 2.4/' src/ciel-gl.js
+     ATTENDU="les nuages proches traversent l.écran en une minute environ, sans hâte" ;;
+  571) # La dérive grandit sans fin.
+     perl -0pi -e 's/\(t \* vitesse\(vent, prof\)\) % 1;/t * vitesse(vent, prof);/' src/ciel-gl.js
+     ATTENDU="la dérive des nuages reste bornée, même après des jours d.animation" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
