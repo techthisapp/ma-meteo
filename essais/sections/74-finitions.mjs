@@ -112,6 +112,9 @@ export default async T => {
      a aucune. */
   const [c3, p3] = await ctxReponse(() => METEO_NUE(), { ...FAIN, commune: "Grenoble", codePostal: "38000", lat: 45.19, lon: 5.72 });
   await reposer(p3, 3000);
+  /* La liste des stations se charge à la demande : sur une machine lente, les
+     liens viennent après le repos de la page. */
+  await p3.waitForFunction(() => document.querySelector('#ecran .porte-hors[data-feuille="neige"]'), null, { timeout: 10000 }).catch(() => {});
   const hors = await p3.evaluate(() => ({ liens: [...document.querySelectorAll("#ecran .porte-hors")].map(b => `${b.dataset.feuille}:${b.textContent}`).join(" | "),
     porteNeige: !!document.querySelector('#ecran .porte[data-feuille="neige"]') }));
   await p3.locator('#ecran .porte-hors[data-feuille="neige"]').click({ timeout: 5000 }).catch(() => {});
