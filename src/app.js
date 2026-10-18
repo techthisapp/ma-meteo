@@ -664,14 +664,8 @@ function ecranAccueil() {
        leur couleur d'information pour la même raison qu'elles la portaient sur
        fond de page, la lisibilité : un chiffre orange sur un ciel de couchant
        ne se lit plus. */
-    const params = Temps.depuis(code, s ? s.nua[0] : null, s ? s.mm[0] : null);
-    /* Les trois étages de nuages de l'heure en cours et de la suivante : le
-       ciel WebGL passe de l'une à l'autre au fil des minutes, version 218. */
-    if (s && s.nuaB?.length > 1 && s.nuaM?.length > 1 && s.nuaH?.length > 1) {
-      params.etages = [s.nuaB[0], s.nuaB[1], s.nuaM[0], s.nuaM[1], s.nuaH[0], s.nuaH[1]];
-    }
     plein = true;
-    const bd = bandeauAccueil(g, new Date(), params, s ? s.v[0] : 0);
+    const bd = cielDuLieu(g, s, code);
     teinte = bd.teinte;
     /* Le ciel de l'accueil est plus bas que celui des autres écrans : la bande
        horaire et les chiffres du jour doivent tenir dans le premier écran.
@@ -1069,9 +1063,51 @@ function ecranAccueil() {
   };
 }
 
+/* Le ciel du lieu à l'heure en cours, pour l'accueil et « À venir ». */
+function cielDuLieu(g, s, code) {
+  const params = Temps.depuis(code, s ? s.nua[0] : null, s ? s.mm[0] : null);
+  /* Les trois étages de nuages de l'heure en cours et de la suivante : le
+     ciel WebGL passe de l'une à l'autre au fil des minutes, version 218. */
+  if (s && s.nuaB?.length > 1 && s.nuaM?.length > 1 && s.nuaH?.length > 1) {
+    params.etages = [s.nuaB[0], s.nuaB[1], s.nuaM[0], s.nuaM[1], s.nuaH[0], s.nuaH[1]];
+  }
+  return bandeauAccueil(g, new Date(), params, s ? s.v[0] : 0);
+}
+
+/* « À venir » au format de l'accueil, version 227, demande de Jérôme du
+   18 octobre 2026 : le même ciel fixe derrière, le même en-tête, les mêmes
+   blocs teintés. L'écran n'a pas de grand titre : l'en-tête y montre d'emblée
+   sa forme réduite, le lieu et la ligne courte. */
+function vueSemaineCiel(...a) {
+  const f = vueSemaine(...a);
+  const c = P.chargeCourante(), i = P.iJour();
+  if (!c || i < 0) return f;
+  const g = Reglages.lire();
+  const s = avecPluieDeLHeure(P.serieHoraire(), pluieDeLHeure());
+  const jh = P.jourHoraire(c.daily.time[i]);
+  const t = s ? s.t[0] : jh ? (jh.tn + jh.tx) / 2 : null;
+  const code = s ? s.code[0] : c.daily.weather_code[i];
+  const bd = cielDuLieu(g, s, code);
+  return {
+    ...f,
+    pleinCadre: true,
+    cielPlein: true,
+    teinte: bd.teinte,
+    ligne: Number.isFinite(t) ? `${Math.round(t)}° | ${tempsDe(code)[1]}` : tempsDe(code)[1],
+    corps: `<div class="plein plein-accueil plein-avenir" style="--ci-clarte:${bd.clarte.toFixed(3)}">${bd.ciel}</div>`
+      + `<div class="ecran-corps ecran-avenir"><h1 class="titre-lu">À venir</h1>${f.corps}</div>`,
+    brancher(bloc) {
+      f.brancher?.(bloc);
+      Feu.poser(bloc.querySelector("#ciFeu"));
+      Relief.poser(bloc.querySelector("#ciLune"));
+      Temps.poser(bloc.querySelector("#ciTemps"));
+    },
+  };
+}
+
 /* ---------- Écrans branchés sur les vues ---------- */
 
-const VUES_ONGLET = { temps: vueTemps, semaine: vueSemaine };
+const VUES_ONGLET = { temps: vueTemps, semaine: vueSemaineCiel };
 
 /* La carte et le ciel se chargent à la première ouverture de leur onglet : la
    carte, ses couches, le contour de la France et la voûte étoilée, environ
@@ -1134,6 +1170,10 @@ function ecranVue(nom) {
        d'écran occupait une ligne pour une information déjà présente. */
     sous: f.sousEcran || "",
     corps: bandeauHorsLigne() + f.corps,
+    /* Le plein ciel de « À venir », version 227. */
+    cielPlein: f.cielPlein === true,
+    teinte: f.teinte || null,
+    ligne: f.ligne || "",
     brancher: f.brancher,
   };
 }
@@ -1414,7 +1454,7 @@ function rendre() {
   $("ecPos").hidden = !enPos;
   const titreT = ecran.querySelector(".plein-titre .bd-deg");
   const titreE = ecran.querySelector(".plein-titre .bd-ciel");
-  $("ecLigne").textContent = f.cielPlein && titreT && titreE ? `${titreT.textContent} | ${titreE.textContent}` : "";
+  $("ecLigne").textContent = !f.cielPlein ? "" : titreT && titreE ? `${titreT.textContent} | ${titreE.textContent}` : f.ligne || "";
   document.documentElement.style.setProperty("--teinte-ciel", f.cielPlein && f.teinte ? f.teinte : "14 24 40");
   /* Le nom du lieu tient sur une ligne : sa taille descend, de 34 à 22
      points, tant qu'il déborde, comme chez Apple. */
@@ -1536,7 +1576,8 @@ function placerLieu(plein) {
 
 function enteteDefile(titre) {
   const y = Math.max(0, window.scrollY);
-  const k = Math.min(1, Math.max(0, (y - 150) / 60));
+  /* Sans grand titre, sur « À venir », l'en-tête est réduit d'emblée. */
+  const k = titre ? Math.min(1, Math.max(0, (y - 150) / 60)) : 1;
   const lieu = $("ecLieu").getBoundingClientRect().bottom;
   const bas = lieu + k * $("ecLigne").getBoundingClientRect().height;
   const lignes = titre ? [...titre.querySelectorAll(".bd-deg, .bd-etat > *, .pt-rep")] : [];
@@ -1573,7 +1614,7 @@ function majPose() {
      s'efface au défilement, et la barre de tête prend la température en
      petit. */
   const titre = ecran.classList.contains("ecran-ciel") ? ecran.querySelector(".plein-titre") : null;
-  if (titre) enteteDefile(titre);
+  if (ecran.classList.contains("ecran-ciel")) enteteDefile(titre);
   else {
     const corps = ecran.querySelector(".ecran-corps");
     if (corps?.style.maskImage) { corps.style.webkitMaskImage = ""; corps.style.maskImage = ""; }

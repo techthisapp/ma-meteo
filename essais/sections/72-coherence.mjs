@@ -162,6 +162,30 @@ export default async T => {
     && verre.chevauche.length === 0,
     JSON.stringify(verre));
 
+  /* Version 227 : « À venir » au format de l'accueil. Le même ciel fixe,
+     l'en-tête réduit d'emblée, la liste sous lui, les blocs teintés, les
+     journées séparées par un simple filet. */
+  await p3.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+  await p3.locator('[data-onglet="semaine"]').click();
+  await p3.waitForTimeout(800);
+  const avenir = await p3.evaluate(() => {
+    const e = document.getElementById("ecran");
+    const ligne = document.getElementById("ecLigne");
+    const carte = e.querySelector(".ecran-corps .carte");
+    const we = e.querySelector(".sem-j.sem-we");
+    return { ciel: e.classList.contains("ecran-ciel") && !!e.querySelector(".plein-accueil #ciTemps"),
+      ligne: ligne.textContent, ligneVue: Number(getComputedStyle(ligne).opacity),
+      sous: carte ? Math.round(carte.getBoundingClientRect().top - ligne.getBoundingClientRect().bottom) : null,
+      fond: carte ? getComputedStyle(carte).backgroundColor : "",
+      jour: we ? getComputedStyle(we).backgroundColor : "aucun" };
+  });
+  ok("« À venir » prend le format de l'accueil : ciel fixe, en-tête réduit, blocs teintés, journées sans fond",
+    avenir.ciel && /^\d+° \| \S/.test(avenir.ligne) && avenir.ligneVue === 1 && avenir.sous >= 4
+    && /^rgba\(\d+, \d+, \d+, 0\.56\)$/.test(avenir.fond) && /rgba\(0, 0, 0, 0\)|aucun/.test(avenir.jour),
+    JSON.stringify(avenir));
+  await p3.locator('[data-onglet="accueil"]').click();
+  await p3.waitForTimeout(500);
+
   /* Le réglage se fait dans la carte « Accueil » des réglages, et l'accueil
      se refait aussitôt. */
   await p3.locator("#btnReglages").click();

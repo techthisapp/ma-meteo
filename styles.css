@@ -3292,9 +3292,9 @@ button.rangee:active{background:var(--surface-2)}
 :root.plein-ciel .nav,:root.plein-ciel .nav.sur-ciel,:root.plein-ciel .nav.pose{background:transparent;border-bottom-color:transparent;
   -webkit-backdrop-filter:none;backdrop-filter:none}
 :root.plein-ciel .nav-lieu{position:absolute;margin:0;opacity:0;z-index:2}
-/* Sur l'accueil plein ciel, le jeton du parapluie laisse la place au nom du
-   lieu : la réponse du matin, sous la température, dit le même parapluie et
-   ouvre le même rappel. Il reste sur les autres écrans. */
+/* Sur les écrans plein ciel, le jeton du parapluie laisse la place au nom
+   du lieu : sur l'accueil, la réponse du matin dit le même parapluie et ouvre
+   le même rappel. Il reste sur « Le ciel » et la carte. */
 :root.plein-ciel #navJeton{display:none}
 :root.plein-ciel .nav-act{margin-left:auto}
 :root.plein-ciel #btnReglages{width:var(--touche);height:var(--touche);border-radius:50%;background:rgba(255,255,255,.18)}
@@ -3322,3 +3322,10 @@ button.rangee:active{background:var(--surface-2)}
 }
 .ecran-ciel .pp-etiq,.ecran-ciel .bande-tete,.ecran-ciel [data-bloc="jour"] .carte.retenir::before{border-bottom:0}
 :root.plein-ciel .onglets{background:rgb(var(--teinte-ciel, 14 24 40) / .62)}
+/* « À venir » au format de l'accueil, version 227 : l'en-tête réduit
+   d'emblée, la liste commence sous lui. */
+/* Sur le ciel, les journées ne sont séparées que par un filet : le fond des
+   fins de semaine et des journées passées faisait des cases dans le verre. */
+.ecran-ciel .sem-j,.ecran-ciel .sem-j.sem-we{background:none;border-radius:initial}
+.ecran-ciel .sem-j + .sem-j{box-shadow:inset 0 1px 0 var(--filet)}
+.ecran-ciel .plein-avenir + .ecran-corps{padding-top:calc(var(--haut) + var(--consult-haut) + var(--ecart-haut) + 1.2rem + 2.6rem + 1.7rem + var(--espace-lg))}

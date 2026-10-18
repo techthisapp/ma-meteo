@@ -1757,6 +1757,18 @@ case "$N" in
   580) # Le fondu se règle sur le bas du lieu, non sur celui de l'en-tête.
      perl -0pi -e 's/return Math\.max\(0, Math\.min\(1, \(r\.top - fin\) \/ 30\)\);/return Math.max(0, Math.min(1, (r.bottom - lieu - 4) \/ Math.max(24, r.height * 0.7)));/' src/app.js
      ATTENDU="l.accueil en plein ciel porte des blocs teintés du ciel, sans bord, et un en-tête au lieu centré qui se réduit en une ligne au défilement" ;;
+  581) # « À venir » garde son ancien format.
+     perl -0pi -e 's/const VUES_ONGLET = \{ temps: vueTemps, semaine: vueSemaineCiel \};/const VUES_ONGLET = { temps: vueTemps, semaine: vueSemaine };/' src/app.js
+     ATTENDU="« À venir » prend le format de l.accueil : ciel fixe, en-tête réduit, blocs teintés, journées sans fond" ;;
+  582) # Sans grand titre, l'en-tête ne se réduit pas.
+     perl -0pi -e 's/const k = titre \? Math\.min\(1, Math\.max\(0, \(y - 150\) \/ 60\)\) : 1;/const k = titre ? Math.min(1, Math.max(0, (y - 150) \/ 60)) : 0;/' src/app.js
+     ATTENDU="« À venir » prend le format de l.accueil : ciel fixe, en-tête réduit, blocs teintés, journées sans fond" ;;
+  583) # La liste de « À venir » passe sous l'en-tête.
+     perl -0pi -e 's/\.ecran-ciel \.plein-avenir \+ \.ecran-corps\{padding-top:/.ecran-ciel .plein-avenir + .ecran-corps{margin-bottom:/' styles.css
+     ATTENDU="« À venir » prend le format de l.accueil : ciel fixe, en-tête réduit, blocs teintés, journées sans fond" ;;
+  584) # Les fins de semaine gardent leur fond sur le ciel.
+     perl -0pi -e 's/\.ecran-ciel \.sem-j,\.ecran-ciel \.sem-j\.sem-we\{background:none;border-radius:initial\}//' styles.css
+     ATTENDU="« À venir » prend le format de l.accueil : ciel fixe, en-tête réduit, blocs teintés, journées sans fond" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

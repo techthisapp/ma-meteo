@@ -77,8 +77,9 @@ export default async T => {
     const p = await c.newPage();
     await ouvrirPage(p);
     await reposer(p, 2100);
-    /* Depuis la version 223, le jeton se lit hors de l'accueil plein ciel. */
-    await p.locator('[data-onglet="semaine"]').click(); await p.waitForTimeout(400);
+    /* Depuis la version 227, le jeton se lit hors des écrans plein ciel, sur
+       « Le ciel ». */
+    await p.locator('[data-onglet="ciel"]').click(); await p.waitForTimeout(700);
     return [c, p];
   };
 
@@ -107,8 +108,8 @@ export default async T => {
   const [ctxMatin, pgMatin] = await ctxJeton(
     meteoPluie(30, APRESMIDI), "2026-08-18T06:00:00+02:00");
   /* Depuis la version 223, l'accueil plein ciel laisse le jeton à la réponse
-     du matin : le jeton se lit sur « À venir ». */
-  await pgMatin.locator('[data-onglet="semaine"]').click(); await pgMatin.waitForTimeout(400);
+     du matin : le jeton se lit sur « Le ciel ». */
+  await pgMatin.locator('[data-onglet="ciel"]').click(); await pgMatin.waitForTimeout(400);
   ok("une pluie de l'après-midi est annoncée dès avant la première alerte",
     await pgMatin.locator("#navJeton").isVisible());
   const ICS_MATIN = await pgMatin.evaluate(async () => {
@@ -135,7 +136,7 @@ export default async T => {
   ok("sur l'accueil plein ciel, la réponse du matin dit le parapluie à la place du jeton",
     await pgPluie.evaluate(() => getComputedStyle(document.getElementById("navJeton")).display === "none"
       && /^Parapluie/.test(document.querySelector('.pt-rep .pt-l[data-feuille="parapluie"]')?.textContent.trim() || "")));
-  await pgPluie.locator('[data-onglet="semaine"]').click(); await pgPluie.waitForTimeout(400);
+  await pgPluie.locator('[data-onglet="ciel"]').click(); await pgPluie.waitForTimeout(700);
   ok("le jeton est là quand la période d'alerte est en cours",
     await pgPluie.locator("#navJeton").isVisible());
   ok("le jeton nomme les heures de la pluie",
@@ -159,9 +160,9 @@ export default async T => {
         && n.right <= j.left + 0.5;
     }));
 
-  ok("le jeton garde sa place sur les quatre écrans hors de l'accueil", await (async () => {
+  ok("le jeton garde sa place sur les trois écrans hors du plein ciel", await (async () => {
     const vus = [];
-    for (const cle of ["temps", "semaine", "ciel", "carte"]) {
+    for (const cle of ["temps", "ciel", "carte"]) {
       await (cle === "temps" ? ouvrirLeTemps(pgPluie) : pgPluie.locator(`[data-onglet="${cle}"]`).click());
       await pgPluie.waitForTimeout(400);
       const b = await pgPluie.locator("#navJeton").boundingBox();
@@ -179,7 +180,8 @@ export default async T => {
     const Pr = await import("/src/previsions.js");
     R.prendreJeton(Pl.jeton(Pr.serieHorizon(), R.alertes(Pl.ALERTES_DEFAUT)).cle);
   });
-  await pgPluie.locator('[data-onglet="semaine"]').click();
+  /* L'écran du temps, hors du plein ciel : le jeton y paraîtrait s'il restait. */
+  await ouvrirLeTemps(pgPluie);
   await pgPluie.waitForTimeout(400);
   ok("un jeton pris se retire aussi depuis un écran qui n'est pas l'accueil",
     await pgPluie.locator("#navJeton").isHidden());
@@ -255,7 +257,7 @@ export default async T => {
   /* La feuille et la prise. La prise est gardée sous la date et l'instant
      d'alerte : prendre le jeton du matin ne doit pas faire taire celui du soir,
      et un rechargement ne doit pas le rendre. */
-  await pgPluie.locator('[data-onglet="semaine"]').click(); await pgPluie.waitForTimeout(400);
+  await pgPluie.locator('[data-onglet="ciel"]').click(); await pgPluie.waitForTimeout(700);
   await clic(pgPluie, "#navJeton");
   await pgPluie.waitForTimeout(450);
   ok("l'appui sur le jeton ouvre sa feuille",
@@ -280,7 +282,7 @@ export default async T => {
     await txtDe(pgPluie, ".pt-rep"));
   await pgPluie.reload({ waitUntil: "networkidle" });
   await reposer(pgPluie, 2100);
-  await pgPluie.locator('[data-onglet="semaine"]').click(); await pgPluie.waitForTimeout(400);
+  await pgPluie.locator('[data-onglet="ciel"]').click(); await pgPluie.waitForTimeout(700);
   ok("et ne revient pas au rechargement", await pgPluie.locator("#navJeton").isHidden());
   ok("la prise est gardée par sa date et son instant d'alerte",
     (await pgPluie.evaluate(() =>
@@ -296,7 +298,7 @@ export default async T => {
       jetonsPris: [], alertes: [16, 20] })));
   await pgPluie.reload({ waitUntil: "networkidle" });
   await reposer(pgPluie, 2100);
-  await pgPluie.locator('[data-onglet="semaine"]').click(); await pgPluie.waitForTimeout(400);
+  await pgPluie.locator('[data-onglet="ciel"]').click(); await pgPluie.waitForTimeout(700);
   ok("une première alerte posée après la pluie fait taire le jeton",
     await pgPluie.locator("#navJeton").isHidden());
   await pgPluie.locator("#btnReglages").click();
