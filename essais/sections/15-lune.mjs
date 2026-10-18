@@ -11,7 +11,10 @@ export default async T => {
      rien demander de plus. */
   await ecranCiel(pg, "soleil");
   const requetes = [];
-  const noter = r => requetes.push(r.url());
+  /* La recherche d'une version plus récente part d'elle-même, à son heure :
+     elle ne doit rien à la Lune, et une machine lente la faisait tomber dans
+     la fenêtre du contrôle. */
+  const noter = r => { if (!/\/sw\.js\?v=/.test(r.url())) requetes.push(r.url()); };
   pg.on("request", noter);
   await ecranCiel(pg, "lune");
   pg.off("request", noter);
