@@ -1521,7 +1521,7 @@ $("onglets").addEventListener("click", ev => {
    matière de verre qu'une fois le bandeau dépassé. */
 /* L'en-tête du plein ciel au défilement, version 223. Le lieu reste en
    place ; chaque ligne du grand titre s'efface quand son bas arrive sous le
-   lieu ; la ligne courte paraît entre 120 et 200 points ; les blocs
+   lieu ; la ligne courte paraît entre 150 et 210 points ; les blocs
    s'effacent en fondu en passant sous l'en-tête. Toutes les lectures d'abord,
    les écritures ensuite. */
 /* Le bouton du lieu, transparent, épouse le nom affiché au centre de
@@ -1536,13 +1536,16 @@ function placerLieu(plein) {
 
 function enteteDefile(titre) {
   const y = Math.max(0, window.scrollY);
-  const k = Math.min(1, Math.max(0, (y - 120) / 80));
+  const k = Math.min(1, Math.max(0, (y - 150) / 60));
   const lieu = $("ecLieu").getBoundingClientRect().bottom;
   const bas = lieu + k * $("ecLigne").getBoundingClientRect().height;
   const lignes = titre ? [...titre.querySelectorAll(".bd-deg, .bd-etat > *, .pt-rep")] : [];
+  /* Une ligne a disparu quand son haut atteint le bas de l'en-tête, ligne
+     courte comprise : elle ne passe jamais dessous, version 224. */
+  const fin = bas + 6;
   const fondus = lignes.map(e => {
     const r = e.getBoundingClientRect();
-    return Math.max(0, Math.min(1, (r.bottom - lieu - 4) / Math.max(24, r.height * 0.7)));
+    return Math.max(0, Math.min(1, (r.top - fin) / 30));
   });
   const corps = $("ecran").querySelector(".ecran-corps");
   const haut = corps ? corps.getBoundingClientRect().top : 0;

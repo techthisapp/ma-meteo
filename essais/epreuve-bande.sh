@@ -1751,6 +1751,12 @@ case "$N" in
   578) # Le lieu n'est plus centré.
      perl -0pi -e 's/:root\.plein-ciel \.entete-ciel\{display:flex;flex-direction:column;align-items:center;/:root.plein-ciel .entete-ciel{display:flex;flex-direction:column;align-items:flex-start;/' styles.css
      ATTENDU="l.accueil en plein ciel porte des blocs teintés du ciel, sans bord, et un en-tête au lieu centré qui se réduit en une ligne au défilement" ;;
+  579) # L'apparition du titre garde sa dernière image et l'emporte sur le fondu.
+     perl -0pi -e 's/\.ecran-ciel \.plein-titre \.bd-deg,\.ecran-ciel \.plein-titre \.bd-etat > \*,\.ecran-ciel \.plein-titre > \.pt-rep\{animation-fill-mode:backwards\}//' styles.css
+     ATTENDU="l.accueil en plein ciel porte des blocs teintés du ciel, sans bord, et un en-tête au lieu centré qui se réduit en une ligne au défilement" ;;
+  580) # Le fondu se règle sur le bas du lieu, non sur celui de l'en-tête.
+     perl -0pi -e 's/return Math\.max\(0, Math\.min\(1, \(r\.top - fin\) \/ 30\)\);/return Math.max(0, Math.min(1, (r.bottom - lieu - 4) \/ Math.max(24, r.height * 0.7)));/' src/app.js
+     ATTENDU="l.accueil en plein ciel porte des blocs teintés du ciel, sans bord, et un en-tête au lieu centré qui se réduit en une ligne au défilement" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

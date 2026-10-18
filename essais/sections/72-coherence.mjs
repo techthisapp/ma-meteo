@@ -120,6 +120,18 @@ export default async T => {
       ligneRepos: vu(document.getElementById("ecLigne")), titreRepos: vu(t.querySelector(".bd-deg")),
       bouton: (() => { const n = document.getElementById("navLieu").getBoundingClientRect();
         return n.left <= lieu.left + 4 && n.right >= lieu.right - 4 && n.top <= lieu.top + 2 && n.bottom >= lieu.bottom - 2; })() };
+    /* Version 224 : à mi-course, aucune ligne encore visible du grand titre
+       ne passe sous l'en-tête, ligne courte comprise. */
+    r.chevauche = [];
+    for (const y of [80, 140, 200, 260]) {
+      window.scrollTo({ top: y, behavior: "instant" });
+      await new Promise(z => setTimeout(z, 250));
+      const l = document.getElementById("ecLigne");
+      const bas = (vu(l) > 0.05 ? l : document.getElementById("ecLieu")).getBoundingClientRect().bottom;
+      for (const e of t.querySelectorAll(".bd-deg, .bd-etat > *, .pt-rep")) {
+        if (vu(e) > 0.05 && e.getBoundingClientRect().top < bas) r.chevauche.push(`${y}:${e.className}`);
+      }
+    }
     window.scrollTo({ top: 400, behavior: "instant" });
     await new Promise(z => setTimeout(z, 300));
     /* Au défilement : le lieu reste, la ligne courte paraît, le grand titre
@@ -146,7 +158,8 @@ export default async T => {
   ok("l'accueil en plein ciel porte des blocs teintés du ciel, sans bord, et un en-tête au lieu centré qui se réduit en une ligne au défilement",
     verre.flou && /^rgba\(\d+, \d+, \d+, 0\.56\)$/.test(verre.fond) && verre.bord === "0px" && Math.abs(verre.centre) <= 8
     && verre.date === "none" && verre.ligneRepos === 0 && verre.titreRepos === 1 && verre.bouton
-    && verre.lieuFixe && /^\d+° \| \S/.test(verre.ligne) && verre.ligneVue === 1 && verre.titreCache === 0 && verre.fondu,
+    && verre.lieuFixe && /^\d+° \| \S/.test(verre.ligne) && verre.ligneVue === 1 && verre.titreCache === 0 && verre.fondu
+    && verre.chevauche.length === 0,
     JSON.stringify(verre));
 
   /* Le réglage se fait dans la carte « Accueil » des réglages, et l'accueil

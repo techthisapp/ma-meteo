@@ -3277,8 +3277,9 @@ button.rangee:active{background:var(--surface-2)}
    les blocs passent dessous en fondu, sans bandeau sombre. */
 .entete-ciel{display:none}
 :root.plein-ciel .entete-ciel{display:flex;flex-direction:column;align-items:center;position:absolute;left:0;right:0;
-  top:calc(var(--haut) + 6px);pointer-events:none;text-align:center;color:#FFFFFF;text-shadow:0 1px 14px rgba(0,0,0,.28)}
-.ec-pos{font-size:var(--texte-legende);font-weight:var(--graisse-semibold);letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.82)}
+  top:calc(var(--haut) + 6px);pointer-events:none;text-align:center;color:#FFFFFF;
+  text-shadow:0 1px 2px rgba(0,0,0,.30),0 0 10px rgba(0,0,0,.14)}
+.ec-pos{font-size:var(--texte-legende);font-weight:var(--graisse-semibold);letter-spacing:.06em;text-transform:uppercase;color:#FFFFFF}
 .ec-lieu{display:inline-flex;align-items:center;gap:4px;max-width:calc(100vw - 120px);min-height:var(--touche);
   font-size:2.1rem;font-weight:400;letter-spacing:-.01em;line-height:1.15;padding:0 4px}
 .ec-lieu > span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -3298,6 +3299,10 @@ button.rangee:active{background:var(--surface-2)}
 .ecran-ciel .plein-accueil > .plein-titre{padding-top:calc(var(--haut) + var(--consult-haut) + 6px + 1.2rem + 2.6rem + var(--espace-lg))}
 .ecran-ciel .plein-titre > i{display:none}
 .ecran-ciel .plein-titre .bd-deg,.ecran-ciel .plein-titre .bd-etat > *,.ecran-ciel .plein-titre .pt-rep{opacity:var(--fondu,1)}
+/* L'apparition du titre ne garde pas sa dernière image : figée, elle
+   l'emportait sur le fondu, et la ligne du vêtement passait sous la ligne
+   courte, version 224. */
+.ecran-ciel .plein-titre .bd-deg,.ecran-ciel .plein-titre .bd-etat > *,.ecran-ciel .plein-titre > .pt-rep{animation-fill-mode:backwards}
 /* Un voile court derrière la barre d'état et l'en-tête : le ciel garde son
    éclat ; le texte blanc garde son ombre. */
 .ecran-ciel .plein-accueil > .ci .ci-voile-haut{height:calc(52% + 14% * var(--ci-clarte,0));
