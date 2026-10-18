@@ -73,9 +73,15 @@
     <button type="button" class="nc-b" id="navSuivre">Suivre ce lieu</button>
     <button type="button" class="nc-b nc-revenir" id="navRevenir">Revenir</button>
   </div>
-  <!-- La morphose du plein ciel, version 212 : la température et l'état
-       voyagent du titre de l'accueil jusqu'au centre du bandeau. -->
-  <div class="nav-morph" id="navMorph" aria-hidden="true"><span id="morphT"></span><span id="morphE"></span></div>
+  <!-- L'en-tête du plein ciel, version 223 : le lieu au centre, « Ma
+       position » au-dessus, la ligne courte qui paraît au défilement. -->
+  <div class="entete-ciel" id="enteteCiel">
+    <span class="ec-pos" id="ecPos" hidden>Ma position</span>
+    <!-- Le nom affiché ; le toucher va au bouton du lieu de la barre, posé
+         dessus, transparent : un seul bouton pour VoiceOver. -->
+    <span class="ec-lieu" id="ecLieu" aria-hidden="true"><span id="ecNom"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
+    <span class="ec-ligne" id="ecLigne" aria-hidden="true"></span>
+  </div>
 </header>
 
 <!-- Couche contenu -->

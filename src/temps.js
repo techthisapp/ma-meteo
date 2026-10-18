@@ -120,6 +120,17 @@ export function clarteDe(ciel, p) {
   return borne(part * luma(melangeRVB(c.clair, c.sombre, 0.28)) / 255, 0, 1);
 }
 
+/* La teinte des blocs de l'accueil plein ciel, version 223 : la couleur du
+   ciel du moment, grisée à mesure que la couche se ferme et que l'eau la
+   plombe, puis assombrie d'un tiers pour que le texte blanc s'y lise. Rend
+   « r g b », pour une couleur CSS à opacité variable. */
+export function teinteBlocs(ciel, p) {
+  const couv = Math.max(p.cumulus, p.nappe);
+  let t = melangeRVB(ciel.hautRVB, [92, 102, 116], Math.min(1, couv * 0.7 + plombDe(p) * 0.3));
+  t = melangeRVB(t, [14, 24, 40], 0.36);
+  return t.join(" ");
+}
+
 /* Écrit les grandeurs sur la toile. La toile porte tout ce qu'il faut pour se
    peindre : la boucle n'a pas d'état à retenir entre deux rendus d'écran. */
 export function attributs(p, ciel, vent, astre) {

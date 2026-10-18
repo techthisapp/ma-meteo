@@ -1643,50 +1643,27 @@ case "$N" in
   535) # Les mesures en petit disparaissent du compact.
      perl -0pi -e 's/\+ \(tuiles\.length \? `<span class="mini-mesures">/+ (false ? `<span class="mini-mesures">/' src/app.js
      ATTENDU="l.accueil compact montre les mesures en petit" ;;
-  536) # La barre de tête ne prend plus la température en petit. Jusqu'à la
-     # version 208, cette erreur retirait la feuille qui chevauchait le ciel,
-     # que le plein ciel a remplacée.
-     perl -0pi -e 's/    morphoser\(titre, nav, k\);\n//' src/app.js
-     ATTENDU="l.accueil en plein ciel porte des cartes de verre, et sa température et son état passent par morphose" ;;
-  537) # Les cartes de l'accueil perdent leur verre.
-     perl -0pi -e 's/backdrop-filter:blur\(22px\) saturate\(1\.3\)/backdrop-filter:none/g; s/backdrop-filter:blur\(20px\) saturate\(1\.6\)/backdrop-filter:none/g' styles.css
-     ATTENDU="l.accueil en plein ciel porte des cartes de verre, et sa température et son état passent par morphose" ;;
-  538) # Le titre ne se réduit plus au défilement.
-     perl -0pi -e 's/    titre\.style\.setProperty\("--repli", k\.toFixed\(3\)\);\n//' src/app.js
-     ATTENDU="l.accueil en plein ciel porte des cartes de verre, et sa température et son état passent par morphose" ;;
+  537) # Les blocs de l'accueil perdent leur flou.
+     perl -0pi -e 's/backdrop-filter:blur\(44px\) saturate\(1\.4\)/backdrop-filter:none/g' styles.css
+     ATTENDU="l.accueil en plein ciel porte des blocs teintés du ciel, sans bord, et un en-tête au lieu centré qui se réduit en une ligne au défilement" ;;
   539) # Le ciel de l'accueil reprend sa place dans la page.
      perl -0pi -e 's/\.ecran-ciel \.plein-accueil > \.ci\{position:fixed;inset:0;z-index:0\}//' styles.css
      ATTENDU="le ciel de l.accueil occupe tout l.écran, fixe" ;;
   540) # Le voile du titre en plein ciel disparaît.
-     perl -0pi -e 's/\.ecran-ciel \.plein-accueil > \.ci \.ci-voile-haut\{height:66%;/.ecran-ciel .plein-accueil > .ci .ci-voile-haut{height:0;/' styles.css
+     perl -0pi -e 's/\.ecran-ciel \.plein-accueil > \.ci \.ci-voile-haut\{height:52%;/.ecran-ciel .plein-accueil > .ci .ci-voile-haut{height:0;/' styles.css
      ATTENDU="le titre reste lisible sur un plafond de plein jour" ;;
   541) # La réponse du matin remonte dans son encadré au-dessus de la date.
      perl -0pi -e 's/\.ecran-ciel \.plein-titre > \.pt-rep\{\n  order:3;/.ecran-ciel .plein-titre > .pt-rep{\n  order:0;/' styles.css
      ATTENDU="elle est posée sous les bornes du jour" ;;
-  542) # La barre d'onglets garde son verre clair en plein ciel.
-     perl -0pi -e 's/:root\.plein-ciel \.onglets\{background:rgba\(14,24,40,\.48\);/:root.plein-ciel .onglets{/' styles.css
+  542) # La barre d'onglets perd la teinte du ciel en plein ciel.
+     perl -0pi -e 's/:root\.plein-ciel \.onglets\{background:rgb\(var\(--teinte-ciel, 14 24 40\) \/ \.62\)\}//' styles.css
      ATTENDU="la recette du plein ciel suit la maquette" ;;
-  543) # La barre de tête reste transparente sur les cartes qui défilent.
-     perl -0pi -e 's/  opacity:var\(--mini,0\);\n  background:linear-gradient\(180deg,rgba\(14,24,40,\.72\)/  opacity:0;\n  background:linear-gradient(180deg,rgba(14,24,40,.72)/' styles.css
-     ATTENDU="l.accueil en plein ciel porte des cartes de verre, et sa température et son état passent par morphose" ;;
-  544) # La morphose ignore le lieu et se centre par-dessus.
-     perl -0pi -e 's/const x0 = Math\.min\(Math\.max\(\(window\.innerWidth - largeur\) \/ 2, finNom\), roue\.left - 12 - largeur\);/const x0 = (window.innerWidth - largeur) \/ 2 - 60;/' src/app.js
-     ATTENDU="l.accueil en plein ciel porte des cartes de verre, et sa température et son état passent par morphose" ;;
   545) # Le ciel continue de s'animer pendant le glissement.
      perl -0pi -e 's/    if \(!repriseCiel\) Temps\.suspendre\(true\);\n//' src/app.js
      ATTENDU="le ciel se met en pause pendant le glissement" ;;
   546) # La reprise du ciel repart de zéro.
      perl -0pi -e 's/if \(debut === null\) debut = ms - tCourant \* 1000;/if (debut === null) debut = ms;/' src/temps.js
      ATTENDU="le ciel se met en pause pendant le glissement" ;;
-  547) # La morphose native n'est jamais posée sur le défilement.
-     perl -0pi -e 's/if \(geoMorph && DEFILE_NATIF\) animerMorph\(geoMorph\);//' src/app.js
-     ATTENDU="l.accueil en plein ciel porte des cartes de verre, et sa température et son état passent par morphose" ;;
-  548) # Le bandeau du haut ne se lève pas au défilement.
-     perl -0pi -e 's/animation:leverBandeau linear both;/animation:none;/' styles.css
-     ATTENDU="l.accueil en plein ciel porte des cartes de verre, et sa température et son état passent par morphose" ;;
-  549) # Le titre ne s'efface pas au défilement.
-     perl -0pi -e 's/animation:effacerTitre linear both;/animation:none;/' styles.css
-     ATTENDU="l.accueil en plein ciel porte des cartes de verre, et sa température et son état passent par morphose" ;;
   550) # L'accueil plein ciel ne demande pas le ciel WebGL.
      perl -0pi -e 's/    if \(toile\) toile\.dataset\.gl = "1";\n//' src/app.js
      ATTENDU="l.accueil plein ciel peint son ciel en WebGL, et l.anime" ;;
@@ -1753,6 +1730,27 @@ case "$N" in
   571) # La dérive grandit sans fin.
      perl -0pi -e 's/\(t \* vitesse\(vent, prof\)\) % 1;/t * vitesse(vent, prof);/' src/ciel-gl.js
      ATTENDU="la dérive des nuages reste bornée, même après des jours d.animation" ;;
+  572) # La ligne courte ne paraît jamais au défilement.
+     perl -0pi -e 's/  \$\("enteteCiel"\)\.style\.setProperty\("--k", k\.toFixed\(3\)\);\n//' src/app.js
+     ATTENDU="l.accueil en plein ciel porte des blocs teintés du ciel, sans bord, et un en-tête au lieu centré qui se réduit en une ligne au défilement" ;;
+  573) # Le grand titre ne s'efface pas sous l'en-tête.
+     perl -0pi -e 's/  lignes\.forEach\(\(e, i\) => e\.style\.setProperty\("--fondu", fondus\[i\]\.toFixed\(3\)\)\);\n//' src/app.js
+     ATTENDU="l.accueil en plein ciel porte des blocs teintés du ciel, sans bord, et un en-tête au lieu centré qui se réduit en une ligne au défilement" ;;
+  574) # Les blocs passent sous l'en-tête sans fondu.
+     perl -0pi -e 's/    corps\.style\.webkitMaskImage = m; corps\.style\.maskImage = m;\n//' src/app.js
+     ATTENDU="l.accueil en plein ciel porte des blocs teintés du ciel, sans bord, et un en-tête au lieu centré qui se réduit en une ligne au défilement" ;;
+  575) # Les blocs gardent leur bord.
+     perl -0pi -e 's/background-color:var\(--surface\);background-image:none;border:0;/background-color:var(--surface);background-image:none;border:1px solid rgba(255,255,255,.2);/' styles.css
+     ATTENDU="l.accueil en plein ciel porte des blocs teintés du ciel, sans bord, et un en-tête au lieu centré qui se réduit en une ligne au défilement" ;;
+  576) # La date revient dans le titre.
+     perl -0pi -e 's/\.ecran-ciel \.plein-titre > i\{display:none\}//' styles.css
+     ATTENDU="l.accueil en plein ciel porte des blocs teintés du ciel, sans bord, et un en-tête au lieu centré qui se réduit en une ligne au défilement" ;;
+  577) # Le bouton du lieu n'est plus posé sur le nom.
+     perl -0pi -e 's/  placerLieu\(f\.cielPlein === true\);\n//' src/app.js
+     ATTENDU="l.accueil en plein ciel porte des blocs teintés du ciel, sans bord, et un en-tête au lieu centré qui se réduit en une ligne au défilement" ;;
+  578) # Le lieu n'est plus centré.
+     perl -0pi -e 's/:root\.plein-ciel \.entete-ciel\{display:flex;flex-direction:column;align-items:center;/:root.plein-ciel .entete-ciel{display:flex;flex-direction:column;align-items:flex-start;/' styles.css
+     ATTENDU="l.accueil en plein ciel porte des blocs teintés du ciel, sans bord, et un en-tête au lieu centré qui se réduit en une ligne au défilement" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

@@ -103,31 +103,33 @@ export default async T => {
      le titre se réduit au défilement et la barre de tête prend la
      température en petit. */
   const verre = await p3.evaluate(async () => {
+    /* La page part du haut : un contrôle précédent a pu la laisser défilée. */
+    window.scrollTo({ top: 0, behavior: "instant" });
+    await new Promise(z => setTimeout(z, 300));
     const c = document.querySelector("#ecran .ecran-corps .carte");
     const st = getComputedStyle(c);
     const flou = (st.backdropFilter || st.webkitBackdropFilter || "none") !== "none";
-    window.scrollTo({ top: 400, behavior: "instant" });
-    await new Promise(r => setTimeout(r, 200));
+    const vu = el => Number(getComputedStyle(el).opacity);
     const t = document.querySelector(".plein-titre");
-    /* Version 212 : la morphose. Les deux pièces du bandeau, centrées dans
-       la barre de tête, à l'heure du titre caché ; le bandeau fondu levé. */
-    const nav = document.getElementById("nav").getBoundingClientRect();
-    const T = document.getElementById("morphT"), E = document.getElementById("morphE");
-    const rT = T.getBoundingClientRect(), rE = E.getBoundingClientRect();
-    const r = { flou, fond: st.backgroundColor, repli: Number(getComputedStyle(t.querySelector(":scope > i")).opacity).toFixed(2),
-      morph: getComputedStyle(T).visibility === "visible" ? `${T.textContent} ${E.textContent}` : "",
-      /* Version 213 : le lieu reste à gauche ; les pièces se tiennent entre
-         lui et la roue des réglages, sans les chevaucher. */
-      apresLieu: Math.round(rT.left - document.querySelector(".nav-chev").getBoundingClientRect().right),
-      avantRoue: Math.round(document.getElementById("btnReglages").getBoundingClientRect().left - rE.right),
-      lieuVu: Number(getComputedStyle(document.querySelector(".nav-noms")).opacity),
-      dansBarre: rT.top >= nav.top - 2 && rT.bottom <= nav.bottom + 2,
-      titreCache: getComputedStyle(t.querySelector(".bd-deg")).opacity === "0",
-      bandeau: Number(getComputedStyle(document.getElementById("nav"), "::before").opacity) };
+    /* Version 223 : l'en-tête au centre, le lieu en grand ; au repos, le
+       grand titre entier et sans date, la ligne courte cachée. */
+    const lieu = document.getElementById("ecLieu").getBoundingClientRect();
+    const r = { flou, fond: st.backgroundColor, bord: st.borderTopWidth,
+      centre: Math.round(lieu.left + lieu.width / 2 - window.innerWidth / 2),
+      date: getComputedStyle(t.querySelector(":scope > i")).display,
+      ligneRepos: vu(document.getElementById("ecLigne")), titreRepos: vu(t.querySelector(".bd-deg")),
+      bouton: (() => { const n = document.getElementById("navLieu").getBoundingClientRect();
+        return n.left <= lieu.left + 4 && n.right >= lieu.right - 4 && n.top <= lieu.top + 2 && n.bottom >= lieu.bottom - 2; })() };
+    window.scrollTo({ top: 400, behavior: "instant" });
+    await new Promise(z => setTimeout(z, 300));
+    /* Au défilement : le lieu reste, la ligne courte paraît, le grand titre
+       s'efface, les blocs passent dessous en fondu. */
+    const lieu2 = document.getElementById("ecLieu").getBoundingClientRect();
+    Object.assign(r, { lieuFixe: Math.abs(lieu2.top - lieu.top) < 1, ligne: document.getElementById("ecLigne").textContent,
+      ligneVue: vu(document.getElementById("ecLigne")), titreCache: vu(t.querySelector(".bd-deg")),
+      fondu: /transparent/.test(document.querySelector("#ecran .ecran-corps").style.maskImage || document.querySelector("#ecran .ecran-corps").style.webkitMaskImage || "") });
     window.scrollTo({ top: 0, behavior: "instant" });
-    await new Promise(r => setTimeout(r, 200));
-    r.morphEnHaut = getComputedStyle(T).visibility === "visible";
-    r.titreEnHaut = getComputedStyle(t.querySelector(".bd-deg")).opacity === "1" ? "visible" : "cache";
+    await new Promise(z => setTimeout(z, 200));
     return r;
   });
   /* Version 210, recette contre la maquette : la barre d'onglets en verre
@@ -138,13 +140,13 @@ export default async T => {
     const court = document.querySelector("#ecran .bande-court");
     return { onglets: o, etiquette: e ? getComputedStyle(e).textTransform : "", court: court && court.checkVisibility() ? court.textContent : "" };
   });
-  ok("la recette du plein ciel suit la maquette : barre d'onglets sombre, étiquettes en petites capitales",
-    /^rgba\(14, 24, 40, 0\.4/.test(recette.onglets) && recette.etiquette === "uppercase" && recette.court === "Prochaines heures",
+  ok("la recette du plein ciel suit la maquette : barre d'onglets teintée du ciel, étiquettes en petites capitales",
+    /0\.62\)$/.test(recette.onglets) && recette.etiquette === "uppercase" && recette.court === "Prochaines heures",
     JSON.stringify(recette));
-  ok("l'accueil en plein ciel porte des cartes de verre, et sa température et son état passent par morphose dans le bandeau, à côté du lieu",
-    verre.flou && /^rgba\(14, 24, 40, 0\.4/.test(verre.fond) && verre.repli === "0.00"
-    && /^\d+° \S/.test(verre.morph) && verre.apresLieu >= 0 && verre.avantRoue >= 0 && verre.lieuVu === 1 && verre.dansBarre && verre.titreCache && verre.bandeau > 0.95
-    && !verre.morphEnHaut && verre.titreEnHaut === "visible",
+  ok("l'accueil en plein ciel porte des blocs teintés du ciel, sans bord, et un en-tête au lieu centré qui se réduit en une ligne au défilement",
+    verre.flou && /^rgba\(\d+, \d+, \d+, 0\.56\)$/.test(verre.fond) && verre.bord === "0px" && Math.abs(verre.centre) <= 8
+    && verre.date === "none" && verre.ligneRepos === 0 && verre.titreRepos === 1 && verre.bouton
+    && verre.lieuFixe && /^\d+° \| \S/.test(verre.ligne) && verre.ligneVue === 1 && verre.titreCache === 0 && verre.fondu,
     JSON.stringify(verre));
 
   /* Le réglage se fait dans la carte « Accueil » des réglages, et l'accueil

@@ -607,7 +607,7 @@ function ecranAccueil() {
   ctx.reponse = reponse;
 
   let corps = "";
-  let plein = false;
+  let plein = false, teinte = null;
 
   if (!c || i < 0) {
     corps = etatErreur();
@@ -672,6 +672,7 @@ function ecranAccueil() {
     }
     plein = true;
     const bd = bandeauAccueil(g, new Date(), params, s ? s.v[0] : 0);
+    teinte = bd.teinte;
     /* Le ciel de l'accueil est plus bas que celui des autres écrans : la bande
        horaire et les chiffres du jour doivent tenir dans le premier écran.
        Jalon 10, lot 2. */
@@ -1058,6 +1059,7 @@ function ecranAccueil() {
        sur maquette : le ciel animé reste fixe derrière tout l'accueil, les
        cartes défilent dessus en verre sombre. */
     cielPlein: plein,
+    teinte,
     corps: bandeauHorsLigne() + corps,
     brancher(bloc) {
       Feu.poser(bloc.querySelector("#ciFeu"));
@@ -1404,11 +1406,24 @@ function rendre() {
   ecran.classList.toggle("ecran-detail", f.retour === true);
   ecran.classList.toggle("ecran-ciel", f.cielPlein === true);
   document.documentElement.classList.toggle("plein-ciel", f.cielPlein === true);
-  /* Les deux pièces de la morphose reprennent le texte du titre. */
-  const titreT = ecran.querySelector(".ecran-ciel .plein-titre .bd-deg, .plein-titre .bd-deg");
+  /* L'en-tête du plein ciel, version 223, choix de Jérôme du 18 octobre
+     2026 sur maquette : le lieu au centre, en grand, « Ma position » au-dessus
+     en mode position, et la ligne courte qui paraît au défilement. Les blocs
+     prennent la teinte du ciel. */
+  $("ecNom").textContent = $("navLieuNom").textContent;
+  $("ecPos").hidden = !enPos;
+  const titreT = ecran.querySelector(".plein-titre .bd-deg");
   const titreE = ecran.querySelector(".plein-titre .bd-ciel");
-  $("morphT").textContent = f.cielPlein && titreT ? titreT.textContent : "";
-  $("morphE").textContent = f.cielPlein && titreE ? titreE.textContent : "";
+  $("ecLigne").textContent = f.cielPlein && titreT && titreE ? `${titreT.textContent} | ${titreE.textContent}` : "";
+  document.documentElement.style.setProperty("--teinte-ciel", f.cielPlein && f.teinte ? f.teinte : "14 24 40");
+  /* Le nom du lieu tient sur une ligne : sa taille descend, de 34 à 22
+     points, tant qu'il déborde, comme chez Apple. */
+  if (f.cielPlein) {
+    const nomEc = $("ecNom");
+    nomEc.style.fontSize = "";
+    for (let t = 34; t >= 22 && nomEc.scrollWidth > nomEc.clientWidth + 1; t -= 2) nomEc.style.fontSize = `${t}px`;
+  }
+  placerLieu(f.cielPlein === true);
   /* Le ciel de l'accueil se garde d'un rendu à l'autre quand il n'a pas
      changé, version 204, signalé par Jérôme le 14 octobre 2026 : au
      démarrage, chaque source arrivée refaisait l'écran, et l'image animée
@@ -1458,9 +1473,6 @@ function rendre() {
     });
   }
 
-  /* Un rendu peut déplacer le titre : la morphose se remesure. */
-  oublierMorph();
-  morphActif = false;
   majPose();
 }
 
@@ -1507,146 +1519,40 @@ $("onglets").addEventListener("click", ev => {
    Sur un écran à bandeau plein cadre, c'est le ciel qui passe sous la barre :
    elle reste transparente et blanche tant qu'il est dessous, et ne reprend sa
    matière de verre qu'une fois le bandeau dépassé. */
-/* La morphose du plein ciel, version 212, demande de Jérôme du 16 octobre
-   2026 : au fil du doigt, la température et l'état quittent le titre et
-   voyagent en rétrécissant jusqu'au centre du bandeau du haut, côte à côte.
-   Les pièces du bandeau partent de la place que le titre occupe à l'instant,
-   puis rejoignent leur place finale : le mouvement suit le défilement dans
-   les deux sens. Le reste du titre s'efface. */
-const TAILLE_FIN = { t: 24, e: 15 };
-const adoucir = k => k * k * (3 - 2 * k);
-
-/* Version 214, la morphose rendue fluide, signalé par Jérôme le 17 octobre
-   2026 : chaque image mesurait la page puis la modifiait, ce qui forçait le
-   navigateur à refaire la mise en page à chaque pas du doigt. Les mesures se
-   prennent désormais une fois, au rendu et au changement de taille, en
-   coordonnées de la page ; chaque image ne fait plus que de l'arithmétique et
-   des déplacements que la carte graphique compose seule. */
-let geoMorph = null;
-const oublierMorph = () => { for (const a of geoMorph?.animations || []) a.cancel(); geoMorph = null; };
-function mesurerMorph(titre, nav) {
-  const srcT = titre.querySelector(".bd-deg"), srcE = titre.querySelector(".bd-ciel");
-  if (!srcT || !srcE) return null;
-  const T = $("morphT"), E = $("morphE");
-  const noms = nav.querySelector(".nav-noms");
-  noms.style.maxWidth = "";
-  const y = window.scrollY;
-  const rT = srcT.getBoundingClientRect(), rE = srcE.getBoundingClientRect();
-  const fT = parseFloat(getComputedStyle(srcT).fontSize), fE = parseFloat(getComputedStyle(srcE).fontSize);
-  T.style.fontSize = `${fT}px`; E.style.fontSize = `${fE}px`;
-  const sT = TAILLE_FIN.t / fT, sE = TAILLE_FIN.e / fE;
-  /* Les largeurs sont celles des pièces qui voyagent : le degré du titre
-     déborde de sa boîte. */
-  const wT = T.offsetWidth, wE = E.offsetWidth;
-  const largeur = wT * sT + 10 + wE * sE;
-  const corps = nav.querySelector(".nav-corps").getBoundingClientRect();
-  /* La limite à droite : le jeton du parapluie s'il paraît, sinon la roue. */
-  const droite = Math.min(...[$("btnReglages"), $("navJeton")]
-    .filter(el => el && !el.hidden && el.offsetParent).map(el => el.getBoundingClientRect().left));
-  const rNoms = noms.getBoundingClientRect();
-  const naturel = noms.scrollWidth;
-  /* La flèche qui suit le nom, avec son écart ; le bouton du lieu, lui,
-     s'étend jusqu'aux commandes de droite. */
-  const chev = nav.querySelector(".nav-chev");
-  const queue = chev ? chev.getBoundingClientRect().right - rNoms.right : 24;
-  const place = Math.max(60, droite - 12 - largeur - 14 - queue - rNoms.left);
-  const nomFin = Math.min(naturel, place);
-  /* Centré quand la place le permet ; sinon juste à droite du lieu, qui
-     reste à gauche et s'abrège pour tenir avant les commandes de droite. */
-  const x0 = Math.min(Math.max((window.innerWidth - largeur) / 2, rNoms.left + nomFin + queue + 14), droite - 12 - largeur);
-  return { srcT, srcE, T, E, noms, sT, sE, wT, x0, nomFin: nomFin < naturel ? nomFin : null,
-    cy: corps.top + corps.height / 2,
-    t: { left: rT.left, top: rT.top + y, h: rT.height }, e: { left: rE.left, top: rE.top + y, h: rE.height } };
+/* L'en-tête du plein ciel au défilement, version 223. Le lieu reste en
+   place ; chaque ligne du grand titre s'efface quand son bas arrive sous le
+   lieu ; la ligne courte paraît entre 120 et 200 points ; les blocs
+   s'effacent en fondu en passant sous l'en-tête. Toutes les lectures d'abord,
+   les écritures ensuite. */
+/* Le bouton du lieu, transparent, épouse le nom affiché au centre de
+   l'en-tête ; ailleurs il reprend sa place dans la barre. */
+function placerLieu(plein) {
+  const b = $("navLieu");
+  if (!plein) { for (const c of ["left", "top", "width", "height"]) b.style[c] = ""; return; }
+  const r = $("ecLieu").getBoundingClientRect(), c = b.parentElement.getBoundingClientRect();
+  b.style.left = `${Math.round(r.left - c.left)}px`; b.style.top = `${Math.round(r.top - c.top)}px`;
+  b.style.width = `${Math.round(r.width)}px`; b.style.height = `${Math.round(r.height)}px`;
 }
 
-/* Les animations liées au défilement, version 215 : là où le navigateur les
-   connaît, le parcours des deux pièces est calculé une fois, sur vingt
-   étapes, et remis au navigateur, qui le fait avancer lui-même au fil du
-   défilement, hors du fil de la page. Le JavaScript ne s'occupe plus que du
-   passage du repos à la morphose. Ailleurs, le calcul par image reste. */
-const DEFILE_NATIF = typeof window.ScrollTimeline === "function" && CSS.supports?.("animation-timeline: scroll()");
-const COURSE = 220;
-function trajetMorph(g, k) {
-  const e = adoucir(k), y = COURSE * k;
-  const etape = (r, s, xFin, dy) => {
-    const x = r.left + (xFin - r.left) * e;
-    const yFin = g.cy - r.h * s / 2 + dy;
-    const y0 = Math.max(r.top - y, yFin);
-    return { x, y: y0 + (yFin - y0) * e, echelle: 1 + (s - 1) * e };
-  };
-  const t = etape(g.t, g.sT, g.x0, -2);
-  /* Un écart plus large en chemin : entre deux étapes, le navigateur
-     interpole en ligne droite. */
-  const v = etape(g.e, g.sE, Math.max(t.x + g.wT * t.echelle + 16 * e, g.x0 + g.wT * g.sT + 10), 8);
-  const ecrit = a => `translate3d(${a.x.toFixed(1)}px, ${a.y.toFixed(1)}px, 0) scale(${a.echelle.toFixed(4)})`;
-  return { t: ecrit(t), e: ecrit(v) };
-}
-function animerMorph(g) {
-  for (const a of g.animations || []) a.cancel();
-  const total = Math.max(1, document.scrollingElement.scrollHeight - window.innerHeight);
-  const fin = Math.min(1, COURSE / total);
-  const imgT = [], imgE = [];
-  for (let n = 0; n <= 20; n++) {
-    const k = n / 20, p = trajetMorph(g, k);
-    imgT.push({ offset: k * fin, transform: p.t }); imgE.push({ offset: k * fin, transform: p.e });
+function enteteDefile(titre) {
+  const y = Math.max(0, window.scrollY);
+  const k = Math.min(1, Math.max(0, (y - 120) / 80));
+  const lieu = $("ecLieu").getBoundingClientRect().bottom;
+  const bas = lieu + k * $("ecLigne").getBoundingClientRect().height;
+  const lignes = titre ? [...titre.querySelectorAll(".bd-deg, .bd-etat > *, .pt-rep")] : [];
+  const fondus = lignes.map(e => {
+    const r = e.getBoundingClientRect();
+    return Math.max(0, Math.min(1, (r.bottom - lieu - 4) / Math.max(24, r.height * 0.7)));
+  });
+  const corps = $("ecran").querySelector(".ecran-corps");
+  const haut = corps ? corps.getBoundingClientRect().top : 0;
+  $("enteteCiel").style.setProperty("--k", k.toFixed(3));
+  lignes.forEach((e, i) => e.style.setProperty("--fondu", fondus[i].toFixed(3)));
+  if (corps) {
+    const l = Math.max(0, bas + 6 - haut);
+    const m = `linear-gradient(180deg,transparent 0,transparent ${l.toFixed(0)}px,#000 ${(l + 34).toFixed(0)}px)`;
+    corps.style.webkitMaskImage = m; corps.style.maskImage = m;
   }
-  if (fin < 1) { imgT.push({ offset: 1, transform: imgT[20].transform }); imgE.push({ offset: 1, transform: imgE[20].transform }); }
-  const timeline = new ScrollTimeline({ source: document.scrollingElement, axis: "block" });
-  g.animations = [g.T.animate(imgT, { timeline, fill: "both" }), g.E.animate(imgE, { timeline, fill: "both" })];
-}
-
-let morphActif = false;
-function morphoser(titre, nav, k) {
-  const boite = $("navMorph");
-  if (!titre || k <= 0) {
-    if (morphActif) {
-      boite.classList.remove("en-cours");
-      if (geoMorph) {
-        geoMorph.noms.style.maxWidth = "";
-        geoMorph.srcT.style.opacity = ""; geoMorph.srcE.style.opacity = "";
-      }
-      morphActif = false;
-    }
-    return;
-  }
-  if (!geoMorph || !geoMorph.srcT.isConnected) {
-    geoMorph = mesurerMorph(titre, nav);
-    if (geoMorph && DEFILE_NATIF) animerMorph(geoMorph);
-  }
-  const g = geoMorph;
-  if (!g) return;
-  /* Les écritures qui touchent la mise en page ne se font qu'au passage du
-     repos à la morphose, non à chaque image. Le nom s'abrège par une
-     transition. */
-  if (!morphActif) {
-    boite.classList.add("en-cours");
-    /* Transparents, non cachés : le toucher les atteint encore à travers les
-       pièces du bandeau, qui le laissent passer. */
-    g.srcT.style.opacity = "0"; g.srcE.style.opacity = "0";
-    if (g.nomFin !== null) g.noms.style.maxWidth = `${Math.round(g.nomFin)}px`;
-    morphActif = true;
-  }
-  if (DEFILE_NATIF) return;
-  const e = adoucir(k);
-  const y = window.scrollY;
-  /* Les chiffres s'assoient plus bas que le centre de leur boîte, et l'état
-     tient dans une cible de quarante-quatre points : un léger décalage
-     aligne les deux à l'arrivée. */
-  const poser = (el, r, s, xFin, dy) => {
-    const x = r.left + (xFin - r.left) * e;
-    /* Le départ ne remonte jamais au-dessus de l'arrivée : le titre, emporté
-       par le défilement, sort de l'écran par le haut. */
-    const yFin = g.cy - r.h * s / 2 + dy;
-    const y0 = Math.max(r.top - y, yFin);
-    const yy = y0 + (yFin - y0) * e;
-    const echelle = 1 + (s - 1) * e;
-    el.style.transform = `translate3d(${x.toFixed(1)}px, ${yy.toFixed(1)}px, 0) scale(${echelle.toFixed(4)})`;
-    return { x, echelle };
-  };
-  const t = poser(g.T, g.t, g.sT, g.x0, -2);
-  /* L'état suit le bord droit du chiffre qui rétrécit : ils ne se
-     chevauchent pas en chemin. */
-  poser(g.E, g.e, g.sE, Math.max(t.x + g.wT * t.echelle + 10 * e, g.x0 + g.wT * g.sT + 10), 8);
 }
 
 /* Les lectures d'abord, les écritures ensuite : une lecture après une
@@ -1664,16 +1570,11 @@ function majPose() {
      s'efface au défilement, et la barre de tête prend la température en
      petit. */
   const titre = ecran.classList.contains("ecran-ciel") ? ecran.querySelector(".plein-titre") : null;
-  if (titre) {
-    const k = Math.min(1, Math.max(0, window.scrollY) / 220);
-    morphoser(titre, nav, k);
-    /* En natif, les fondus avancent seuls, par le CSS ; ailleurs, par ces
-       deux variables. */
-    if (!DEFILE_NATIF) {
-      titre.style.setProperty("--repli", k.toFixed(3));
-      nav.style.setProperty("--mini", k.toFixed(3));
-    }
-  } else { nav.style.setProperty("--mini", "0"); morphoser(null, nav, 0); }
+  if (titre) enteteDefile(titre);
+  else {
+    const corps = ecran.querySelector(".ecran-corps");
+    if (corps?.style.maskImage) { corps.style.webkitMaskImage = ""; corps.style.maskImage = ""; }
+  }
 
   if (ciel) {
     const surCiel = basCiel > hauteurNav;
@@ -1699,7 +1600,7 @@ window.addEventListener("scroll", () => {
   if (poseDemandee) return;
   poseDemandee = requestAnimationFrame(() => { poseDemandee = 0; majPose(); });
 }, { passive: true });
-window.addEventListener("resize", () => { oublierMorph(); majPose(); });
+window.addEventListener("resize", () => { placerLieu(document.documentElement.classList.contains("plein-ciel")); majPose(); });
 
 /* La fenêtre du ruban vaut vingt-quatre heures en portrait et quarante-huit dès
    que la largeur le permet : basculer l'appareil change donc le dessin, non la

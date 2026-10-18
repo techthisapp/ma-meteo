@@ -275,7 +275,7 @@ export function bandeauAccueil(g, maintenant, p, vent) {
      ciel et les bornes du jour, qui se lisaient mal. La moitié basse du
      ciel de l'accueil porte le texte. */
   for (const a of astres) a.derriere = a.y > SEUIL_TEXTE;
-  return { ciel: panneauCiel(c, astres, toile, clarte), clarte };
+  return { ciel: panneauCiel(c, astres, toile, clarte), clarte, teinte: Temps.teinteBlocs(c, p) };
 }
 
 /* La trajectoire du jour : la hauteur du Soleil de minuit à minuit. Le trait

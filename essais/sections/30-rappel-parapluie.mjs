@@ -77,6 +77,8 @@ export default async T => {
     const p = await c.newPage();
     await ouvrirPage(p);
     await reposer(p, 2100);
+    /* Depuis la version 223, le jeton se lit hors de l'accueil plein ciel. */
+    await p.locator('[data-onglet="semaine"]').click(); await p.waitForTimeout(400);
     return [c, p];
   };
 
@@ -104,6 +106,9 @@ export default async T => {
      devant soi. */
   const [ctxMatin, pgMatin] = await ctxJeton(
     meteoPluie(30, APRESMIDI), "2026-08-18T06:00:00+02:00");
+  /* Depuis la version 223, l'accueil plein ciel laisse le jeton à la réponse
+     du matin : le jeton se lit sur « À venir ». */
+  await pgMatin.locator('[data-onglet="semaine"]').click(); await pgMatin.waitForTimeout(400);
   ok("une pluie de l'après-midi est annoncée dès avant la première alerte",
     await pgMatin.locator("#navJeton").isVisible());
   const ICS_MATIN = await pgMatin.evaluate(async () => {
@@ -124,6 +129,13 @@ export default async T => {
      passée, mais l'application n'a pas de notification à pousser : ouvrir
      l'écran est l'alerte, et le jeton doit y être. */
   const [ctxPluie, pgPluie] = await ctxJeton(meteoPluie(30, APRESMIDI));
+  /* Sur l'accueil plein ciel, la réponse du matin dit le parapluie à la place
+     du jeton, version 223. */
+  await pgPluie.locator('[data-onglet="accueil"]').click(); await pgPluie.waitForTimeout(400);
+  ok("sur l'accueil plein ciel, la réponse du matin dit le parapluie à la place du jeton",
+    await pgPluie.evaluate(() => getComputedStyle(document.getElementById("navJeton")).display === "none"
+      && /^Parapluie/.test(document.querySelector('.pt-rep .pt-l[data-feuille="parapluie"]')?.textContent.trim() || "")));
+  await pgPluie.locator('[data-onglet="semaine"]').click(); await pgPluie.waitForTimeout(400);
   ok("le jeton est là quand la période d'alerte est en cours",
     await pgPluie.locator("#navJeton").isVisible());
   ok("le jeton nomme les heures de la pluie",
@@ -147,9 +159,9 @@ export default async T => {
         && n.right <= j.left + 0.5;
     }));
 
-  ok("le jeton garde sa place sur les cinq écrans", await (async () => {
+  ok("le jeton garde sa place sur les quatre écrans hors de l'accueil", await (async () => {
     const vus = [];
-    for (const cle of ["accueil", "temps", "semaine", "ciel", "carte"]) {
+    for (const cle of ["temps", "semaine", "ciel", "carte"]) {
       await (cle === "temps" ? ouvrirLeTemps(pgPluie) : pgPluie.locator(`[data-onglet="${cle}"]`).click());
       await pgPluie.waitForTimeout(400);
       const b = await pgPluie.locator("#navJeton").boundingBox();
@@ -243,6 +255,7 @@ export default async T => {
   /* La feuille et la prise. La prise est gardée sous la date et l'instant
      d'alerte : prendre le jeton du matin ne doit pas faire taire celui du soir,
      et un rechargement ne doit pas le rendre. */
+  await pgPluie.locator('[data-onglet="semaine"]').click(); await pgPluie.waitForTimeout(400);
   await clic(pgPluie, "#navJeton");
   await pgPluie.waitForTimeout(450);
   ok("l'appui sur le jeton ouvre sa feuille",
@@ -260,12 +273,14 @@ export default async T => {
   ok("le jeton disparaît après un appui", await pgPluie.locator("#navJeton").isHidden());
   /* La prise vaut pour les deux endroits : l'objet quitte aussi l'encart, sans
      quoi l'application redemanderait de prendre ce qui est déjà pris. */
+  await pgPluie.locator('[data-onglet="accueil"]').click(); await pgPluie.waitForTimeout(400);
   ok("et l'objet quitte aussi l'encart de la réponse",
     await pgPluie.evaluate(() =>
       [...document.querySelectorAll(".pt-rep .pt-l")].every(x => x.dataset.feuille !== "parapluie")),
     await txtDe(pgPluie, ".pt-rep"));
   await pgPluie.reload({ waitUntil: "networkidle" });
   await reposer(pgPluie, 2100);
+  await pgPluie.locator('[data-onglet="semaine"]').click(); await pgPluie.waitForTimeout(400);
   ok("et ne revient pas au rechargement", await pgPluie.locator("#navJeton").isHidden());
   ok("la prise est gardée par sa date et son instant d'alerte",
     (await pgPluie.evaluate(() =>
@@ -281,6 +296,7 @@ export default async T => {
       jetonsPris: [], alertes: [16, 20] })));
   await pgPluie.reload({ waitUntil: "networkidle" });
   await reposer(pgPluie, 2100);
+  await pgPluie.locator('[data-onglet="semaine"]').click(); await pgPluie.waitForTimeout(400);
   ok("une première alerte posée après la pluie fait taire le jeton",
     await pgPluie.locator("#navJeton").isHidden());
   await pgPluie.locator("#btnReglages").click();

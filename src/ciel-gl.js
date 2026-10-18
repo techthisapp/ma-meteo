@@ -61,7 +61,7 @@ void main(){
   if (jour) {
     float coeur = smoothstep(RC, RC * 0.72, d);
     float auree = exp(-d * d * 700.0) * 0.9;
-    float a0 = max(coeur, auree) * mix(1.0, 0.6, uDoux);
+    float a0 = max(coeur, auree) * mix(1.0, 0.4, uDoux);
     vec3 blancChaud = mix(vec3(1.0, 0.99, 0.96), lum, 0.25);
     acc = vec4(blancChaud * a0, a0);
   }
@@ -104,7 +104,7 @@ void main(){
     /* Un nuage mince devant le Soleil s'illumine, traversé par la lumière ;
        peint dans sa teinte d'ombre, il faisait un disque gris dans le halo,
        version 222. */
-    if (uAstre.z > 0.5 && uNuit < 0.5) teinte = mix(teinte, vec3(1.0, 0.98, 0.95), exp(-d * d * 260.0) * (1.0 - t.a * 0.55) * mix(1.0, 0.6, uDoux));
+    if (uAstre.z > 0.5 && uNuit < 0.5) teinte = mix(teinte, vec3(1.0, 0.98, 0.95), exp(-d * d * 260.0) * (1.0 - t.a * 0.55) * mix(1.0, 0.35, uDoux));
     teinte += vec3(0.8, 0.84, 1.0) * eclair * exp(-length(p - lueur) * 2.2) * (0.6 + 0.6 * t.a);
     teinte = mix(teinte, ciel, (1.0 - prof) * 0.28);
     acc = vec4(teinte * dens, dens) + acc * (1.0 - dens);
@@ -133,7 +133,7 @@ void main(){
     float longueur = 0.05 + 0.2 * h21(vec2(id, 3.0)) * h21(vec2(id, 11.0));
     float rayons = trait * exp(-(d - RC) / longueur) * smoothstep(RC * 1.1, RC * 2.6, d);
     float eclatBloom = exp(-d * d * 160.0) * 0.55 + exp(-d * d * 22.0) * 0.28 + exp(-d * 5.0) * 0.1;
-    float doux = mix(1.0, 0.5, uDoux);
+    float doux = mix(1.0, 0.28, uDoux);
     vec3 eclat = lum * (eclatBloom + rayons * 0.16) * ouvert * (1.0 - nuageA * 0.7) * doux;
     /* La lueur blanche du cœur traverse un nuage mince. */
     eclat += vec3(1.0, 0.98, 0.94) * exp(-d * d * 450.0) * 0.6 * (1.0 - nuageA * 0.55) * doux * ouvert;
