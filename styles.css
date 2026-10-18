@@ -3084,6 +3084,10 @@ button.rangee:active{background:var(--surface-2)}
    graphique : le disque du panneau reste en place, transparent, pour le
    toucher qui l'ouvre en plein écran. */
 .ci:has(.ci-temps[data-webgl]) .ci-feu{opacity:0}
+/* Les voiles de lecture passent au-dessus de la toile du ciel, version 222 :
+   au même rang qu'elle et placés avant, ils restaient dessous, et le nom du
+   lieu se perdait sur un nuage clair. */
+.ecran-ciel .plein-accueil > .ci .ci-voile-haut,.ecran-ciel .plein-accueil > .ci .ci-voile-bas{z-index:2}
 
 /* Le résultat de la recherche de mise à jour, version 207 : sous le bouton,
    le message sur sa ligne, le bouton de rechargement dessous. */

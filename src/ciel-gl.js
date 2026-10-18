@@ -61,7 +61,7 @@ void main(){
   if (jour) {
     float coeur = smoothstep(RC, RC * 0.72, d);
     float auree = exp(-d * d * 700.0) * 0.9;
-    float a0 = max(coeur, auree) * mix(1.0, 0.7, uDoux);
+    float a0 = max(coeur, auree) * mix(1.0, 0.6, uDoux);
     vec3 blancChaud = mix(vec3(1.0, 0.99, 0.96), lum, 0.25);
     acc = vec4(blancChaud * a0, a0);
   }
@@ -101,6 +101,10 @@ void main(){
     vec3 ombreCiel = mix(uSombre, mix(uClair, ciel, 0.45) * 0.86, ouvert * (1.0 - e.x * 0.5));
     vec3 teinte = mix(ombreCiel, uClair + lum * 0.06, clamp(pow(t.r, 0.75) * (1.1 - e.x * 0.4) + 0.06, 0.0, 1.0)) * (0.84 + 0.16 * t.g);
     teinte += lum * (bloom * 0.5 + exp(-d * 4.0) * 0.25) * (1.0 - t.a) * ouvert * (1.0 - uNuit);
+    /* Un nuage mince devant le Soleil s'illumine, traversé par la lumière ;
+       peint dans sa teinte d'ombre, il faisait un disque gris dans le halo,
+       version 222. */
+    if (uAstre.z > 0.5 && uNuit < 0.5) teinte = mix(teinte, vec3(1.0, 0.98, 0.95), exp(-d * d * 260.0) * (1.0 - t.a * 0.55) * mix(1.0, 0.6, uDoux));
     teinte += vec3(0.8, 0.84, 1.0) * eclair * exp(-length(p - lueur) * 2.2) * (0.6 + 0.6 * t.a);
     teinte = mix(teinte, ciel, (1.0 - prof) * 0.28);
     acc = vec4(teinte * dens, dens) + acc * (1.0 - dens);
@@ -129,13 +133,13 @@ void main(){
     float longueur = 0.05 + 0.2 * h21(vec2(id, 3.0)) * h21(vec2(id, 11.0));
     float rayons = trait * exp(-(d - RC) / longueur) * smoothstep(RC * 1.1, RC * 2.6, d);
     float eclatBloom = exp(-d * d * 160.0) * 0.55 + exp(-d * d * 22.0) * 0.28 + exp(-d * 5.0) * 0.1;
-    float doux = mix(1.0, 0.7, uDoux);
+    float doux = mix(1.0, 0.5, uDoux);
     vec3 eclat = lum * (eclatBloom + rayons * 0.16) * ouvert * (1.0 - nuageA * 0.7) * doux;
     /* La lueur blanche du cœur traverse un nuage mince. */
     eclat += vec3(1.0, 0.98, 0.94) * exp(-d * d * 450.0) * 0.6 * (1.0 - nuageA * 0.55) * doux * ouvert;
     /* Le cœur brille par lui-même, plus fort que son halo : sous le voile de
        lecture, il paraissait gris au milieu d'un anneau clair. */
-    eclat += vec3(1.0, 0.99, 0.96) * smoothstep(RC * 1.1, RC * 0.6, d) * (1.0 - nuageA * 0.85) * doux;
+    eclat += vec3(1.0, 0.99, 0.96) * smoothstep(RC * 1.1, RC * 0.6, d) * (1.0 - nuageA * 0.5) * doux;
     if (uHalo > 0.0) {
       float x = (d - 0.34) / 0.028;
       vec3 iris = clamp(vec3(x + 0.6, 1.0 - abs(x) * 1.2, 0.6 - x), 0.0, 1.0);
