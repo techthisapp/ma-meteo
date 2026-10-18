@@ -1013,7 +1013,9 @@ export function arreter() {
 export const anime = () => boucle !== null;
 /* Depuis combien de secondes l'animation en cours tourne, pour les
    contrôles : un rendu qui la reprendrait de zéro se verrait. */
-export const ageAnimation = () => (boucle !== null && debut !== null ? (performance.now() - debut) / 1000 : 0);
+/* Juste après une reprise, avant la première image, l'âge est l'instant
+   atteint : il valait zéro, version 223. */
+export const ageAnimation = () => (boucle === null ? 0 : debut === null ? tCourant : (performance.now() - debut) / 1000);
 
 /* La boucle ne tourne que si la toile est à l'écran : elle continuait à trente
    images par seconde une fois le ciel sorti par le défilement. Une seule

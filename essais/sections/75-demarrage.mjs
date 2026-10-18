@@ -61,7 +61,9 @@ export default async T => {
     window.scrollTo(0, 120); window.dispatchEvent(new Event("scroll"));
     await new Promise(r => setTimeout(r, 60));
     const pendant = T.anime();
-    await new Promise(r => setTimeout(r, 450));
+    /* La reprise vient un instant après le dernier glissement ; sur une
+       machine chargée, elle peut tarder : l'attente va jusqu'à deux secondes. */
+    for (let k = 0; k < 20 && !T.anime(); k++) await new Promise(r => setTimeout(r, 100));
     const apres = T.anime(), age = T.ageAnimation();
     window.scrollTo(0, 0);
     return { avant: Math.round(avant * 10) / 10, pendant, apres, age: Math.round(age * 10) / 10 };
