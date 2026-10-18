@@ -3278,7 +3278,7 @@ button.rangee:active{background:var(--surface-2)}
 .entete-ciel{display:none}
 :root.plein-ciel .entete-ciel{display:flex;flex-direction:column;align-items:center;position:absolute;left:0;right:0;
   top:calc(var(--haut) + 6px);pointer-events:none;text-align:center;color:#FFFFFF;
-  text-shadow:0 1px 2px rgba(0,0,0,.30),0 0 10px rgba(0,0,0,.14)}
+  text-shadow:0 1px 1px rgba(0,0,0,.28)}
 .ec-pos{font-size:var(--texte-legende);font-weight:var(--graisse-semibold);letter-spacing:.06em;text-transform:uppercase;color:#FFFFFF}
 .ec-lieu{display:inline-flex;align-items:center;gap:4px;max-width:calc(100vw - 120px);min-height:var(--touche);
   font-size:2.1rem;font-weight:400;letter-spacing:-.01em;line-height:1.15;padding:0 4px}
@@ -3293,8 +3293,7 @@ button.rangee:active{background:var(--surface-2)}
    ouvre le même rappel. Il reste sur les autres écrans. */
 :root.plein-ciel #navJeton{display:none}
 :root.plein-ciel .nav-act{margin-left:auto}
-:root.plein-ciel #btnReglages{width:var(--touche);height:var(--touche);border-radius:50%;background:rgba(255,255,255,.16);
-  -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
+:root.plein-ciel #btnReglages{width:var(--touche);height:var(--touche);border-radius:50%;background:rgba(255,255,255,.18)}
 /* Le titre laisse la place de l'en-tête ; la date n'y figure plus. */
 .ecran-ciel .plein-accueil > .plein-titre{padding-top:calc(var(--haut) + var(--consult-haut) + 6px + 1.2rem + 2.6rem + var(--espace-lg))}
 .ecran-ciel .plein-titre > i{display:none}
