@@ -3476,12 +3476,16 @@ details.hh[open] + .hh{border-top-color:transparent}
 
 /* La porte d'un conseil, version 233 : la phrase du conseil en tête, la
    plage de l'événement lavée dans le dessin et surlignée dans la liste. */
-.hh-retenir{margin:0;padding:var(--espace-sm) var(--espace-md);border-left:3px solid var(--accent);
+.hh-retenir{margin:0;padding:var(--espace-sm) var(--espace-md);border-left:3px solid var(--surligne);
   border-radius:0 var(--rayon-md) var(--rayon-md) 0;background:rgb(var(--teinte-ciel, 14 24 40) / .50);
   font-size:var(--texte-appel);font-weight:var(--graisse-semibold);line-height:1.3;
   -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
-.mg-porte{fill:var(--accent);opacity:.20}
-.hh-mis{background:var(--accent-doux);margin:0 -8px;padding:0 8px}
+/* La mise en avant d'un conseil est jaune, version 238, demande de
+   Jérôme du 22 octobre 2026 : le bleu se confondait avec l'heure en cours
+   et le verre du ciel. Un jaune doux, lisible sur le verre sombre. */
+:root{--surligne:#F2C94C;--surligne-doux:rgba(242,201,76,.18)}
+.mg-porte{fill:var(--surligne);opacity:.22}
+.hh-mis{background:var(--surligne-doux);margin:0 -8px;padding:0 8px}
 .hh-mis + .hh-mis{border-top-color:transparent}
 
 /* Les portes de l'accueil, version 234. Les valeurs de l'accueil compact

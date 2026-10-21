@@ -17,16 +17,18 @@ import * as Ruban from "../ruban.js";
 import { listeEnsemble, listeGrandeur } from "../ecritures.js";
 import { aide } from "../aide.js";
 
-/* Les grandeurs du sélecteur, dans l'ordre du ruban : clé de la voie, titre
-   de la page, nom court de la pastille, icône. Sept pastilles, quatre puis
-   trois, tiennent sur deux rangées sans défilement de côté. */
+/* Les grandeurs du sélecteur : clé de la voie, titre de la page, nom court
+   de la pastille, icône. Elles suivent l'ordre des tuiles des mesures du
+   jour de l'accueil depuis la version 238, demande de Jérôme : ressenti,
+   pluie, vent, ciel, humidité, indice UV, pression. Sept pastilles, quatre
+   puis trois, tiennent sur deux rangées sans défilement de côté. */
 export const GRANDEURS = [
-  ["nua", "Ciel", "Ciel", "nuage"],
   ["t", "Température", "Temp.", "thermo"],
   ["mm", "Pluie", "Pluie", "parapluie"],
   ["v", "Vent", "Vent", "vent"],
-  ["uv", "Indice UV", "UV", "soleil"],
+  ["nua", "Ciel", "Ciel", "nuage"],
   ["hum", "Humidité", "Humidité", "goutte"],
+  ["uv", "Indice UV", "UV", "soleil"],
   ["pres", "Pression", "Pression", "jauge"],
 ];
 

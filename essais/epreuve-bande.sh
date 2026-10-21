@@ -1802,9 +1802,9 @@ case "$N" in
   597) # La vue ciblée dessine toutes les voies.
      perl -0pi -e 's/  const vue = c => !seule \|\| c === voieOuverte;/  const vue = c => true;/' src/ruban.js
      ATTENDU="la vue ciblée ne dessine qu.une voie, la sienne";;
-  598) # Une pastille porte le nom long.
-     perl -0pi -e 's/\["t", "Température", "Temp\.", "thermo"\]/["t", "Température", "Température", "thermo"]/' src/vues/heures.js
-     ATTENDU="sept pastilles, dans l.ordre du ruban";;
+  598) # Les pastilles reprennent l'ordre du ruban.
+     perl -0pi -e 's/(  \["t", "Température", "Temp\.", "thermo"\],\n  \["mm", "Pluie", "Pluie", "parapluie"\],\n  \["v", "Vent", "Vent", "vent"\],\n)(  \["nua", "Ciel", "Ciel", "nuage"\],\n)/$2$1/' src/vues/heures.js
+     ATTENDU="sept pastilles, dans l.ordre des tuiles de l.accueil" ;;
   599) # La pastille du ciel reste pressée.
      perl -0pi -e 's/aria-pressed="\$\{c === cle\}"/aria-pressed="\${c === "nua"}"/' src/vues/heures.js
      ATTENDU="la pastille de la grandeur ouverte est pressée";;
@@ -1943,6 +1943,12 @@ case "$N" in
   644) # Les portes de l'accueil compact reprennent leur propre verre.
      perl -0pi -e 's/\.accueil-compact\.ecran-corps \[data-bloc="portes"\] \.porte\{background-color:transparent;/.accueil-compact.ecran-corps [data-bloc="portes"] .porte-x{background-color:transparent;/' styles.css
      ATTENDU="les portes de l.accueil compact forment un seul bloc de verre, sans bandes entre elles" ;;
+  645) # La mise en avant d'un conseil revient au bleu.
+     perl -0pi -e 's/:root\{--surligne:#F2C94C;--surligne-doux:rgba\(242,201,76,\.18\)\}/:root{--surligne:#A8D2F5;--surligne-doux:rgba(168,210,245,.18)}/' styles.css
+     ATTENDU="la mise en avant d.un conseil est jaune" ;;
+  646) # La bascule du ciel retrouve son symbole pour seule destination.
+     perl -0pi -e 's/Le ciel se dégage vers \$\{dem\(k\)\}\.`, "nua"\);/Le ciel se dégage vers \${dem(k)}.`);/' src/conseils.js
+     ATTENDU="les conseils sur la bascule du ciel ouvrent le ciel heure par heure" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

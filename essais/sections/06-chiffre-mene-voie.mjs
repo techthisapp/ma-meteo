@@ -37,6 +37,21 @@ export default async T => {
   ok("le grand chiffre mène à la température",
     await pg.locator('.mg-v[data-cle="t"].mg-grand').count() === 1);
 
+  /* Le conseil sur la bascule du ciel mène au ciel, version 238. */
+  const ciel = await pg.evaluate(async () => {
+    const C = await import("/src/conseils.js");
+    const n = 8, h = Array.from({ length: n }, (_, k) => 9 + k);
+    const s = { n, heure: h, jour: h.map(() => "2026-08-18"), t: h.map(() => 20), res: h.map(() => 20), mm: h.map(() => 0),
+      pb: h.map(() => 0), code: h.map(() => 1), nua: h.map((_, k) => (k < 3 ? 10 : 95)), hum: h.map(() => 60),
+      raf: h.map(() => 10), v: h.map(() => 5), uv: h.map(() => 0), pres: h.map(() => 1015), clair: h.map(() => 1), dir: h.map(() => 0) };
+    const couvre = C.conseils(s, { aujourdhui: "2026-08-18" }).find(x => /Le ciel se couvre/.test(x.t));
+    s.nua = s.nua.map(v => 100 - v);
+    const degage = C.conseils(s, { aujourdhui: "2026-08-18" }).find(x => /Le ciel se dégage/.test(x.t));
+    return { couvre: couvre?.d, degage: degage?.d, html: C.conseilsHTML([couvre].filter(Boolean)) };
+  });
+  ok("les conseils sur la bascule du ciel ouvrent le ciel heure par heure",
+    ciel.couvre === "nua" && ciel.degage === "nua" && /data-detail="nua" data-heure="\d+"/.test(ciel.html), JSON.stringify(ciel));
+
   /* Un conseil mène à la plage de son événement, version 233, demande de
      Jérôme du 21 octobre 2026 : la page repart de maintenant, se cale sur le
      jour de l'événement s'il le faut, le redit en tête et en lave les heures
@@ -56,6 +71,22 @@ export default async T => {
   ok("un conseil ouvre la vue sur la plage de son événement, mise en avant",
     /^Demain, /.test(ouvert.jour) && ouvert.retenir === vise.phrase && ouvert.marque
     && ouvert.mis.length === vise.a - vise.de + 1, JSON.stringify({ vise, ouvert }));
+  /* La mise en avant est jaune depuis la version 238 : la teinte de
+     l'encadré, de la plage du dessin et des heures de la liste. */
+  const teintes = await pg.evaluate(() => {
+    const teinte = c => {
+      const m = (c || "").match(/\d+(\.\d+)?/g)?.map(Number) || [];
+      if (m.length < 3) return -1;
+      const [r, g, b] = m.map(x => x / 255), mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+      if (mx === mn) return -1;
+      const h = mx === r ? ((g - b) / (mx - mn)) % 6 : mx === g ? (b - r) / (mx - mn) + 2 : (r - g) / (mx - mn) + 4;
+      return Math.round(((h * 60) + 360) % 360);
+    };
+    return { encadre: teinte(getComputedStyle(document.querySelector(".hh-retenir")).borderLeftColor),
+      plage: teinte(getComputedStyle(document.querySelector(".mg-porte")).fill),
+      heures: teinte(getComputedStyle(document.querySelector(".hh-mis")).backgroundColor) };
+  });
+  ok("la mise en avant d'un conseil est jaune", Object.values(teintes).every(h => h >= 38 && h <= 58), JSON.stringify(teintes));
   await pg.locator('.hh-puce[data-grandeur="v"]').click();
   await pg.waitForTimeout(400);
   ok("changer de grandeur efface la mise en avant",

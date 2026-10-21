@@ -320,8 +320,10 @@ export function conseils(s, g) {
       if (couvert(j) !== couvert(k)) { tient = false; break; }
     }
     if (!tient) continue;
+    /* La bascule du ciel mène au ciel, version 238 : le symbole du nuage
+       n'avait pas de destination, celui du soleil menait à la température. */
     dire(couvert(k) ? "nuage" : "soleil", 2, k,
-      couvert(k) ? `Le ciel se couvre vers ${dem(k)}.` : `Le ciel se dégage vers ${dem(k)}.`);
+      couvert(k) ? `Le ciel se couvre vers ${dem(k)}.` : `Le ciel se dégage vers ${dem(k)}.`, "nua");
     break;
   }
 

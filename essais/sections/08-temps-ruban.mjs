@@ -29,7 +29,10 @@ export default async T => {
     await pg.locator(".mg-v").count() === 1 && await pg.locator('.mg-v[data-cle="t"].mg-grand').count() === 1,
     String(await pg.locator(".mg-v").count()));
   const puces = (await pg.locator(".hh-puce").allInnerTexts()).map(x => x.trim().toLowerCase()).join(",");
-  ok("sept pastilles, dans l'ordre du ruban", puces === "ciel,temp.,pluie,vent,uv,humidité,pression", puces);
+  /* L'ordre des tuiles des mesures du jour de l'accueil, version 238. */
+  const tuiles = await pg.evaluate(() => [...document.querySelectorAll("#ecran .hh-puce")].map(p => p.dataset.grandeur).join());
+  ok("sept pastilles, dans l'ordre des tuiles de l'accueil", puces === "temp.,pluie,vent,ciel,humidité,uv,pression"
+    && tuiles === "t,mm,v,nua,hum,uv,pres", `${puces} ; ${tuiles}`);
   ok("la pastille de la grandeur ouverte est pressée",
     await pg.locator('.hh-puce[aria-pressed="true"]').getAttribute("data-grandeur") === "t");
   ok("les sept pastilles tiennent sur deux rangées, sans défilement de côté", await pg.evaluate(() => {
