@@ -137,7 +137,7 @@ function barre(v, mx, cls = "", couleur = "") {
     + `${couleur ? `;background:${couleur}` : ""}"></b></span>`;
 }
 
-export function listeGrandeur(s, cle, a, b) {
+export function listeGrandeur(s, cle, a, b, porte = null) {
   const g = GRANDEURS[cle];
   if (!g) return "";
   const tr = c => s[c].slice(a, b);
@@ -150,7 +150,9 @@ export function listeGrandeur(s, cle, a, b) {
   };
   const ligne = k => {
     const [avant, piste, val] = g.ligne(s, k, c);
-    return `<div class="hh hh-l hh-l4${k === s.ici ? " hh-ici" : ""}${s.clair[k] ? "" : " hh-nuit"}">`
+    /* Les heures de l'événement désigné par un conseil se surlignent. */
+    const mis = porte && k >= porte.de && k <= porte.a ? " hh-mis" : "";
+    return `<div class="hh hh-l hh-l4${k === s.ici ? " hh-ici" : ""}${s.clair[k] ? "" : " hh-nuit"}${mis}">`
       + `<span class="hh-h">${heureDe(s, k)}</span><span class="hh-a">${avant}</span>${piste}`
       + `<span class="hh-val">${val}</span></div>`;
   };

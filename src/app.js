@@ -2207,6 +2207,7 @@ function ouvrirLeTemps() {
   sentir(8);
   /* Sans grandeur désignée, la page ouvre la vue d'ensemble, version 232. */
   Ruban.poserVoie(null);
+  Ruban.poserPorte(null);
   Ruban.poserHeure(-1);
   detail = { y: window.scrollY };
   history.pushState({ detail: true }, "");
@@ -2231,9 +2232,14 @@ function ouvrirJour(jour) {
   rendre();
 }
 
-/* Une grandeur désignée ouvre la vue ciblée, son seul graphique, version 232. */
-function allerAuDetail(cle, heure = null) {
+/* Une grandeur désignée ouvre la vue ciblée, son seul graphique, version 232.
+   La fenêtre repart de maintenant, puis se cale sur le jour de l'heure
+   désignée ; un conseil désigne la plage de son événement, que la page met
+   en avant, version 233. */
+function allerAuDetail(cle, heure = null, fin = null, phrase = "") {
   Ruban.poserVoie(cle);
+  Ruban.auMaintenant();
+  Ruban.poserPorte(null);
   sentir(8);
   /* Depuis le 25 septembre 2026, la page de détail s'ouvre dans l'onglet où
      l'on se trouve, et non plus seulement sur l'accueil : l'onglet « Le temps »
@@ -2249,8 +2255,13 @@ function allerAuDetail(cle, heure = null) {
       const sr = Ruban.serieCourante();
       if (sr) {
         const cible = Math.min(sr.n - 1, sr.ici + heure);
-        const fin = Ruban.decalageCourant() + Ruban.fenetre() - 1;
-        if (cible > fin) Ruban.poserJour(cible);
+        const bout = Ruban.decalageCourant() + Ruban.fenetre() - 1;
+        if (fin !== null) {
+          Ruban.poserPorte({ de: cible, a: Math.min(sr.n - 1, Math.max(cible, sr.ici + fin)), phrase });
+        }
+        /* La fenêtre doit porter l'événement jusqu'à sa fin. */
+        const dernier = fin !== null ? Math.min(sr.n - 1, sr.ici + fin) : cible;
+        if (dernier > bout) Ruban.poserJour(cible);
         Ruban.poserHeure(cible);
         rendre();
       }
@@ -2284,7 +2295,8 @@ $("ecran").addEventListener("click", ev => {
   if (jourH) { ouvrirJour(jourH.dataset.jourHeures); return; }
   const d = ev.target.closest("[data-detail]");
   if (d) {
-    allerAuDetail(d.dataset.detail, d.dataset.heure != null ? Number(d.dataset.heure) : null);
+    allerAuDetail(d.dataset.detail, d.dataset.heure != null ? Number(d.dataset.heure) : null,
+      d.dataset.fin != null ? Number(d.dataset.fin) : null, d.dataset.phrase || "");
     return;
   }
   /* Le lien de l'encart de pluie : la carte, couche de pluie allumée, cadrée

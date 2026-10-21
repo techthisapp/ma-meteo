@@ -36,4 +36,39 @@ export default async T => {
   await pg.waitForTimeout(900);
   ok("le grand chiffre mène à la température",
     await pg.locator('.mg-v[data-cle="t"].mg-grand').count() === 1);
+
+  /* Un conseil mène à la plage de son événement, version 233, demande de
+     Jérôme du 21 octobre 2026 : la page repart de maintenant, se cale sur le
+     jour de l'événement s'il le faut, le redit en tête et en lave les heures
+     dans le dessin et dans la liste. */
+  await onglet("accueil");
+  const porte = pg.locator('.cj-porte[data-detail="mm"]').first();
+  const vise = { de: Number(await porte.getAttribute("data-heure")), a: Number(await porte.getAttribute("data-fin")),
+    phrase: await porte.getAttribute("data-phrase") };
+  await porte.click();
+  await pg.waitForTimeout(900);
+  const ouvert = await pg.evaluate(() => ({
+    jour: document.querySelector(".mg-j-on")?.getAttribute("aria-label") || "",
+    retenir: document.querySelector(".hh-retenir")?.textContent || "",
+    mis: [...document.querySelectorAll(".hh-mis .hh-h")].map(e => e.textContent),
+    marque: !!document.querySelector(".mg-v .mg-porte"),
+  }));
+  ok("un conseil ouvre la vue sur la plage de son événement, mise en avant",
+    /^Demain, /.test(ouvert.jour) && ouvert.retenir === vise.phrase && ouvert.marque
+    && ouvert.mis.length === vise.a - vise.de + 1, JSON.stringify({ vise, ouvert }));
+  await pg.locator('.hh-puce[data-grandeur="v"]').click();
+  await pg.waitForTimeout(400);
+  ok("changer de grandeur efface la mise en avant",
+    await pg.locator(".hh-retenir, .hh-mis, .mg-porte").count() === 0);
+
+  /* Une porte sans heure repart de maintenant, quel que soit le jour choisi
+     à la visite précédente. */
+  await pg.locator(".mg-jours [data-jour]").last().click();
+  await pg.waitForTimeout(400);
+  await onglet("accueil");
+  await pg.locator('.bd-m[data-detail="v"]').click();
+  await pg.waitForTimeout(900);
+  ok("une porte sans heure repart de maintenant, non du dernier jour choisi",
+    await pg.locator(".mg-j-on").getAttribute("aria-label") === "Maintenant",
+    await pg.locator(".mg-j-on").getAttribute("aria-label"));
 };

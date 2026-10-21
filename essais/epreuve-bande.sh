@@ -1883,6 +1883,18 @@ case "$N" in
   624) # Les barres de pluie reprennent l'encre du texte.
      perl -0pi -e 's/\.mg-pl-faible\{fill:var\(--sp-faible\)\}/.mg-pl-faible{fill:currentColor}/' styles.css
      ATTENDU="les barres de pluie prennent les intensités du mode pluie";;
+  625) # La porte d'un conseil perd la plage de son événement.
+     perl -0pi -e 's/    const plage = Number\.isFinite\(x\.de\) && Number\.isFinite\(x\.jusqua\) \?/    const plage = false ?/' src/conseils.js
+     ATTENDU="un conseil ouvre la vue sur la plage de son événement, mise en avant" ;;
+  626) # La fenêtre ne s'étend plus jusqu'à la fin de l'événement.
+     perl -0pi -e 's/        const dernier = fin !== null \? Math\.min\(sr\.n - 1, sr\.ici \+ fin\) : cible;/        const dernier = cible;/' src/app.js
+     ATTENDU="un conseil ouvre la vue sur la plage de son événement, mise en avant" ;;
+  627) # La mise en avant survit au changement de grandeur.
+     perl -0pi -e 's/Ruban\.poserVoie\(p\.dataset\.grandeur\); Ruban\.poserPorte\(null\);/Ruban.poserVoie(p.dataset.grandeur);/' src/vues/heures.js
+     ATTENDU="changer de grandeur efface la mise en avant" ;;
+  628) # Une porte sans heure garde le dernier jour choisi.
+     perl -0pi -e 's/  Ruban\.poserVoie\(cle\);\n  Ruban\.auMaintenant\(\);\n/  Ruban.poserVoie(cle);\n/' src/app.js
+     ATTENDU="une porte sans heure repart de maintenant, non du dernier jour choisi" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

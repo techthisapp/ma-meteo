@@ -64,6 +64,7 @@ export function vueTemps(ctx, rendre) {
   const dessin = Ruban.dessiner(s, { seule: true });
   const lu = Ruban.lectureSeule();
   const [a, b] = Ruban.bornesListe(s);
+  const porte = Ruban.porteCourante();
   /* La phrase de la voie, sans la notice de lecture que porte parfois sa
      seconde moitié : la première phrase répond à la question. */
   const phrase = (lu.resume || lu.droite || "").replace(/\s+(L'aire|L'ombre|Sur les|Une baisse)[^]*$/, "");
@@ -76,14 +77,18 @@ export function vueTemps(ctx, rendre) {
     // Le graphique prend toute la largeur : sa densité fait sa lisibilité.
     large: true,
     corps: `<div class="hh-page" data-vue="ciblee" data-cle="${esc(cle)}">`
-      + `<h1 class="hh-grand">${esc(gr[1])}</h1><p class="hh-phrase">${esc(phrase)}</p>`
+      + `<h1 class="hh-grand">${esc(gr[1])}</h1>`
+      /* Ouverte par un conseil, la page le redit en tête, version 233. */
+      + (porte?.phrase ? `<p class="hh-retenir">${esc(porte.phrase)}</p>` : `<p class="hh-phrase">${esc(phrase)}</p>`)
       + puces + `<div class="hh-jours">${Ruban.navJours(s)}</div>`
       + `<div class="carte hh-graphe">${dessin}`
-      + (lu.resume && lu.resume !== phrase ? `<div class="hh-aide">${aide(lu.resume)}</div>` : "") + `</div>`
-      + listeGrandeur(s, cle, a, b) + `</div>`,
+      + (lu.resume && (lu.resume !== phrase || porte?.phrase) ? `<div class="hh-aide">${aide(lu.resume)}</div>` : "") + `</div>`
+      + listeGrandeur(s, cle, a, b, porte) + `</div>`,
     brancher(bloc) {
       for (const p of bloc.querySelectorAll("[data-grandeur]")) {
-        p.addEventListener("click", () => { Ruban.poserVoie(p.dataset.grandeur); Ruban.poserHeure(-1); rendre(); });
+        p.addEventListener("click", () => {
+          Ruban.poserVoie(p.dataset.grandeur); Ruban.poserPorte(null); Ruban.poserHeure(-1); rendre();
+        });
       }
       Ruban.brancher(bloc, rendre);
     },

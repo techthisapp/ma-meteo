@@ -103,6 +103,13 @@ export const ouvrir = c => { voieOuverte = voieOuverte === c ? null : c; };
 // Ouverture franche, sans bascule : l'accueil désigne une voie, il ne la ferme pas.
 export const poserVoie = c => { voieOuverte = c; };
 export const voieCourante = () => voieOuverte;
+/* La porte par laquelle la vue ciblée s'est ouverte, version 233 : la plage
+   de l'événement dont parlait un conseil, en indices de l'horizon, et sa
+   phrase. Le dessin la lave d'une bande claire, la liste en surligne les
+   heures, la page écrit la phrase en tête. */
+let porte = null;
+export const poserPorte = p => { porte = p; };
+export const porteCourante = () => porte;
 export const lectureSeule = () => lecture;
 export const serieCourante = () => serie;
 export const heureCourante = () => heureLue;
@@ -666,8 +673,10 @@ export function dessiner(s, opt = {}) {
     /* Le voile du passé et le repère de l'heure closent le groupe mobile : ils
        glissent avec le dessin et couvrent tout ce qui y a été posé. L'écriture
        d'échelle, elle, vient après, hors du groupe, et reste lisible. */
+    const marque = seule && porte ? `<rect class="mg-porte" x="${u(X(porte.de))}" y="0" `
+      + `width="${u(X(porte.a + 1) - X(porte.de))}" height="${haut}"/>` : "";
     const dessin = `<svg class="mg-s" viewBox="0 0 ${L} ${haut}" aria-hidden="true">${defs}`
-      + `<g clip-path="url(#${id0})"><g class="mg-mob">${dedans}`
+      + `<g clip-path="url(#${id0})"><g class="mg-mob">${marque}${dedans}`
       + `${passe(0, haut)}${repere(0, haut)}</g></g>${dedansFixe}`
       /* Le montant de l'heure lue se tait sur l'heure en cours, que le repère
          marque déjà : deux traits voisins se lisaient comme un seul épais. */

@@ -3468,3 +3468,13 @@ details.hh[open] + .hh{border-top-color:transparent}
 .hh-d{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px 8px;margin:0;padding:2px 0 var(--espace-md)}
 .hh-d dt{font-size:var(--texte-legende2);color:var(--etiquette-3)}
 .hh-d dd{margin:0;font-size:var(--texte-note);font-weight:var(--graisse-semibold);white-space:nowrap}
+
+/* La porte d'un conseil, version 233 : la phrase du conseil en tête, la
+   plage de l'événement lavée dans le dessin et surlignée dans la liste. */
+.hh-retenir{margin:0;padding:var(--espace-sm) var(--espace-md);border-left:3px solid var(--accent);
+  border-radius:0 var(--rayon-md) var(--rayon-md) 0;background:rgb(var(--teinte-ciel, 14 24 40) / .50);
+  font-size:var(--texte-appel);font-weight:var(--graisse-semibold);line-height:1.3;
+  -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
+.mg-porte{fill:var(--accent);opacity:.20}
+.hh-mis{background:var(--accent-doux);margin:0 -8px;padding:0 8px}
+.hh-mis + .hh-mis{border-top-color:transparent}

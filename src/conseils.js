@@ -96,14 +96,21 @@ export function conseils(s, g) {
      ruban qui le montre, ou la feuille de l'air. Le symbole le donne par
      défaut ; le soleil et la brume servent chacun à deux sortes de conseils,
      et leurs appels le précisent. */
-  const dire = (i, grav, k, t, d = DESTINATIONS[i] || null) =>
-    lignes.push({ i, g: grav, h: decalage + k + 1, j: jDe(Math.min(k, s.n - 1)), t, d });
+  /* `k` est la dernière heure dont parle la ligne, ou la plage `[début, fin]`
+     de son événement. `de` et `jusqua` gardent cette plage, comptée depuis
+     maintenant : la page ouverte par le conseil s'y cale et la met en avant,
+     version 233. */
+  const dire = (i, grav, k, t, d = DESTINATIONS[i] || null) => {
+    const [a, b] = Array.isArray(k) ? k : [k, k];
+    lignes.push({ i, g: grav, h: decalage + b + 1, j: jDe(Math.min(b, s.n - 1)), t, d,
+      de: decalage + a, jusqua: decalage + b });
+  };
   const plagesCode = codes => plagesDe(s.n, k => codes.includes(s.code[k]));
 
   // 1. L'orage, qui passe avant tout le reste.
   const or = plagesCode(ORAGE);
   if (or.length) {
-    dire("orage", 10, or[or.length - 1][1],
+    dire("orage", 10, [or[0][0], or[or.length - 1][1]],
       `Orages annoncés ${plage(or[0][0], or[or.length - 1][1])}.`);
   }
 
@@ -113,7 +120,7 @@ export function conseils(s, g) {
     const mmNe = ne.reduce((a, [x, y]) => {
       let t = a; for (let k = x; k <= y; k++) t += s.mm[k]; return t;
     }, 0);
-    dire("neige", 9.5, ne[ne.length - 1][1],
+    dire("neige", 9.5, [ne[0][0], ne[ne.length - 1][1]],
       `Neige annoncée ${plage(ne[0][0], ne[ne.length - 1][1])}`
       + (mmNe >= SEUILS.lame ? `, ${nombreFr(mmNe)} mm attendus.` : "."));
   }
@@ -128,12 +135,12 @@ export function conseils(s, g) {
     /* Quand les deux modèles ne s'accordent pas, c'est la ligne de pluie qui le
        dit : deux lignes, l'une affirmative et l'autre dubitative, se
        contrediraient à la lecture. */
-    dire("goutte", 9, s.n - 1, div.bas < SEUILS.lame
+    dire("goutte", 9, [0, s.n - 1], div.bas < SEUILS.lame
       ? `Pluie incertaine, jusqu'à ${nombreFr(div.haut)} mm selon le modèle.`
       : `Pluie incertaine, de ${nombreFr(div.bas)} à ${nombreFr(div.haut)} mm `
         + `selon le modèle.`);
   } else if (pl.length && !ne.length) {
-    dire("goutte", 9, pl[pl.length - 1][1],
+    dire("goutte", 9, [pl[0][0], pl[pl.length - 1][1]],
       `Pluie ${pl.length > 1 ? "par intervalles " : ""}`
       + `${plage(pl[0][0], pl[pl.length - 1][1])}, ${nombreFr(tot)} mm attendus.`);
   } else if (!pl.length && !ne.length) {
@@ -149,7 +156,7 @@ export function conseils(s, g) {
   // 4. Le brouillard, qui décide d'une heure de départ.
   const br = plagesCode(BROUILLARD);
   if (br.length) {
-    dire("brume", 7, br[br.length - 1][1],
+    dire("brume", 7, [br[0][0], br[br.length - 1][1]],
       `Brouillard attendu ${plage(br[0][0], br[br.length - 1][1])}.`);
   }
 
@@ -158,7 +165,7 @@ export function conseils(s, g) {
   const gel = plagesDe(s.n, k => s.t[k] <= SEUILS.gel);
   if (gel.length) {
     const bas = Math.round(Math.min(...s.t));
-    dire("alerte", 6, gel[gel.length - 1][1],
+    dire("alerte", 6, [gel[0][0], gel[gel.length - 1][1]],
       `Gel probable ${plage(gel[0][0], gel[gel.length - 1][1])}, `
       + `jusqu'à ${bas} degré${Math.abs(bas) >= 2 ? "s" : ""}.`);
   }
@@ -166,7 +173,7 @@ export function conseils(s, g) {
   // 6. Le vent. La règle regarde la rafale, non la seule moyenne.
   const gv = plagesDe(s.n, k => s.raf[k] >= SEUILS.rafale || s.v[k] >= SEUILS.ventMoyen);
   if (gv.length) {
-    dire("vent", 5, gv[gv.length - 1][1],
+    dire("vent", 5, [gv[0][0], gv[gv.length - 1][1]],
       `Rafales à ${Math.round(Math.max(...s.raf))} km/h `
       + `${plage(gv[0][0], gv[gv.length - 1][1])}.`);
   }
@@ -199,7 +206,7 @@ export function conseils(s, g) {
      entières, à la même source que la table de la semaine. */
   if (renverse) {
     // La ligne parle du dernier instant de la fenêtre, donc de la journée entière.
-    dire("thermo", 3.5, s.n - 1,
+    dire("thermo", 3.5, [0, s.n - 1],
       `${bascule < 0 ? "Refroidissement" : "Réchauffement"} de ${Math.abs(bascule)} degrés `
       + `demain, ${Math.round(mx.demain)}° au plus chaud contre `
       + `${Math.round(mx.aujourdhui)}° aujourd'hui.`);
@@ -244,7 +251,7 @@ export function conseils(s, g) {
      chiffre. */
   const sc = g && g.scenarios;
   if (sc && sc.maxi - sc.mini >= SEUILS.fourchette) {
-    dire("jauge", 3.4, s.n - 1,
+    dire("jauge", 3.4, [0, s.n - 1],
       `Scénarios partagés sur le maximum, de ${Math.round(sc.mini)} `
       + `à ${Math.round(sc.maxi)}°.`);
   }
@@ -282,7 +289,7 @@ export function conseils(s, g) {
     s.hum[k] >= SEUILS.humidite && s.t[k] >= SEUILS.humiditeTmin && s.t[k] <= SEUILS.humiditeTmax)
     .filter(([a, b]) => b - a >= SEUILS.humiditeHeures);
   if (mal.length) {
-    dire("goutte", 3, mal[0][1],
+    dire("goutte", 3, [mal[0][0], mal[0][1]],
       `Air saturé ${plage(mal[0][0], mal[0][1])} sous une température douce. `
       + `Brouillard et rosée persistante possibles.`);
   }
@@ -297,7 +304,7 @@ export function conseils(s, g) {
        relevé le 27 septembre 2026. */
     const quandP = nomJour(jDe(s.n - 1)).trim();
     const leJour = quandP ? ` ${quandP}` : "";
-    dire("jauge", 2.5, s.n - 1, dp < 0
+    dire("jauge", 2.5, [0, s.n - 1], dp < 0
       ? `Pression en baisse${leJour} de ${-dp} hPa, dégradation probable.`
       : `Pression en hausse${leJour} de ${dp} hPa, amélioration probable.`);
   }
@@ -529,7 +536,9 @@ export const conseilsHTML = l => {
     /* La phrase entière reste attachée au conseil : elle est ce que les
        contrôles comparent, et ce qu'une lecture à voix haute doit dire. */
     if (!x.d) return `<p class="${ton}" data-phrase="${esc(x.t)}">${tete}</p>`;
-    const cible = x.d.startsWith("feuille:") ? `data-feuille="${x.d.slice(8)}"` : `data-detail="${x.d}"`;
+    /* La plage de l'événement suit la porte vers le détail, version 233. */
+    const plage = Number.isFinite(x.de) && Number.isFinite(x.jusqua) ? ` data-heure="${x.de}" data-fin="${x.jusqua}"` : "";
+    const cible = x.d.startsWith("feuille:") ? `data-feuille="${x.d.slice(8)}"` : `data-detail="${x.d}"${plage}`;
     return `<button type="button" class="${ton} cj-porte" ${cible} data-phrase="${esc(x.t)}" aria-label="${esc(x.t)}">`
       + tete + `</button>`;
   }).join("");
