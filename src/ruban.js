@@ -49,6 +49,7 @@ import { nombreFr, jourCourt, heureTxt, esc, cleJourLocal } from "./horloge.js";
 import { plagesDe, duCardinal, SEUIL_LAME, SEUIL_RISQUE, ECHELLE_UV, tendancePression } from "./previsions.js";
 import { icoCiel, icoTemps, couleurT, couleurUV, tempsDe } from "./icones.js";
 import { alignerSur, LAME } from "./ensemble.js";
+import { SEUILS_REPLI } from "./pluieproche.js";
 
 /* La largeur du dessin, en unités, suit celle de l'écran à la densité du
    portrait : 358 unités pour 310 points d'écran. Elle était fixe, et en paysage
@@ -83,6 +84,13 @@ const MIN_BANDE = 60; // hauteur en deçà de laquelle la bande mangerait le tra
 
 let voieOuverte = null;
 let serie = null;
+/* La vue ciblée, version 232, choix de Jérôme du 21 octobre 2026 sur
+   maquette : la page « Heure par heure » ne dessine plus que la voie de la
+   porte par laquelle on est entré, en grand, et sa phrase de résumé monte en
+   tête de page. `seule` dit que le dernier dessin était celui-là ; `lecture`
+   garde la phrase et la valeur de droite de la voie dessinée. */
+let seule = false;
+let lecture = { resume: "", droite: "" };
 let heureLue = -1;
 
 /* La fenêtre glisse sur l'horizon. `decalage` est son premier indice dans la
@@ -94,6 +102,8 @@ let ancre = true;
 export const ouvrir = c => { voieOuverte = voieOuverte === c ? null : c; };
 // Ouverture franche, sans bascule : l'accueil désigne une voie, il ne la ferme pas.
 export const poserVoie = c => { voieOuverte = c; };
+export const voieCourante = () => voieOuverte;
+export const lectureSeule = () => lecture;
 export const serieCourante = () => serie;
 export const heureCourante = () => heureLue;
 export const poserHeure = k => { heureLue = k; };
@@ -193,7 +203,7 @@ const nomJour = (s, jour) => {
    demandait de regarder à sept endroits. */
 /* Le nom d'un jour sur l'axe et dans la bulle, le même aux deux endroits :
    « Aujourd'hui », « Demain », « Hier », puis « Lundi 5 ». */
-function jourBandeau(s, j) {
+export function jourBandeau(s, j) {
   const auj = s.jour[Math.max(0, Math.min(s.n - 1, s.ici))];
   const e = ecartJours(auj, j);
   if (e === 0) return "Aujourd'hui";
@@ -203,8 +213,27 @@ function jourBandeau(s, j) {
     .replace(/^./, c => c.toUpperCase());
 }
 
+/* La lecture de la vue ciblée : l'heure et la seule grandeur de la voie,
+   sur une ligne, version 232. */
+const LECTURES = {
+  nua: (s, k) => `${Math.round(s.nua[k])} % du ciel couvert, ${tempsDe(s.code[k])[1].toLowerCase()}`,
+  t: (s, k) => `${Math.round(s.t[k])}°, ressenti ${Math.round(s.res[k])}°`,
+  mm: (s, k) => `${s.mm[k] >= SEUIL_LAME ? `${nombreFr(s.mm[k])} mm` : "pas de pluie"}, risque ${Math.round(s.pb[k])} %`,
+  v: (s, k) => `${Math.round(s.v[k])} km/h ${duCardinal(s.dir[k])}, rafales ${Math.round(s.raf[k])} km/h`,
+  uv: (s, k) => `indice UV ${s.uv[k] >= 0.5 ? nombreFr(s.uv[k]) : "0"}`,
+  hum: (s, k) => `${Math.round(s.hum[k])} % d'humidité`,
+  pres: (s, k) => `${Math.round(s.pres[k])} hPa`,
+};
+
 function bulle(s, k) {
   if (!s || k < 0 || k >= s.n) return "";
+  if (seule && LECTURES[voieOuverte]) {
+    const j = jourBandeau(s, s.jour[k]);
+    const quand = k === s.ici ? "Maintenant"
+      : j === "Aujourd'hui" ? heureTxt(s.heure[k]) : `${j}, ${heureTxt(s.heure[k])}`;
+    return `<p class="mg-lu-s"><b>${esc(quand)}</b>${icoTemps(icoCiel(s.code[k], s.clair[k]), "mg-lu-ic")}`
+      + `<span>${esc(LECTURES[voieOuverte](s, k))}</span></p>`;
+  }
   const j = jourBandeau(s, s.jour[k]);
   const quand = k === s.ici ? "Maintenant"
     : j === "Aujourd'hui" ? heureTxt(s.heure[k]) : `${j}, ${heureTxt(s.heure[k])}`;
@@ -227,7 +256,28 @@ function bulle(s, k) {
       + `${sous ? `<small>${esc(sous)}</small>` : ""}</dd></div>`).join("")}</dl>`;
 }
 
-export function dessiner(s) {
+/* La fenêtre posée sur la série, sans dessin : la liste d'ensemble lit les
+   mêmes jours que la vue ciblée. Rend le premier indice de la fenêtre. */
+export function cadrer(s) {
+  serie = s;
+  const FEN = fenetre();
+  if (ancre) decalage = pose(s);
+  decalage = Math.max(0, Math.min(Math.max(0, s.n - FEN), decalage));
+  return decalage;
+}
+
+/* La fenêtre de lecture des listes : depuis l'heure en cours tant qu'elle
+   suit maintenant, depuis minuit sur un jour choisi. Les heures déjà passées,
+   que le dessin garde en retrait, n'ont pas de ligne. */
+export function bornesListe(s) {
+  const dec = cadrer(s);
+  const a = ancre ? Math.max(0, s.ici) : dec;
+  return [a, Math.min(s.n, a + fenetre())];
+}
+
+export function dessiner(s, opt = {}) {
+  seule = opt.seule === true && voieOuverte !== null;
+  lecture = { resume: "", droite: "" };
   L = largeurVoulue();
   P = L - M - GOUT;
   serie = s;
@@ -591,6 +641,7 @@ export function dessiner(s) {
      courbe, qui gagne du relief, il ne donne rien à une bande de densité, qui
      reste plate qu'elle fasse quarante ou cent dix points. */
   const grand = c => voieOuverte === c;
+  const vue = c => !seule || c === voieOuverte;
   const H = (c, base, ouvert) =>
     (grand(c) ? (ouvert || Math.round(base * ZOOM)) : base);
 
@@ -601,7 +652,15 @@ export function dessiner(s) {
     const dedansFixe = fixe;
     prises = []; fixe = "";
     const val = `<span class="mg-r" data-plage="${esc(droite)}">${esc(droite)}</span>`;
-    if (!haut) { voies.push(`<div class="mg-v"><p class="mg-t">${esc(nom)}${val}</p></div>`); return; }
+    if (seule) {
+      if (!vue(cle)) return;
+      lecture = { resume: resume || "", droite };
+    }
+    if (!haut) {
+      voies.push(seule ? `<div class="mg-v mg-seule mg-vide" data-cle="${esc(cle)}"><p>${esc(nom)} : ${esc(droite)}</p></div>`
+        : `<div class="mg-v"><p class="mg-t">${esc(nom)}${val}</p></div>`);
+      return;
+    }
     const g = grand(cle);
     const [id0, defs] = cadre(haut);
     /* Le voile du passé et le repère de l'heure closent le groupe mobile : ils
@@ -620,6 +679,10 @@ export function dessiner(s) {
     const bas = !resume ? "" : g ? `<details class="aide mg-aide"><summary aria-label="Explication">`
       + `<span class="aide-i" aria-hidden="true">i</span></summary><p class="mg-l" id="${id}">${esc(resume)}</p></details>`
       : `<p class="mg-l" id="${id}" hidden>${esc(resume)}</p>`;
+    if (seule) {
+      voies.push(`<div class="mg-v mg-grand mg-seule" data-cle="${esc(cle)}">${dessin}</div>`);
+      return;
+    }
     voies.push(`<div class="mg-v${g ? " mg-grand" : ""}" data-cle="${esc(cle)}">`
       + `<button type="button" class="mg-t mg-b" data-voie="${esc(cle)}" aria-expanded="${g}"`
       + (resume ? ` aria-controls="${id}"` : "") + ">"
@@ -801,7 +864,10 @@ export function dessiner(s) {
     const droite = tot >= SEUIL_LAME
       ? `${nombreFr(tot)} mm, ${motDe("mm", pointe)}`
       : rx >= SEUIL_RISQUE ? `risque ${rx} %` : "aucune";
-    if (!h) { poser("Pluie", droite, 0); }
+    if (!h) {
+      poser("Pluie", droite, 0, null, rx >= SEUIL_RISQUE
+        ? `Aucune pluie annoncée sur la fenêtre, risque maximal ${rx} %.` : "Aucune pluie annoncée sur la fenêtre.", cle);
+    }
     else {
       const hs = 0, hv = g ? H_VAL : 0, hb = hs + hv;
       const y0 = hb + 3, y1 = h - 3;
@@ -820,8 +886,11 @@ export function dessiner(s) {
       for (let k = kA; k <= kB; k++) {
         if (s.mm[k] < SEUIL_LAME) continue;
         const hh = Math.max(1.5, (s.mm[k] / mx) * (y1 - y0));
-        d += `<rect x="${u(X(k) + LA * 0.16)}" y="${u(y1 - hh)}" width="${u(LA * 0.68)}" `
-          + `height="${u(hh)}" rx="1" fill="currentColor" opacity=".6"/>`;
+        /* Les trois intensités de la palette du mode pluie d'« À venir »,
+           version 232. */
+        const nv = s.mm[k] >= SEUILS_REPLI.forte ? "forte" : s.mm[k] >= SEUILS_REPLI.moderee ? "moderee" : "faible";
+        d += `<rect class="mg-pl mg-pl-${nv}" x="${u(X(k) + LA * 0.16)}" y="${u(y1 - hh)}" width="${u(LA * 0.68)}" `
+          + `height="${u(hh)}" rx="1.5"/>`;
       }
       if (g) d += valeurs(s.mm, v => (v >= SEUIL_LAME ? nombreFr(v) : ""), hs + 9);
       const quand = dire(plagesW(k => w.mm[k] >= SEUIL_LAME));
@@ -891,7 +960,7 @@ export function dessiner(s) {
     const g = grand(cle);
     const mxUV = Math.max(...w.uv);
     const h = mxUV >= 0.5 ? H(cle, 48) : 0;
-    if (!h) { poser("Indice UV", "nul", 0); }
+    if (!h) { poser("Indice UV", "nul", 0, null, "Indice UV nul sur la fenêtre : pas de soleil à craindre.", cle); }
     else {
       const hs = 0, hv = g ? H_VAL : 0, hb = hs + hv;
       const y0 = hb + 3, y1 = h - 3;
@@ -988,20 +1057,7 @@ export function dessiner(s) {
      sans repère. « Maint. » cale la fenêtre sur l'heure en cours ; chaque
      jour suivant la cale sur son minuit, tant que l'horizon porte la fenêtre
      entière. Tous les boutons tiennent sur une ligne, sans défilement. */
-  const jours = [];
-  for (let k = s.ici + 1; k + FEN <= s.n; k++) if (s.heure[k] === 0) jours.push(k);
-  const JOURS_SEM = ["dim", "lun", "mar", "mer", "jeu", "ven", "sam"];
-  const bouton = (k, haut, bas, dit, actif, attr) => `<button type="button" class="mg-j${actif ? " mg-j-on" : ""}" ${attr}`
-    + ` aria-pressed="${actif}" aria-label="${esc(dit)}"><span>${esc(haut)}</span><b>${esc(bas)}</b></button>`;
-  const nav = `<div class="mg-nav mg-jours" style="--n:${jours.length + 1}">`
-    + bouton(s.ici, "Maint.", heureTxt(s.heure[Math.max(0, s.ici)]), "Maintenant", ancre, 'data-maintenant="1"')
-    + jours.map(k => {
-      const d = new Date(`${s.jour[k]}T12:00`);
-      const nom = d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
-      return bouton(k, JOURS_SEM[d.getDay()], String(d.getDate()), nomJour(s, s.jour[k]).trim() === "demain" ? `Demain, ${nom}` : nom,
-        !ancre && dec === k, `data-jour="${k}"`);
-    }).join("")
-    + `</div>`;
+  const nav = navJours(s, dec);
 
   /* Le découpage par jour, demandé par Jérôme le 28 septembre 2026. Un trait
      continu à chaque minuit traverse toute la pile des voies, titres compris,
@@ -1048,7 +1104,28 @@ export function dessiner(s) {
       + `<text class="mg-bh" x="${u(X(k))}" y="${H_BANDEAU - 10}">${heureTxt(s.heure[k])}</text>`).join("")
     + ici + `</g></g>${jourGauche}</svg>`
     + `<div class="mg-lu" aria-live="polite">${bulle(s, heureLue)}</div></div>`;
-  return `${nav}${bandeau}<div class="mg">${voies.join("")}</div>`;
+  /* La vue ciblée pose le choix du jour hors de la carte du dessin. */
+  return `${seule ? "" : nav}${bandeau}<div class="mg">${voies.join("")}</div>`;
+}
+
+/* Le choix du jour, partagé par la vue ciblée et la liste d'ensemble depuis
+   la version 232. */
+export function navJours(s, dec = decalage) {
+  const FEN = fenetre();
+  const jours = [];
+  for (let k = s.ici + 1; k + FEN <= s.n; k++) if (s.heure[k] === 0) jours.push(k);
+  const JOURS_SEM = ["dim", "lun", "mar", "mer", "jeu", "ven", "sam"];
+  const bouton = (k, haut, bas, dit, actif, attr) => `<button type="button" class="mg-j${actif ? " mg-j-on" : ""}" ${attr}`
+    + ` aria-pressed="${actif}" aria-label="${esc(dit)}"><span>${esc(haut)}</span><b>${esc(bas)}</b></button>`;
+  return `<div class="mg-nav mg-jours" style="--n:${jours.length + 1}">`
+    + bouton(s.ici, "Maint.", heureTxt(s.heure[Math.max(0, s.ici)]), "Maintenant", ancre, 'data-maintenant="1"')
+    + jours.map(k => {
+      const d = new Date(`${s.jour[k]}T12:00`);
+      const nom = d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+      return bouton(k, JOURS_SEM[d.getDay()], String(d.getDate()), nomJour(s, s.jour[k]).trim() === "demain" ? `Demain, ${nom}` : nom,
+        !ancre && dec === k, `data-jour="${k}"`);
+    }).join("")
+    + `</div>`;
 }
 
 /* Lecture au doigt. Le montant est posé dès le dessin, replié : le faire naître
@@ -1129,6 +1206,10 @@ export function brancher(bloc, surVoie) {
     b.addEventListener("click", () => { ouvrir(b.dataset.voie); surVoie(); });
   }
 
+  brancherJours(bloc, surVoie);
+}
+
+export function brancherJours(bloc, surVoie) {
   for (const b of bloc.querySelectorAll("[data-jour]")) {
     b.addEventListener("click", () => { poserJour(Number(b.dataset.jour)); surVoie(); });
   }

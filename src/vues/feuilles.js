@@ -4,7 +4,7 @@
 import { nombreFr, heureTxt, jourLong, esc } from "../horloge.js";
 import * as P from "../previsions.js";
 import { ico, icoCiel } from "../icones.js";
-import { liste, moments } from "../ecritures.js";
+import { moments } from "../ecritures.js";
 import * as Reglages from "../reglages.js";
 import * as Vig from "../vigilance.js";
 import * as Parapluie from "../parapluie.js";
@@ -627,10 +627,8 @@ export function vueReglages(ctx, rendre, majEtat) {
         + "jusqu'à la suivante, la dernière jusqu'à minuit.") + `</div>`
 
       + `<h2 class="rg-groupe">Ce qui s'affiche</h2>`
-      + `<div class="carte"><div class="carte-tete"><h3>Heure par heure</h3></div>`
-      + `<div class="seg">` + Reglages.ECRITURES.map(([k, n]) =>
-        `<button type="button" data-ecriture="${k}"${k === g.ecriture ? ' class="actif"' : ""}>${esc(n)}</button>`)
-        .join("") + `</div></div>`
+      /* Le choix entre ruban et liste pour « Heure par heure » est retiré en
+         version 232 : la porte décide de la vue. */
 
       /* Les prochaines heures sur l'accueil, version 195. */
       + `<div class="carte" id="rgAccueil"><div class="carte-tete"><h3>Accueil</h3></div>`
@@ -792,14 +790,6 @@ export function vueReglages(ctx, rendre, majEtat) {
           Reglages.poserAccueilCompact(b.dataset.presentation);
           for (const x of bloc.querySelectorAll("[data-presentation]")) x.classList.toggle("actif", x === b);
           rendre({ dessous: true });
-        });
-      }
-      for (const b of bloc.querySelectorAll("[data-ecriture]")) {
-        b.addEventListener("click", () => {
-          Reglages.poserEcriture(b.dataset.ecriture);
-          for (const x of bloc.querySelectorAll("[data-ecriture]")) {
-            x.classList.toggle("actif", x === b);
-          }
         });
       }
 

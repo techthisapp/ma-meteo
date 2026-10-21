@@ -4,7 +4,7 @@
 import { nombreFr, jourCourt, esc } from "../horloge.js";
 import * as P from "../previsions.js";
 import { ico, icoTemps, icoCiel, tempsDe, couleurT } from "../icones.js";
-import { liste, moments, TRANCHES } from "../ecritures.js";
+import { moments, TRANCHES } from "../ecritures.js";
 import * as Reglages from "../reglages.js";
 import * as Ensemble from "../ensemble.js";
 import * as Scenarios from "../scenarios.js";

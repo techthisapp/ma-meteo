@@ -43,7 +43,7 @@ const sortantes = envelopperNavigateur(nav);
 
 const FIGE = new Date(process.env.QUAND || "2026-08-18T09:00:00+02:00").getTime();
 const REGLAGES = { commune: "Fain-lès-Moutiers", codePostal: "21500",
-  lat: 47.5, lon: 4.3, ecriture: process.env.ECRITURE || "ruban", poste: null,
+  lat: 47.5, lon: 4.3, poste: null,
   /* Trois lieux suivis pour la feuille du beau temps, qui compare des lieux :
      avec le seul lieu courant, la capture ne montrerait qu'une rangée. */
   suivies: process.env.FEUILLE === "beautemps" ? [
@@ -261,9 +261,16 @@ for (const theme of ["light", "dark"]) {
   /* SONDE évalue une expression dans la page et l'écrit, pour chercher
      d'où vient un défaut d'affichage. */
   if (process.env.SONDE) console.log(JSON.stringify(await pg.evaluate(process.env.SONDE)));
+  /* La vue ciblée d'une grandeur, version 232 : `OUVRIRVOIE=mm` ouvre
+     « Heure par heure » sur la pluie, comme la tuile de l'accueil. */
   if (process.env.OUVRIRVOIE) {
-    await pg.locator(`[data-voie="${process.env.OUVRIRVOIE}"]`).click();
-    await pg.waitForTimeout(500);
+    await pg.evaluate(c => {
+      const b = document.createElement("button");
+      b.dataset.detail = c; b.hidden = true;
+      document.getElementById("ecran").append(b);
+      b.click();
+    }, process.env.OUVRIRVOIE);
+    await pg.waitForTimeout(900);
   }
   if (process.env.OUVRIR) {
     await pg.locator(".sem-r").nth(Number(process.env.OUVRIR)).click();

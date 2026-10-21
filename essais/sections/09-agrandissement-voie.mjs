@@ -1,33 +1,29 @@
 /* Agrandissement d'une voie. Section de la suite des contrôles, sortie de essais/controle.mjs
-   le 2 octobre 2026 ; elle part d'un état neuf préparé par essais/banc.mjs. */
+   le 2 octobre 2026 ; elle part d'un état neuf préparé par essais/banc.mjs.
+
+   Depuis la version 232, la vue ciblée dessine sa seule voie dépliée : la
+   section vérifie que chaque voie garde sa hauteur dépliée propre. */
 
 export const titre = "Agrandissement d'une voie";
 export const avecPage = true;
 
 export default async T => {
-  const { pg, ok, onglet, CADRE } = T;
-  // L'état de départ : « Heure par heure », aucune voie agrandie.
-  await onglet("temps");
-  const hAvant = await pg.locator('.mg-v[data-cle="t"] svg.mg-s').boundingBox();
-  await pg.locator('.mg-b[data-voie="t"]').click();
-  await pg.waitForTimeout(320);
-  const hApres = await pg.locator('.mg-v[data-cle="t"] svg.mg-s').boundingBox();
-  ok("la voie touchée s'agrandit", hApres.height > hAvant.height * 2, `${hAvant.height.toFixed(0)} puis ${hApres.height.toFixed(0)}`);
-  ok("les autres voies gardent leur taille", await (async () => {
-    const v = (await pg.locator('.mg-v[data-cle="v"] svg.mg-s').boundingBox()).height;
-    const hum = (await pg.locator('.mg-v[data-cle="hum"] svg.mg-s').boundingBox()).height;
-    // Le dessin est rendu à la largeur de la carte : c'est le rapport qui tient,
-    // non la valeur absolue en points de la boîte de vue.
-    return Math.abs(v / hum - 86 / 52) < 0.08 ? "" : `vent ${v.toFixed(0)}, humidité ${hum.toFixed(0)}`;
-  })() === "", await (async () => {
-    const v = (await pg.locator('.mg-v[data-cle="v"] svg.mg-s').boundingBox()).height;
-    const hum = (await pg.locator('.mg-v[data-cle="hum"] svg.mg-s').boundingBox()).height;
-    return `vent ${v.toFixed(0)}, humidité ${hum.toFixed(0)}`;
-  })());
-  /* Depuis le jalon 21, lot 2, la phrase de la voie dépliée attend derrière
-     le « i ». */
-  ok("la phrase de la voie dépliée attend derrière le « i »",
-    await pg.locator(".mg-grand details.mg-aide .mg-l").count() === 1 && await pg.locator(".mg-l:visible").count() === 0);
+  const { pg, ok, ouvrirVoie, CADRE } = T;
+  const voir = async c => { await pg.locator(`.hh-puce[data-grandeur="${c}"]`).click(); await pg.waitForTimeout(320); };
+  const haut = async c => { await voir(c); return (await pg.locator(`.mg-v[data-cle="${c}"] svg.mg-s`).boundingBox()).height; };
+  await ouvrirVoie(pg, "t");
+  ok("la voie de la vue ciblée est dépliée", await pg.locator('.mg-v[data-cle="t"].mg-grand').count() === 1);
+  const hT = await haut("t"), hHum = await haut("hum");
+  // Le dessin est rendu à la largeur de la carte : c'est le rapport qui tient,
+  // non la valeur absolue en points de la boîte de vue.
+  ok("chaque voie garde sa hauteur dépliée propre", Math.abs(hT / hHum - 86 / 52) < 0.08,
+    `température ${hT.toFixed(0)}, humidité ${hHum.toFixed(0)}`);
+  await voir("t");
+  /* La phrase de la voie se lit en tête de page depuis la version 232, sa
+     notice derrière le « i » sous le dessin. */
+  ok("la phrase de la voie se lit en tête de page, sa notice derrière le « i »",
+    /\d/.test(await pg.locator(".hh-phrase").innerText()) && await pg.locator(".hh-graphe details.aide").count() === 1
+    && await pg.locator(".mg-l").count() === 0);
   /* La pile fait cinq cents points et l'axe est tout en bas : une voie dépliée
      au milieu n'aurait plus de repère de temps. Trois axes en tout, celui du ciel
      en tête, celui de la voie dépliée, celui du pied de pile. */
@@ -36,8 +32,7 @@ export default async T => {
     String(await pg.locator(".mg-a").count()));
   /* Les symboles et les valeurs occupent deux bandes distinctes : écrits au même
      niveau, les flèches du vent et les chiffres du vent se recouvraient. */
-  await pg.locator('.mg-b[data-voie="v"]').click();
-  await pg.waitForTimeout(320);
+  await voir("v");
   ok("les symboles et les valeurs ne partagent pas leur bande", await pg.evaluate(() => {
     const v = document.querySelector('.mg-v[data-cle="v"]');
     const fl = [...v.querySelectorAll(".mg-fl")];
@@ -53,15 +48,12 @@ export default async T => {
     return `${Math.max(...fl.map(e => e.getBoundingClientRect().bottom)).toFixed(0)} puis `
       + `${Math.min(...va.map(e => e.getBoundingClientRect().top)).toFixed(0)}`;
   }));
-  await pg.locator('.mg-b[data-voie="v"]').click();
-  await pg.waitForTimeout(320);
 
   /* Le symbole du ciel est un SVG dans un SVG. Sa taille passe par des attributs,
      non par la feuille de style : WebKit ignore `width` et `height` venus du CSS
      sur un SVG imbriqué, déploie le dessin sur toute la hauteur du parent, et le
      symbole débordait alors de la carte. */
-  await pg.locator('.mg-b[data-voie="nua"]').click();
-  await pg.waitForTimeout(320);
+  await voir("nua");
   ok("les symboles du ciel portent leur taille en attributs", await pg.evaluate(() => {
     const ic = [...document.querySelectorAll('.mg-v[data-cle="nua"] svg.mg-ic')];
     if (ic.length < 6) return `seulement ${ic.length} symboles`;
@@ -122,15 +114,7 @@ export default async T => {
     return lames.length ? `${lames.length} lames de densité subsistent` : "";
   }) === "", await pg.evaluate(() => [...document.querySelectorAll(
     '.mg-v[data-cle="nua"] text.mg-bn')].map(e => e.textContent).join("/") || "aucune bande"));
-  ok("le ciel déplié tient dans la hauteur commune", await (async () => {
-    const nua = (await pg.locator('.mg-v[data-cle="nua"] svg.mg-s').boundingBox()).height;
-    const hum = (await pg.locator('.mg-v[data-cle="hum"] svg.mg-s').boundingBox()).height;
-    return Math.abs(nua / hum - 86 / 52) < 0.08 ? "" : `rapport ${(nua / hum).toFixed(2)}`;
-  })() === "", await (async () => {
-    const nua = (await pg.locator('.mg-v[data-cle="nua"] svg.mg-s').boundingBox()).height;
-    const hum = (await pg.locator('.mg-v[data-cle="hum"] svg.mg-s').boundingBox()).height;
-    return `rapport ${(nua / hum).toFixed(2)}, attendu ${(86 / 52).toFixed(2)}`;
-  })());
-  await pg.locator('.mg-b[data-voie="nua"]').click();
-  await pg.waitForTimeout(320);
+  const hNua = (await pg.locator('.mg-v[data-cle="nua"] svg.mg-s').boundingBox()).height;
+  ok("le ciel déplié tient dans la hauteur commune, sans l'agrandissement des courbes",
+    Math.abs(hNua / hT - 86 / 215) < 0.04, `rapport ${(hNua / hT).toFixed(2)}, attendu ${(86 / 215).toFixed(2)}`);
 };

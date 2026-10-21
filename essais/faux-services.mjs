@@ -101,7 +101,7 @@ export const ENSEMBLE_LARGE = ensembleDe(6);
 
 export const FAIN = {
   commune: "Fain-lès-Moutiers", codePostal: "21500", lat: 47.5, lon: 4.3,
-  ecriture: "ruban", poste: null,
+  poste: null,
 };
 
 /* La charge de « Où est le beau temps » : deux journées par point, un élément

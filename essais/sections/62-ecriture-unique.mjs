@@ -12,7 +12,7 @@ export const reglagesPage = { heuresaccueil: "moments" };
 const NORM = t => (t || "").replace(/[  ]/g, " ");
 
 export default async T => {
-  const { pg, ok, onglet, ecranCiel, ouvrirLeTemps, reposer } = T;
+  const { pg, ok, onglet, ecranCiel, ouvrirLeTemps, ouvrirVoie, reposer } = T;
 
   /* Aucune heure ne s'écrit plus « 19:25 », sur l'accueil, le ciel et les
      réglages. */
@@ -32,17 +32,18 @@ export default async T => {
   ok("le tableau des heures écrit ses plages « 12 h à 18 h »", plages.length >= 3 && plages.every(t => /\d\d h à \d\d h/.test(t) && !/\d-\d/.test(t)),
     plages.join(" | "));
 
-  /* Le ruban : la bulle dit la direction en toutes lettres et nomme les
-     grandeurs comme la liste ; la phrase du vent aussi. */
-  await ouvrirLeTemps(pg); await reposer(pg, 1500);
-  await pg.locator('.mg-b[data-voie="v"]').click(); await reposer(pg, 600);
+  /* La vue ciblée du vent : la lecture dit la direction en toutes lettres ;
+     la phrase du vent aussi. La liste nomme les grandeurs comme la bulle le
+     faisait, depuis la version 232. */
+  await ouvrirVoie(pg, "v"); await reposer(pg, 1500);
   const ruban = await pg.evaluate(() => ({
-    noms: [...document.querySelectorAll(".mg-lu-g dt")].map(e => e.textContent),
-    dir: document.querySelector(".mg-lu-g dd small")?.textContent || "",
-    phrase: document.querySelector('.mg-v[data-cle="v"] .mg-l')?.textContent || "" }));
-  ok("la bulle du ruban dit la direction du vent en toutes lettres et nomme les grandeurs comme la liste",
-    /^(du (nord|sud)(-(est|ouest))?|de l'(est|ouest))$/.test(ruban.dir) && ruban.noms.includes("Risque de pluie")
-    && ruban.noms.includes("Indice UV") && /Vent (du|de l')/.test(ruban.phrase) && !/Vent de [ns]/.test(ruban.phrase),
-    JSON.stringify(ruban));
-  await pg.locator('.mg-b[data-voie="v"]').click();
+    lu: (document.querySelector(".mg-lu-s span")?.textContent || "").replace(/[\u00A0\u202F]/g, " "),
+    phrase: document.querySelector(".hh-phrase")?.textContent || "" }));
+  await ouvrirLeTemps(pg); await reposer(pg, 1500);
+  await pg.locator("details.hh summary").first().click();
+  const noms = await pg.locator("details.hh[open] .hh-d dt").allTextContents();
+  ok("la lecture du vent dit sa direction en toutes lettres et la liste nomme les grandeurs comme ailleurs",
+    /km\/h (du (nord|sud)(-(est|ouest))?|de l'(est|ouest)),/.test(ruban.lu) && noms.includes("Risque de pluie")
+    && noms.includes("Indice UV") && /Vent (du|de l')/.test(ruban.phrase) && !/Vent de [ns]/.test(ruban.phrase),
+    JSON.stringify({ ...ruban, noms }));
 };

@@ -7,15 +7,16 @@ export const avecPage = true;
 export default async T => {
   const { pg, ok } = T;
   /* L'état de départ : « Heure par heure », ouvert par le grand chiffre de
-     l'accueil, la voie de la température agrandie. */
+     l'accueil, sur la vue ciblée de la température depuis la version 232. */
   await pg.locator(".bd-deg").click();
   await pg.waitForTimeout(900);
   const boite = await pg.locator('.mg-v[data-cle="t"] .mg-s').boundingBox();
   const cx = boite.x + boite.width * 0.5, cy = boite.y + boite.height * 0.5;
   /* Depuis le jalon 21, lot 2 : la lecture se fait dans la bulle sous l'axe,
-     un toucher bref suffit, et elle reste posée au relâchement. */
-  const bulle = () => pg.evaluate(() => ({ h: document.querySelector(".mg-lu-h")?.textContent || "",
-    t: document.querySelector(".mg-lu-c b")?.textContent || "",
+     un toucher bref suffit, et elle reste posée au relâchement. La vue ciblée
+     n'y écrit que sa grandeur, sur une ligne, depuis la version 232. */
+  const bulle = () => pg.evaluate(() => ({ h: document.querySelector(".mg-lu-s b")?.textContent || "",
+    t: (document.querySelector(".mg-lu-s span")?.textContent.match(/^-?\d+°/) || [""])[0],
     cur: [...document.querySelectorAll('.mg-v[data-cle="t"] .mg-cur')].filter(c => c.style.display !== "none").length }));
   const depart = await bulle();
   ok("au repos, la bulle lit l'heure en cours", depart.h === "Maintenant" && /^-?\d+°$/.test(depart.t), JSON.stringify(depart));
@@ -50,8 +51,4 @@ export default async T => {
   ok("un déplacement vertical rend la main au défilement", (await bulle()).h === suivie.h);
   ok("le défilement vertical reste au navigateur", await pg.evaluate(() =>
     getComputedStyle(document.querySelector(".mg-s")).touchAction === "pan-y"));
-
-  // La voie ouverte par l'accueil se referme : la suite éprouve l'agrandissement.
-  await pg.locator('.mg-b[data-voie="t"]').click();
-  await pg.waitForTimeout(400);
 };

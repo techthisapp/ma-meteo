@@ -5,7 +5,7 @@ export const titre = "La bande horaire";
 export const avecPage = true;
 
 export default async T => {
-  const { pg, etat, ok, ouvrirLeTemps, txt, onglet, reposer } = T;
+  const { pg, etat, ok, ouvrirLeTemps, ouvrirVoie, txt, onglet, reposer } = T;
   /* Jalon 10, lot 1 : l'évolution de la journée d'un coup d'œil, sous le ciel,
      après les avis urgents. */
   const bandeDit = await pg.evaluate(async () => {
@@ -157,11 +157,12 @@ export default async T => {
     titre: document.querySelector("#ecran h1")?.textContent || "",
     accueilCourant: document.querySelector('[data-onglet="accueil"]')?.getAttribute("aria-current") === "page",
     /* Depuis le jalon 21, lot 2, la lecture se fait dans la bulle sous l'axe. */
-    lecture: document.querySelector(".mg-lu-h")?.textContent || "",
+    lecture: document.querySelector(".mg-lu-s b")?.textContent || "",
   }));
   ok("une heure touchée dans la bande ouvre le temps en page de détail",
-    /* La page s'appelle « Heure par heure » depuis le 28 septembre 2026. */
-    detailDit.retour && detailDit.titre === "Heure par heure" && detailDit.accueilCourant,
+    /* Une heure de la bande ouvre la vue ciblée de la température depuis la
+       version 232. */
+    detailDit.retour && detailDit.titre === "Température" && detailDit.accueilCourant,
     JSON.stringify(detailDit));
   ok("le ruban s'y cale sur l'heure touchée",
     heureBande !== "" && detailDit.lecture.startsWith(heureBande.replace(/^0/, ""))
@@ -189,8 +190,11 @@ export default async T => {
   /* Depuis le jalon 21, lot 2, la bulle lit toujours une heure : sans heure
      désignée, c'est maintenant, et aucun montant de lecture ne double le
      repère. */
-  const sansLectureDe = () => pg.evaluate(() =>
-    document.querySelector(".mg-lu-h")?.textContent === "Maintenant"
+  /* Par le lien, la vue d'ensemble n'a pas de bulle : c'est l'heure lue du
+     ruban qui doit être effacée, version 232. */
+  const sansLectureDe = () => pg.evaluate(async () =>
+    (document.querySelector(".mg-lu-s b") ? document.querySelector(".mg-lu-s b").textContent === "Maintenant"
+      : (await import("/src/ruban.js")).heureCourante() === -1)
     && [...document.querySelectorAll(".mg-cur")].every(c => c.style.display === "none"));
   await pg.locator(".bd-deg").click();
   await pg.waitForTimeout(700);
@@ -202,11 +206,15 @@ export default async T => {
   const sansLecture = await sansLectureDe();
   ok("sans heure désignée, aucune lecture ne reste d'une ouverture précédente", sansLecture && sansLectureVoie,
     `par un chiffre ${sansLectureVoie}, par le lien ${sansLecture}`);
+  await pg.locator("#btnRetour").click();
+  await pg.waitForTimeout(600);
+  await pg.locator(".bd-deg").click();
+  await pg.waitForTimeout(700);
   /* Le glissement de côté a disparu, décision de Jérôme du 3 octobre 2026 :
      un doigt qui court à l'horizontale fait suivre la lecture, la fenêtre ne
      bouge pas et le dessin ne se translate plus. */
   const avantGlisse = await pg.evaluate(() => ({ jour: document.querySelector(".mg-j-on")?.getAttribute("aria-label"),
-    lu: document.querySelector(".mg-lu-h")?.textContent }));
+    lu: document.querySelector(".mg-lu-s b")?.textContent }));
   const trace = await pg.locator('.mg-v[data-cle="t"] .mg-s').boundingBox();
   if (trace) {
     const y = trace.y + trace.height / 2, x = trace.x + trace.width * 0.7;
@@ -218,7 +226,7 @@ export default async T => {
     await pg.waitForTimeout(300);
   }
   const apresGlisse = await pg.evaluate(() => ({ jour: document.querySelector(".mg-j-on")?.getAttribute("aria-label"),
-    lu: document.querySelector(".mg-lu-h")?.textContent,
+    lu: document.querySelector(".mg-lu-s b")?.textContent,
     tr: [...document.querySelectorAll(".mg-mob")].map(g => g.getAttribute("transform") || "").filter(Boolean).length }));
   ok("un glissement de côté ne déplace plus la fenêtre, il fait suivre la lecture",
     trace && avantGlisse.jour === "Maintenant" && apresGlisse.jour === "Maintenant" && apresGlisse.tr === 0
@@ -324,12 +332,12 @@ export default async T => {
   await pg.waitForTimeout(500);
   ok("les réglages disent la version",
     await pg.evaluate(n => document.getElementById("rgVersion")?.textContent === String(n), versionDit.numero));
-  /* La page s'appelle « Heure par heure » depuis la version 104 ; la carte des
-     réglages portait encore l'ancien nom jusqu'à la version 119. */
+  /* Le choix entre ruban et liste est retiré en version 232 : la porte
+     décide de la vue, et les réglages n'en parlent plus. */
   const titresReglages = await pg.evaluate(() => [...document.querySelectorAll("#feuille-corps .carte-tete h3")].map(h => h.textContent));
-  ok("les réglages nomment l'écriture de la page « Heure par heure »",
-    /* La carte s'intitule « Heure par heure » depuis le jalon 20. */
-    titresReglages.includes("Heure par heure") && !titresReglages.some(t => /Le temps/.test(t)),
+  ok("les réglages ne proposent plus de choisir l'écriture de « Heure par heure »",
+    !titresReglages.includes("Heure par heure") && !titresReglages.some(t => /Le temps/.test(t))
+    && await pg.locator("#feuille-corps [data-ecriture]").count() === 0,
     JSON.stringify(titresReglages));
   await pg.evaluate(() => history.back());
   await pg.waitForTimeout(500);
@@ -349,7 +357,7 @@ export default async T => {
     const vb = Number(svg.getAttribute("viewBox").split(" ")[2]);
     return { vb, rapport: svg.getBoundingClientRect().width / vb };
   });
-  await ouvrirLeTemps(pg);
+  await ouvrirVoie(pg, "t");
   await pg.waitForTimeout(700);
   const portrait = await densite();
   await pg.setViewportSize({ width: 844, height: 390 });
@@ -695,12 +703,14 @@ export default async T => {
      collant qui porte le jour et les heures, un trait continu à chaque minuit
      sur toute la pile des voies, sans les pointillés d'avant dans chaque voie. */
   await ouvrirLeTemps(pg);
+  const titreHph = await pg.evaluate(() => document.querySelector("#ecran h1")?.textContent || "");
+  await pg.evaluate(() => history.back());
+  await pg.waitForTimeout(500);
+  await ouvrirVoie(pg, "t");
   const hph = await pg.evaluate(() => {
     const b = document.querySelector("#ecran .mg-bandeau");
-    const cs = b ? getComputedStyle(b) : null;
     return {
       titre: document.querySelector("#ecran h1")?.textContent || "",
-      colle: cs ? cs.position === "sticky" && parseFloat(cs.top) >= 44 : false,
       jours: b ? [...b.querySelectorAll(".mg-bj")].map(t => t.textContent) : [],
       heures: b ? [...b.querySelectorAll(".mg-bh")].map(t => t.textContent) : [],
       mobiles: document.querySelectorAll("#ecran .mg-bandeau .mg-mob").length,
@@ -714,9 +724,11 @@ export default async T => {
   });
   await pg.evaluate(() => history.back());
   await pg.waitForTimeout(500);
-  ok("la page des heures s'appelle « Heure par heure »", hph.titre === "Heure par heure", hph.titre);
-  ok("un bandeau collant porte le jour et les heures, et glisse avec le ruban",
-    hph.colle && hph.jours.some(j => /^(Aujourd'hui|Demain|Hier)$/.test(j)) && hph.heures.includes("12 h") && hph.mobiles === 1,
+  ok("la page des heures s'appelle « Heure par heure »", titreHph === "Heure par heure", titreHph);
+  /* Le bandeau ne colle plus depuis la version 232 : la vue ciblée ne porte
+     qu'une voie, et l'axe reste au-dessus d'elle. */
+  ok("un bandeau porte le jour et les heures, et glisse avec le ruban",
+    hph.jours.some(j => /^(Aujourd'hui|Demain|Hier)$/.test(j)) && hph.heures.includes("12 h") && hph.mobiles === 1,
     JSON.stringify(hph));
   ok("minuit se trace dans chaque voie dessinée, sans calque qui traverse les titres",
     hph.traits >= hph.voiesTracees && hph.voiesTracees >= 1 && hph.calque === 0 && hph.pointilles === 0, JSON.stringify(hph));

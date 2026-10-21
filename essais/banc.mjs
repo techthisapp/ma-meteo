@@ -207,12 +207,27 @@ export const preparer = async (titre, avecPage, reglagesPage = null) => {
   }
 
   /* « Le temps » n'a plus d'onglet depuis le 25 septembre 2026 : il s'ouvre par
-     le lien « Plus de détails » de la bande, sur l'accueil, tel qu'on l'a
-     laissé, ruban ou liste. */
+     le lien « Plus de détails » de la bande, sur l'accueil, et montre la vue
+     d'ensemble depuis la version 232. */
   const ouvrirLeTemps = async page => {
     await page.locator('[data-onglet="accueil"]').click();
     await page.waitForTimeout(350);
     await page.locator("#bande [data-temps]").click();
+    await page.waitForTimeout(350);
+  };
+  /* La vue ciblée d'une grandeur, version 232 : la page « Heure par
+     heure » s'ouvre par « Plus de détails » sur la vue d'ensemble, puis la
+     grandeur se choisit comme depuis une tuile de l'accueil. La fonction de
+     l'application est appelée par l'événement que pose une porte. */
+  const ouvrirVoie = async (page, cle) => {
+    await page.locator('[data-onglet="accueil"]').click();
+    await page.waitForTimeout(350);
+    await page.evaluate(c => {
+      const b = document.createElement("button");
+      b.dataset.detail = c; b.hidden = true;
+      document.getElementById("ecran").append(b);
+      b.click();
+    }, cle);
     await page.waitForTimeout(350);
   };
   /* La phrase entière d'un conseil. Depuis le jalon 11 le conseil s'affiche en
@@ -371,7 +386,7 @@ export const preparer = async (titre, avecPage, reglagesPage = null) => {
   return {
     titre, dire, ok, etat, brancherRoutes, nav, ctx, pg, erreurs,
     appelsHoraire, appelsTous, ouvrirPage, reposer, RACINE_HTTP, RACINE, ICI, CAPTURES,
-    ouvrirLeTemps, phrasesConseils, txt, txtDe, onglet, ecranCiel, ouvrirEcran,
+    ouvrirLeTemps, ouvrirVoie, phrasesConseils, txt, txtDe, onglet, ecranCiel, ouvrirEcran,
     CADRE, meteoRes, ctxReponse, REGL_BEAU, METEO_NUE, ouvrirCarte, appuiLong,
     finir,
   };

@@ -56,7 +56,7 @@ export default async T => {
   const encoche = [await dans(".onglets [data-onglet]"), await dans(".onglets [data-onglet]:last-child"),
     decalage > 10 ? "" : `onglets décalés de ${Math.round(decalage)} points seulement`];
   await onglet("temps");
-  encoche.push(await dans("#ecran .mg-v"));
+  encoche.push(await dans("#ecran .hh-bloc"));
   await onglet("carte");
   await pg.waitForTimeout(400);
   encoche.push(await dans("#caIci"), await dans("#caEchelle"));

@@ -4,7 +4,6 @@
 import { esc, cleHeure } from "../horloge.js";
 import * as Voute from "../voute.js";
 import * as P from "../previsions.js";
-import { liste } from "../ecritures.js";
 import * as Reglages from "../reglages.js";
 import * as Astres from "../astres.js";
 import * as Ciel from "../ciel.js";

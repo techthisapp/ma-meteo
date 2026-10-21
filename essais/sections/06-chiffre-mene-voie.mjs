@@ -19,12 +19,12 @@ export default async T => {
 
   await pg.locator('.bd-m[data-detail="uv"]').click();
   await pg.waitForTimeout(900);
-  ok("l'écran du temps s'ouvre", (await txt(".titre-ecran h1")) === "Heure par heure", await txt(".titre-ecran h1"));
-  ok("l'écriture retenue est le ruban",
-    (await pg.locator('.seg [data-ecriture="ruban"]').getAttribute("class") || "").includes("actif"));
-  ok("la voie visée est dépliée",
+  /* La vue ciblée, version 232 : le titre de la grandeur, sa seule voie. */
+  ok("l'écran du temps s'ouvre sur la vue ciblée de la grandeur", (await txt(".hh-grand")) === "Indice UV"
+    && await pg.locator('.hh-page[data-vue="ciblee"]').count() === 1, await txt(".hh-grand"));
+  ok("la voie visée est dessinée en grand",
     await pg.locator('.mg-v[data-cle="uv"].mg-grand').count() === 1);
-  ok("aucune autre voie n'est dépliée", await pg.locator(".mg-grand").count() === 1);
+  ok("aucune autre voie n'est dessinée", await pg.locator(".mg-v").count() === 1);
   ok("la page s'est placée sur la voie", await pg.evaluate(() => {
     const v = document.querySelector('.mg-v[data-cle="uv"]');
     const b = v.getBoundingClientRect();

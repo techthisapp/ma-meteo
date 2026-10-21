@@ -1,87 +1,162 @@
-/* Les deux autres écritures de la série horaire : la liste, sur la feuille du
-   temps, et les moments, en bas de l'accueil.
+/* Les deux autres écritures de la série horaire : les listes de la page
+   « Heure par heure », et les moments, en bas de l'accueil.
 
-   Le ruban donne la forme, la liste donne les chiffres heure par heure, les
-   moments donnent le profil de la journée qui vient. Les trois lisent la même
-   série de vingt-quatre heures glissantes. */
+   Le ruban donne la forme d'une grandeur, les listes donnent les heures, les
+   moments donnent le profil de la journée qui vient. */
 
 import { nombreFr, heureTxt, esc } from "./horloge.js";
 import { graviteCiel, duCardinal, SEUIL_LAME, SEUIL_RISQUE, SEUIL_RAFALE } from "./previsions.js";
-import { icoCiel, icoTemps, tempsDe } from "./icones.js";
+import { icoCiel, icoTemps, tempsDe, couleurT, couleurUV } from "./icones.js";
 import { aide } from "./aide.js";
+import { flecheSVG } from "./fleche.js";
+import { SEUILS_REPLI } from "./pluieproche.js";
+import { jourBandeau } from "./ruban.js";
 
-/* ---------- La liste ----------
+/* ---------- Les listes ----------
 
-   Refaite au jalon 20, lot 4, à la demande de Jérôme : les heures se rangent
-   sous leur moment, cette nuit, ce matin, cet après-midi, ce soir, puis ceux
-   de demain. Chaque heure tient une ligne : l'heure, le ciel, la température
-   en grand, et la pluie seulement quand il pleut. Le reste, ressenti, rosée,
-   vent, humidité, risque de pluie, indice UV et pression, s'ouvre en touchant
+   Refaites en version 232, choix de Jérôme du 21 octobre 2026 sur maquette,
+   à la manière de la liste par jour d'« À venir » : chaque heure tient une
+   ligne qui se lit d'un coup d'œil, en dessins plutôt qu'en chiffres seuls.
+
+   La liste d'ensemble, ouverte par « Plus de détails » et par une journée
+   d'« À venir », porte sur chaque ligne le ciel, la température placée sur
+   l'échelle de la fenêtre, la pluie et le vent ; le reste s'ouvre en touchant
    la ligne, un élément natif qui se lit au clavier et aux lecteurs d'écran.
+   La liste d'une grandeur, sous le graphique de la vue ciblée, ne porte que
+   cette grandeur, en barre.
 
-   Plus de table à défiler de côté : douze colonnes ne tenaient pas dans la
-   largeur d'un téléphone. */
+   Les heures se rangent par jour, de l'heure en cours ou du minuit du jour
+   choisi jusqu'au bout de la fenêtre. */
 
-/* Le nom du moment, comme on le dirait à l'oral, dans l'ordre du temps depuis
-   maintenant : la première nuit est « cette nuit », la suivante « la nuit
-   suivante » ; les autres moments du lendemain prennent « demain ». */
-function titresMoments(s) {
-  const lots = [];
-  for (let k = 0; k < s.n; k++) {
-    const tr = nomTranche(s.heure[k]);
-    const cle = `${s.jour[k]}|${tr[1]}`;
-    if (!lots.length || lots[lots.length - 1].cle !== cle) lots.push({ cle, tr, jour: s.jour[k], idx: [] });
-    lots[lots.length - 1].idx.push(k);
-  }
-  let nuitVue = false;
-  for (const lot of lots) {
-    if (lot.tr[1] === "nuit") { lot.titre = nuitVue ? lot.tr[3] : lot.tr[2]; nuitVue = true; }
-    else lot.titre = lot.jour === s.jour[0] ? lot.tr[2] : lot.tr[3];
-  }
-  return lots;
-}
+// Le risque de pluie s'écrit sous le ciel à partir de trente pour cent, comme dans « À venir ».
+const RISQUE_MARQUE = 30;
 
 /* La provenance du vent comme on la dit, demande de Jérôme du 3 octobre
    2026 : « du nord », « de l'est », « du sud-ouest », « de l'ouest », par
    `duCardinal` de src/previsions.js, la même partout. */
 const LIGNES_DETAIL = [
   ["Ressenti", h => `${Math.round(h.res)}°`],
-  // La pluie de l'heure, nulle comprise, comme dans la bulle du ruban.
-  ["Pluie", h => (h.mm >= SEUIL_LAME ? `${nombreFr(h.mm)} mm` : "0 mm")],
   ["Rosée", h => `${Math.round(h.ros)}°`],
-  ["Vent", h => `${Math.round(h.v)} km/h, ${duCardinal(h.dir)}`],
-  ["Rafales", h => `${Math.round(h.raf)} km/h`],
   ["Humidité", h => `${Math.round(h.hum)} %`],
   ["Risque de pluie", h => `${Math.round(h.pb)} %`],
+  ["Vent", h => `${Math.round(h.v)} km/h, ${duCardinal(h.dir)}`],
+  ["Rafales", h => `${Math.round(h.raf)} km/h`],
   ["Indice UV", h => (h.uv >= 0.5 ? nombreFr(h.uv) : null)],
   ["Pression", h => `${Math.round(h.pres)} hPa`],
 ];
 
-export function liste(s) {
+const niveauPluie = mm => (mm >= SEUILS_REPLI.forte ? "sp-forte" : mm >= SEUILS_REPLI.moderee ? "sp-moderee" : "sp-faible");
+const pc = v => `${Math.max(0, Math.min(100, v)).toFixed(1)}%`;
+const heureDe = (s, k) => (k === s.ici ? "Maint." : heureTxt(s.heure[k]));
+
+/* Les heures de [a, b) rangées par jour. */
+function parJour(s, a, b) {
+  const lots = [];
+  for (let k = a; k < b; k++) {
+    if (!lots.length || lots[lots.length - 1].jour !== s.jour[k]) lots.push({ jour: s.jour[k], idx: [] });
+    lots[lots.length - 1].idx.push(k);
+  }
+  return lots;
+}
+
+/* La température placée sur l'échelle de la fenêtre : la piste porte le
+   dégradé des couleurs de température de bout en bout, le point dit l'heure. */
+function pisteT(t, tn, tx) {
+  const fond = `linear-gradient(90deg,${couleurT(tn)},${couleurT((tn + tx) / 2)},${couleurT(tx)})`;
+  return `<span class="hh-piste hh-piste-t"><b style="background:${fond}"></b>`
+    + `<i class="hh-point" style="left:${pc(((t - tn) / ((tx - tn) || 1)) * 100)}"></i></span>`;
+}
+
+const ciel = (s, k, risque = true) => `<span class="hh-ciel">${icoTemps(icoCiel(s.code[k], s.clair[k]), "hh-ic")}`
+  + (risque && s.pb[k] >= RISQUE_MARQUE ? `<small>${Math.round(s.pb[k])} %</small>` : "")
+  + `<span class="titre-lu">${esc(tempsDe(s.code[k])[1])}</span></span>`;
+
+export function listeEnsemble(s, a, b) {
+  const tn = Math.min(...s.t.slice(a, b)), tx = Math.max(...s.t.slice(a, b));
   const ligne = k => {
     const h = {
-      t: s.t[k], res: s.res[k], ros: s.ros[k], hum: s.hum[k], mm: s.mm[k],
-      pb: s.pb[k], code: s.code[k], pres: s.pres[k],
-      v: s.v[k], raf: s.raf[k], dir: s.dir[k], uv: s.uv[k], clair: s.clair[k],
+      res: s.res[k], ros: s.ros[k], hum: s.hum[k], pb: s.pb[k], pres: s.pres[k],
+      v: s.v[k], raf: s.raf[k], dir: s.dir[k], uv: s.uv[k],
     };
-    const cls = ["hl", k === 0 ? "hl-ici" : "", h.clair ? "" : "hl-nuit"].filter(Boolean).join(" ");
-    const pluie = h.mm >= SEUIL_LAME ? `<span class="hl-p">${nombreFr(h.mm)} mm</span>` : "";
     const detail = LIGNES_DETAIL.map(([n, f]) => [n, f(h)]).filter(([, v]) => v !== null)
-      .map(([n, v]) => `<dt>${esc(n)}</dt><dd>${esc(v)}</dd>`).join("");
-    return `<details class="${cls}"><summary>`
-      + `<span class="hl-h">${k === 0 ? "Maint." : esc(heureTxt(s.heure[k]))}</span>`
-      + `<span class="ic">${icoTemps(icoCiel(h.code, h.clair), "ic")}</span>`
-      + `<span class="titre-lu">${esc(tempsDe(h.code)[1])}</span>`
-      + `<b class="hl-t">${Math.round(h.t)}°</b>${pluie}`
-      + `</summary><dl class="hl-d">${detail}</dl></details>`;
+      .map(([n, v]) => `<div><dt>${esc(n)}</dt><dd>${esc(v)}</dd></div>`).join("");
+    const mm = s.mm[k];
+    const pluie = mm >= SEUIL_LAME
+      ? `<span class="hh-goutte ${niveauPluie(mm)}" style="height:${(6 + Math.min(1, mm / 5) * 16).toFixed(1)}px"></span>`
+        + `<span class="titre-lu">${nombreFr(mm)} mm</span>`
+      : `<span class="hh-goutte hh-sec"></span>`;
+    return `<details class="hh${k === s.ici ? " hh-ici" : ""}${s.clair[k] ? "" : " hh-nuit"}"><summary class="hh-l hh-l5">`
+      + `<span class="hh-h">${heureDe(s, k)}</span>${ciel(s, k)}`
+      + `<span class="hh-t"><b>${Math.round(s.t[k])}°</b>${pisteT(s.t[k], tn, tx)}</span>`
+      + `<span class="hh-p">${pluie}</span>`
+      + `<span class="hh-v">${flecheSVG(s.dir[k], "hh-fl")}<b>${Math.round(s.v[k])}</b></span>`
+      + `</summary><dl class="hh-d">${detail}</dl></details>`;
   };
-  /* L'explication se tient en tête, demande de Jérôme du 3 octobre 2026 :
-     au pied de la dernière carte, le « i » restait seul, trois écrans plus
-     bas. */
-  return `<div class="hl-aide">` + aide("Touchez une heure pour lire le ressenti, la rosée, le vent, l'humidité, le risque de pluie, l'indice UV "
-      + "et la pression. Températures en degrés, pluie en millimètres, vent en kilomètres par heure.") + `</div>`
-    + titresMoments(s).map(lot => `<div class="section hl-moment"><h2>${esc(lot.titre)}</h2>`
-      + `<div class="carte hl-carte">${lot.idx.map(ligne).join("")}</div></div>`).join("");
+  const entetes = `<div class="hh-entetes hh-l hh-l5" aria-hidden="true"><span></span><span>Ciel</span>`
+    + `<span>Température</span><span>Pluie</span><span>Vent</span></div>`;
+  return parJour(s, a, b).map(lot => {
+    const t = lot.idx.map(k => s.t[k]);
+    return `<div class="carte hh-bloc"><h2 class="hh-titre">${esc(jourBandeau(s, lot.jour))}, `
+      + `de ${Math.round(Math.min(...t))} à ${Math.round(Math.max(...t))}°</h2>`
+      + entetes + lot.idx.map(ligne).join("") + `</div>`;
+  }).join("")
+    + aide("Touchez une heure pour lire le ressenti, la rosée, l'humidité, le risque de pluie, le vent, "
+      + "les rafales, l'indice UV et la pression. Le point place la température de l'heure entre la plus "
+      + "basse et la plus haute de la liste. Pluie en millimètres, vent en kilomètres par heure.");
+}
+
+/* Une ligne par grandeur : ce qui précède la barre, la barre, la valeur. */
+const GRANDEURS = {
+  nua: { unite: "en pour cent du ciel couvert",
+    ligne: (s, k) => [ciel(s, k, false), barre(s.nua[k], 100), `<b>${Math.round(s.nua[k])} %</b>`] },
+  t: { unite: "en degrés",
+    ligne: (s, k, c) => [ciel(s, k, false), pisteT(s.t[k], c.tn, c.tx),
+      `<b>${Math.round(s.t[k])}°</b><small>res. ${Math.round(s.res[k])}°</small>`] },
+  mm: { unite: "en millimètres",
+    ligne: (s, k, c) => [ciel(s, k),
+      s.mm[k] >= SEUIL_LAME ? barre(s.mm[k], c.mmx, niveauPluie(s.mm[k])) : barre(0, 1),
+      s.mm[k] >= SEUIL_LAME ? `<b>${nombreFr(s.mm[k])} mm</b>` : `<small>${Math.round(s.pb[k])} %</small>`] },
+  v: { unite: "en kilomètres par heure",
+    ligne: (s, k, c) => [flecheSVG(s.dir[k], "hh-fl"),
+      `<span class="hh-piste"><b class="hh-vent" style="width:${pc((s.v[k] / c.vx) * 100)}"></b>`
+        + `<b class="hh-rafale" style="left:${pc((s.v[k] / c.vx) * 100)};width:${pc(((s.raf[k] - s.v[k]) / c.vx) * 100)}"></b></span>`,
+      `<b>${Math.round(s.v[k])}</b><small>raf. ${Math.round(s.raf[k])}</small>`] },
+  uv: { unite: "en indice UV",
+    ligne: (s, k, c) => [ciel(s, k, false), barre(s.uv[k], c.uvx, "", couleurUV(s.uv[k])),
+      `<b>${s.uv[k] >= 0.5 ? nombreFr(Math.round(s.uv[k])) : "0"}</b>`] },
+  hum: { unite: "en pour cent d'humidité",
+    ligne: (s, k) => [ciel(s, k, false), barre(s.hum[k], 100), `<b>${Math.round(s.hum[k])} %</b>`] },
+  pres: { unite: "en hectopascals",
+    ligne: (s, k, c) => [ciel(s, k, false),
+      `<span class="hh-piste"><i class="hh-point" style="left:${pc(((s.pres[k] - c.pn) / ((c.px - c.pn) || 1)) * 100)}"></i></span>`,
+      `<b>${Math.round(s.pres[k])}</b>`] },
+};
+
+function barre(v, mx, cls = "", couleur = "") {
+  return `<span class="hh-piste"><b class="hh-plein ${cls}" style="width:${pc((v / (mx || 1)) * 100)}`
+    + `${couleur ? `;background:${couleur}` : ""}"></b></span>`;
+}
+
+export function listeGrandeur(s, cle, a, b) {
+  const g = GRANDEURS[cle];
+  if (!g) return "";
+  const tr = c => s[c].slice(a, b);
+  const c = {
+    tn: Math.min(...tr("t")), tx: Math.max(...tr("t")),
+    mmx: Math.max(2.5, ...tr("mm")),
+    vx: Math.max(30, ...tr("raf")),
+    uvx: Math.max(8, ...tr("uv")),
+    pn: Math.min(...tr("pres")), px: Math.max(...tr("pres")),
+  };
+  const ligne = k => {
+    const [avant, piste, val] = g.ligne(s, k, c);
+    return `<div class="hh hh-l hh-l4${k === s.ici ? " hh-ici" : ""}${s.clair[k] ? "" : " hh-nuit"}">`
+      + `<span class="hh-h">${heureDe(s, k)}</span><span class="hh-a">${avant}</span>${piste}`
+      + `<span class="hh-val">${val}</span></div>`;
+  };
+  return parJour(s, a, b).map(lot => `<div class="carte hh-bloc hh-de-${esc(cle)}">`
+    + `<h2 class="hh-titre">${esc(jourBandeau(s, lot.jour))}, ${esc(g.unite)}</h2>`
+    + lot.idx.map(ligne).join("") + `</div>`).join("");
 }
 
 /* ---------- Les moments ----------

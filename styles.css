@@ -3376,3 +3376,95 @@ button.rangee:active{background:var(--surface-2)}
 .ecran-ciel .sem-j,.ecran-ciel .sem-j.sem-we{background:none;border-radius:initial}
 .ecran-ciel .sem-j + .sem-j{box-shadow:inset 0 1px 0 var(--filet)}
 .ecran-ciel .plein-avenir + .ecran-corps{padding-top:calc(var(--haut) + var(--consult-haut) + var(--ecart-haut) + 1.2rem + 2.6rem + 1.7rem + var(--espace-lg))}
+
+/* ---------- Heure par heure, version 232 ----------
+   Choix de Jérôme du 21 octobre 2026 sur maquette : la porte décide de la
+   vue. Le plein ciel, le retour en disque de verre à gauche, le titre de la
+   page en grand dessous ; la vue ciblée porte sa phrase, les sept pastilles
+   sur deux rangées, le choix du jour, un graphique en grand et la liste de la
+   grandeur ; la vue d'ensemble porte une ligne visuelle par heure. */
+:root.ciel-detail .entete-ciel{display:none}
+:root.plein-ciel .nav .nav-retour{flex:0 0 auto;width:var(--touche);height:var(--touche);margin:0;padding:0;
+  justify-content:center;border-radius:50%;background:rgba(255,255,255,.18);color:#FFFFFF}
+:root.plein-ciel .nav .nav-retour > span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.ecran-ciel .plein-heures + .ecran-corps{padding-top:calc(var(--haut) + var(--consult-haut) + var(--ecart-haut) + var(--touche) + var(--espace-md))}
+.hh-page{display:flex;flex-direction:column;gap:var(--espace-md)}
+.hh-grand{margin:0;font-size:2.1rem;font-weight:var(--graisse-bold);letter-spacing:-.02em;line-height:1.1;
+  text-shadow:0 1px 10px rgba(0,0,0,.30)}
+.hh-phrase{margin:-6px 0 0;font-size:var(--texte-appel);font-weight:var(--graisse-medium);color:var(--etiquette-2);
+  line-height:1.35;text-wrap:pretty;text-shadow:0 1px 8px rgba(0,0,0,.35)}
+.hh-puces{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.hh-puce{min-height:var(--touche);display:flex;align-items:center;justify-content:center;gap:4px;padding:0 4px;border:0;
+  border-radius:var(--rayon-plein);background:rgb(var(--teinte-ciel, 14 24 40) / .50);color:var(--etiquette-2);
+  font:inherit;font-size:var(--texte-note);font-weight:var(--graisse-semibold);white-space:nowrap;
+  -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
+.hh-puce[aria-pressed="true"]{background:rgba(255,255,255,.92);color:#16263C}
+.hh-puce-ic{width:15px;height:15px;flex:none}
+.hh-jours .mg-nav{box-shadow:none;padding:0}
+.ecran-heures .mg-j-on{background:rgba(255,255,255,.24);color:#FFFFFF}
+.ecran-heures .mg-j-on b{color:#FFFFFF}
+/* Seize points de marge : le dessin garde en portrait les 318 points de
+   large que le ruban suppose, et sa densité en paysage reste la même. */
+.hh-graphe{padding:var(--espace-sm) 16px var(--espace-md)}
+.hh-graphe .mg-bandeau{position:static;background:none}
+.mg-lu-s{display:flex;align-items:center;gap:6px;margin:0;min-height:30px;font-size:var(--texte-note);color:var(--etiquette-2);
+  font-variant-numeric:tabular-nums}
+.mg-lu-s b{color:var(--accent);font-weight:var(--graisse-semibold)}
+.mg-lu-s .mg-lu-ic{width:22px;height:22px}
+.mg-vide p{margin:var(--espace-md) 0;color:var(--etiquette-2)}
+.mg-pl-faible{fill:var(--sp-faible)}
+.mg-pl-moderee{fill:var(--sp-moderee)}
+.mg-pl-forte{fill:var(--sp-forte)}
+.hh-aide{display:flex;justify-content:flex-end;margin-top:var(--espace-xs)}
+/* Les listes. */
+.hh-bloc{padding:var(--espace-md) var(--espace-md) var(--espace-sm)}
+.hh-titre{margin:0 0 var(--espace-xs);font-size:var(--texte-legende);font-weight:var(--graisse-semibold);letter-spacing:.05em;
+  text-transform:uppercase;color:var(--etiquette-3)}
+.hh-l{display:grid;align-items:center;gap:8px;min-height:46px;font-variant-numeric:tabular-nums}
+.hh-l5{grid-template-columns:46px 34px minmax(0,1fr) 34px 48px}
+.hh-l4{grid-template-columns:48px 34px minmax(0,1fr) 72px}
+.hh-entetes{min-height:0;padding-bottom:4px;font-size:var(--texte-legende2);font-weight:var(--graisse-semibold);
+  letter-spacing:.04em;text-transform:uppercase;color:var(--etiquette-3)}
+.hh-entetes > span:nth-child(2){text-align:center}
+.hh-entetes > span:nth-child(3){padding-left:38px}
+.hh-entetes > span:nth-child(4){text-align:center}
+.hh-entetes > span:nth-child(5){text-align:right}
+.hh + .hh{border-top:1px solid var(--filet-clair)}
+details.hh > summary{list-style:none;cursor:pointer}
+details.hh > summary::-webkit-details-marker{display:none}
+details.hh[open]{background:rgba(255,255,255,.07);border-radius:var(--rayon-md);margin:0 -8px;padding:0 8px}
+details.hh[open] + .hh{border-top-color:transparent}
+.hh-h{font-size:var(--texte-corps);font-weight:var(--graisse-semibold)}
+.hh-ici .hh-h{color:var(--accent)}
+.hh-ciel{display:flex;flex-direction:column;align-items:center;gap:0}
+.hh-ic{width:26px;height:26px}
+.hh-ciel small{font-size:var(--texte-legende2);font-weight:var(--graisse-semibold);color:var(--sp-faible);line-height:1}
+.hh-t{display:flex;align-items:center;gap:8px;min-width:0}
+.hh-t > b{flex:0 0 30px;text-align:right;font-size:var(--texte-corps);font-weight:var(--graisse-semibold)}
+.hh-piste{position:relative;display:block;flex:1;height:6px;min-width:0;border-radius:var(--rayon-plein);background:var(--piste)}
+.hh-piste > b{position:absolute;top:0;bottom:0;left:0;border-radius:var(--rayon-plein)}
+.hh-piste-t > b{right:0;opacity:.6}
+.hh-point{position:absolute;top:50%;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:#FFFFFF;
+  box-shadow:0 0 0 2px rgb(var(--teinte-ciel, 14 24 40) / .70)}
+.hh-plein{background:rgba(255,255,255,.82)}
+.hh-plein.sp-faible{background:var(--sp-faible)}
+.hh-plein.sp-moderee{background:var(--sp-moderee)}
+.hh-plein.sp-forte{background:var(--sp-forte)}
+.hh-vent{background:linear-gradient(90deg,#A8D2F5,#FFFFFF)}
+.hh-rafale{background:rgba(255,255,255,.28);border-radius:0 var(--rayon-plein) var(--rayon-plein) 0}
+.hh-p{display:flex;justify-content:center;align-items:flex-end;height:24px}
+.hh-goutte{display:block;width:8px;border-radius:var(--rayon-plein)}
+.hh-goutte.sp-faible{background:var(--sp-faible)}
+.hh-goutte.sp-moderee{background:var(--sp-moderee)}
+.hh-goutte.sp-forte{background:var(--sp-forte)}
+.hh-sec{height:3px;align-self:center;background:var(--piste)}
+.hh-v{display:flex;align-items:center;justify-content:flex-end;gap:4px;font-size:var(--texte-corps)}
+.hh-v b{font-weight:var(--graisse-semibold)}
+.hh-fl{width:15px;height:15px;color:#FFFFFF;flex:none}
+.hh-a{display:flex;justify-content:center}
+.hh-val{display:flex;align-items:baseline;justify-content:flex-end;gap:4px;white-space:nowrap}
+.hh-val b{font-size:var(--texte-corps);font-weight:var(--graisse-semibold)}
+.hh-val small{font-size:var(--texte-legende2);color:var(--etiquette-3);font-weight:var(--graisse-semibold)}
+.hh-d{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px 8px;margin:0;padding:2px 0 var(--espace-md)}
+.hh-d dt{font-size:var(--texte-legende2);color:var(--etiquette-3)}
+.hh-d dd{margin:0;font-size:var(--texte-note);font-weight:var(--graisse-semibold);white-space:nowrap}

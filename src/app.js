@@ -1107,7 +1107,33 @@ function vueSemaineCiel(...a) {
 
 /* ---------- Écrans branchés sur les vues ---------- */
 
-const VUES_ONGLET = { temps: vueTemps, semaine: vueSemaineCiel };
+/* « Heure par heure » au format plein ciel, version 232 : le ciel du lieu
+   derrière, les blocs teintés, le titre de la page à gauche sous le bouton de
+   retour. */
+function vueTempsCiel(...a) {
+  const f = vueTemps(...a);
+  const g = Reglages.lire();
+  const s = P.serieHoraire();
+  if (!s) return f;
+  const bd = cielDuLieu(g, s, s.code[0]);
+  return {
+    ...f,
+    pleinCadre: true,
+    cielPlein: true,
+    teinte: bd.teinte,
+    ligne: f.sousEcran || "",
+    corps: `<div class="plein plein-accueil plein-heures" style="--ci-clarte:${bd.clarte.toFixed(3)}">${bd.ciel}</div>`
+      + `<div class="ecran-corps ecran-heures">${f.corps}</div>`,
+    brancher(bloc) {
+      f.brancher?.(bloc);
+      Feu.poser(bloc.querySelector("#ciFeu"));
+      Relief.poser(bloc.querySelector("#ciLune"));
+      Temps.poser(bloc.querySelector("#ciTemps"));
+    },
+  };
+}
+
+const VUES_ONGLET = { temps: vueTempsCiel, semaine: vueSemaineCiel };
 
 /* La carte et le ciel se chargent à la première ouverture de leur onglet : la
    carte, ses couches, le contour de la France et la voûte étoilée, environ
@@ -1446,6 +1472,9 @@ function rendre() {
   ecran.classList.toggle("ecran-detail", f.retour === true);
   ecran.classList.toggle("ecran-ciel", f.cielPlein === true);
   document.documentElement.classList.toggle("plein-ciel", f.cielPlein === true);
+  /* Une page de détail en plein ciel n'a pas l'en-tête du lieu : son titre
+     est le sien, sous le bouton de retour, version 232. */
+  document.documentElement.classList.toggle("ciel-detail", f.cielPlein === true && f.retour === true);
   /* L'en-tête du plein ciel, version 223, choix de Jérôme du 18 octobre
      2026 sur maquette : le lieu au centre, en grand, « Ma position » au-dessus
      en mode position, et la ligne courte qui paraît au défilement. Les blocs
@@ -2172,10 +2201,12 @@ function quitterDetail() {
   window.scrollTo({ top: y, behavior: "instant" });
 }
 
-/* « Le temps » tel qu'on l'a laissé, ruban ou liste, sans voie imposée : le
-   lien « Plus de détails » de la bande. */
+/* « Heure par heure » sans grandeur imposée : le lien « Plus de détails » de
+   la bande ouvre la vue d'ensemble. */
 function ouvrirLeTemps() {
   sentir(8);
+  /* Sans grandeur désignée, la page ouvre la vue d'ensemble, version 232. */
+  Ruban.poserVoie(null);
   Ruban.poserHeure(-1);
   detail = { y: window.scrollY };
   history.pushState({ detail: true }, "");
@@ -2200,8 +2231,8 @@ function ouvrirJour(jour) {
   rendre();
 }
 
+/* Une grandeur désignée ouvre la vue ciblée, son seul graphique, version 232. */
 function allerAuDetail(cle, heure = null) {
-  Reglages.poserEcriture("ruban");
   Ruban.poserVoie(cle);
   sentir(8);
   /* Depuis le 25 septembre 2026, la page de détail s'ouvre dans l'onglet où
@@ -2223,14 +2254,6 @@ function allerAuDetail(cle, heure = null) {
         Ruban.poserHeure(cible);
         rendre();
       }
-    }
-    /* La voie désignée se place dans l'écran, sous l'axe collant, 3 octobre
-       2026 : la page remontait en haut, et une voie basse, l'indice UV ou la
-       pression, restait sous le bord de l'écran. Celles du haut ne bougent
-       pas. */
-    const v = document.querySelector(`.mg-v[data-cle="${cle}"]`);
-    if (v && v.getBoundingClientRect().bottom > window.innerHeight) {
-      v.scrollIntoView({ block: "center", behavior: "instant" });
     }
   }
 }

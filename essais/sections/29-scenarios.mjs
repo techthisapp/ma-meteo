@@ -6,7 +6,7 @@ export const titre = "Les scénarios";
 export const avecPage = true;
 
 export default async T => {
-  const { nav, ok, brancherRoutes, ouvrirPage, ouvrirLeTemps, phrasesConseils,
+  const { nav, ok, brancherRoutes, ouvrirPage, ouvrirLeTemps, ouvrirVoie, phrasesConseils,
     onglet, reposer } = T;
   /* La marge d'une prévision. La source rend quarante scénarios sous un autre
      point d'entrée : leur dispersion est la marge, et elle s'élargit avec
@@ -152,7 +152,11 @@ export default async T => {
   /* L'enveloppe, peinte dans le groupe mobile de la voie de température, sous les
      courbes et au-dessus du lavis de nuit. Elle suit donc le glissement sans
      travail supplémentaire. */
-  await ouvrirLeTemps(pgSc);
+  /* La vue ciblée de la température, version 232 ; la phrase entière de la
+     voie, notice comprise, se lit dans `lectureSeule`. */
+  const resumeDe = p => p.evaluate(async () => (await import("/src/ruban.js")).lectureSeule().resume.replace(/[\u00A0\u202F]/g, " "));
+  const voir = async c => { await pgSc.locator(`.hh-puce[data-grandeur="${c}"]`).click(); await pgSc.waitForTimeout(500); };
+  await ouvrirVoie(pgSc, "t");
   await pgSc.waitForTimeout(700);
   ok("l'enveloppe est peinte dans la voie de température",
     await pgSc.locator('.mg-v[data-cle="t"] .mg-sc-q path').count() >= 1
@@ -176,27 +180,23 @@ export default async T => {
      pour un effet de dessin. La phrase de la voie dit ce qu'elles portent, et
      nomme l'écart le plus large de la fenêtre, non celui de l'heure en cours qui
      vaut un demi-degré. */
-  await pgSc.locator('.mg-b[data-voie="t"]').click();
-  await pgSc.waitForTimeout(500);
-  const phraseSc = await pgSc.locator('.mg-v[data-cle="t"] .mg-l').textContent();
+  const phraseSc = await resumeDe(pgSc);
   ok("la voie dit ce que l'ombre porte",
     /L'ombre porte les 40 scénarios de la source, écartés de \d+ degrés? au plus large vers/
       .test(phraseSc), phraseSc);
-  ok("l'écart nommé est celui de la fenêtre", await pgSc.evaluate(() => {
-    const t = document.querySelector('.mg-v[data-cle="t"] .mg-l').textContent.replace(/[\u00A0\u202F]/g, " ");
+  ok("l'écart nommé est celui de la fenêtre", await pgSc.evaluate(t => {
     const m = t.match(/écartés de (\d+) degrés? au plus large vers ([^.]+)\./);
     if (!m) return "phrase absente";
     // Fenêtre de 05 h à demain 05 h : l'écart le plus large tombe à sa fin.
     return Number(m[1]) >= 1 && Number(m[1]) <= 4 && /demain/.test(m[2])
       ? "" : `${m[1]} degrés vers ${m[2]}`;
-  }) === "", phraseSc);
+  }, phraseSc) === "", phraseSc);
 
   /* La voie du vent porte la sienne, posée sur la rafale et non sur le vent
      moyen : c'est la rafale qui décide, c'est elle que la règle des faits
      marquants regarde et que le maximum de la voie marque, et le vent moyen est
      déjà tracé en aire pleine sous laquelle une bande n'aurait pas paru. */
-  await pgSc.locator('.mg-b[data-voie="v"]').click();
-  await pgSc.waitForTimeout(500);
+  await voir("v");
   ok("la voie du vent porte son enveloppe",
     await pgSc.locator('.mg-v[data-cle="v"] .mg-sc-q path').count() >= 1
     && await pgSc.locator('.mg-v[data-cle="v"] .mg-sc-e path').count() >= 1);
@@ -215,7 +215,7 @@ export default async T => {
       return Math.abs(c - raf) < Math.abs(c - moy) ? ""
         : `bande centrée à ${c.toFixed(0)}, rafale à ${raf.toFixed(0)}, vent à ${moy.toFixed(0)}`;
     }) === "");
-  const phraseV = await pgSc.locator('.mg-v[data-cle="v"] .mg-l').textContent();
+  const phraseV = await resumeDe(pgSc);
   ok("la voie du vent dit ce que son ombre porte",
     /L'ombre porte les 40 scénarios de la source, écartés de \d+ km\/h au plus large vers/
       .test(phraseV), phraseV);
@@ -223,11 +223,15 @@ export default async T => {
      quelques-uns à quelques dixièmes, une bande de zéro à un demi-millimètre est
      muette là où le comptage parle. Sa part est réduite et gardée, elle n'est pas
      peinte en bande. */
+  await voir("mm");
   ok("la voie de la pluie ne porte pas d'enveloppe",
     await pgSc.locator('.mg-v[data-cle="mm"] .mg-sc-q').count() === 0
     && await pgSc.locator('.mg-v[data-cle="mm"] .mg-sc-e').count() === 0);
+  const phraseMm = await resumeDe(pgSc);
+  await voir("uv");
   ok("l'indice ultraviolet non plus, la source n'en rendant aucun scénario",
-    await pgSc.locator('.mg-v[data-cle="uv"] .mg-sc-q').count() === 0
+    await pgSc.locator('.mg-v[data-cle="uv"]').count() === 1
+    && await pgSc.locator('.mg-v[data-cle="uv"] .mg-sc-q').count() === 0
     && await pgSc.evaluate(async () => {
       const E = await import("/src/ensemble.js");
       return !("uv" in (E.chargeCourante()?.q || {}));
@@ -244,10 +248,6 @@ export default async T => {
      s'accordent à dix points près sur quatre-vingt-douze pour cent des heures, et
      rien ne dit lequel tombe le plus juste là où ils divergent. La voie parle donc
      de millimètres, et ne pose pas deux probabilités côte à côte. */
-  const phraseMm = await pgSc.evaluate(() => {
-    const v = document.querySelector('.mg-v[data-cle="mm"] .mg-l');
-    return v ? v.textContent : "";
-  });
   ok("la voie de la pluie dit l'étalement des quantités",
     /Sur les 40 scénarios, la moitié (donnent moins de [\d,]+ mm|n'en donnent aucune) vers /
       .test(phraseMm) && /le plus arrosé [\d,]+ mm\.$/.test(phraseMm.trim()), phraseMm);
@@ -408,14 +408,13 @@ export default async T => {
   const pgMuet = await ctxMuet.newPage();
   await ouvrirPage(pgMuet);
   await reposer(pgMuet, 2250);
-  await ouvrirLeTemps(pgMuet);
+  await ouvrirVoie(pgMuet, "t");
   await pgMuet.waitForTimeout(700);
   ok("sans scénarios, la voie de température se dessine quand même",
     await pgMuet.locator('.mg-v[data-cle="t"] polyline').count() >= 3
     && await pgMuet.locator('.mg-v[data-cle="t"] .mg-sc-q').count() === 0);
   ok("et sa phrase ne parle pas d'une ombre absente",
-    !/ombre/.test(await pgMuet.locator('.mg-v[data-cle="t"] .mg-l').textContent()),
-    await pgMuet.locator('.mg-v[data-cle="t"] .mg-l').textContent());
+    !/ombre/.test(await resumeDe(pgMuet)), await resumeDe(pgMuet));
   await ctxMuet.close();
 
   /* Le journal de justesse. Rien ne s'affiche : deux mois de couples entre ce qui

@@ -7,21 +7,21 @@ export const titre = "L'horizon glissant";
 export const avecPage = true;
 
 export default async T => {
-  const { pg, ok, txt, onglet, CADRE } = T;
-  // L'état de départ : « Heure par heure ».
-  await onglet("temps");
+  const { pg, ok, ouvrirVoie, CADRE } = T;
+  // L'état de départ : la vue ciblée de la température, depuis la version 232.
+  await ouvrirVoie(pg, "t");
   /* La fenêtre porte vingt-quatre heures sur la largeur en portrait, et le dessin
      court au delà, d'une fenêtre de part et d'autre : c'est la réserve que le
      glissement découvre sans avoir à tout redessiner. */
   const choix = () => pg.evaluate(() => {
-    const c = document.querySelector("#ecran .carte").getBoundingClientRect();
+    const c = document.querySelector("#ecran .hh-page").getBoundingClientRect();
     const j = [...document.querySelectorAll(".mg-jours .mg-j")];
     return { n: j.length, on: j.filter(b => b.classList.contains("mg-j-on")).map(b => b.getAttribute("aria-label")),
       dedans: j.every(b => { const r = b.getBoundingClientRect(); return r.left >= c.left && r.right <= c.right && r.width >= 40; }),
       /* Le nom du jour le plus à gauche de l'axe. */
       gauche: [...document.querySelectorAll(".mg-bd text.mg-bj")]
         .sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left)[0]?.textContent || "",
-      lu: document.querySelector(".mg-lu-h")?.textContent || "" };
+      lu: document.querySelector(".mg-lu-s b")?.textContent || "" };
   });
   const depart = await choix();
   ok("le choix du jour porte « Maint. » et un bouton par jour, tous visibles sans défiler",
@@ -108,12 +108,13 @@ export default async T => {
   ok("au delà de demain, le jour se nomme en entier, sur l'axe comme dans la bulle",
     loin.gauche === "Jeudi 20" && loin.lu === "Jeudi 20, 12 h",
     JSON.stringify(loin));
-  ok("la lecture de droite parle de la fenêtre, non de l'horizon", await pg.evaluate(() => {
-    const r = document.querySelector('.mg-v[data-cle="t"] .mg-r').textContent;
+  const droite = () => pg.evaluate(async () => (await import("/src/ruban.js")).lectureSeule().droite);
+  ok("la lecture de droite parle de la fenêtre, non de l'horizon", await pg.evaluate(async () => {
+    const r = (await import("/src/ruban.js")).lectureSeule().droite;
     const m = r.match(/^(-?\d+) à (-?\d+)°$/);
     if (!m) return r;
     return Number(m[2]) - Number(m[1]) <= 20 ? "" : `amplitude ${m[2] - m[1]}`;
-  }) === "", await txt('.mg-v[data-cle="t"] .mg-r'));
+  }) === "", await droite());
 
   /* Le dernier bouton porte encore une journée entière : l'horizon de la
      charge va jusqu'à son minuit suivant. */
@@ -127,6 +128,8 @@ export default async T => {
 
   /* L'écriture d'échelle ne bouge pas avec le dessin : elle nomme une
      hauteur, laquelle ne dépend pas de l'heure regardée. */
+  await pg.locator('.hh-puce[data-grandeur="v"]').click();
+  await pg.waitForTimeout(420);
   ok("les noms de seuil et les chiffres restent hors du groupe mobile",
     await pg.evaluate(() => {
       const svg = document.querySelector('.mg-v[data-cle="v"] svg.mg-s');
@@ -149,10 +152,10 @@ export default async T => {
     document.querySelector("#ecran").classList.contains("ecran-large")
     && getComputedStyle(document.querySelector("#ecran")).maxWidth === "none"));
   ok("le ruban prend la largeur en paysage", await pg.evaluate(() => {
-    const w = document.querySelector("#ecran .carte").getBoundingClientRect().width;
+    const w = document.querySelector("#ecran .hh-graphe").getBoundingClientRect().width;
     return w > 700 ? "" : `carte de ${w.toFixed(0)} points`;
   }) === "", await pg.evaluate(() =>
-    document.querySelector("#ecran .carte").getBoundingClientRect().width.toFixed(0)));
+    document.querySelector("#ecran .hh-graphe").getBoundingClientRect().width.toFixed(0)));
   const fen = () => pg.evaluate(async () => (await import("/src/ruban.js")).fenetre());
   ok("en paysage la fenêtre porte quarante-huit heures", (await fen()) === 48, String(await fen()));
   await pg.setViewportSize({ width: 390, height: 844 });

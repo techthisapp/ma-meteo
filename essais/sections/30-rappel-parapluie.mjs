@@ -9,7 +9,7 @@ export const titre = "Le rappel de parapluie";
 export const avecPage = true;
 
 export default async T => {
-  const { nav, etat, ok, brancherRoutes, ouvrirPage, ouvrirLeTemps, txtDe, onglet, reposer } = T;
+  const { nav, etat, ok, brancherRoutes, ouvrirPage, txtDe, onglet, reposer } = T;
   /* Le radar de la pluie dans l'heure accorde le jeton depuis la version 168 :
      sec par défaut dans les faux services, il retarderait toute pluie de 10 h
      posée ici. La section éprouve la série horaire seule, le radar s'y tait. */
@@ -160,10 +160,12 @@ export default async T => {
         && n.right <= j.left + 0.5;
     }));
 
-  ok("le jeton garde sa place sur les trois écrans hors du plein ciel", await (async () => {
+  /* « Heure par heure » est en plein ciel depuis la version 232 : restent le
+     ciel et la carte. */
+  ok("le jeton garde sa place sur les deux écrans hors du plein ciel", await (async () => {
     const vus = [];
-    for (const cle of ["temps", "ciel", "carte"]) {
-      await (cle === "temps" ? ouvrirLeTemps(pgPluie) : pgPluie.locator(`[data-onglet="${cle}"]`).click());
+    for (const cle of ["ciel", "carte"]) {
+      await pgPluie.locator(`[data-onglet="${cle}"]`).click();
       await pgPluie.waitForTimeout(400);
       const b = await pgPluie.locator("#navJeton").boundingBox();
       vus.push(b ? `${Math.round(b.x)},${Math.round(b.y)}` : "absent");
@@ -180,8 +182,8 @@ export default async T => {
     const Pr = await import("/src/previsions.js");
     R.prendreJeton(Pl.jeton(Pr.serieHorizon(), R.alertes(Pl.ALERTES_DEFAUT)).cle);
   });
-  /* L'écran du temps, hors du plein ciel : le jeton y paraîtrait s'il restait. */
-  await ouvrirLeTemps(pgPluie);
+  /* Le ciel, hors du plein ciel : le jeton y paraîtrait s'il restait. */
+  await pgPluie.locator('[data-onglet="ciel"]').click();
   await pgPluie.waitForTimeout(400);
   ok("un jeton pris se retire aussi depuis un écran qui n'est pas l'accueil",
     await pgPluie.locator("#navJeton").isHidden());

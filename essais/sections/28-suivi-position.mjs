@@ -6,7 +6,7 @@ export const titre = "Suivi de la position";
 export const avecPage = true;
 
 export default async T => {
-  const { pg, nav, etat, ok, brancherRoutes, ouvrirPage, RACINE_HTTP, ouvrirLeTemps,
+  const { pg, nav, etat, ok, brancherRoutes, ouvrirPage, RACINE_HTTP, ouvrirLeTemps, ouvrirVoie,
     phrasesConseils, txt, onglet, ecranCiel, reposer } = T;
   /* L'application s'ouvre en mode position sur un relevé ancien, pris ailleurs.
      L'autorisation étant déjà accordée, le relevé silencieux doit partir seul,
@@ -875,30 +875,23 @@ export default async T => {
   await ouvrirLeTemps(pgSerein);
   await pgSerein.waitForTimeout(600);
 
-  ok("sans pluie, la voie se réduit à sa ligne de titre", await pgSerein.evaluate(() => {
-    const v = document.querySelector('.mg-v[data-cle="mm"]')
-      || [...document.querySelectorAll(".mg-v")].find(e => /^Pluie/.test(e.textContent));
+  /* La vue ciblée de la pluie, version 232 : sans pluie, la voie le dit en
+     une ligne, sans tracé. */
+  await ouvrirVoie(pgSerein, "mm");
+  ok("sans pluie, la voie de la pluie le dit en une ligne, sans tracé", await pgSerein.evaluate(() => {
+    const v = document.querySelector('.mg-v[data-cle="mm"]');
     if (!v) return "voie absente";
     if (v.querySelector("svg.mg-s")) return "un tracé subsiste";
-    const t = v.querySelector(".mg-t");
-    /* La hauteur du titre contre celle de son encre : la réserve de touche gonfle
-       la boîte sans rien y mettre, et `scrollHeight` la suit, donc ne la voit
-       pas. Ce sont les enfants qu'il faut mesurer. */
-    const k = [...t.children].map(e => e.getBoundingClientRect());
-    const encre = Math.max(...k.map(r => r.bottom)) - Math.min(...k.map(r => r.top));
-    const vide = t.getBoundingClientRect().height - encre;
-    return vide > 16 ? `bande vide de ${vide.toFixed(0)} points` : "";
-  }) === "", await pgSerein.evaluate(() => {
-    const v = [...document.querySelectorAll(".mg-v")].find(e => /^Pluie/.test(e.textContent));
-    return v ? `${v.getBoundingClientRect().height.toFixed(0)} points` : "voie absente";
-  }));
+    if (!v.classList.contains("mg-vide")) return "voie sans sa ligne";
+    return /^Aucune pluie/.test(document.querySelector(".hh-phrase")?.textContent || "") ? "" : "phrase muette";
+  }) === "", await pgSerein.evaluate(() => document.querySelector('.mg-v[data-cle="mm"]')?.textContent || "voie absente"));
 
-  /* La ligne de titre qui s'ouvre garde sa cible de touche : c'est un bouton, il
-     se vise au pouce. */
-  ok("le titre qui s'ouvre garde sa cible de touche", await pgSerein.evaluate(() =>
-    [...document.querySelectorAll(".mg-b")].every(e => e.getBoundingClientRect().height >= 40)));
+  /* Les pastilles des grandeurs gardent leur cible de touche : elles se
+     visent au pouce. */
+  ok("les pastilles des grandeurs gardent leur cible de touche", await pgSerein.evaluate(() =>
+    [...document.querySelectorAll(".hh-puce")].every(e => e.getBoundingClientRect().height >= 44)));
 
-  await pgSerein.locator('.mg-b[data-voie="nua"]').click();
+  await pgSerein.locator('.hh-puce[data-grandeur="nua"]').click();
   await pgSerein.waitForTimeout(400);
   ok("un ciel dégagé n'écrit pas sa file de zéros", await pgSerein.evaluate(() => {
     const v = document.querySelector('.mg-v[data-cle="nua"]');
@@ -1131,7 +1124,7 @@ export default async T => {
     }));
     await ouvrirLeTemps(pg);
     await pg.waitForTimeout(500);
-    const sous = await pg.locator(".titre-ecran p").innerText();
+    const sous = await pg.locator(".hh-phrase").innerText();
     await pg.locator('[data-onglet="semaine"]').click();
     await pg.waitForTimeout(500);
     /* Les rangées se désignent par leur nom et non par leur rang : la table
@@ -1172,21 +1165,19 @@ export default async T => {
   }, async pg => {
     await ouvrirLeTemps(pg);
     await pg.waitForTimeout(500);
-    const sous = await pg.locator(".titre-ecran p").innerText();
+    const sous = await pg.locator(".hh-phrase").innerText();
     ok("le sous-titre du temps s'écrit sans décimale",
       /^\d+° et /.test(sous), sous);
-    await pg.locator('[data-ecriture="liste"]').click();
-    await pg.waitForTimeout(500);
     ok("les températures de la liste s'écrivent sans décimale", await pg.evaluate(() => {
       const fautes = [];
       /* Depuis le jalon 20, lot 4 : la température de la ligne, le ressenti
          et la rosée du détail. */
-      for (const el of document.querySelectorAll(".hl-t, .hl-d dd")) {
+      for (const el of document.querySelectorAll(".hh-t b, .hh-d dd")) {
         if (/\d,\d°/.test(el.textContent)) fautes.push(el.textContent.trim());
       }
       return fautes.length ? fautes.slice(0, 4).join(" ") : "";
     }) === "", await pg.evaluate(() =>
-      document.querySelector(".hl")?.textContent.trim().slice(0, 40)));
+      document.querySelector(".hh")?.textContent.trim().slice(0, 40)));
   });
 
   /* Le gel s'annonce au degré rond, et le mot s'accorde. */

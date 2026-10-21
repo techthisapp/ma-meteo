@@ -1,21 +1,40 @@
 /* La page « Heure par heure ». Découpé de src/vues.js le 2 octobre 2026,
-   docs/plan-decoupage-vues.md. */
+   docs/plan-decoupage-vues.md.
+
+   Reprise en version 232, choix de Jérôme du 21 octobre 2026 sur maquette :
+   la porte décide de la vue. Une tuile, la grande température, l'état du
+   ciel, un conseil ou une heure de la bande ouvrent la vue ciblée, un seul
+   graphique en grand, celui de la grandeur touchée, sa phrase en tête et ses
+   heures en liste dessous ; un sélecteur passe d'une grandeur à l'autre.
+   « Plus de détails » et une journée d'« À venir » ouvrent la vue d'ensemble,
+   la liste des heures avec le ciel, la température, la pluie et le vent. Les
+   sept voies empilées et la bascule entre ruban et liste sont retirées. */
 
 import { esc } from "../horloge.js";
 import * as P from "../previsions.js";
-import { tempsDe } from "../icones.js";
+import { tempsDe, ico } from "../icones.js";
 import * as Ruban from "../ruban.js";
-import { liste, moments } from "../ecritures.js";
-import * as Reglages from "../reglages.js";
+import { listeEnsemble, listeGrandeur } from "../ecritures.js";
+import { aide } from "../aide.js";
 
-/* ---------- L'écran du temps ---------- */
+/* Les grandeurs du sélecteur, dans l'ordre du ruban : clé de la voie, titre
+   de la page, nom court de la pastille, icône. Sept pastilles, quatre puis
+   trois, tiennent sur deux rangées sans défilement de côté. */
+export const GRANDEURS = [
+  ["nua", "Ciel", "Ciel", "nuage"],
+  ["t", "Température", "Temp.", "thermo"],
+  ["mm", "Pluie", "Pluie", "parapluie"],
+  ["v", "Vent", "Vent", "vent"],
+  ["uv", "Indice UV", "UV", "soleil"],
+  ["hum", "Humidité", "Humidité", "goutte"],
+  ["pres", "Pression", "Pression", "jauge"],
+];
 
 export function vueTemps(ctx, rendre) {
-  const g = Reglages.lire();
-  /* Deux portées pour deux écritures. La table lit les vingt-quatre heures à
-     venir, qui sont ce qu'on lui demande. Le ruban lit l'horizon entier, de
-     minuit du jour en cours au bout de la charge, et sa fenêtre glisse dessus. */
-  const s = g.ecriture === "liste" ? P.serieHoraire() : P.serieHorizon();
+  /* Une seule portée pour les deux vues : l'horizon entier, de minuit du jour
+     en cours au bout de la charge. La vue ciblée y fait glisser sa fenêtre, la
+     liste en lit la même tranche. */
+  const s = P.serieHorizon();
   if (!s) {
     return {
       titre: "Heure par heure",
@@ -24,37 +43,49 @@ export function vueTemps(ctx, rendre) {
     };
   }
 
-  const e = g.ecriture;
   const ici = Math.max(0, Math.min(s.n - 1, s.ici));
-  const corps = e === "liste" ? liste(s) : Ruban.dessiner(s);
-  /* Le sélecteur se tient sur la ligne du titre, en petit : le ruban et la
-     table commencent ainsi en haut de la page. */
-  const seg = `<div class="seg seg-menu">` + Reglages.ECRITURES.map(([c, n]) =>
-    `<button type="button" data-ecriture="${c}"${c === e ? ' class="actif"' : ""}>${esc(n)}</button>`)
-    .join("") + `</div>`;
+  const etat = `${Math.round(s.t[ici])}° et ${tempsDe(s.code[ici])[1].toLowerCase()}`;
+  const cle = Ruban.voieCourante();
+  const gr = GRANDEURS.find(x => x[0] === cle);
 
-  /* Ce qui mérite d'être retenu se lit sur l'accueil, sous « À retenir », et
-     les moments s'y lisent aussi, en bas de page. Les répéter ici redisait les
-     mêmes phrases un écran plus loin, à l'endroit où l'on vient justement
-     chercher le détail heure par heure. */
+  if (!gr) {
+    const [a, b] = Ruban.bornesListe(s);
+    return {
+      titre: "Heure par heure",
+      sousEcran: etat,
+      corps: `<div class="hh-page" data-vue="ensemble">`
+        + `<h1 class="hh-grand">Heure par heure</h1><p class="hh-phrase">${esc(etat)}</p>`
+        + `<div class="hh-jours">${Ruban.navJours(s)}</div>`
+        + listeEnsemble(s, a, b) + `</div>`,
+      brancher(bloc) { Ruban.brancherJours(bloc, rendre); },
+    };
+  }
+
+  const dessin = Ruban.dessiner(s, { seule: true });
+  const lu = Ruban.lectureSeule();
+  const [a, b] = Ruban.bornesListe(s);
+  /* La phrase de la voie, sans la notice de lecture que porte parfois sa
+     seconde moitié : la première phrase répond à la question. */
+  const phrase = (lu.resume || lu.droite || "").replace(/\s+(L'aire|L'ombre|Sur les|Une baisse)[^]*$/, "");
+  const puces = `<div class="hh-puces" role="group" aria-label="Grandeur">` + GRANDEURS.map(([c, , court, ic]) =>
+    `<button type="button" class="hh-puce" data-grandeur="${c}" aria-pressed="${c === cle}">`
+    + `${ico(ic, "hh-puce-ic")}<span>${esc(court)}</span></button>`).join("") + `</div>`;
   return {
-    titre: "Heure par heure",
-    // Le ruban prend toute la largeur : c'est un graphique, sa densité fait sa
-    // lisibilité. La table, elle, reste dans la largeur de lecture.
-    large: e === "ruban",
-    /* Le degré s'écrit sans décimale, ici comme partout : « 9,4° » sous un
-       bandeau qui dit « 9° » ferait deux chiffres pour une même mesure. Le
-       bandeau dit l'heure en cours, laquelle n'ouvre pas la série du ruban. */
-    sousEcran: `${Math.round(s.t[ici])}° et ${tempsDe(s.code[ici])[1].toLowerCase()}`,
-    cote: seg,
-    /* La liste porte ses propres cartes, une par moment, depuis le jalon 20,
-       lot 4. */
-    corps: e === "liste" ? corps : `<div class="carte">${corps}</div>`,
+    titre: gr[1],
+    sousEcran: etat,
+    // Le graphique prend toute la largeur : sa densité fait sa lisibilité.
+    large: true,
+    corps: `<div class="hh-page" data-vue="ciblee" data-cle="${esc(cle)}">`
+      + `<h1 class="hh-grand">${esc(gr[1])}</h1><p class="hh-phrase">${esc(phrase)}</p>`
+      + puces + `<div class="hh-jours">${Ruban.navJours(s)}</div>`
+      + `<div class="carte hh-graphe">${dessin}`
+      + (lu.resume && lu.resume !== phrase ? `<div class="hh-aide">${aide(lu.resume)}</div>` : "") + `</div>`
+      + listeGrandeur(s, cle, a, b) + `</div>`,
     brancher(bloc) {
-      for (const b of bloc.querySelectorAll("[data-ecriture]")) {
-        b.addEventListener("click", () => { Reglages.poserEcriture(b.dataset.ecriture); rendre(); });
+      for (const p of bloc.querySelectorAll("[data-grandeur]")) {
+        p.addEventListener("click", () => { Ruban.poserVoie(p.dataset.grandeur); Ruban.poserHeure(-1); rendre(); });
       }
-      if (e === "ruban") Ruban.brancher(bloc, rendre);
+      Ruban.brancher(bloc, rendre);
     },
   };
 }

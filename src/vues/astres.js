@@ -3,7 +3,6 @@
 
 import { nombreFr, hhmm, jourLong, esc } from "../horloge.js";
 import * as P from "../previsions.js";
-import { liste } from "../ecritures.js";
 import * as Reglages from "../reglages.js";
 import * as Astres from "../astres.js";
 import * as Feu from "../feu.js";

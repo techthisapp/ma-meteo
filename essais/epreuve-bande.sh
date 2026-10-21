@@ -233,11 +233,8 @@ case "$N" in
      perl -0pi -e 's/    const suivre = \(\) => \{ el\.style\.transform = [^\n]*\n/    const suivre = () => {};\n/' src/vues/lieux.js
      ATTENDU="la rangée prise suit le doigt" ;;
   69) # La page reprend son ancien nom.
-     perl -0pi -e 's/titre: "Heure par heure"/titre: "Le temps"/g' src/vues/heures.js
-     ATTENDU="la page des heures s.appelle « Heure par heure »" ;;
-  70) # Le bandeau ne colle plus.
-     perl -0pi -e 's/  position:sticky;top:calc\(env\(safe-area-inset-top, 0px\) \+ var\(--nav-haut\)\);z-index:3;/  position:relative;z-index:3;/' styles.css
-     ATTENDU="un bandeau collant porte le jour et les heures, et glisse avec le ruban" ;;
+     perl -0pi -e 's/titre: "Heure par heure"/titre: "Le temps"/g; s/>Heure par heure<\/h1>/>Le temps<\/h1>/g' src/vues/heures.js
+     ATTENDU="la page des heures s.appelle « Heure par heure »";;
   71) # Retirée le 3 octobre 2026 : le calque de minuit a disparu en version 160 ; l'erreur 283 éprouve son retour.
      echo "ÉPREUVE 71 RETIRÉE : le calque de minuit a disparu en version 160 ; l'erreur 283 éprouve son retour."; exit 0 ;;
   72) # La semaine commence le dimanche.
@@ -394,9 +391,9 @@ case "$N" in
   119) # L'ouverture se juge de nouveau sur l'attribut hidden.
      perl -0pi -e 's/  if \(!dejaOuverte\) \{/  if (\$("feuille").hidden) {/' src/app.js
      ATTENDU="une feuille refermée avant sa première image reste fermée, et rouverte pendant sa fermeture reste ouverte" ;;
-  120) # La carte des réglages reprend l'ancien nom de la page.
-     perl -0pi -e 's/<h3>Écriture de la page « Heure par heure »<\/h3>/<h3>Écriture de l\x27écran Le temps<\/h3>/' src/vues/feuilles.js
-     ATTENDU="les réglages nomment l.écriture de la page « Heure par heure »" ;;
+  120) # La carte des réglages propose de nouveau l'écriture de la page.
+     perl -0pi -e 's/(      \/\* Le choix entre ruban et liste pour)/      + `<div class="carte"><div class="carte-tete"><h3>Heure par heure<\/h3><\/div><\/div>`\n$1/' src/vues/feuilles.js
+     ATTENDU="les réglages ne proposent plus de choisir l.écriture de « Heure par heure »";;
   121) # Toute tuile qui ouvre une feuille annonce de nouveau l'air qu'on respire.
      perl -0pi -e 's/\$\{esc\(e\)\}, \$\{TUILE_VERS\[feuille\]\}">/\$\{esc(e)\}, voir l\x27air qu\x27on respire">/' src/app.js
      ATTENDU="une tuile qui ouvre une feuille dit au lecteur d.écran celle qu.elle ouvre" ;;
@@ -485,8 +482,8 @@ case "$N" in
      perl -0pi -e 's/, \$\{tempsDe\(s\.code\[k\]\)\[1\]\.toLowerCase\(\)\}, \$\{t\} degrés/, \${t} degrés/' src/bande.js
      ATTENDU="les heures de la bande restent des boutons et disent leur ciel" ;;
   150) # La colonne du ciel perd son texte lu.
-     perl -0pi -e 's/\n    \+ `<span class="titre-lu">\$\{esc\(tempsDe\(s\.code\)\[1\]\)\}<\/span>`\],/],/' src/ecritures.js
-     ATTENDU="la colonne du ciel se lit dans le tableau des heures" ;;
+     perl -0pi -e 's/  \+ `<span class="titre-lu">\$\{esc\(tempsDe\(s\.code\[k\]\)\[1\]\)\}<\/span><\/span>`;/  + `<\/span>`;/' src/ecritures.js
+     ATTENDU="la colonne du ciel se lit dans la liste des heures";;
   151) # Les journées d'À venir ne nomment plus leurs bornes.
      perl -0pi -e 's/<span class="titre-lu">minimum<\/span>//' src/vues/avenir.js
      ATTENDU="chaque journée d.À venir dit son ciel et nomme ses bornes" ;;
@@ -868,24 +865,21 @@ case "$N" in
   277) # La nuit des Étoiles perd la précision de ses cases.
      perl -0pi -e 's/<b>\$\{esc\(val\)\}<\/b><em>\$\{esc\(sous\)\}<\/em>/<b>\${esc(val)}<\/b>/' src/vues/etoiles.js
      ATTENDU="les trois indicateurs de la nuit des Étoiles" ;;
-  278) # La liste ne range plus ses heures par moment.
-     perl -0pi -e 's/\.map\(lot => `<div class="section hl-moment"><h2>\$\{esc\(lot\.titre\)\}<\/h2>`/.map(lot => `<div class="section hl-moment"><h2>Heures<\/h2>`/' src/ecritures.js
-     ATTENDU="la liste range ses heures par moment" ;;
-  279) # La pluie s'écrit à chaque ligne, même sèche.
-     perl -0pi -e 's/const pluie = h\.mm >= SEUIL_LAME \?/const pluie = true ?/' src/ecritures.js
-     ATTENDU="chaque ligne porte le ciel et la température, la pluie seulement quand il pleut" ;;
+  278) # Les jours de la liste perdent leurs bornes.
+     perl -0pi -e 's/      \+ `de \$\{Math\.round\(Math\.min\(\.\.\.t\)\)\} à \$\{Math\.round\(Math\.max\(\.\.\.t\)\)\}°<\/h2>`/      + `<\/h2>`/' src/ecritures.js
+     ATTENDU="la liste range ses heures par jour, avec les bornes du jour";;
+  279) # La température perd son point sur l'échelle.
+     perl -0pi -e 's/    \+ `<i class="hh-point" style="left:\$\{pc\(\(\(t - tn\) \/ \(\(tx - tn\) \|\| 1\)\) \* 100\)\}"><\/i><\/span>`;/    + `<\/span>`;/' src/ecritures.js
+     ATTENDU="chaque ligne porte le ciel, la température sur son échelle, la pluie et le vent, et reste fermée";;
   280) # Le détail perd le ressenti.
      perl -0pi -e 's/  \["Ressenti", h => `\$\{Math\.round\(h\.res\)\}°`\],\n//' src/ecritures.js
      ATTENDU="toucher une heure ouvre le ressenti" ;;
   281) # Le ruban redevient sélectionnable.
      perl -0pi -e 's/\.mg,\.mg \*,\.mg-bandeau,\.mg-bandeau \*,\.mg-nav\{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none\}//' styles.css
      ATTENDU="le ruban ne se sélectionne pas" ;;
-  282) # L'axe du haut écrit ses heures sans vérifier qu'elles tiennent.
-     perl -0pi -e 's/const heuresVues = graduations\.filter\(k => \{/const heuresVues = graduations.filter(k => { return true;/' src/ruban.js
-     ATTENDU="l'axe du haut n'écrit que des libellés entiers" ;;
-  283) # Minuit retraverse les titres.
-     perl -0pi -e 's/return `\$\{nav\}\$\{bandeau\}<div class="mg">\$\{voies\.join\(""\)\}<\/div>`;/return `\${nav}\${bandeau}<div class="mg"><svg class="mg-minuits" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none" viewBox="0 0 \${L} 1000" preserveAspectRatio="none">\${minuits.map(k => `<line class="mg-mp" x1="\${X(k)}" y1="0" x2="\${X(k)}" y2="1000"\/>`).join("")}<\/svg>\${voies.join("")}<\/div>`;/' src/ruban.js
-     ATTENDU="le trait de minuit ne traverse ni les titres" ;;
+  282) # L'axe du haut écrit ses heures sans le zéro de tête.
+     perl -0pi -e 's/y="\$\{H_BANDEAU - 10\}">\$\{heureTxt\(s\.heure\[k\]\)\}/y="\${H_BANDEAU - 10}">\${s.heure[k]} h/' src/ruban.js
+     ATTENDU="l'axe du haut n'écrit que des libellés entiers";;
   284) # Un toucher bref ne lit plus.
      perl -0pi -e 's/if \(actif && mode === null\) lire\(kAppui\);//' src/ruban.js
      ATTENDU="un toucher bref lit l'heure touchée" ;;
@@ -901,24 +895,24 @@ case "$N" in
   288) # La lecture revient à maintenant au relâchement.
      perl -0pi -e 's/actif = false; mode = null;\n    \};/actif = false; mode = null; setTimeout(() => lire(s.ici), 500);\n    };/' src/ruban.js
      ATTENDU="la lecture reste posée après le relâchement" ;;
-  289) # La phrase de la voie dépliée s'affiche en clair.
-     perl -0pi -e 's/const bas = !resume \? "" : g \?/const bas = !resume ? "" : g ? `<p class="mg-l">\${esc(resume)}<\/p>` : false ?/' src/ruban.js
-     ATTENDU="la phrase de la voie dépliée attend derrière" ;;
+  289) # La notice de la voie quitte le « i ».
+     perl -0pi -e 's/\(lu\.resume && lu\.resume !== phrase \?/(false ?/' src/vues/heures.js
+     ATTENDU="la phrase de la voie se lit en tête de page, sa notice derrière le « i »";;
   290) # La voie de la pluie se dessine dès qu'il pleut sur l'horizon.
      perl -0pi -e 's/const h = Math\.max\(\.\.\.w\.mm\) >= SEUIL_LAME/const h = Math.max(...s.mm) >= SEUIL_LAME/' src/ruban.js
      ATTENDU="la voie de la pluie se replie" ;;
   291) # La bulle nomme le jour autrement que l'axe.
      perl -0pi -e 's/: j === "Aujourd.hui" \? heureTxt\(s\.heure\[k\]\) : `\$\{j\}, \$\{heureTxt\(s\.heure\[k\]\)\}`;/: `\${nomJour(s, s.jour[k])}\${heureTxt(s.heure[k])}`;/' src/ruban.js
      ATTENDU="au delà de demain, le jour se nomme en entier" ;;
-  292) # Le vent reprend la tournure des bulletins.
-     perl -0pi -e 's/`\$\{Math\.round\(h\.v\)\} km\/h, \$\{duCardinal\(h\.dir\)\}`/`\${Math.round(h.v)} km\/h de \${cardinal(h.dir)}`/' src/ecritures.js
-     ATTENDU="le vent du détail dit sa provenance" ;;
-  293) # Les lignes de la liste reprennent leur hauteur de touche.
-     perl -0pi -e 's/gap:var\(--espace-md\);min-height:36px;padding:2px 0;/gap:var(--espace-md);min-height:var(--touche);padding:var(--espace-xs) 0;/' styles.css
-     ATTENDU="les lignes sont resserrées" ;;
-  294) # Le « i » de la liste retourne au pied.
-     perl -0pi -e 's/return `<div class="hl-aide">` \+ aide\(/return `<div class="hl-pied">` + aide(/' src/ecritures.js
-     ATTENDU="les lignes sont resserrées" ;;
+  292) # Le vent du détail dit sa direction en degrés.
+     perl -0pi -e 's/`\$\{Math\.round\(h\.v\)\} km\/h, \$\{duCardinal\(h\.dir\)\}`/`\${Math.round(h.v)} km\/h de \${Math.round(h.dir)}°`/' src/ecritures.js
+     ATTENDU="le vent du détail dit sa provenance";;
+  293) # Les lignes de la liste grandissent.
+     perl -0pi -e 's/\.hh-l\{display:grid;align-items:center;gap:8px;min-height:46px;/.hh-l{display:grid;align-items:center;gap:8px;min-height:60px;/' styles.css
+     ATTENDU="les lignes fermées tiennent en quarante-huit points au plus";;
+  294) # L'explication de la liste s'écrit en clair.
+     perl -0pi -e 's/    \+ aide\("Touchez une heure/    + ("Touchez une heure/' src/ecritures.js
+     ATTENDU="l.explication de la liste se tient derrière le « i »";;
   295) # Le « i » reste au pied de sa carte.
      perl -0pi -e 's/    titre\.after\(d\);\n    carte\.classList\.add\("aide-tete"\);/    void titre;/' src/aide.js
      ATTENDU="le « i » d'une carte titrée" ;;
@@ -964,9 +958,9 @@ case "$N" in
   309) # Le tableau des heures reprend le trait.
      perl -0pi -e 's/\$\{deux\(x\.h0\)\} h à \$\{deux\(x\.h1\)\} h/\${deux(x.h0)}-\${deux(x.h1)} h/' src/ecritures.js
      ATTENDU="le tableau des heures écrit ses plages" ;;
-  310) # La bulle du ruban reprend l'abréviation de la direction.
-     perl -0pi -e 's/\["Vent", `\$\{Math\.round\(s\.v\[k\]\)\} km\/h`, duCardinal\(s\.dir\[k\]\)\]/["Vent", `\${Math.round(s.v[k])} km\/h`, "SO"]/' src/ruban.js
-     ATTENDU="la bulle du ruban dit la direction du vent" ;;
+  310) # La lecture du vent reprend l'abréviation de la direction.
+     perl -0pi -e 's/km\/h \$\{duCardinal\(s\.dir\[k\]\)\}, rafales/km\/h SO, rafales/' src/ruban.js
+     ATTENDU="la lecture du vent dit sa direction en toutes lettres et la liste nomme les grandeurs comme ailleurs";;
   311) # La page ne se place plus sur la voie désignée.
      perl -0pi -e 's/v\.scrollIntoView\(\{ block: "center", behavior: "instant" \}\);//' src/app.js
      ATTENDU="la page s'est placée sur la voie" ;;
@@ -1799,6 +1793,96 @@ case "$N" in
   594) # L'interrupteur quitte le graphique des températures.
      perl -0pi -e 's/grapheSemaine\(jours, "", basculeSemaine\(false\)\)/grapheSemaine(jours)/' src/vues/avenir.js
      ATTENDU="le mode pluie de « À venir » montre les heures de pluie, le cumul et le risque, se garde, et rend les températures" ;;
+  595) # « Plus de détails » ouvre la vue ciblée de la température.
+     perl -0pi -e 's/  Ruban\.poserVoie\(null\);\n  Ruban\.poserHeure\(-1\);/  Ruban.poserVoie("t");\n  Ruban.poserHeure(-1);/' src/app.js
+     ATTENDU="« Plus de détails » ouvre la vue d.ensemble, titrée Heure par heure";;
+  596) # La vue ciblée garde le titre de la page.
+     perl -0pi -e 's/<h1 class="hh-grand">\$\{esc\(gr\[1\]\)\}<\/h1>/<h1 class="hh-grand">Heure par heure<\/h1>/' src/vues/heures.js
+     ATTENDU="une grandeur ouvre la vue ciblée, titrée de son nom";;
+  597) # La vue ciblée dessine toutes les voies.
+     perl -0pi -e 's/  const vue = c => !seule \|\| c === voieOuverte;/  const vue = c => true;/' src/ruban.js
+     ATTENDU="la vue ciblée ne dessine qu.une voie, la sienne";;
+  598) # Une pastille porte le nom long.
+     perl -0pi -e 's/\["t", "Température", "Temp\.", "thermo"\]/["t", "Température", "Température", "thermo"]/' src/vues/heures.js
+     ATTENDU="sept pastilles, dans l.ordre du ruban";;
+  599) # La pastille du ciel reste pressée.
+     perl -0pi -e 's/aria-pressed="\$\{c === cle\}"/aria-pressed="\${c === "nua"}"/' src/vues/heures.js
+     ATTENDU="la pastille de la grandeur ouverte est pressée";;
+  600) # Les pastilles tiennent sur une seule rangée, au-delà de l'écran.
+     perl -0pi -e 's/\.hh-puces\{display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/.hh-puces{display:grid;grid-template-columns:repeat(7,minmax(70px,1fr))/' styles.css
+     ATTENDU="les sept pastilles tiennent sur deux rangées, sans défilement de côté";;
+  601) # Une pastille ouvre toujours la température.
+     perl -0pi -e 's/Ruban\.poserVoie\(p\.dataset\.grandeur\)/Ruban.poserVoie("t")/' src/vues/heures.js
+     ATTENDU="chaque pastille ouvre sa voie, seule, sous son titre";;
+  602) # La phrase de tête redit le nom de la grandeur.
+     perl -0pi -e 's/  const phrase = \(lu\.resume \|\| lu\.droite \|\| ""\)/  const phrase = (gr[1] || "")/' src/vues/heures.js
+     ATTENDU="la phrase de l.indice UV porte une heure ou un chiffre";;
+  603) # Le ciel perd sa bande de symboles.
+     perl -0pi -e 's/    d \+= bande\(g, k => icoTemps\(icoCiel\(s\.code\[k\], s\.clair\[k\]\), "mg-ic", 14\)\);\n//' src/ruban.js
+     ATTENDU="le ciel porte sa bande de symboles";;
+  604) # La pression perd la nuit.
+     perl -0pi -e 's/    for \(const \[a, b\] of plagesDe\(s\.n, k => !s\.clair\[k\]\)\) \{/    for (const [a, b] of plagesDe(s.n, k => !s.clair[k] \&\& voieOuverte !== "pres")) {/' src/ruban.js
+     ATTENDU="la nuit est lavée sur chacune des sept voies";;
+  605) # La phrase de tête perd ses chiffres.
+     perl -0pi -e 's/(  const phrase = \(lu\.resume \|\| lu\.droite \|\| ""\))/$1.replace(\/\\d+\/g, "quelques")/' src/vues/heures.js
+     ATTENDU="chaque voie résume un fait, non une notice";;
+  606) # La voie de la vue ciblée n'est plus dépliée.
+     perl -0pi -e 's/<div class="mg-v mg-grand mg-seule" data-cle/<div class="mg-v mg-seule" data-cle/' src/ruban.js
+     ATTENDU="la voie de la vue ciblée est dépliée";;
+  607) # Toutes les voies prennent la même hauteur dans la vue ciblée.
+     perl -0pi -e 's/    \(grand\(c\) \? \(ouvert \|\| Math\.round\(base \* ZOOM\)\) : base\);/    (grand(c) ? (seule ? 200 : (ouvert || Math.round(base * ZOOM))) : base);/' src/ruban.js
+     ATTENDU="chaque voie garde sa hauteur dépliée propre";;
+  608) # Le ciel déplié s'agrandit comme une courbe.
+     perl -0pi -e 's/    const h = H\(cle, 41, H_VOIE\);/    const h = H(cle, 41);/' src/ruban.js
+     ATTENDU="le ciel déplié tient dans la hauteur commune, sans l.agrandissement des courbes";;
+  609) # Une tuile ouvre la vue d'ensemble.
+     perl -0pi -e 's/function allerAuDetail\(cle, heure = null\) \{\n  Ruban\.poserVoie\(cle\);/function allerAuDetail(cle, heure = null) {\n  Ruban.poserVoie(null);/' src/app.js
+     ATTENDU="l.écran du temps s.ouvre sur la vue ciblée de la grandeur";;
+  610) # La voie de l'indice UV change de nom.
+     perl -0pi -e 's/<div class="mg-v mg-grand mg-seule" data-cle="\$\{esc\(cle\)\}">/<div class="mg-v mg-grand mg-seule" data-cle="\${esc(cle === "uv" ? "indice" : cle)}">/' src/ruban.js
+     ATTENDU="la voie visée est dessinée en grand";;
+  611) # La pression s'ajoute à toute vue ciblée.
+     perl -0pi -e 's/  const vue = c => !seule \|\| c === voieOuverte;/  const vue = c => !seule || c === voieOuverte || c === "pres";/' src/ruban.js
+     ATTENDU="aucune autre voie n.est dessinée";;
+  612) # La vue d'ensemble garde un sélecteur d'écriture.
+     perl -0pi -e 's/<div class="hh-page" data-vue="ensemble">/<div class="hh-page" data-vue="ensemble"><div class="seg-menu"><\/div>/' src/vues/heures.js
+     ATTENDU="la bascule entre ruban et liste n.existe plus";;
+  613) # La liste descend sous la ligne de flottaison.
+     perl -0pi -e 's/var\(--touche\) \+ var\(--espace-md\)\)\}/var(--touche) + var(--espace-md) + 400px)}/' styles.css
+     ATTENDU="la liste commence au-dessus de la ligne de flottaison";;
+  614) # La liste ne compte plus que douze heures.
+     perl -0pi -e 's/  return \[a, Math\.min\(s\.n, a \+ fenetre\(\)\)\];/  return [a, Math.min(s.n, a + 12)];/' src/ruban.js
+     ATTENDU="la liste porte vingt-quatre lignes";;
+  615) # L'heure en cours ne se nomme plus.
+     perl -0pi -e 's/const heureDe = \(s, k\) => \(k === s\.ici \?/const heureDe = (s, k) => (false ?/' src/ecritures.js
+     ATTENDU="la première ligne est l.heure en cours";;
+  616) # Le risque s'écrit dès cinq pour cent.
+     perl -0pi -e 's/const RISQUE_MARQUE = 30;/const RISQUE_MARQUE = 5;/' src/ecritures.js
+     ATTENDU="le risque de pluie ne s.écrit sous le ciel qu.à partir de trente pour cent";;
+  617) # L'échelle de la liste déborde les températures.
+     perl -0pi -e 's/  const tn = Math\.min\(\.\.\.s\.t\.slice\(a, b\)\), tx = Math\.max\(\.\.\.s\.t\.slice\(a, b\)\);/  const tn = Math.min(...s.t.slice(a, b)) - 5, tx = Math.max(...s.t.slice(a, b)) + 5;/' src/ecritures.js
+     ATTENDU="le point de température court d.un bout à l.autre de la piste";;
+  618) # Le détail d'une heure perd la rosée.
+     perl -0pi -e 's/  \["Rosée", h => `\$\{Math\.round\(h\.ros\)\}°`\],\n//' src/ecritures.js
+     ATTENDU="toucher une heure ouvre le ressenti, la rosée, le vent, les rafales, l.humidité et le risque de pluie";;
+  619) # Une heure sèche de la liste de la pluie n'écrit rien.
+     perl -0pi -e 's/ : `<small>\$\{Math\.round\(s\.pb\[k\]\)\} %<\/small>`\] \},/ : ""] },/' src/ecritures.js
+     ATTENDU="la liste de la pluie porte toutes les heures de la fenêtre, en barre, les millimètres ou le risque";;
+  620) # La liste du vent perd ses rafales.
+     perl -0pi -e 's/<b class="hh-rafale"/<b class="hh-rafal"/' src/ecritures.js
+     ATTENDU="la liste du vent porte la direction, le vent et ses rafales";;
+  621) # Sans pluie, la voie de la pluie perd sa ligne.
+     perl -0pi -e 's/mg-v mg-seule mg-vide/mg-v mg-seule/' src/ruban.js
+     ATTENDU="sans pluie, la voie de la pluie le dit en une ligne, sans tracé";;
+  622) # Les pastilles rapetissent sous la cible de touche.
+     perl -0pi -e 's/\.hh-puce\{min-height:var\(--touche\);/.hh-puce{min-height:30px;/' styles.css
+     ATTENDU="les pastilles des grandeurs gardent leur cible de touche";;
+  623) # « Heure par heure » garde l'en-tête du lieu.
+     perl -0pi -e 's/  document\.documentElement\.classList\.toggle\("ciel-detail", f\.cielPlein === true && f\.retour === true\);\n//' src/app.js
+     ATTENDU="« Heure par heure » se lit en plein ciel, sans l.en-tête du lieu";;
+  624) # Les barres de pluie reprennent l'encre du texte.
+     perl -0pi -e 's/\.mg-pl-faible\{fill:var\(--sp-faible\)\}/.mg-pl-faible{fill:currentColor}/' styles.css
+     ATTENDU="les barres de pluie prennent les intensités du mode pluie";;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

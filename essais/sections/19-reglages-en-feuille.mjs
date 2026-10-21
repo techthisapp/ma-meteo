@@ -27,11 +27,13 @@ export default async T => {
     dans: document.getElementById("feuille").contains(document.activeElement),
     inerte: document.getElementById("ecran").inert && document.getElementById("onglets").inert,
   }));
-  const ecritures = await pg.locator("#feuille-corps [data-ecriture]").count();
-  let garde = "aucun bouton d'écriture";
+  /* Le choix de la présentation de l'accueil, depuis que celui de
+     l'écriture d'« Heure par heure » est retiré, version 232. */
+  const ecritures = await pg.locator("#feuille-corps [data-presentation]").count();
+  let garde = "aucun bouton de présentation";
   if (ecritures) {
-    const cle = await pg.locator("#feuille-corps [data-ecriture]").last().getAttribute("data-ecriture");
-    await pg.locator(`#feuille-corps [data-ecriture="${cle}"]`).focus();
+    const cle = await pg.locator("#feuille-corps [data-presentation]").last().getAttribute("data-presentation");
+    await pg.locator(`#feuille-corps [data-presentation="${cle}"]`).focus();
     await pg.keyboard.press("Enter");
     await pg.waitForTimeout(300);
     /* Une sélection qui refait la feuille : le dernier menu d'heure d'alerte. */

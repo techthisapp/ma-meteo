@@ -2,7 +2,6 @@
    docs/plan-decoupage-vues.md. */
 
 import { esc } from "../horloge.js";
-import { liste } from "../ecritures.js";
 import * as Neige from "../neige.js";
 import * as Avalanche from "../avalanche.js";
 import * as Reglages from "../reglages.js";

@@ -163,11 +163,11 @@ export default async T => {
   const tableLu = await pg.evaluate(async () => {
     const E = await import("/src/ecritures.js"), I = await import("/src/icones.js");
     const un = v => [v];
-    const html = E.liste({ n: 1, t: un(20), res: un(20), ros: un(10), hum: un(50), mm: un(0), pb: un(0), code: un(3),
-      nua: un(90), pres: un(1015), v: un(5), raf: un(10), dir: un(0), uv: un(1), clair: un(1), jour: un("2026-08-18"), heure: un(12) });
+    const html = E.listeEnsemble({ n: 1, ici: 0, t: un(20), res: un(20), ros: un(10), hum: un(50), mm: un(0), pb: un(0), code: un(3),
+      nua: un(90), pres: un(1015), v: un(5), raf: un(10), dir: un(0), uv: un(1), clair: un(1), jour: un("2026-08-18"), heure: un(12) }, 0, 1);
     return html.includes(`<span class="titre-lu">${I.tempsDe(3)[1]}</span>`);
   });
-  ok("la colonne du ciel se lit dans le tableau des heures", tableLu === true);
+  ok("la colonne du ciel se lit dans la liste des heures", tableLu === true);
 
   /* Constat 4.5 : le texte tertiaire et le bleu de la pluie écrit en texte
      atteignent 4,5 de contraste sur le fond et les cartes, dans les deux

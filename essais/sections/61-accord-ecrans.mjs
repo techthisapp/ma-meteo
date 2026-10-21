@@ -10,7 +10,7 @@ export const titre = "L'accord des écrans";
 export const avecPage = true;
 
 export default async T => {
-  const { pg, ok, onglet, ouvrirLeTemps, reposer, ctxReponse, etat, METEO_NUE, ouvrirCarte, appuiLong } = T;
+  const { pg, ok, onglet, ouvrirVoie, reposer, ctxReponse, etat, METEO_NUE, ouvrirCarte, appuiLong } = T;
   await onglet("accueil"); await reposer(pg, 2000);
   const tuile = nom => pg.evaluate(n => {
     const e = [...document.querySelectorAll(".bd-m")].find(x => x.querySelector("i")?.textContent.trim() === n);
@@ -46,9 +46,13 @@ export default async T => {
 
   /* L'indice UV se nomme sur l'échelle du ruban, la pression et sa tendance
      sont celles du ruban. */
-  await ouvrirLeTemps(pg); await reposer(pg, 1500);
-  const ruban = await pg.evaluate(() => Object.fromEntries([...document.querySelectorAll(".mg-v")]
-    .map(v => [v.dataset.cle, v.querySelector(".mg-r")?.textContent.replace(/[  ]/g, " ") || ""])));
+  /* La valeur de droite de chaque voie, que la vue ciblée garde depuis la
+     version 232. */
+  const ruban = {};
+  for (const c of ["uv", "pres"]) {
+    await ouvrirVoie(pg, c); await reposer(pg, 1200);
+    ruban[c] = await pg.evaluate(async () => (await import("/src/ruban.js")).lectureSeule().droite.replace(/[\u00A0\u202F]/g, " "));
+  }
   const motUv = await pg.evaluate(async v => (await import("/src/previsions.js")).motUV(v), attendu.uv);
   ok("la tuile de l'indice UV et le ruban emploient la même échelle de mots",
     uv.sous === motUv && ruban.uv.endsWith(motUv), JSON.stringify({ uv, ruban: ruban.uv, motUv }));
