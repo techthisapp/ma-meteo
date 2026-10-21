@@ -82,6 +82,45 @@ export default async T => {
     if (ic.length < 6) return `${ic.length} symboles`;
     return "";
   }) === "", String(await pg.locator('.mg-v[data-cle="nua"] svg.mg-ic').count()));
+  /* La coupe du ciel, version 236 : les étages se dessinent à leur
+     altitude, et la liste porte une barre par étage. Les faux services ne
+     portent que des nuages bas ; des nuages moyens et hauts sont posés dans
+     la charge, à partir de l'heure en cours, puis la voie se redessine. */
+  await pg.evaluate(async () => {
+    const P = await import("/src/previsions.js");
+    const h = P.chargeCourante().hourly;
+    const i = h.time.indexOf(h.time.find(t => t.endsWith("T09:00") && t.startsWith("2026-08-18")));
+    for (let k = i; k < i + 24; k++) { h.cloud_cover_mid[k] = 80; h.cloud_cover_high[k] = k >= i + 3 ? 90 : 0; }
+  });
+  await pg.locator('.hh-puce[data-grandeur="t"]').click();
+  await pg.waitForTimeout(250);
+  await pg.locator('.hh-puce[data-grandeur="nua"]').click();
+  await pg.waitForTimeout(400);
+  const coupe = await pg.evaluate(() => {
+    const v = document.querySelector('.mg-v[data-cle="nua"]');
+    const svg = v?.querySelector("svg.mg-s");
+    if (!svg) return { faute: "voie absente" };
+    const graduation = t => [...svg.querySelectorAll("text.mg-g")].find(e => e.textContent.replace(/\s/g, " ") === t);
+    const yDe = t => graduation(t)?.getBoundingClientRect().top;
+    const y2 = yDe("2 km"), y6 = yDe("6 km");
+    const centres = sel => [...svg.querySelectorAll(sel)].map(e => { const r = e.getBoundingClientRect(); return r.top + r.height / 2; });
+    const bas = centres("ellipse.mg-nb"), moy = centres("ellipse.mg-nm"), hauts = centres("path.mg-nh");
+    return { y2, y6, nb: bas.length, nm: moy.length, nh: hauts.length,
+      basSous2: bas.every(y => y > y2), moyEntre: moy.every(y => y < y2 + 8 && y > y6 - 8), hautsAu6: hauts.every(y => y < y6) };
+  });
+  ok("la coupe du ciel dessine chaque étage à son altitude",
+    coupe.y2 && coupe.y6 && coupe.nb > 0 && coupe.nm > 0 && coupe.nh > 0 && coupe.basSous2 && coupe.moyEntre && coupe.hautsAu6,
+    JSON.stringify(coupe));
+  const phraseCiel = (await txt(".hh-phrase")).replace(/[\u00A0\u202F]/g, " ");
+  ok("la phrase du ciel nomme ses étages et l'heure où le voile arrive",
+    /, nuages moyens ; voile d'altitude dès 12 h ; nuages bas dès demain 00 h\.$/.test(phraseCiel), phraseCiel);
+  const barres = await pg.evaluate(() => ({
+    lignes: document.querySelectorAll(".hh-de-nua .hh").length,
+    trois: [...document.querySelectorAll(".hh-de-nua .hh")].every(l => l.querySelectorAll(".hh-etages > .hh-piste > b").length === 3),
+    legende: document.querySelector(".hh-de-nua .hh-legende")?.textContent || "" }));
+  ok("la liste du ciel porte une barre par étage et nomme les étages",
+    barres.lignes >= 20 && barres.trois && /Hauts, au-dessus de 6 km/.test(barres.legende) && /Bas, sous 2 km/.test(barres.legende),
+    JSON.stringify(barres));
   /* Depuis le 3 octobre 2026, un seul axe : le bandeau collant en tête du
      ruban. Les axes sous les voies écrivaient les heures autrement. */
   ok("un seul axe des heures, en tête du ruban, aucune voie n'en porte",

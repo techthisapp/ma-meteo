@@ -107,10 +107,22 @@ export function listeEnsemble(s, a, b, porte = null) {
       + "basse et la plus haute de la liste. Pluie en millimètres, vent en kilomètres par heure.");
 }
 
+// Les étages de nuages, du plus haut au plus bas.
+const ETAGES = [["nh", "Hauts", "au-dessus de 6 km", "nuaH"], ["nm", "Moyens", "2 à 6 km", "nuaM"],
+  ["nb", "Bas", "sous 2 km", "nuaB"]];
+
 /* Une ligne par grandeur : ce qui précède la barre, la barre, la valeur. */
 const GRANDEURS = {
+  /* Les trois étages, version 236 : une barre fine par étage, hauts,
+     moyens, bas, comme dans la coupe du ciel ; le total à droite. */
   nua: { unite: "en pour cent du ciel couvert",
-    ligne: (s, k) => [ciel(s, k, false), barre(s.nua[k], 100), `<b>${Math.round(s.nua[k])} %</b>`] },
+    legende: ETAGES.map(([c, n, alt]) => `<span><i class="hh-${c}"></i>${n}, ${alt}</span>`).join(""),
+    ligne: (s, k) => [ciel(s, k, false),
+      [s.nuaH, s.nuaM, s.nuaB].every(Array.isArray)
+        ? `<span class="hh-etages">${ETAGES.map(([c, , , champ]) =>
+          `<span class="hh-piste"><b class="hh-${c}" style="width:${pc(s[champ][k] ?? 0)}"></b></span>`).join("")}</span>`
+        : barre(s.nua[k], 100),
+      `<b>${Math.round(s.nua[k])} %</b>`] },
   t: { unite: "en degrés",
     ligne: (s, k, c) => [ciel(s, k, false), pisteT(s.t[k], c.tn, c.tx),
       `<b>${Math.round(s.t[k])}°</b><small>res. ${Math.round(s.res[k])}°</small>`] },
@@ -160,6 +172,7 @@ export function listeGrandeur(s, cle, a, b, porte = null) {
   };
   return parJour(s, a, b).map(lot => `<div class="carte hh-bloc hh-de-${esc(cle)}">`
     + `<h2 class="hh-titre">${esc(jourBandeau(s, lot.jour))}, ${esc(g.unite)}</h2>`
+    + (g.legende ? `<p class="hh-legende">${g.legende}</p>` : "")
     + lot.idx.map(ligne).join("") + `</div>`).join("");
 }
 

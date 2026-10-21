@@ -155,7 +155,7 @@ export const fenetre = () =>
    tronquée, elle ferait croire à un désaccord entre modèles là où un seul
    parle. */
 const CHAMPS = ["heure", "jour", "t", "res", "ros", "hum", "mm", "pb", "code",
-  "nua", "pres", "v", "raf", "dir", "uv", "clair"];
+  "nua", "nuaB", "nuaM", "nuaH", "pres", "v", "raf", "dir", "uv", "clair"];
 const trancher = (s, a, b) => {
   const out = { n: b - a, dec: a };
   for (const c of CHAMPS) if (Array.isArray(s[c])) out[c] = s[c].slice(a, b);
@@ -280,6 +280,36 @@ export function bornesListe(s) {
   const dec = cadrer(s);
   const a = ancre ? Math.max(0, s.ici) : dec;
   return [a, Math.min(s.n, a + fenetre())];
+}
+
+/* Les étages nommés dans la phrase du ciel, version 236 : ceux qui couvrent
+   au moins deux cinquièmes du ciel à un moment de la fenêtre, avec l'heure où
+   ils arrivent s'ils manquent au début. « Couvert toute la journée, nuages
+   bas et moyens ; voile d'altitude dès 12 h. » */
+const ETAGE_NOMME = 40;
+function phraseEtages(w, dec, HJ, ici) {
+  /* L'arrivée se compte depuis l'heure en cours, non depuis le début de la
+     fenêtre, qui la précède de quelques heures. */
+  const debut = Math.max(0, ici - dec);
+  const arrivee = c => {
+    if (!Array.isArray(w[c])) return -1;
+    const k = w[c].findIndex((v, i) => i >= debut && v >= ETAGE_NOMME);
+    return k < 0 ? -1 : k - debut;
+  };
+  const dit = (k, nom) => (k < 0 ? null : k <= 1 ? nom : `${nom} dès ${HJ(dec + debut + k)}`);
+  const kb = arrivee("nuaB"), km = arrivee("nuaM"), kh = arrivee("nuaH");
+  /* Les étages présents d'abord, puis les autres dans l'ordre où ils
+     arrivent. Les bas et les moyens présents ensemble se disent d'un mot. */
+  const rang = k => (k <= 1 ? 0 : k);
+  const items = [];
+  if (kb >= 0 && km >= 0 && kb <= 1 && km <= 1) items.push([0, "nuages bas et moyens"]);
+  else {
+    if (kb >= 0) items.push([rang(kb), dit(kb, "nuages bas")]);
+    if (km >= 0) items.push([rang(km), dit(km, "nuages moyens")]);
+  }
+  if (kh >= 0) items.push([rang(kh), dit(kh, "voile d'altitude")]);
+  const parts = items.sort((a, b) => a[0] - b[0]).map(x => x[1]);
+  return parts.length ? `, ${parts.join(" ; ")}` : "";
 }
 
 export function dessiner(s, opt = {}) {
@@ -732,10 +762,45 @@ export function dessiner(s, opt = {}) {
        lit en un coup d'œil, il n'attend pas qu'on déplie la voie. Dépliée, la
        voie tient dans la hauteur commune : agrandie de deux fois et demie, elle
        n'offrait qu'une bande de densité plus haute, donc rien de plus. */
-    const h = H(cle, 41, H_VOIE);
-    const hs = H_SYM, hv = g ? H_VAL : 0, hb = hs + hv;
+    /* La coupe du ciel, version 236, choix de Jérôme du 22 octobre 2026 sur
+       maquette : dans la vue ciblée, les trois étages de nuages se dessinent
+       à leur altitude, de zéro à douze kilomètres, plus denses quand l'étage
+       est couvert. */
+    const etages = seule && g && [s.nuaB, s.nuaM, s.nuaH].every(c => Array.isArray(c) && c.some(Number.isFinite));
+    const h = etages ? 176 : H(cle, 41, H_VOIE);
+    const hs = H_SYM, hv = g && !etages ? H_VAL : 0, hb = hs + hv;
     let d = "";
-    if (!g) {
+    if (etages) {
+      const y0 = hb + 4, y1 = h - 4;
+      const yKm = km => y1 - (km / 12) * (y1 - y0);
+      const v = (c, k) => (Number.isFinite(c[k]) ? c[k] / 100 : 0);
+      d = `<defs><filter id="mgFlou" x="-40%" y="-80%" width="180%" height="260%"><feGaussianBlur stdDeviation="3"/></filter>`
+        + `<filter id="mgFlouFin"><feGaussianBlur stdDeviation="1.2"/></filter></defs>` + fond(hb, h);
+      for (const km of [2, 6, 12]) {
+        d += `<line class="mg-alt" x1="${u(X(kA))}" x2="${u(X(kB + 1))}" y1="${u(yKm(km))}" y2="${u(yKm(km))}"/>`;
+        chiffre(yKm(km) + 3.5, `${km} km`);
+      }
+      d += `<line class="mg-sol" x1="${u(X(kA))}" x2="${u(X(kB + 1))}" y1="${u(y1)}" y2="${u(y1)}"/>`;
+      for (let k = kA; k <= kB; k++) {
+        const cx = X(k + 0.5), b = v(s.nuaB, k), m = v(s.nuaM, k), ha = v(s.nuaH, k);
+        // Les nuages bas, sous deux kilomètres : épais, gris soutenu.
+        if (b > 0.03) {
+          d += `<ellipse class="mg-nb" cx="${u(cx)}" cy="${u(yKm(1.1))}" rx="${u(LA * (0.7 + b * 0.5))}" `
+            + `ry="${u(5 + b * 10)}" opacity="${(0.25 + b * 0.65).toFixed(2)}" filter="url(#mgFlou)"/>`;
+        }
+        // Les nuages moyens, de deux à six kilomètres : une nappe plus claire.
+        if (m > 0.03) {
+          d += `<ellipse class="mg-nm" cx="${u(cx)}" cy="${u(yKm(4))}" rx="${u(LA * (0.7 + m * 0.5))}" `
+            + `ry="${u(4 + m * 8)}" opacity="${(0.2 + m * 0.55).toFixed(2)}" filter="url(#mgFlou)"/>`;
+        }
+        // Les nuages hauts, au-dessus de six kilomètres : des traits fins.
+        for (let n = 0; n < Math.ceil(ha * 3 - 0.05); n++) {
+          const yy = yKm(8.2 + n * 0.9);
+          d += `<path class="mg-nh" d="M${u(X(k))} ${u(yy + 2)} q${u(LA * 0.5)} ${-(3 + n)} ${u(LA * 1.1)} 0" `
+            + `opacity="${(0.4 + ha * 0.5).toFixed(2)}" filter="url(#mgFlouFin)"/>`;
+        }
+      }
+    } else if (!g) {
       /* Repliée, la couverture se dit en densité, une lame par heure. Les
          rectangles se joignent exactement : une largeur arrondie au dixième
          laissait un liseré plus sombre entre deux heures, qui se lisait comme
@@ -774,11 +839,11 @@ export function dessiner(s, opt = {}) {
     for (let k = 1; k < w.n; k++) {
       if ((w.nua[k - 1] < seuil) !== (w.nua[k] < seuil)) { bascule = dec + k; break; }
     }
+    const base = bascule < 0
+      ? `Ciel ${motDe("nua", w.nua[0])} sur toute la fenêtre`
+      : `Ciel ${motDe("nua", w.nua[0])} jusqu'à ${HJ(bascule)}, ${motDe("nua", s.nua[bascule])} ensuite`;
     poser("Ciel", `${bornes(w.nua)} %, ${motDe("nua", Math.max(...w.nua))} au plus`, h, d,
-      bascule < 0
-        ? `Ciel ${motDe("nua", w.nua[0])} sur toute la fenêtre.`
-        : `Ciel ${motDe("nua", w.nua[0])} jusqu'à ${HJ(bascule)}, `
-          + `${motDe("nua", s.nua[bascule])} ensuite.`, cle);
+      etages ? `${base}${phraseEtages(w, dec, HJ, s.ici)}.` : `${base}.`, cle);
   }
 
   // ---- 2. Température, ressenti et point de rosée ----

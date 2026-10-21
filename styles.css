@@ -3496,3 +3496,25 @@ details.hh[open] + .hh{border-top-color:transparent}
 .pp-ouvrir::after{content:"";position:absolute;inset:0;z-index:1;border-radius:inherit}
 .pp-c{border-radius:var(--rayon-carte)}
 .pp-carte{position:relative;z-index:2}
+
+/* Les étages de nuages, version 236 : la coupe du ciel de la vue ciblée et
+   les trois barres fines de sa liste, du bleu pâle des hauts au gris soutenu
+   des bas. */
+:root{--nuage-haut:#DCE8F7;--nuage-moyen:#B4C2D3;--nuage-bas:#8F9DB2}
+/* Dans la coupe, les nuages sont blancs : un gris ne se voyait pas sur le
+   verre du plein ciel. Leur altitude distingue les étages. */
+.mg-nh{fill:none;stroke:#FFFFFF;stroke-width:1.4}
+.mg-nm,.mg-nb{fill:#FFFFFF}
+.mg-alt{stroke:currentColor;stroke-opacity:.14}
+.mg-sol{stroke:currentColor;stroke-opacity:.4}
+.hh-etages{display:flex;flex-direction:column;gap:3px;min-width:0}
+.hh-etages > .hh-piste{flex:none;height:4px}
+.hh-piste > .hh-nh{background:var(--nuage-haut)}
+.hh-piste > .hh-nm{background:var(--nuage-moyen)}
+.hh-piste > .hh-nb{background:var(--nuage-bas)}
+.hh-legende{display:flex;flex-wrap:wrap;gap:4px 14px;margin:0 0 var(--espace-xs);font-size:var(--texte-legende2);color:var(--etiquette-2)}
+.hh-legende span{display:inline-flex;align-items:center;gap:6px}
+.hh-legende i{display:inline-block;width:14px;height:4px;border-radius:var(--rayon-plein)}
+.hh-legende .hh-nh{background:var(--nuage-haut)}
+.hh-legende .hh-nm{background:var(--nuage-moyen)}
+.hh-legende .hh-nb{background:var(--nuage-bas)}

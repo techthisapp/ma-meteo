@@ -1832,9 +1832,9 @@ case "$N" in
   607) # Toutes les voies prennent la même hauteur dans la vue ciblée.
      perl -0pi -e 's/    \(grand\(c\) \? \(ouvert \|\| Math\.round\(base \* ZOOM\)\) : base\);/    (grand(c) ? (seule ? 200 : (ouvert || Math.round(base * ZOOM))) : base);/' src/ruban.js
      ATTENDU="chaque voie garde sa hauteur dépliée propre";;
-  608) # Le ciel déplié s'agrandit comme une courbe.
-     perl -0pi -e 's/    const h = H\(cle, 41, H_VOIE\);/    const h = H(cle, 41);/' src/ruban.js
-     ATTENDU="le ciel déplié tient dans la hauteur commune, sans l.agrandissement des courbes";;
+  608) # La coupe du ciel reprend la hauteur commune.
+     perl -0pi -e 's/    const h = etages \? 176 : H\(cle, 41, H_VOIE\);/    const h = H(cle, 41, H_VOIE);/' src/ruban.js
+     ATTENDU="la coupe du ciel a sa hauteur propre, celle de trois étages" ;;
   609) # Une tuile ouvre la vue d'ensemble.
      perl -0pi -e 's/function allerAuDetail\(cle, heure = null\) \{\n  Ruban\.poserVoie\(cle\);/function allerAuDetail(cle, heure = null) {\n  Ruban.poserVoie(null);/' src/app.js
      ATTENDU="l.écran du temps s.ouvre sur la vue ciblée de la grandeur";;
@@ -1922,6 +1922,24 @@ case "$N" in
   637) # Le nom du ciel garde le code d'AROME.
      perl -0pi -e 's/w >= 0 && w <= 3 && Number\.isFinite\(h\.cloud_cover\[i\]\)/false/' src/previsions.js
      ATTENDU="le nom du ciel suit la couverture accordée, la pluie garde le sien" ;;
+  638) # La vue ciblée du ciel perd sa coupe.
+     perl -0pi -e 's/    const etages = seule && g && /    const etages = false && /' src/ruban.js
+     ATTENDU="la coupe du ciel dessine chaque étage à son altitude" ;;
+  639) # Les nuages moyens descendent sous deux kilomètres.
+     perl -0pi -e 's/cy="\$\{u\(yKm\(4\)\)\}"/cy="\${u(yKm(1))}"/' src/ruban.js
+     ATTENDU="la coupe du ciel dessine chaque étage à son altitude" ;;
+  640) # La phrase du ciel tait ses étages.
+     perl -0pi -e 's/etages \? `\$\{base\}\$\{phraseEtages\(w, dec, HJ, s\.ici\)\}\.` : `\$\{base\}\.`/`\${base}.`/' src/ruban.js
+     ATTENDU="la phrase du ciel nomme ses étages et l.heure où le voile arrive" ;;
+  641) # L'arrivée des étages se compte depuis le début de la fenêtre.
+     perl -0pi -e 's/  const debut = Math\.max\(0, ici - dec\);/  const debut = 0;/' src/ruban.js
+     ATTENDU="la phrase du ciel nomme ses étages et l.heure où le voile arrive" ;;
+  642) # La liste du ciel garde une seule barre.
+     perl -0pi -e 's/\[s\.nuaH, s\.nuaM, s\.nuaB\]\.every\(Array\.isArray\)/false/' src/ecritures.js
+     ATTENDU="la liste du ciel porte une barre par étage et nomme les étages" ;;
+  643) # La coupe du ciel perd son sol.
+     perl -0pi -e 's/      d \+= `<line class="mg-sol" [^\n]*\n//' src/ruban.js
+     ATTENDU="la coupe du ciel porte ses altitudes et son sol, sans lames de densité" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

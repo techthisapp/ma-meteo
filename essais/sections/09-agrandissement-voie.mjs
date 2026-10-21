@@ -100,21 +100,21 @@ export default async T => {
   });
   return d.length + " dans le cadre sur " + ic.length;
 })()`));
-  /* Dépliée, la voie du ciel quitte la densité pour l'aire sous ses bandes
-     nommées : une teinte n'a pas d'échelle contre laquelle se lire. Et elle tient
-     dans la hauteur commune, l'agrandissement d'une bande plate ne donnant rien. */
-  ok("le ciel déplié prend la grammaire du tracé", await pg.evaluate(() => {
+  /* Depuis la version 236, la vue ciblée du ciel est une coupe : ses
+     altitudes s'écrivent dans la gouttière, le sol se trace, et les lames de
+     densité de la voie repliée n'y sont plus. Sa hauteur est celle de trois
+     étages, propre à elle. */
+  ok("la coupe du ciel porte ses altitudes et son sol, sans lames de densité", await pg.evaluate(() => {
     const v = document.querySelector('.mg-v[data-cle="nua"]');
     const svg = v.querySelector("svg.mg-s");
-    if (!svg.querySelector("polyline")) return "aucune courbe";
-    if (!svg.querySelector('path[fill="currentColor"]')) return "aucune aire";
-    const noms = [...svg.querySelectorAll("text.mg-bn")].map(e => e.textContent);
-    if (!noms.includes("Couvert") || !noms.includes("Éclaircies")) return `bandes ${noms.join("/")}`;
+    const alt = [...svg.querySelectorAll("text.mg-g")].map(e => e.textContent.replace(/\s/g, " "));
+    if (!["2 km", "6 km", "12 km"].every(t => alt.includes(t))) return `altitudes ${alt.join("/")}`;
+    if (!svg.querySelector("line.mg-sol")) return "aucun sol";
     const lames = [...svg.querySelectorAll('rect[shape-rendering="crispEdges"]')];
     return lames.length ? `${lames.length} lames de densité subsistent` : "";
   }) === "", await pg.evaluate(() => [...document.querySelectorAll(
-    '.mg-v[data-cle="nua"] text.mg-bn')].map(e => e.textContent).join("/") || "aucune bande"));
+    '.mg-v[data-cle="nua"] text.mg-g')].map(e => e.textContent).join(" ") || "aucune altitude"));
   const hNua = (await pg.locator('.mg-v[data-cle="nua"] svg.mg-s').boundingBox()).height;
-  ok("le ciel déplié tient dans la hauteur commune, sans l'agrandissement des courbes",
-    Math.abs(hNua / hT - 86 / 215) < 0.04, `rapport ${(hNua / hT).toFixed(2)}, attendu ${(86 / 215).toFixed(2)}`);
+  ok("la coupe du ciel a sa hauteur propre, celle de trois étages",
+    Math.abs(hNua / hT - 176 / 215) < 0.04, `rapport ${(hNua / hT).toFixed(2)}, attendu ${(176 / 215).toFixed(2)}`);
 };
