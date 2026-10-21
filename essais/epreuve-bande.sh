@@ -1683,7 +1683,7 @@ case "$N" in
      perl -0pi -e 's/\.ci:has\(\.ci-temps\[data-webgl\]\) \.ci-feu\{opacity:0\}//' styles.css
      ATTENDU="sous le ciel WebGL, le disque plat du Soleil laisse la place au Soleil peint" ;;
   558) # Les étages de nuages ne vont pas jusqu'au ciel.
-     perl -0pi -e 's/      params\.etages = \[s\.nuaB\[0\]/      params.etagesPerdus = [s.nuaB[0]/' src/app.js
+     perl -0pi -e 's/    params\.etages = \[s\.nuaB\[0\]/    params.etagesPerdus = [s.nuaB[0]/' src/app.js
      ATTENDU="les trois étages de nuages, bas, moyens et hauts, arrivent au ciel de l.accueil" ;;
   559) # La prévision ne demande plus les nuages bas.
      perl -0pi -e 's/  "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high",/  "cloud_cover_mid", "cloud_cover_high",/' src/previsions.js
@@ -1910,6 +1910,18 @@ case "$N" in
   633) # La ligne courte de l'en-tête se lit de nouveau sur l'écran quitté.
      perl -0pi -e 's/(  const titreT = ecran\.querySelector\("\.plein-titre \.bd-deg"\);\n  const titreE = ecran\.querySelector\("\.plein-titre \.bd-ciel"\);\n  \$\("ecLigne"\)\.textContent = [^\n]*\n)//; s/(  const ancienCiel = ecran\.querySelector)/  \$("ecLigne").textContent = !f.cielPlein ? "" : ecran.querySelector(".plein-titre .bd-deg") ? `\${ecran.querySelector(".plein-titre .bd-deg").textContent} | \${ecran.querySelector(".plein-titre .bd-ciel").textContent}` : f.ligne || "";\n$1/' src/app.js
      ATTENDU="l.accueil en plein ciel porte des blocs teintés du ciel" ;;
+  634) # Les nuages ne se lissent plus.
+     perl -0pi -e 's/  return Math\.round\(\(w\[0\] \+ 2 \* w\[1\] \+ w\[2\]\) \/ 4\);/  return x;/' src/previsions.js
+     ATTENDU="la couverture se lisse sur trois heures et se déduit des étages" ;;
+  635) # Le total ne se déduit plus des étages.
+     perl -0pi -e 's/    h\.cloud_cover = h\.cloud_cover\.map\(\(t, i\)/    h.couvertureDeduite = h.cloud_cover.map((t, i)/' src/previsions.js
+     ATTENDU="la couverture se lisse sur trois heures et se déduit des étages" ;;
+  636) # Les nuages d'AROME reviennent dans la fusion.
+     perl -0pi -e 's/          for \(const c of NUAGES\) delete serie\[c\];\n//' src/previsions.js
+     ATTENDU="les nuages ne viennent pas d.AROME" ;;
+  637) # Le nom du ciel garde le code d'AROME.
+     perl -0pi -e 's/w >= 0 && w <= 3 && Number\.isFinite\(h\.cloud_cover\[i\]\)/false/' src/previsions.js
+     ATTENDU="le nom du ciel suit la couverture accordée, la pluie garde le sien" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

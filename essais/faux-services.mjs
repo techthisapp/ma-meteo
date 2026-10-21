@@ -16,11 +16,18 @@ import { fileURLToPath } from "node:url";
 const ICI = path.dirname(fileURLToPath(import.meta.url));
 export const METEO = JSON.parse(fs.readFileSync(path.join(ICI, "meteo.json"), "utf8"));
 /* Les trois étages de nuages, version 218 : la charge enregistrée ne les
-   porte pas. Les nuages bas reprennent la couverture totale, les moyens en
-   portent les deux cinquièmes, les hauts un quart du ciel. */
-METEO.hourly.cloud_cover_low = METEO.hourly.cloud_cover.map(v => v);
-METEO.hourly.cloud_cover_mid = METEO.hourly.cloud_cover.map(v => Math.round(v * 0.4));
-METEO.hourly.cloud_cover_high = METEO.hourly.cloud_cover.map(() => 25);
+   porte pas. Depuis la version 235, l'application déduit la couverture
+   totale des étages : ils se posent au moment de répondre, d'après la
+   couverture de la réponse, retouches comprises. Les nuages bas la
+   reprennent, les moyens et les hauts sont nuls, et le total déduit retombe
+   sur celui de la charge. */
+const etagesDe = h => {
+  if (!Array.isArray(h?.cloud_cover)) return h;
+  h.cloud_cover_low = h.cloud_cover.map(v => v);
+  h.cloud_cover_mid = h.cloud_cover.map(v => (v === null ? null : 0));
+  h.cloud_cover_high = h.cloud_cover.map(v => (v === null ? null : 0));
+  return h;
+};
 
 // Horloge figée au 18 août 2026, 9 h, heure de Paris.
 export const FIGE = new Date("2026-08-18T09:00:00+02:00").getTime();
@@ -938,15 +945,19 @@ export const brancherFauxServices = async (c, etat) => {
         if (k >= 0) {
           a.hourly.weather_code[k] = etat.bruineArome.code;
           a.hourly.precipitation[k] = etat.bruineArome.mm;
-          a.hourly.cloud_cover[k] = 100;
         }
+        /* AROME voit un ciel couvert toute la journée, que le modèle global ne
+           voit pas : les nuages retenus doivent rester ceux du modèle global,
+           version 235. */
+        a.hourly.cloud_cover = a.hourly.cloud_cover.map(() => 100);
       }
+      etagesDe(a.hourly);
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(a) });
       return;
     }
     if (u.includes("hourly=")) {
       route.fulfill({ status: 200, contentType: "application/json",
-        body: JSON.stringify({ hourly: retoucher(d.hourly, etat) }) });
+        body: JSON.stringify({ hourly: etagesDe(JSON.parse(JSON.stringify(retoucher(d.hourly, etat)))) }) });
       return;
     }
     delete d.hourly;

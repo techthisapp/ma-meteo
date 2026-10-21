@@ -48,16 +48,40 @@ export default async T => {
     return {
       ecran: c ? c.textContent.slice(0, 400) : "",
       code: s ? s.code[0] : null,
+      /* Les nuages viennent du modèle global depuis la version 235 : le ciel
+         se dit d'après sa couverture, non celle d'AROME. */
+      attendu: s ? P.codeCiel(s.nua[0]) : null,
+      nua: s ? s.nua[0] : null,
       mm: s ? s.mm[0] : null,
       libelle: t ? t.textContent : null,
     };
   });
   ok("une bruine que le modèle global ne voit pas ne s'écrit pas",
-    bruineDit.code === 3 && !/Bruine/.test(bruineDit.ecran),
+    bruineDit.code === bruineDit.attendu && !/Bruine/.test(bruineDit.ecran),
     `code ${bruineDit.code}, écran « ${bruineDit.ecran.replace(/\s+/g, " ").slice(0, 120)} »`);
 
   ok("la lame d'eau n'est pas touchée par la règle",
     bruineDit.mm === 0.2, `lame ${bruineDit.mm}`);
+
+  /* Les nuages accordés, version 235, relevé de Jérôme du 21 octobre 2026 :
+     AROME faisait basculer la couverture d'une heure à l'autre. Les nuages
+     viennent du modèle global ; AROME en pose 100 % à l'heure de la bruine,
+     la couverture retenue ne le reprend pas. */
+  ok("les nuages ne viennent pas d'AROME", bruineDit.nua !== null && bruineDit.nua < 90, `couverture ${bruineDit.nua}`);
+  const accord = await pgBruine.evaluate(async () => {
+    const P = await import("/src/previsions.js");
+    const t = ["a", "b", "c", "d", "e"];
+    const h = P.accorderNuages({ time: t, cloud_cover: [100, 0, 100, 0, 100], cloud_cover_low: [100, 0, 100, 0, 100],
+      cloud_cover_mid: [50, 50, 50, 50, 50], cloud_cover_high: [0, 0, 0, 0, 0], weather_code: [3, 0, 3, 0, 61] });
+    const sec = P.accorderNuages({ time: ["a", "b", "c"], cloud_cover: [100, 100, 100], cloud_cover_low: [0, 0, 0],
+      cloud_cover_mid: [0, 0, 0], cloud_cover_high: [0, 0, 0], weather_code: [3, 3, 3] });
+    return { bas: h.cloud_cover_low, total: h.cloud_cover, code: h.weather_code, secTotal: sec.cloud_cover, secCode: sec.weather_code };
+  });
+  ok("la couverture se lisse sur trois heures et se déduit des étages",
+    accord.bas.join() === "100,50,50,50,100" && accord.total.join() === "100,75,75,75,100" && accord.secTotal.join() === "0,0,0",
+    JSON.stringify(accord));
+  ok("le nom du ciel suit la couverture accordée, la pluie garde le sien",
+    accord.secCode.join() === "0,0,0" && accord.code[4] === 61 && accord.code[1] === 3, JSON.stringify(accord));
 
   await ctxBruine.close();
 

@@ -297,12 +297,59 @@ function pourCache(c) {
   return { ...c, horaireSecours: Object.fromEntries(COLONNES_SECOURS.filter(k => Array.isArray(b[k])).map(k => [k, b[k]])) };
 }
 
+/* ---------- Les nuages accordés, version 235 ----------
+
+   Relevé par Jérôme le 21 octobre 2026 à Paris : l'écran disait 100 % de
+   ciel couvert, et le ciel peint montrait quelques nuages. AROME, tel
+   qu'Open-Meteo le rend, fait basculer la couverture d'une heure à l'autre,
+   100 %, 0 %, 23 %, 97 %, 0 % ; sa version la plus fine ne rend pas de
+   total, et le total de l'autre version contredit parfois les étages. Le
+   ciel peint suit les étages en glissant vers l'heure suivante, le chiffre
+   suivait le seul total de l'heure.
+
+   Les nuages viennent donc du modèle global, dont les étages se suivent
+   mieux. Chaque colonne prend une moyenne de trois heures, l'heure elle-même
+   comptant double : une heure isolée se fond dans ses voisines, une
+   éclaircie qui dure reste ; une médiane intervertissait deux heures
+   voisines qui basculaient. Puis le total se
+   déduit des trois étages par la règle du recouvrement au hasard : un ciel
+   couvert à moitié en bas et à moitié en haut l'est aux trois quarts. Le
+   chiffre, le graphique, la liste et le ciel peint lisent ainsi la même
+   chose. */
+const NUAGES = ["cloud_cover", "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high"];
+const lisser3 = v => v.map((x, i) => {
+  const w = [v[i - 1], x, v[i + 1]];
+  if (!w.every(Number.isFinite)) return x;
+  return Math.round((w[0] + 2 * w[1] + w[2]) / 4);
+});
+
+export function accorderNuages(h) {
+  if (!h || !Array.isArray(h.time)) return h;
+  for (const c of NUAGES) if (Array.isArray(h[c])) h[c] = lisser3(h[c]);
+  const [, b, m, ha] = NUAGES.map(c => h[c]);
+  if (Array.isArray(h.cloud_cover) && Array.isArray(b) && Array.isArray(m) && Array.isArray(ha)) {
+    h.cloud_cover = h.cloud_cover.map((t, i) => ([b[i], m[i], ha[i]].every(Number.isFinite)
+      ? Math.round(100 * (1 - (1 - b[i] / 100) * (1 - m[i] / 100) * (1 - ha[i] / 100))) : t));
+  }
+  /* Le nom du ciel suit la couverture accordée : « Couvert » sous un ciel
+     peint à moitié dégagé se contredisait. Seuls les codes du ciel sec
+     changent, la pluie, la neige et l'orage gardent le leur. */
+  if (Array.isArray(h.weather_code) && Array.isArray(h.cloud_cover)) {
+    h.weather_code = h.weather_code.map((w, i) => (w >= 0 && w <= 3 && Number.isFinite(h.cloud_cover[i])
+      ? codeCiel(h.cloud_cover[i]) : w));
+  }
+  h.nuagesAccordes = true;
+  return h;
+}
+
 /* La dernière charge gardée pour cette clé, tant qu'elle couvre l'heure et le
    jour en cours : c'est elle que l'écran garde hors connexion. */
 function chargeGardee(cle) {
   try {
     const c = JSON.parse(localStorage.getItem(CACHE) || "null");
     if (!c || c.cle !== cle || !c.d?.hourly?.time?.includes(cleHeure())) return null;
+    // Une prévision gardée par une version antérieure n'a pas ses nuages accordés.
+    if (!c.d.hourly.nuagesAccordes) accorderNuages(c.d.hourly);
     return c.d.daily?.time?.includes(cleJour(new Date())) ? c : null;
   } catch { return null; }
 }
@@ -420,6 +467,9 @@ export async function charger({ lat, lon }) {
       const av = await prendre(ua, 0);
       if (av?.hourly) {
         for (const serie of separerModeles(av.hourly, AROME)) {
+          /* Les nuages restent au modèle global, version 235 : ceux
+             d'AROME basculent d'une heure à l'autre, voir `accorderNuages`. */
+          for (const c of NUAGES) delete serie[c];
           neuve.hourly = fondre(neuve.hourly, serie);
         }
       }
@@ -428,6 +478,7 @@ export async function charger({ lat, lon }) {
     /* La reprise du temps sensible vient après la fusion, et tourne même quand
        AROME manque : sans seconde voix elle n'a plus de désaccord à trancher,
        mais une source qui se contredit elle-même reste à reprendre. */
+    accorderNuages(neuve.hourly);
     apaiserCharge(neuve);
     charge = neuve;
     heureCharge = heureCle();

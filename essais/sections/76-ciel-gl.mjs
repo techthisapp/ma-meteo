@@ -104,7 +104,8 @@ export default async T => {
 
   /* Les trois étages de nuages de la prévision, version 218, arrivent sur
      la toile : l'heure en cours et la suivante. Les faux services portent les
-     nuages bas égaux à la couverture totale. */
+     nuages bas égaux à la couverture totale, les autres étages nuls, depuis
+     la version 235. */
   const etages = await p.evaluate(() => {
     const t = document.getElementById("ciTemps");
     return { etages: t.dataset.etages, couv: t.dataset.couv };
@@ -112,7 +113,7 @@ export default async T => {
   const e6 = (etages.etages || "").split(",").map(Number);
   const demande = demandes.some(u => ["cloud_cover_low", "cloud_cover_mid", "cloud_cover_high"].every(c => u.includes(c)));
   ok("les trois étages de nuages, bas, moyens et hauts, arrivent au ciel de l'accueil",
-    demande && e6.length === 6 && e6.every(Number.isFinite) && Math.abs(e6[0] - Number(etages.couv) * 100) <= 1 && e6[4] === 25,
+    demande && e6.length === 6 && e6.every(Number.isFinite) && Math.abs(e6[0] - Number(etages.couv) * 100) <= 1,
     JSON.stringify({ ...etages, demande }));
 
   /* La part du ciel couverte suit la couverture annoncée, à dix points près.
