@@ -1940,6 +1940,9 @@ case "$N" in
   643) # La coupe du ciel perd son sol.
      perl -0pi -e 's/      d \+= `<line class="mg-sol" [^\n]*\n//' src/ruban.js
      ATTENDU="la coupe du ciel porte ses altitudes et son sol, sans lames de densité" ;;
+  644) # Les portes de l'accueil compact reprennent leur propre verre.
+     perl -0pi -e 's/\.accueil-compact\.ecran-corps \[data-bloc="portes"\] \.porte\{background-color:transparent;/.accueil-compact.ecran-corps [data-bloc="portes"] .porte-x{background-color:transparent;/' styles.css
+     ATTENDU="les portes de l.accueil compact forment un seul bloc de verre, sans bandes entre elles" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

@@ -3518,3 +3518,12 @@ details.hh[open] + .hh{border-top-color:transparent}
 .hh-legende .hh-nh{background:var(--nuage-haut)}
 .hh-legende .hh-nm{background:var(--nuage-moyen)}
 .hh-legende .hh-nb{background:var(--nuage-bas)}
+
+/* Les portes de l'accueil compact forment un seul bloc de verre, version 237,
+   relevé de Jérôme du 22 octobre 2026 : la règle du plein ciel rendait à
+   « L'eau » et aux « Risques d'ici » leur propre verre, posé sur celui du
+   bloc, et l'écart du bloc laissait voir entre eux des bandes d'une autre
+   teinte. */
+.accueil-compact.ecran-corps [data-bloc="portes"]{gap:0}
+.accueil-compact.ecran-corps [data-bloc="portes"] .porte{background-color:transparent;
+  -webkit-backdrop-filter:none;backdrop-filter:none}

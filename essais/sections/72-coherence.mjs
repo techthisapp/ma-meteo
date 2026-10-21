@@ -91,6 +91,17 @@ export default async T => {
   });
   ok("l'accueil compact resserre la pluie de l'heure, tait la phrase de la bande et range les portes en liste",
     resserre.pluie && !resserre.phrase && !resserre.legende && !resserre.sous && resserre.n >= 3 && resserre.colonnes === 1, JSON.stringify(resserre));
+  /* Version 237 : les portes forment un seul bloc de verre, sans verre
+     propre ni écart entre elles. */
+  const unBloc = await p3.evaluate(() => {
+    const b = document.querySelector('#ecran [data-bloc="portes"]');
+    const portes = [...b.querySelectorAll(".porte")].map(e => getComputedStyle(e));
+    return { ecart: getComputedStyle(b).rowGap, n: portes.length,
+      fonds: [...new Set(portes.map(c => c.backgroundColor))], flous: portes.filter(c => (c.backdropFilter || c.webkitBackdropFilter || "none") !== "none").length };
+  });
+  ok("les portes de l'accueil compact forment un seul bloc de verre, sans bandes entre elles",
+    unBloc.n >= 5 && (unBloc.ecart === "0px" || unBloc.ecart === "normal") && unBloc.fonds.join() === "rgba(0, 0, 0, 0)" && unBloc.flous === 0,
+    JSON.stringify(unBloc));
   const replie = await lire();
   /* Version 234 : chaque valeur en petit est une porte vers sa grandeur, sans
      déplier le pli ; le dépliage reste à la ligne du chevron. */
