@@ -33,7 +33,8 @@ export default async T => {
     const r = document.querySelector('.co-l[aria-current="true"]');
     return { deg: r?.querySelector("[data-deg]")?.textContent || "", bornes: r?.querySelector("[data-bornes]")?.textContent || "",
       heros: document.querySelector(".bd-deg")?.textContent.replace(/\s+/g, "") || "",
-      jour: document.querySelector(".bd-bornes")?.textContent.replace(/ aujourd'hui$/, "") || "" };
+      // Le ressenti du moment suit les bornes depuis la version 239.
+      jour: document.querySelector(".bd-bornes")?.textContent.replace(/, ressenti .*$/, "").replace(/ aujourd'hui$/, "") || "" };
   });
   ok("la liste des lieux reprend la température et les bornes de l'accueil pour le lieu affiché",
     lieux.deg === lieux.heros && lieux.deg !== "" && lieux.bornes.endsWith(lieux.jour) && lieux.jour !== "",

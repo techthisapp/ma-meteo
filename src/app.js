@@ -702,8 +702,15 @@ function ecranAccueil() {
       /* Les bornes restent du texte : elles mènent au même endroit que le grand
          chiffre, juste au-dessus. Deux cibles pour une destination, c'est une de
          trop, et chacune coûte 44 points de hauteur. */
+      /* Le ressenti du moment, version 239, demande de Jérôme du 23 octobre
+         2026 : la tuile « Ressenti » dit le plus chaud d'ici minuit, et le
+         ressenti de l'heure en cours ne se lisait nulle part sur l'accueil. */
+      /* Il suit les bornes sur leur ligne : une ligne de plus repoussait la
+         bande des heures sous la barre du bas. */
       + `<p class="bd-bornes"><b>${Math.round(tn)}°</b> à `
-      + `<b>${Math.round(tx)}°</b> aujourd'hui</p>`
+      + `<b>${Math.round(tx)}°</b> aujourd'hui`
+      + (s && Number.isFinite(s.res?.[0]) ? `<span class="bd-ressenti">, ressenti <b>${Math.round(s.res[0])}°</b></span>` : "")
+      + `</p>`
       /* La mesure du moment, version 192 : la dernière mesure de la station
          de Météo-France la plus proche, avec la clé seulement. */
       + (() => {

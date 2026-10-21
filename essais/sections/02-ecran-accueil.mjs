@@ -130,8 +130,15 @@ export default async T => {
   /* Le mot ne doit pas paraître deux fois, en tuile et en ligne de conseil. Zéro
      fois est un état normal : la tuile cède sa place à la pluie quand le ressenti
      ne s'écarte pas du maximum du jour. */
+  /* Le ressenti du moment, sous l'état du ciel depuis la version 239, est
+     un autre chiffre que celui de la tuile, le plus chaud d'ici minuit : il
+     ne compte pas. */
   ok("le ressenti n'est pas écrit deux fois sur l'accueil",
-    ((await txt("#ecran")).toLowerCase().match(/ressenti/g) || []).length <= 1);
+    (await pg.evaluate(() => {
+      const e = document.getElementById("ecran").cloneNode(true);
+      e.querySelectorAll(".bd-ressenti").forEach(x => x.remove());
+      return e.textContent.toLowerCase().match(/ressenti/g) || [];
+    })).length <= 1);
   ok("la vigilance ouvre son détail depuis l'accueil",
     await pg.locator('#ecran .vg-c[data-feuille="vigilance"]').count() === 1);
   /* Audit du 1er octobre 2026, lot D, l'accessibilité. Constats 4.1 à 4.3 : la
@@ -157,6 +164,16 @@ export default async T => {
   ok("la vigilance nomme ses phénomènes aux lecteurs d'écran", a11yDit.phenomenes, JSON.stringify(a11yDit));
   ok("les heures de la bande restent des boutons et disent leur ciel",
     a11yDit.roles && a11yDit.cielHeure, JSON.stringify(a11yDit));
+
+  /* Le ressenti du moment, version 239 : à la suite des bornes du jour,
+     celui de l'heure en cours, que la tuile « Ressenti » ne dit pas. */
+  const ressentiDit = await pg.evaluate(async () => {
+    const P = await import("/src/previsions.js");
+    const s = P.serieHoraire();
+    return { ecrit: (document.querySelector("#ecran .plein-titre .bd-ressenti")?.textContent || "").replace(/[\u00A0\u202F]/g, " "),
+      attendu: `, ressenti ${Math.round(s.res[0])}°` };
+  });
+  ok("le ressenti du moment se lit à la suite des bornes du jour", ressentiDit.ecrit === ressentiDit.attendu, JSON.stringify(ressentiDit));
 
   /* Constat 4.4, sur la fonction seule : la colonne du ciel porte le nom du
      ciel en texte lu. */

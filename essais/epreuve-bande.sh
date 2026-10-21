@@ -1949,6 +1949,9 @@ case "$N" in
   646) # La bascule du ciel retrouve son symbole pour seule destination.
      perl -0pi -e 's/Le ciel se dégage vers \$\{dem\(k\)\}\.`, "nua"\);/Le ciel se dégage vers \${dem(k)}.`);/' src/conseils.js
      ATTENDU="les conseils sur la bascule du ciel ouvrent le ciel heure par heure" ;;
+  647) # Le ressenti du moment quitte l'accueil.
+     perl -0pi -e 's/\? `<span class="bd-ressenti">, ressenti <b>\$\{Math\.round\(s\.res\[0\]\)\}°<\/b><\/span>` : ""/? "" : ""/' src/app.js
+     ATTENDU="le ressenti du moment se lit à la suite des bornes du jour" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 
