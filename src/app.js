@@ -509,8 +509,11 @@ function panneauPluieProche() {
     /* L'étiquette de la carte, en plein ciel seulement, version 210, comme sur
        la maquette. */
     + `<p class="pp-etiq" aria-hidden="true">${ico("goutte", "")}Pluie dans l'heure</p>`
-    + `<p class="pp-tete">${ico("goutte", "pp-ic")}<b>${esc(dit.titre).replace(/\d\d h(?: \d\d)?/g, '<span class="pp-heure">$&</span>')}</b>`
-    + (dit.delai ? `<span class="pp-delai">${esc(dit.delai)}</span>` : "") + `</p>`
+    /* Tout l'encadré ouvre la vue ciblée de la pluie, version 234 : le
+       bouton du titre s'étend sur la carte, celui de la carte passe dessus. */
+    + `<p class="pp-tete"><button type="button" class="pp-ouvrir" data-detail="mm" data-heure="0">`
+    + `${ico("goutte", "pp-ic")}<b>${esc(dit.titre).replace(/\d\d h(?: \d\d)?/g, '<span class="pp-heure">$&</span>')}</b>`
+    + (dit.delai ? `<span class="pp-delai">${esc(dit.delai)}</span>` : "") + `</button></p>`
     + (sous.length ? `<p class="pp-sous">${sous.join(" ")}</p>` : "")
     + `<div class="pp-g" role="img" aria-label="${esc(resumeGraphe(pas, autour, suite))}">${ruban}`
     /* Le trait marque la fin de l'heure du radar ; la part qui suit se nomme
@@ -987,8 +990,8 @@ function ecranAccueil() {
            selon le réglage. La table garde l'entête de la bande et son
            lien vers le détail. */
         (Reglages.heuresAccueil() === "moments" && s
-          ? `<div class="carte bande bande-moments" id="bande"><div class="bande-tete"><h3>Les 24 prochaines heures</h3>`
-            + `<button type="button" class="bande-plus" data-temps>Plus de détails</button></div>${moments(s)}</div>`
+          ? `<div class="carte bande bande-moments" id="bande"><div class="bande-tete"><h3>Les 24 prochaines heures</h3></div>`
+            + `${moments(s)}${Bande.toutesLesHeures()}</div>`
           : Bande.bandeHoraire(s, g))
         + (lJour.length ? `<div class="carte retenir">`
           + `<div class="conseils">${conseilsHTML(lJour)}</div></div>` : "")
@@ -1009,8 +1012,12 @@ function ecranAccueil() {
          agrandit en tuiles complètes, avec les conseils de demain. */
       ? (tuilesHTML || suiteHTML ? `<details class="compact-plus" data-bloc="replie">`
         + `<summary aria-label="Agrandir les mesures du jour${suiteHTML ? ` et ${esc(titreJours(lSuite).toLowerCase())}` : ""}">`
-        + (tuiles.length ? `<span class="mini-mesures">${tuiles.map(([n, v]) =>
-          `<span class="mm-c"><i>${esc(n)}</i><b>${valeurUnite(v)}</b></span>`).join("")}</span>` : "")
+        /* Chaque valeur est une porte, comme sa tuile, version 234 : le
+           dépliage reste à la ligne du chevron. Un bouton dans le résumé
+           garde son propre geste, il ne déplie rien. */
+        + (tuiles.length ? `<span class="mini-mesures">${tuiles.map(([n, v, e, , voie, , , feuille]) =>
+          `<button type="button" class="mm-c" ${feuille ? `data-feuille="${feuille}"` : `data-detail="${esc(voie)}"`} `
+          + `aria-label="${esc(n)}, ${esc(v)}, ${esc(portee(n, e))}"><i>${esc(n)}</i><b>${valeurUnite(v)}</b></button>`).join("")}</span>` : "")
         + `<span class="mm-plus"><span class="mm-ouvrir">Mesures du jour${suiteHTML ? ` et ${esc(titreJours(lSuite).toLowerCase())}` : ""}</span>`
         + `<span class="mm-fermer">Réduire</span>${ico("chevron_bas", "mm-chev")}</span></summary>`
         + `${tuilesHTML}${suiteHTML}</details>` : "")
@@ -1481,9 +1488,6 @@ function rendre() {
      prennent la teinte du ciel. */
   $("ecNom").textContent = $("navLieuNom").textContent;
   $("ecPos").hidden = !enPos;
-  const titreT = ecran.querySelector(".plein-titre .bd-deg");
-  const titreE = ecran.querySelector(".plein-titre .bd-ciel");
-  $("ecLigne").textContent = !f.cielPlein ? "" : titreT && titreE ? `${titreT.textContent} | ${titreE.textContent}` : f.ligne || "";
   document.documentElement.style.setProperty("--teinte-ciel", f.cielPlein && f.teinte ? f.teinte : "14 24 40");
   /* Le nom du lieu tient sur une ligne : sa taille descend, de 34 à 22
      points, tant qu'il déborde, comme chez Apple. */
@@ -1504,6 +1508,12 @@ function rendre() {
     ecran.innerHTML = (f.pleinCadre || f.carte ? "" : titreEcran(f.titre, f.sous, f.cote))
       + f.corps;
   });
+  /* La ligne courte se lit sur l'écran posé, version 234 : lue avant, elle
+     prenait le titre de l'écran quitté, et revenait vide d'une page de
+     détail. */
+  const titreT = ecran.querySelector(".plein-titre .bd-deg");
+  const titreE = ecran.querySelector(".plein-titre .bd-ciel");
+  $("ecLigne").textContent = !f.cielPlein ? "" : titreT && titreE ? `${titreT.textContent} | ${titreE.textContent}` : f.ligne || "";
   const cielNeuf = ecran.querySelector(".plein-accueil > .ci");
   if (cielNeuf && ancienCiel && reprendreCiel(ancienCiel, cielNeuf)) cielNeuf.replaceWith(ancienCiel);
   /* En plein ciel, l'astre et sa lueur se tiennent dans la moitié haute de
@@ -2203,16 +2213,29 @@ function quitterDetail() {
 
 /* « Heure par heure » sans grandeur imposée : le lien « Plus de détails » de
    la bande ouvre la vue d'ensemble. */
-function ouvrirLeTemps() {
+function ouvrirLeTemps(heure = null) {
   sentir(8);
-  /* Sans grandeur désignée, la page ouvre la vue d'ensemble, version 232. */
+  /* Sans grandeur désignée, la page ouvre la vue d'ensemble, version 232.
+     Une heure de la bande y est surlignée et amenée à l'écran, version 234. */
   Ruban.poserVoie(null);
   Ruban.poserPorte(null);
   Ruban.poserHeure(-1);
+  Ruban.auMaintenant();
   detail = { y: window.scrollY };
   history.pushState({ detail: true }, "");
+  if (heure !== null) {
+    const sr = P.serieHorizon();
+    if (sr) {
+      const k = Math.min(sr.n - 1, sr.ici + heure);
+      Ruban.poserPorte({ de: k, a: k, phrase: "" });
+    }
+  }
   rendre();
   window.scrollTo({ top: 0, behavior: "instant" });
+  const vise = heure !== null ? document.querySelector("#ecran details.hh-mis") : null;
+  if (vise && vise.getBoundingClientRect().bottom > window.innerHeight * 0.7) {
+    vise.scrollIntoView({ block: "center", behavior: "instant" });
+  }
 }
 
 /* Une journée de La semaine ouvre « Le temps » calé sur elle : la fenêtre du
@@ -2277,7 +2300,8 @@ $("ecran").addEventListener("click", ev => {
   if (astre) { PleinCiel.ouvrir(astre.cv, astre.sorte); return; }
   const f = ev.target.closest("[data-feuille]");
   if (f) { ouvrirFeuille(f.dataset.feuille); return; }
-  if (ev.target.closest("[data-temps]")) { ouvrirLeTemps(); return; }
+  const tps = ev.target.closest("[data-temps]");
+  if (tps) { ouvrirLeTemps(tps.dataset.heure != null ? Number(tps.dataset.heure) : null); return; }
   /* « Voir plus » de La semaine, jalon 17 : la tendance se lit au premier
      dépliage, puis l'écran se redessine. */
   /* La bascule entre les températures et la pluie, version 230. */

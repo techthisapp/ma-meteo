@@ -212,7 +212,7 @@ export const preparer = async (titre, avecPage, reglagesPage = null) => {
   const ouvrirLeTemps = async page => {
     await page.locator('[data-onglet="accueil"]').click();
     await page.waitForTimeout(350);
-    await page.locator("#bande [data-temps]").click();
+    await page.locator("#bande .bande-plus").click();
     await page.waitForTimeout(350);
   };
   /* La vue ciblée d'une grandeur, version 232 : la page « Heure par

@@ -121,9 +121,11 @@ export default async T => {
 
   /* La carte remplaçait cinq blocs de six cents points. Ce contrôle garde le
      gain : elle ne doit pas regrossir sans qu'on s'en aperçoive. */
+  /* La ligne « Toutes les heures », en bas de la carte depuis la version
+     234, ne compte pas : elle était dans l'en-tête auparavant. */
   ok("la journée qui vient tient sous quatre cents points", await pg.evaluate(() => {
     const c = document.querySelector("#ecran .mt").closest(".carte");
-    return c.getBoundingClientRect().height < 400;
+    return c.getBoundingClientRect().height - (c.querySelector(".bande-plus")?.getBoundingClientRect().height || 0) < 400;
   }), String(await pg.evaluate(() =>
     Math.round(document.querySelector("#ecran .mt").closest(".carte").getBoundingClientRect().height))));
 };

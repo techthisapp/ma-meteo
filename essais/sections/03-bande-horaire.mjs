@@ -148,26 +148,39 @@ export default async T => {
   await pg.evaluate(() => window.scrollTo({ top: 260, behavior: "instant" }));
   await pg.waitForTimeout(150);
   const yQuitte = await pg.evaluate(() => Math.round(window.scrollY));
+  /* Version 234 : l'entrée de la vue d'ensemble est une ligne pleine largeur
+     en bas du bloc, au texte courant. */
+  const ligneDit = await pg.evaluate(() => {
+    const c = document.getElementById("bande"), b = c?.querySelector(".bande-plus");
+    if (!b) return { ok: false };
+    const rc = c.getBoundingClientRect(), rb = b.getBoundingClientRect();
+    return { texte: b.textContent.trim(), dernier: c.lastElementChild === b, large: rb.width >= rc.width - 40,
+      taille: parseFloat(getComputedStyle(b).fontSize), haut: rb.height };
+  });
+  ok("la bande se termine par la ligne « Toutes les heures », pleine largeur",
+    ligneDit.texte === "Toutes les heures" && ligneDit.dernier && ligneDit.large && ligneDit.taille >= 15 && ligneDit.haut >= 44,
+    JSON.stringify(ligneDit));
   const heureBande = await pg.evaluate(() =>
-    (document.querySelector('#bande [data-heure="5"]')?.getAttribute("aria-label") || "").split(",")[0]);
-  await pg.locator('#bande [data-heure="5"]').click();
+    (document.querySelector('#bande [data-heure="20"]')?.getAttribute("aria-label") || "").split(",")[0]);
+  await pg.locator('#bande [data-heure="20"]').click();
   await pg.waitForTimeout(700);
   const detailDit = await pg.evaluate(() => ({
     retour: !!document.getElementById("btnRetour"),
     titre: document.querySelector("#ecran h1")?.textContent || "",
     accueilCourant: document.querySelector('[data-onglet="accueil"]')?.getAttribute("aria-current") === "page",
-    /* Depuis le jalon 21, lot 2, la lecture se fait dans la bulle sous l'axe. */
-    lecture: document.querySelector(".mg-lu-s b")?.textContent || "",
+    /* Version 234 : la liste d'ensemble surligne l'heure touchée et
+       l'amène à l'écran. */
+    lecture: [...document.querySelectorAll("details.hh-mis .hh-h")].map(e => e.textContent).join(","),
+    vue: document.querySelector("details.hh-mis") ? (r => r.top >= 0 && r.bottom <= innerHeight)(
+      document.querySelector("details.hh-mis").getBoundingClientRect()) : false,
   }));
   ok("une heure touchée dans la bande ouvre le temps en page de détail",
-    /* Une heure de la bande ouvre la vue ciblée de la température depuis la
-       version 232. */
-    detailDit.retour && detailDit.titre === "Température" && detailDit.accueilCourant,
+    /* Une heure de la bande ouvre la vue d'ensemble depuis la version 234. */
+    detailDit.retour && detailDit.titre === "Heure par heure" && detailDit.accueilCourant,
     JSON.stringify(detailDit));
-  ok("le ruban s'y cale sur l'heure touchée",
-    heureBande !== "" && detailDit.lecture.startsWith(heureBande.replace(/^0/, ""))
-    || detailDit.lecture.startsWith(heureBande),
-    `bande « ${heureBande} », ruban « ${detailDit.lecture} »`);
+  ok("la liste y surligne l'heure touchée, à l'écran",
+    heureBande !== "" && detailDit.lecture === heureBande && detailDit.vue,
+    `bande « ${heureBande} », liste « ${detailDit.lecture} », ${detailDit.vue}`);
   await pg.locator("#btnRetour").click();
   await pg.waitForTimeout(600);
   const retourDit = await pg.evaluate(() => ({

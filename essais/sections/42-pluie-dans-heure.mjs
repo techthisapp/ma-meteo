@@ -323,6 +323,16 @@ export default async T => {
   const pgLien = await ctxLien.newPage();
   await ouvrirPage(pgLien);
   await pgLien.waitForTimeout(700);
+  /* Version 234 : toucher l'encadré ailleurs que sur le lien ouvre la vue
+     ciblée de la pluie. */
+  {
+    const b = await pgLien.locator("#ecran .pp-g").boundingBox();
+    await pgLien.mouse.click(b.x + b.width / 2, b.y + b.height / 2);
+  }
+  await pgLien.waitForTimeout(700);
+  const encadre = await pgLien.evaluate(() => document.querySelector(".hh-grand")?.textContent || "");
+  if (encadre) { await pgLien.evaluate(() => history.back()); await pgLien.waitForTimeout(700); }
+  ok("toucher l'encadré de la pluie dans l'heure ouvre la vue ciblée de la pluie", encadre === "Pluie", encadre);
   await pgLien.locator("[data-pluie-carte]").click();
   await pgLien.waitForTimeout(500);
   const lien = await pgLien.evaluate(() => ({

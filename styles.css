@@ -2456,8 +2456,13 @@ button.rangee:active{background:var(--surface-2)}
 .bande-tete h3{margin:0;font-size:var(--texte-note);font-weight:var(--graisse-semibold);color:var(--etiquette-2)}
 /* La cible tient 44 points au doigt sans grandir la ligne : la marge négative
    rend la hauteur ajoutée. */
-.bande-plus{min-height:var(--touche);margin:-14px -8px -14px 0;padding:0 8px;background:none;border:0;
-  font:inherit;font-size:var(--texte-note);color:var(--accent)}
+/* « Toutes les heures », version 234 : une ligne pleine largeur en bas du
+   bloc, le texte courant en couleur d'accent et son chevron. */
+.bande-plus{display:flex;align-items:center;justify-content:center;gap:4px;width:calc(100% - 32px);
+  min-height:var(--touche);margin:var(--espace-xs) 16px 0;padding:0;background:none;border:0;
+  border-top:1px solid var(--filet-clair);font:inherit;font-size:var(--texte-corps);
+  font-weight:var(--graisse-semibold);color:var(--accent);cursor:pointer}
+.bande-chev{width:16px;height:16px}
 .bande-defil{overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .bande-defil::-webkit-scrollbar{display:none}
 .bande-rang{padding:0 8px;box-sizing:content-box}
@@ -3478,3 +3483,16 @@ details.hh[open] + .hh{border-top-color:transparent}
 .mg-porte{fill:var(--accent);opacity:.20}
 .hh-mis{background:var(--accent-doux);margin:0 -8px;padding:0 8px}
 .hh-mis + .hh-mis{border-top-color:transparent}
+
+/* Les portes de l'accueil, version 234. Les valeurs de l'accueil compact
+   sont des boutons ; l'encadré de la pluie dans l'heure s'ouvre en entier
+   par le bouton de son titre, étendu sur la carte, sous le bouton de la
+   carte. */
+.mm-c{min-height:var(--touche);justify-content:center;align-items:flex-start;padding:0;background:none;border:0;
+  font:inherit;color:inherit;text-align:left;cursor:pointer}
+.pp-c{position:relative}
+.pp-ouvrir{display:flex;align-items:center;gap:var(--espace-md);width:100%;min-height:var(--touche);margin:-6px 0;
+  padding:0;background:none;border:0;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.pp-ouvrir::after{content:"";position:absolute;inset:0;z-index:1;border-radius:inherit}
+.pp-c{border-radius:var(--rayon-carte)}
+.pp-carte{position:relative;z-index:2}

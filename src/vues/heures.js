@@ -56,7 +56,7 @@ export function vueTemps(ctx, rendre) {
       corps: `<div class="hh-page" data-vue="ensemble">`
         + `<h1 class="hh-grand">Heure par heure</h1><p class="hh-phrase">${esc(etat)}</p>`
         + `<div class="hh-jours">${Ruban.navJours(s)}</div>`
-        + listeEnsemble(s, a, b) + `</div>`,
+        + listeEnsemble(s, a, b, Ruban.porteCourante()) + `</div>`,
       brancher(bloc) { Ruban.brancherJours(bloc, rendre); },
     };
   }

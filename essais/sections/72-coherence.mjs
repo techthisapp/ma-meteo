@@ -92,7 +92,23 @@ export default async T => {
   ok("l'accueil compact resserre la pluie de l'heure, tait la phrase de la bande et range les portes en liste",
     resserre.pluie && !resserre.phrase && !resserre.legende && !resserre.sous && resserre.n >= 3 && resserre.colonnes === 1, JSON.stringify(resserre));
   const replie = await lire();
-  await p3.locator("#ecran details.compact-plus > summary").click();
+  /* Version 234 : chaque valeur en petit est une porte vers sa grandeur, sans
+     déplier le pli ; le dépliage reste à la ligne du chevron. */
+  const portesMini = await p3.evaluate(() => [...document.querySelectorAll("#ecran .mini-mesures .mm-c")]
+    .map(b => b.dataset.detail || (b.dataset.feuille ? `feuille:${b.dataset.feuille}` : "")));
+  const porteHum = p3.locator('#ecran .mini-mesures .mm-c[data-detail="hum"]');
+  let ouverteMini = "";
+  if (await porteHum.count()) {
+    await porteHum.click();
+    await p3.waitForTimeout(700);
+    ouverteMini = await p3.evaluate(() => document.querySelector(".hh-grand")?.textContent || "");
+    if (ouverteMini) { await p3.evaluate(() => history.back()); await p3.waitForTimeout(700); }
+  }
+  ok("chaque valeur de l'accueil compact ouvre sa grandeur sans déplier le pli",
+    portesMini.length >= 6 && portesMini.every(Boolean) && ouverteMini === "Humidité"
+    && await p3.evaluate(() => document.querySelector("#ecran details.compact-plus")?.open === false),
+    JSON.stringify({ portesMini, ouverteMini }));
+  await p3.locator("#ecran details.compact-plus > summary .mm-plus").click();
   const deplie = await lire();
   ok("l'accueil compact montre les mesures en petit, et un appui les agrandit en tuiles avec les conseils de demain",
     replie.resume === "Agrandir les mesures du jour et demain" && replie.ouvert === false && !replie.tuiles && !replie.demain

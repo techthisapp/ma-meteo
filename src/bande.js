@@ -101,6 +101,13 @@ const hm = d => heureMinute(d);
 
 /* La bande, écrite d'un seul tenant. Le départ est le début de l'heure en
    cours, premier rang de la série. */
+/* L'entrée de la vue d'ensemble, version 234, choix de Jérôme du 21 octobre
+   2026 : une ligne pleine largeur en bas du bloc, comme « Mesures du jour »
+   de l'accueil compact. « Plus de détails », en petit à droite du titre, se
+   lisait comme une annotation. */
+export const toutesLesHeures = () =>
+  `<button type="button" class="bande-plus" data-temps><span>Toutes les heures</span>${ico("chevron", "bande-chev")}</button>`;
+
 export function bandeHoraire(s, g, maintenant = new Date()) {
   if (!s) return "";
   const n = Math.min(HEURES, s.n);
@@ -162,7 +169,8 @@ export function bandeHoraire(s, g, maintenant = new Date()) {
     /* Sans rôle de liste : posé sur un bouton, il remplaçait le rôle de bouton,
        et VoiceOver n'annonçait plus les heures comme des commandes. */
     haut.push(`<button type="button" class="bh bh-heure${k === 0 ? " bh-maint" : ""}" `
-      + `data-detail="t" data-heure="${k}" aria-label="${esc(label)}">`
+      /* Une heure ouvre la vue d'ensemble, calée sur elle, version 234. */
+      + `data-temps data-heure="${k}" aria-label="${esc(label)}">`
       + `<span class="bh-h">${h}</span>`
       /* Le symbole de temps en deux tons, comme la table de la semaine : la
          bande décrit le ciel heure par heure. `icoCiel` rend son nom, jour ou
@@ -186,13 +194,13 @@ export function bandeHoraire(s, g, maintenant = new Date()) {
     /* En plein ciel, l'étiquette courte de la maquette, version 210 : en
        petites capitales, la longue passait sur deux lignes. */
     + `<div class="bande-tete"><h3><span class="bande-long">Maintenant et prochaines heures</span>`
-    + `<span class="bande-court" aria-hidden="true">Prochaines heures</span></h3>`
-    + `<button type="button" class="bande-plus" data-temps>Plus de détails</button></div>`
+    + `<span class="bande-court" aria-hidden="true">Prochaines heures</span></h3></div>`
     + `<div class="bande-defil"><div class="bande-rang" style="width:${x}px">`
     /* La colonne du moment présent se détache sur un fond léger, sur toute la
        hauteur de la bande. */
     + `<span class="bh-fond" aria-hidden="true"></span>`
     + html + `</div></div>`
     + (phrase ? `<p class="bande-phrase">${esc(phrase)}</p>` : "")
+    + toutesLesHeures()
     + `</div>`;
 }

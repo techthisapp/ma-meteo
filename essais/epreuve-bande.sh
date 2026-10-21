@@ -55,9 +55,9 @@ case "$N" in
   10) # Le risque d'une période devient la moyenne de ses heures.
      perl -0pi -e 's/      pb: max\(k => s\.pb\[k\]\),/      pb: moy(k => s.pb[k]),/' src/ecritures.js
      ATTENDU="le risque d.une période est le plus fort de ses heures" ;;
-  11) # L'heure touchée ne cale plus le ruban.
-     perl -0pi -e 's/        Ruban\.poserHeure\(cible\);\n//' src/app.js
-     ATTENDU="le ruban s.y cale sur l.heure touchée" ;;
+  11) # L'heure touchée n'est plus désignée à la vue d'ensemble.
+     perl -0pi -e 's/ouvrirLeTemps\(tps\.dataset\.heure != null \? Number\(tps\.dataset\.heure\) : null\)/ouvrirLeTemps(null)/' src/app.js
+     ATTENDU="la liste y surligne l.heure touchée, à l.écran";;
   12) # Le retour renvoie en haut de l'accueil.
      perl -0pi -e 's/  rendre\(\);\n  window\.scrollTo\(\{ top: y, behavior: "instant" \}\);/  rendre();\n  window.scrollTo({ top: 0, behavior: "instant" });/' src/app.js
      ATTENDU="le retour ramène l.accueil à l.endroit quitté" ;;
@@ -476,8 +476,8 @@ case "$N" in
      perl -0pi -e 's/\.\.\.\(enCours \? v\.alertes : v\.annonces\)\n      \.map\(a => `\$\{a\.nom\}/...[]\n      .map(a => `\${a.nom}/' src/app.js
      ATTENDU="la vigilance nomme ses phénomènes aux lecteurs d.écran" ;;
   148) # Les heures de la bande reprennent le rôle d'élément de liste.
-     perl -0pi -e 's/\+ `data-detail="t" data-heure=/+ `role="listitem" data-detail="t" data-heure=/' src/bande.js
-     ATTENDU="les heures de la bande restent des boutons et disent leur ciel" ;;
+     perl -0pi -e 's/\+ `data-temps data-heure=/+ `role="listitem" data-temps data-heure=/' src/bande.js
+     ATTENDU="les heures de la bande restent des boutons et disent leur ciel";;
   149) # Les heures de la bande ne disent plus leur ciel.
      perl -0pi -e 's/, \$\{tempsDe\(s\.code\[k\]\)\[1\]\.toLowerCase\(\)\}, \$\{t\} degrés/, \${t} degrés/' src/bande.js
      ATTENDU="les heures de la bande restent des boutons et disent leur ciel" ;;
@@ -1794,7 +1794,7 @@ case "$N" in
      perl -0pi -e 's/grapheSemaine\(jours, "", basculeSemaine\(false\)\)/grapheSemaine(jours)/' src/vues/avenir.js
      ATTENDU="le mode pluie de « À venir » montre les heures de pluie, le cumul et le risque, se garde, et rend les températures" ;;
   595) # « Plus de détails » ouvre la vue ciblée de la température.
-     perl -0pi -e 's/  Ruban\.poserVoie\(null\);\n  Ruban\.poserHeure\(-1\);/  Ruban.poserVoie("t");\n  Ruban.poserHeure(-1);/' src/app.js
+     perl -0pi -e 's/  Ruban\.poserVoie\(null\);\n  Ruban\.poserPorte\(null\);\n  Ruban\.poserHeure\(-1\);\n  Ruban\.auMaintenant\(\);/  Ruban.poserVoie("t");\n  Ruban.poserPorte(null);\n  Ruban.poserHeure(-1);\n  Ruban.auMaintenant();/' src/app.js
      ATTENDU="« Plus de détails » ouvre la vue d.ensemble, titrée Heure par heure";;
   596) # La vue ciblée garde le titre de la page.
      perl -0pi -e 's/<h1 class="hh-grand">\$\{esc\(gr\[1\]\)\}<\/h1>/<h1 class="hh-grand">Heure par heure<\/h1>/' src/vues/heures.js
@@ -1895,6 +1895,21 @@ case "$N" in
   628) # Une porte sans heure garde le dernier jour choisi.
      perl -0pi -e 's/  Ruban\.poserVoie\(cle\);\n  Ruban\.auMaintenant\(\);\n/  Ruban.poserVoie(cle);\n/' src/app.js
      ATTENDU="une porte sans heure repart de maintenant, non du dernier jour choisi" ;;
+  629) # Les valeurs de l'accueil compact ne mènent plus nulle part.
+     perl -0pi -e 's/: `data-detail="\$\{esc\(voie\)\}"`\} `/: `data-x="\${esc(voie)}"`} `/' src/app.js
+     ATTENDU="chaque valeur de l.accueil compact ouvre sa grandeur sans déplier le pli" ;;
+  630) # L'encadré de la pluie dans l'heure n'ouvre plus la pluie.
+     perl -0pi -e 's/class="pp-ouvrir" data-detail="mm" data-heure="0"/class="pp-ouvrir"/' src/app.js
+     ATTENDU="toucher l.encadré de la pluie dans l.heure ouvre la vue ciblée de la pluie" ;;
+  631) # L'heure surlignée reste sous le bord de l'écran.
+     perl -0pi -e 's/    vise\.scrollIntoView\(\{ block: "center", behavior: "instant" \}\);\n//' src/app.js
+     ATTENDU="la liste y surligne l.heure touchée, à l.écran" ;;
+  632) # La ligne « Toutes les heures » se resserre sur son texte.
+     perl -0pi -e 's/justify-content:center;gap:4px;width:calc\(100% - 32px\);/justify-content:center;gap:4px;width:auto;/' styles.css
+     ATTENDU="la bande se termine par la ligne « Toutes les heures », pleine largeur" ;;
+  633) # La ligne courte de l'en-tête se lit de nouveau sur l'écran quitté.
+     perl -0pi -e 's/(  const titreT = ecran\.querySelector\("\.plein-titre \.bd-deg"\);\n  const titreE = ecran\.querySelector\("\.plein-titre \.bd-ciel"\);\n  \$\("ecLigne"\)\.textContent = [^\n]*\n)//; s/(  const ancienCiel = ecran\.querySelector)/  \$("ecLigne").textContent = !f.cielPlein ? "" : ecran.querySelector(".plein-titre .bd-deg") ? `\${ecran.querySelector(".plein-titre .bd-deg").textContent} | \${ecran.querySelector(".plein-titre .bd-ciel").textContent}` : f.ligne || "";\n$1/' src/app.js
+     ATTENDU="l.accueil en plein ciel porte des blocs teintés du ciel" ;;
   *) echo "faute inconnue : $N"; exit 2 ;;
 esac
 

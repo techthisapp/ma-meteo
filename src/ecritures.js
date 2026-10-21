@@ -71,7 +71,7 @@ const ciel = (s, k, risque = true) => `<span class="hh-ciel">${icoTemps(icoCiel(
   + (risque && s.pb[k] >= RISQUE_MARQUE ? `<small>${Math.round(s.pb[k])} %</small>` : "")
   + `<span class="titre-lu">${esc(tempsDe(s.code[k])[1])}</span></span>`;
 
-export function listeEnsemble(s, a, b) {
+export function listeEnsemble(s, a, b, porte = null) {
   const tn = Math.min(...s.t.slice(a, b)), tx = Math.max(...s.t.slice(a, b));
   const ligne = k => {
     const h = {
@@ -85,7 +85,9 @@ export function listeEnsemble(s, a, b) {
       ? `<span class="hh-goutte ${niveauPluie(mm)}" style="height:${(6 + Math.min(1, mm / 5) * 16).toFixed(1)}px"></span>`
         + `<span class="titre-lu">${nombreFr(mm)} mm</span>`
       : `<span class="hh-goutte hh-sec"></span>`;
-    return `<details class="hh${k === s.ici ? " hh-ici" : ""}${s.clair[k] ? "" : " hh-nuit"}"><summary class="hh-l hh-l5">`
+    // L'heure touchée dans la bande de l'accueil se surligne, version 234.
+    const mis = porte && k >= porte.de && k <= porte.a ? " hh-mis" : "";
+    return `<details class="hh${k === s.ici ? " hh-ici" : ""}${s.clair[k] ? "" : " hh-nuit"}${mis}"><summary class="hh-l hh-l5">`
       + `<span class="hh-h">${heureDe(s, k)}</span>${ciel(s, k)}`
       + `<span class="hh-t"><b>${Math.round(s.t[k])}°</b>${pisteT(s.t[k], tn, tx)}</span>`
       + `<span class="hh-p">${pluie}</span>`
